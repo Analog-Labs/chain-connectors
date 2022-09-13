@@ -1,0 +1,7 @@
+[package]
+name = "rosetta-sdk-rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rosetta-sdk-rust-gen = { path = "./core" }
