@@ -1,9 +1,11 @@
 use anyhow::Result;
 use rosetta_sdk_rust_gen::client::Client;
-use rosetta_sdk_rust_gen::models::{AccountBalanceRequest, MetadataRequest, NetworkRequest};
+use rosetta_sdk_rust_gen::models::{
+    AccountBalanceRequest, AccountIdentifier, MetadataRequest, NetworkRequest,
+};
 use rosetta_sdk_rust_gen::{
-    ApiNoContext, ContextWrapperExt, NetworkListResponse, NetworkOptionsResponse,
-    NetworkStatusResponse,
+    AccountBalanceResponse, ApiNoContext, ContextWrapperExt, NetworkListResponse,
+    NetworkOptionsResponse, NetworkStatusResponse,
 };
 use swagger::{AuthData, ContextBuilder, EmptyContext, Push, XSpanIdString};
 
@@ -45,7 +47,7 @@ async fn main() -> Result<()> {
                 anyhow::bail!("{}", err.to_string());
             }
         };
-        println!("{:?}", options);
+        println!("{:#?}", options);
         let status = match client
             .network_status(NetworkRequest::new(identifier.clone()))
             .await?
@@ -58,15 +60,23 @@ async fn main() -> Result<()> {
         println!("{:#?}", status);
     }
 
-    /*let req = AccountBalanceRequest {
-        account_identifier: 0,
+    // BTC testnet address
+    let address = "mk5QsyCteBgeRPF8tkiCZq9usMT8cZP2MT";
+    // ETH testnet address
+    // let address = "0x25c4a76E7d118705e7Ea2e9b7d8C59930d8aCD3b";
+
+    let req = AccountBalanceRequest {
+        account_identifier: AccountIdentifier::new(address.to_string()),
         block_identifier: None,
         currencies: None,
-        network_identifier: NetworkIdentifier {
-            blockchain:
-        },
+        network_identifier: res.network_identifiers[0].clone(),
     };
-    let result = client.account_balance(req).await;
-    println!("{:?}", result);*/
+    let balance = match client.account_balance(req).await? {
+        AccountBalanceResponse::ExpectedResponseToAValidRequest(res) => res,
+        AccountBalanceResponse::UnexpectedError(err) => {
+            anyhow::bail!("{}", err.to_string());
+        }
+    };
+    println!("{:?}", balance);
     Ok(())
 }

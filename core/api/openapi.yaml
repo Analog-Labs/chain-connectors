@@ -1545,6 +1545,7 @@ components:
           items:
             example: eth_call
             type: string
+          nullable: true
           type: array
         balance_exemptions:
           description: "BalanceExemptions is an array of BalanceExemption indicating\n\
@@ -1556,6 +1557,7 @@ components:
             \ an account balance at any\nBlockIdentifier).\n"
           items:
             $ref: '#/components/schemas/BalanceExemption'
+          nullable: true
           type: array
         mempool_coins:
           description: "Any Rosetta implementation that can update an AccountIdentifier's\

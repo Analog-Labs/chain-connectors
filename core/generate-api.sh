@@ -8,4 +8,5 @@
 # cd rosetta-sdk-rust/core
 # ROSETTA_SPECIFICATIONS=../../rosetta-specifications ./generate-api.sh
 # ```
+ROSETTA_SPECIFICATIONS || ROSETTA_SPECIFICATIONS=../../rosetta-specifications
 openapi-generator generate -i $ROSETTA_SPECIFICATIONS/api.yaml -o . -g rust-server

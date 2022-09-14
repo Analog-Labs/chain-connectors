@@ -859,11 +859,11 @@ pub struct Allow {
 
     /// All methods that are supported by the /call endpoint. Communicating which parameters should be provided to /call is the responsibility of the implementer (this is en lieu of defining an entire type system and requiring the implementer to define that in Allow).
     #[serde(rename = "call_methods")]
-    pub call_methods: Vec<String>,
+    pub call_methods: swagger::Nullable<Vec<String>>,
 
     /// BalanceExemptions is an array of BalanceExemption indicating which account balances could change without a corresponding Operation.  BalanceExemptions should be used sparingly as they may introduce significant complexity for integrators that attempt to reconcile all account balance changes.  If your implementation relies on any BalanceExemptions, you MUST implement historical balance lookup (the ability to query an account balance at any BlockIdentifier).
     #[serde(rename = "balance_exemptions")]
-    pub balance_exemptions: Vec<models::BalanceExemption>,
+    pub balance_exemptions: swagger::Nullable<Vec<models::BalanceExemption>>,
 
     /// Any Rosetta implementation that can update an AccountIdentifier's unspent coins based on the contents of the mempool should populate this field as true. If false, requests to `/account/coins` that set `include_mempool` as true will be automatically rejected.
     #[serde(rename = "mempool_coins")]
@@ -888,8 +888,8 @@ impl Allow {
         operation_types: Vec<String>,
         errors: Vec<models::Error>,
         historical_balance_lookup: bool,
-        call_methods: Vec<String>,
-        balance_exemptions: Vec<models::BalanceExemption>,
+        call_methods: swagger::Nullable<Vec<String>>,
+        balance_exemptions: swagger::Nullable<Vec<models::BalanceExemption>>,
         mempool_coins: bool,
     ) -> Allow {
         Allow {
@@ -934,16 +934,6 @@ impl std::string::ToString for Allow {
             params.push("timestamp_start_index".to_string());
             params.push(timestamp_start_index.to_string());
         }
-
-        params.push("call_methods".to_string());
-        params.push(
-            self.call_methods
-                .iter()
-                .map(|x| x.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-                .to_string(),
-        );
 
         // Skipping balance_exemptions in query parameter serialization
 
@@ -1084,16 +1074,12 @@ impl std::str::FromStr for Allow {
                 .next()
                 .ok_or("historical_balance_lookup missing in Allow".to_string())?,
             timestamp_start_index: intermediate_rep.timestamp_start_index.into_iter().next(),
-            call_methods: intermediate_rep
-                .call_methods
-                .into_iter()
-                .next()
-                .ok_or("call_methods missing in Allow".to_string())?,
-            balance_exemptions: intermediate_rep
-                .balance_exemptions
-                .into_iter()
-                .next()
-                .ok_or("balance_exemptions missing in Allow".to_string())?,
+            call_methods: std::result::Result::Err(
+                "Nullable types not supported in Allow".to_string(),
+            )?,
+            balance_exemptions: std::result::Result::Err(
+                "Nullable types not supported in Allow".to_string(),
+            )?,
             mempool_coins: intermediate_rep
                 .mempool_coins
                 .into_iter()
