@@ -1,0 +1,10 @@
+[package]
+name = "rosetta-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.65"
+rosetta-types = { path = "../rosetta-types" }
+serde = "1.0.144"
+surf = { version = "2.3.2", default-features = false }
