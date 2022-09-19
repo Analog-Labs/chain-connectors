@@ -14,7 +14,7 @@
 pub struct SearchTransactionsResponse {
     /// transactions is an array of BlockTransactions sorted by most recent BlockIdentifier (meaning that transactions in recent blocks appear first).  If there are many transactions for a particular search, transactions may not contain all matching transactions. It is up to the caller to paginate these transactions using the max_block field.
     #[serde(rename = "transactions")]
-    pub transactions: Vec<crate::models::BlockTransaction>,
+    pub transactions: Vec<crate::BlockTransaction>,
     /// total_count is the number of results for a given search. Callers typically use this value to concurrently fetch results by offset or to display a virtual page number associated with results.
     #[serde(rename = "total_count")]
     pub total_count: i64,
@@ -26,7 +26,7 @@ pub struct SearchTransactionsResponse {
 impl SearchTransactionsResponse {
     /// SearchTransactionsResponse contains an ordered collection of BlockTransactions that match the query in SearchTransactionsRequest. These BlockTransactions are sorted from most recent block to oldest block.
     pub fn new(
-        transactions: Vec<crate::models::BlockTransaction>,
+        transactions: Vec<crate::BlockTransaction>,
         total_count: i64,
     ) -> SearchTransactionsResponse {
         SearchTransactionsResponse {

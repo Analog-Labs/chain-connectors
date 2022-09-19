@@ -13,7 +13,7 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct ConstructionSubmitRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "signed_transaction")]
     pub signed_transaction: String,
 }
@@ -21,11 +21,11 @@ pub struct ConstructionSubmitRequest {
 impl ConstructionSubmitRequest {
     /// The transaction submission request includes a signed transaction.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
+        network_identifier: crate::NetworkIdentifier,
         signed_transaction: String,
     ) -> ConstructionSubmitRequest {
         ConstructionSubmitRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             signed_transaction,
         }
     }

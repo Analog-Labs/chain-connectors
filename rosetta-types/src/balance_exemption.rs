@@ -19,9 +19,9 @@ pub struct BalanceExemption {
     )]
     pub sub_account_address: Option<String>,
     #[serde(rename = "currency", skip_serializing_if = "Option::is_none")]
-    pub currency: Option<Box<crate::models::Currency>>,
+    pub currency: Option<crate::Currency>,
     #[serde(rename = "exemption_type", skip_serializing_if = "Option::is_none")]
-    pub exemption_type: Option<crate::models::ExemptionType>,
+    pub exemption_type: Option<crate::ExemptionType>,
 }
 
 impl BalanceExemption {

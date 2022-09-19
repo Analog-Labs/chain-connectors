@@ -13,14 +13,14 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Block {
     #[serde(rename = "block_identifier")]
-    pub block_identifier: Box<crate::models::BlockIdentifier>,
+    pub block_identifier: crate::BlockIdentifier,
     #[serde(rename = "parent_block_identifier")]
-    pub parent_block_identifier: Box<crate::models::BlockIdentifier>,
+    pub parent_block_identifier: crate::BlockIdentifier,
     /// The timestamp of the block in milliseconds since the Unix Epoch. The timestamp is stored in milliseconds because some blockchains produce blocks more often than once a second.
     #[serde(rename = "timestamp")]
     pub timestamp: i64,
     #[serde(rename = "transactions")]
-    pub transactions: Vec<crate::models::Transaction>,
+    pub transactions: Vec<crate::Transaction>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
@@ -28,14 +28,14 @@ pub struct Block {
 impl Block {
     /// Blocks contain an array of Transactions that occurred at a particular BlockIdentifier.  A hard requirement for blocks returned by Rosetta implementations is that they MUST be _inalterable_: once a client has requested and received a block identified by a specific BlockIndentifier, all future calls for that same BlockIdentifier must return the same block contents.
     pub fn new(
-        block_identifier: crate::models::BlockIdentifier,
-        parent_block_identifier: crate::models::BlockIdentifier,
+        block_identifier: crate::BlockIdentifier,
+        parent_block_identifier: crate::BlockIdentifier,
         timestamp: i64,
-        transactions: Vec<crate::models::Transaction>,
+        transactions: Vec<crate::Transaction>,
     ) -> Block {
         Block {
-            block_identifier: Box::new(block_identifier),
-            parent_block_identifier: Box::new(parent_block_identifier),
+            block_identifier,
+            parent_block_identifier,
             timestamp,
             transactions,
             metadata: None,

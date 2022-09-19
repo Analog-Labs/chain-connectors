@@ -13,9 +13,9 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct ConstructionDeriveRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "public_key")]
-    pub public_key: Box<crate::models::PublicKey>,
+    pub public_key: crate::PublicKey,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
@@ -23,12 +23,12 @@ pub struct ConstructionDeriveRequest {
 impl ConstructionDeriveRequest {
     /// ConstructionDeriveRequest is passed to the `/construction/derive` endpoint. Network is provided in the request because some blockchains have different address formats for different networks. Metadata is provided in the request because some blockchains allow for multiple address types (i.e. different address for validators vs normal accounts).
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
-        public_key: crate::models::PublicKey,
+        network_identifier: crate::NetworkIdentifier,
+        public_key: crate::PublicKey,
     ) -> ConstructionDeriveRequest {
         ConstructionDeriveRequest {
-            network_identifier: Box::new(network_identifier),
-            public_key: Box::new(public_key),
+            network_identifier,
+            public_key,
             metadata: None,
         }
     }

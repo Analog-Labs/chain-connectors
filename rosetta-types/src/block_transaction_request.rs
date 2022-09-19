@@ -13,24 +13,24 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct BlockTransactionRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "block_identifier")]
-    pub block_identifier: Box<crate::models::BlockIdentifier>,
+    pub block_identifier: crate::BlockIdentifier,
     #[serde(rename = "transaction_identifier")]
-    pub transaction_identifier: Box<crate::models::TransactionIdentifier>,
+    pub transaction_identifier: crate::TransactionIdentifier,
 }
 
 impl BlockTransactionRequest {
     /// A BlockTransactionRequest is used to fetch a Transaction included in a block that is not returned in a BlockResponse.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
-        block_identifier: crate::models::BlockIdentifier,
-        transaction_identifier: crate::models::TransactionIdentifier,
+        network_identifier: crate::NetworkIdentifier,
+        block_identifier: crate::BlockIdentifier,
+        transaction_identifier: crate::TransactionIdentifier,
     ) -> BlockTransactionRequest {
         BlockTransactionRequest {
-            network_identifier: Box::new(network_identifier),
-            block_identifier: Box::new(block_identifier),
-            transaction_identifier: Box::new(transaction_identifier),
+            network_identifier,
+            block_identifier,
+            transaction_identifier,
         }
     }
 }

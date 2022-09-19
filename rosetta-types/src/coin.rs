@@ -13,20 +13,17 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Coin {
     #[serde(rename = "coin_identifier")]
-    pub coin_identifier: Box<crate::models::CoinIdentifier>,
+    pub coin_identifier: crate::CoinIdentifier,
     #[serde(rename = "amount")]
-    pub amount: Box<crate::models::Amount>,
+    pub amount: crate::Amount,
 }
 
 impl Coin {
     /// Coin contains its unique identifier and the amount it represents.
-    pub fn new(
-        coin_identifier: crate::models::CoinIdentifier,
-        amount: crate::models::Amount,
-    ) -> Coin {
+    pub fn new(coin_identifier: crate::CoinIdentifier, amount: crate::Amount) -> Coin {
         Coin {
-            coin_identifier: Box::new(coin_identifier),
-            amount: Box::new(amount),
+            coin_identifier,
+            amount,
         }
     }
 }

@@ -13,19 +13,19 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CoinChange {
     #[serde(rename = "coin_identifier")]
-    pub coin_identifier: Box<crate::models::CoinIdentifier>,
+    pub coin_identifier: crate::CoinIdentifier,
     #[serde(rename = "coin_action")]
-    pub coin_action: crate::models::CoinAction,
+    pub coin_action: crate::CoinAction,
 }
 
 impl CoinChange {
     /// CoinChange is used to represent a change in state of a some coin identified by a coin_identifier. This object is part of the Operation model and must be populated for UTXO-based blockchains.  Coincidentally, this abstraction of UTXOs allows for supporting both account-based transfers and UTXO-based transfers on the same blockchain (when a transfer is account-based, don't populate this model).
     pub fn new(
-        coin_identifier: crate::models::CoinIdentifier,
-        coin_action: crate::models::CoinAction,
+        coin_identifier: crate::CoinIdentifier,
+        coin_action: crate::CoinAction,
     ) -> CoinChange {
         CoinChange {
-            coin_identifier: Box::new(coin_identifier),
+            coin_identifier,
             coin_action,
         }
     }

@@ -13,22 +13,22 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct RelatedTransaction {
     #[serde(rename = "network_identifier", skip_serializing_if = "Option::is_none")]
-    pub network_identifier: Option<Box<crate::models::NetworkIdentifier>>,
+    pub network_identifier: Option<crate::NetworkIdentifier>,
     #[serde(rename = "transaction_identifier")]
-    pub transaction_identifier: Box<crate::models::TransactionIdentifier>,
+    pub transaction_identifier: crate::TransactionIdentifier,
     #[serde(rename = "direction")]
-    pub direction: crate::models::Direction,
+    pub direction: crate::Direction,
 }
 
 impl RelatedTransaction {
     /// The related_transaction allows implementations to link together multiple transactions. An unpopulated network identifier indicates that the related transaction is on the same network.
     pub fn new(
-        transaction_identifier: crate::models::TransactionIdentifier,
-        direction: crate::models::Direction,
+        transaction_identifier: crate::TransactionIdentifier,
+        direction: crate::Direction,
     ) -> RelatedTransaction {
         RelatedTransaction {
             network_identifier: None,
-            transaction_identifier: Box::new(transaction_identifier),
+            transaction_identifier,
             direction,
         }
     }

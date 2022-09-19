@@ -16,17 +16,17 @@ pub struct Amount {
     #[serde(rename = "value")]
     pub value: String,
     #[serde(rename = "currency")]
-    pub currency: Box<crate::models::Currency>,
+    pub currency: crate::Currency,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
 
 impl Amount {
     /// Amount is some Value of a Currency. It is considered invalid to specify a Value without a Currency.
-    pub fn new(value: String, currency: crate::models::Currency) -> Amount {
+    pub fn new(value: String, currency: crate::Currency) -> Amount {
         Amount {
             value,
-            currency: Box::new(currency),
+            currency,
             metadata: None,
         }
     }

@@ -16,7 +16,7 @@ pub struct ConstructionDeriveResponse {
     #[serde(rename = "address", skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
     #[serde(rename = "account_identifier", skip_serializing_if = "Option::is_none")]
-    pub account_identifier: Option<Box<crate::models::AccountIdentifier>>,
+    pub account_identifier: Option<crate::AccountIdentifier>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }

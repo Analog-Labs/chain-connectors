@@ -17,12 +17,12 @@ pub struct EventsBlocksResponse {
     pub max_sequence: i64,
     /// events is an array of BlockEvents indicating the order to add and remove blocks to maintain a canonical view of blockchain state. Lightweight clients can use this event stream to update state without implementing their own block syncing logic.
     #[serde(rename = "events")]
-    pub events: Vec<crate::models::BlockEvent>,
+    pub events: Vec<crate::BlockEvent>,
 }
 
 impl EventsBlocksResponse {
     /// EventsBlocksResponse contains an ordered collection of BlockEvents and the max retrievable sequence.
-    pub fn new(max_sequence: i64, events: Vec<crate::models::BlockEvent>) -> EventsBlocksResponse {
+    pub fn new(max_sequence: i64, events: Vec<crate::BlockEvent>) -> EventsBlocksResponse {
         EventsBlocksResponse {
             max_sequence,
             events,

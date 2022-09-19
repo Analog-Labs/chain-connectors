@@ -16,12 +16,12 @@ pub struct SigningPayload {
     #[serde(rename = "address", skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
     #[serde(rename = "account_identifier", skip_serializing_if = "Option::is_none")]
-    pub account_identifier: Option<Box<crate::models::AccountIdentifier>>,
+    pub account_identifier: Option<crate::AccountIdentifier>,
     /// Hex-encoded string of the payload bytes.
     #[serde(rename = "hex_bytes")]
     pub hex_bytes: String,
     #[serde(rename = "signature_type", skip_serializing_if = "Option::is_none")]
-    pub signature_type: Option<crate::models::SignatureType>,
+    pub signature_type: Option<crate::SignatureType>,
 }
 
 impl SigningPayload {

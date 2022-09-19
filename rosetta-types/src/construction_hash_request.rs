@@ -13,7 +13,7 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct ConstructionHashRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "signed_transaction")]
     pub signed_transaction: String,
 }
@@ -21,11 +21,11 @@ pub struct ConstructionHashRequest {
 impl ConstructionHashRequest {
     /// ConstructionHashRequest is the input to the `/construction/hash` endpoint.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
+        network_identifier: crate::NetworkIdentifier,
         signed_transaction: String,
     ) -> ConstructionHashRequest {
         ConstructionHashRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             signed_transaction,
         }
     }

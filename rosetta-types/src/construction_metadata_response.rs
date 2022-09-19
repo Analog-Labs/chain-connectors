@@ -15,7 +15,7 @@ pub struct ConstructionMetadataResponse {
     #[serde(rename = "metadata")]
     pub metadata: serde_json::Value,
     #[serde(rename = "suggested_fee", skip_serializing_if = "Option::is_none")]
-    pub suggested_fee: Option<Vec<crate::models::Amount>>,
+    pub suggested_fee: Option<Vec<crate::Amount>>,
 }
 
 impl ConstructionMetadataResponse {

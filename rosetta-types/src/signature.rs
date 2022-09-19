@@ -13,11 +13,11 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Signature {
     #[serde(rename = "signing_payload")]
-    pub signing_payload: Box<crate::models::SigningPayload>,
+    pub signing_payload: crate::SigningPayload,
     #[serde(rename = "public_key")]
-    pub public_key: Box<crate::models::PublicKey>,
+    pub public_key: crate::PublicKey,
     #[serde(rename = "signature_type")]
-    pub signature_type: crate::models::SignatureType,
+    pub signature_type: crate::SignatureType,
     #[serde(rename = "hex_bytes")]
     pub hex_bytes: String,
 }
@@ -25,14 +25,14 @@ pub struct Signature {
 impl Signature {
     /// Signature contains the payload that was signed, the public keys of the keypairs used to produce the signature, the signature (encoded in hex), and the SignatureType.  PublicKey is often times not known during construction of the signing payloads but may be needed to combine signatures properly.
     pub fn new(
-        signing_payload: crate::models::SigningPayload,
-        public_key: crate::models::PublicKey,
-        signature_type: crate::models::SignatureType,
+        signing_payload: crate::SigningPayload,
+        public_key: crate::PublicKey,
+        signature_type: crate::SignatureType,
         hex_bytes: String,
     ) -> Signature {
         Signature {
-            signing_payload: Box::new(signing_payload),
-            public_key: Box::new(public_key),
+            signing_payload,
+            public_key,
             signature_type,
             hex_bytes,
         }

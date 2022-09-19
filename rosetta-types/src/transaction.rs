@@ -13,14 +13,14 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Transaction {
     #[serde(rename = "transaction_identifier")]
-    pub transaction_identifier: Box<crate::models::TransactionIdentifier>,
+    pub transaction_identifier: crate::TransactionIdentifier,
     #[serde(rename = "operations")]
-    pub operations: Vec<crate::models::Operation>,
+    pub operations: Vec<crate::Operation>,
     #[serde(
         rename = "related_transactions",
         skip_serializing_if = "Option::is_none"
     )]
-    pub related_transactions: Option<Vec<crate::models::RelatedTransaction>>,
+    pub related_transactions: Option<Vec<crate::RelatedTransaction>>,
     /// Transactions that are related to other transactions (like a cross-shard transaction) should include the tranaction_identifier of these transactions in the metadata.
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
@@ -29,11 +29,11 @@ pub struct Transaction {
 impl Transaction {
     /// Transactions contain an array of Operations that are attributable to the same TransactionIdentifier.
     pub fn new(
-        transaction_identifier: crate::models::TransactionIdentifier,
-        operations: Vec<crate::models::Operation>,
+        transaction_identifier: crate::TransactionIdentifier,
+        operations: Vec<crate::Operation>,
     ) -> Transaction {
         Transaction {
-            transaction_identifier: Box::new(transaction_identifier),
+            transaction_identifier,
             operations,
             related_transactions: None,
             metadata: None,

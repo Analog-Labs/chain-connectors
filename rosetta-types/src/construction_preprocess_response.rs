@@ -19,7 +19,7 @@ pub struct ConstructionPreprocessResponse {
         rename = "required_public_keys",
         skip_serializing_if = "Option::is_none"
     )]
-    pub required_public_keys: Option<Vec<crate::models::AccountIdentifier>>,
+    pub required_public_keys: Option<Vec<crate::AccountIdentifier>>,
 }
 
 impl ConstructionPreprocessResponse {

@@ -67,7 +67,7 @@ impl Client {
     /// Make a call to the /account/balance endpoint.
     pub async fn account_balance(
         &self,
-        request: AccountBalanceRequest,
+        request: &AccountBalanceRequest,
     ) -> Result<AccountBalanceResponse> {
         self.post("/account/balance", &request).await
     }
@@ -75,33 +75,33 @@ impl Client {
     /// Make a call to the /account/coins endpoint.
     pub async fn account_coins(
         &self,
-        request: AccountCoinsRequest,
+        request: &AccountCoinsRequest,
     ) -> Result<AccountCoinsResponse> {
         self.post("/account/coins", &request).await
     }
 
     /// Make a call to the /block endpoint.
-    pub async fn block(&self, request: BlockRequest) -> Result<BlockResponse> {
+    pub async fn block(&self, request: &BlockRequest) -> Result<BlockResponse> {
         self.post("/block", &request).await
     }
 
     /// Make a call to the /block/transaction endpoint.
     pub async fn block_transaction(
         &self,
-        request: BlockTransactionRequest,
+        request: &BlockTransactionRequest,
     ) -> Result<BlockTransactionResponse> {
         self.post("/block/transaction", &request).await
     }
 
     /// Make a call to the /mempool endpoint.
-    pub async fn mempool(&self, request: NetworkRequest) -> Result<MempoolResponse> {
+    pub async fn mempool(&self, request: &NetworkRequest) -> Result<MempoolResponse> {
         self.post("/mempool", &request).await
     }
 
     /// Make a call to the /mempool/transaction endpoint.
     pub async fn mempool_transaction(
         &self,
-        request: MempoolTransactionRequest,
+        request: &MempoolTransactionRequest,
     ) -> Result<MempoolTransactionResponse> {
         self.post("/mempool/transaction", &request).await
     }
@@ -109,7 +109,7 @@ impl Client {
     /// Make a call to the /construction/combine endpoint.
     pub async fn construction_combine(
         &self,
-        request: ConstructionCombineRequest,
+        request: &ConstructionCombineRequest,
     ) -> Result<ConstructionCombineResponse> {
         self.post("/construction/combine", &request).await
     }
@@ -117,7 +117,7 @@ impl Client {
     /// Make a call to the /construction/derive endpoint.
     pub async fn construction_derive(
         &self,
-        request: ConstructionDeriveRequest,
+        request: &ConstructionDeriveRequest,
     ) -> Result<ConstructionDeriveResponse> {
         self.post("/construction/derive", &request).await
     }
@@ -125,7 +125,7 @@ impl Client {
     /// Make a call to the /construction/hash endpoint.
     pub async fn construction_hash(
         &self,
-        request: ConstructionHashRequest,
+        request: &ConstructionHashRequest,
     ) -> Result<TransactionIdentifierResponse> {
         self.post("/construction/hash", &request).await
     }
@@ -133,7 +133,7 @@ impl Client {
     /// Make a call to the /construction/metadata endpoint.
     pub async fn construction_metadata(
         &self,
-        request: ConstructionMetadataRequest,
+        request: &ConstructionMetadataRequest,
     ) -> Result<ConstructionMetadataResponse> {
         self.post("/construction/metadata", &request).await
     }
@@ -141,7 +141,7 @@ impl Client {
     /// Make a call to the /construction/parse endpoint.
     pub async fn construction_parse(
         &self,
-        request: ConstructionParseRequest,
+        request: &ConstructionParseRequest,
     ) -> Result<ConstructionParseResponse> {
         self.post("/construction/parse", &request).await
     }
@@ -149,7 +149,7 @@ impl Client {
     /// Make a call to the /construction/payloads endpoint.
     pub async fn construction_payloads(
         &self,
-        request: ConstructionPayloadsRequest,
+        request: &ConstructionPayloadsRequest,
     ) -> Result<ConstructionPayloadsResponse> {
         self.post("/construction/payloads", &request).await
     }
@@ -157,7 +157,7 @@ impl Client {
     /// Make a call to the /construction/preprocess endpoint.
     pub async fn construction_preprocess(
         &self,
-        request: ConstructionPreprocessRequest,
+        request: &ConstructionPreprocessRequest,
     ) -> Result<ConstructionPreprocessResponse> {
         self.post("/construction/preprocess", &request).await
     }
@@ -165,7 +165,7 @@ impl Client {
     /// Make a call to the /construction/submit endpoint.
     pub async fn construction_submit(
         &self,
-        request: ConstructionSubmitRequest,
+        request: &ConstructionSubmitRequest,
     ) -> Result<TransactionIdentifierResponse> {
         self.post("/construction/submit", &request).await
     }
@@ -173,7 +173,7 @@ impl Client {
     /// Make a call to the /events/blocks endpoint.
     pub async fn events_blocks(
         &self,
-        request: EventsBlocksRequest,
+        request: &EventsBlocksRequest,
     ) -> Result<EventsBlocksResponse> {
         self.post("/events/blocks", &request).await
     }
@@ -181,7 +181,7 @@ impl Client {
     /// Make a call to the /search/transactions endpoint.
     pub async fn search_transactions(
         &self,
-        request: SearchTransactionsRequest,
+        request: &SearchTransactionsRequest,
     ) -> Result<SearchTransactionsResponse> {
         self.post("/search/transactions", &request).await
     }

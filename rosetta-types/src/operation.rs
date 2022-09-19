@@ -13,10 +13,10 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Operation {
     #[serde(rename = "operation_identifier")]
-    pub operation_identifier: Box<crate::models::OperationIdentifier>,
+    pub operation_identifier: crate::OperationIdentifier,
     /// Restrict referenced related_operations to identifier indices < the current operation_identifier.index. This ensures there exists a clear DAG-structure of relations.  Since operations are one-sided, one could imagine relating operations in a single transfer or linking operations in a call tree.
     #[serde(rename = "related_operations", skip_serializing_if = "Option::is_none")]
-    pub related_operations: Option<Vec<crate::models::OperationIdentifier>>,
+    pub related_operations: Option<Vec<crate::OperationIdentifier>>,
     /// Type is the network-specific type of the operation. Ensure that any type that can be returned here is also specified in the NetworkOptionsResponse. This can be very useful to downstream consumers that parse all block data.
     #[serde(rename = "type")]
     pub r#type: String,
@@ -24,23 +24,20 @@ pub struct Operation {
     #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(rename = "account", skip_serializing_if = "Option::is_none")]
-    pub account: Option<Box<crate::models::AccountIdentifier>>,
+    pub account: Option<crate::AccountIdentifier>,
     #[serde(rename = "amount", skip_serializing_if = "Option::is_none")]
-    pub amount: Option<Box<crate::models::Amount>>,
+    pub amount: Option<crate::Amount>,
     #[serde(rename = "coin_change", skip_serializing_if = "Option::is_none")]
-    pub coin_change: Option<Box<crate::models::CoinChange>>,
+    pub coin_change: Option<crate::CoinChange>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
 
 impl Operation {
     /// Operations contain all balance-changing information within a transaction. They are always one-sided (only affect 1 AccountIdentifier) and can succeed or fail independently from a Transaction.  Operations are used both to represent on-chain data (Data API) and to construct new transactions (Construction API), creating a standard interface for reading and writing to blockchains.
-    pub fn new(
-        operation_identifier: crate::models::OperationIdentifier,
-        r#type: String,
-    ) -> Operation {
+    pub fn new(operation_identifier: crate::OperationIdentifier, r#type: String) -> Operation {
         Operation {
-            operation_identifier: Box::new(operation_identifier),
+            operation_identifier,
             related_operations: None,
             r#type,
             status: None,

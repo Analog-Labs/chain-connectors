@@ -13,20 +13,20 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct MempoolTransactionRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "transaction_identifier")]
-    pub transaction_identifier: Box<crate::models::TransactionIdentifier>,
+    pub transaction_identifier: crate::TransactionIdentifier,
 }
 
 impl MempoolTransactionRequest {
     /// A MempoolTransactionRequest is utilized to retrieve a transaction from the mempool.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
-        transaction_identifier: crate::models::TransactionIdentifier,
+        network_identifier: crate::NetworkIdentifier,
+        transaction_identifier: crate::TransactionIdentifier,
     ) -> MempoolTransactionRequest {
         MempoolTransactionRequest {
-            network_identifier: Box::new(network_identifier),
-            transaction_identifier: Box::new(transaction_identifier),
+            network_identifier,
+            transaction_identifier,
         }
     }
 }

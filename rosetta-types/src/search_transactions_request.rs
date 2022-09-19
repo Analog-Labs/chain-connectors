@@ -13,9 +13,9 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct SearchTransactionsRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "operator", skip_serializing_if = "Option::is_none")]
-    pub operator: Option<crate::models::Operator>,
+    pub operator: Option<crate::Operator>,
     /// max_block is the largest block index to consider when searching for transactions. If this field is not populated, the current block is considered the max_block.  If you do not specify a max_block, it is possible a newly synced block will interfere with paginated transaction queries (as the offset could become invalid with newly added rows).
     #[serde(rename = "max_block", skip_serializing_if = "Option::is_none")]
     pub max_block: Option<i64>,
@@ -29,13 +29,13 @@ pub struct SearchTransactionsRequest {
         rename = "transaction_identifier",
         skip_serializing_if = "Option::is_none"
     )]
-    pub transaction_identifier: Option<Box<crate::models::TransactionIdentifier>>,
+    pub transaction_identifier: Option<crate::TransactionIdentifier>,
     #[serde(rename = "account_identifier", skip_serializing_if = "Option::is_none")]
-    pub account_identifier: Option<Box<crate::models::AccountIdentifier>>,
+    pub account_identifier: Option<crate::AccountIdentifier>,
     #[serde(rename = "coin_identifier", skip_serializing_if = "Option::is_none")]
-    pub coin_identifier: Option<Box<crate::models::CoinIdentifier>>,
+    pub coin_identifier: Option<crate::CoinIdentifier>,
     #[serde(rename = "currency", skip_serializing_if = "Option::is_none")]
-    pub currency: Option<Box<crate::models::Currency>>,
+    pub currency: Option<crate::Currency>,
     /// status is the network-specific operation type.
     #[serde(rename = "status", skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
@@ -52,9 +52,9 @@ pub struct SearchTransactionsRequest {
 
 impl SearchTransactionsRequest {
     /// SearchTransactionsRequest is used to search for transactions matching a set of provided conditions in canonical blocks.
-    pub fn new(network_identifier: crate::models::NetworkIdentifier) -> SearchTransactionsRequest {
+    pub fn new(network_identifier: crate::NetworkIdentifier) -> SearchTransactionsRequest {
         SearchTransactionsRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             operator: None,
             max_block: None,
             offset: None,

@@ -149,7 +149,3 @@ pub mod transaction_identifier_response;
 pub use self::transaction_identifier_response::TransactionIdentifierResponse;
 pub mod version;
 pub use self::version::Version;
-
-pub mod models {
-    pub use super::*;
-}

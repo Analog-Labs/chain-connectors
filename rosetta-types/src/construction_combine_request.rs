@@ -13,22 +13,22 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct ConstructionCombineRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "unsigned_transaction")]
     pub unsigned_transaction: String,
     #[serde(rename = "signatures")]
-    pub signatures: Vec<crate::models::Signature>,
+    pub signatures: Vec<crate::Signature>,
 }
 
 impl ConstructionCombineRequest {
     /// ConstructionCombineRequest is the input to the `/construction/combine` endpoint. It contains the unsigned transaction blob returned by `/construction/payloads` and all required signatures to create a network transaction.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
+        network_identifier: crate::NetworkIdentifier,
         unsigned_transaction: String,
-        signatures: Vec<crate::models::Signature>,
+        signatures: Vec<crate::Signature>,
     ) -> ConstructionCombineRequest {
         ConstructionCombineRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             unsigned_transaction,
             signatures,
         }

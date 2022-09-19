@@ -16,21 +16,21 @@ pub struct BlockEvent {
     #[serde(rename = "sequence")]
     pub sequence: i64,
     #[serde(rename = "block_identifier")]
-    pub block_identifier: Box<crate::models::BlockIdentifier>,
+    pub block_identifier: crate::BlockIdentifier,
     #[serde(rename = "type")]
-    pub r#type: crate::models::BlockEventType,
+    pub r#type: crate::BlockEventType,
 }
 
 impl BlockEvent {
     /// BlockEvent represents the addition or removal of a BlockIdentifier from storage. Streaming BlockEvents allows lightweight clients to update their own state without needing to implement their own syncing logic.
     pub fn new(
         sequence: i64,
-        block_identifier: crate::models::BlockIdentifier,
-        r#type: crate::models::BlockEventType,
+        block_identifier: crate::BlockIdentifier,
+        r#type: crate::BlockEventType,
     ) -> BlockEvent {
         BlockEvent {
             sequence,
-            block_identifier: Box::new(block_identifier),
+            block_identifier,
             r#type,
         }
     }

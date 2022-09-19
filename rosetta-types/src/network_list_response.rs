@@ -13,12 +13,12 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct NetworkListResponse {
     #[serde(rename = "network_identifiers")]
-    pub network_identifiers: Vec<crate::models::NetworkIdentifier>,
+    pub network_identifiers: Vec<crate::NetworkIdentifier>,
 }
 
 impl NetworkListResponse {
     /// A NetworkListResponse contains all NetworkIdentifiers that the node can serve information for.
-    pub fn new(network_identifiers: Vec<crate::models::NetworkIdentifier>) -> NetworkListResponse {
+    pub fn new(network_identifiers: Vec<crate::NetworkIdentifier>) -> NetworkListResponse {
         NetworkListResponse {
             network_identifiers,
         }

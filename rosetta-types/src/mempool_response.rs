@@ -13,14 +13,12 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct MempoolResponse {
     #[serde(rename = "transaction_identifiers")]
-    pub transaction_identifiers: Vec<crate::models::TransactionIdentifier>,
+    pub transaction_identifiers: Vec<crate::TransactionIdentifier>,
 }
 
 impl MempoolResponse {
     /// A MempoolResponse contains all transaction identifiers in the mempool for a particular network_identifier.
-    pub fn new(
-        transaction_identifiers: Vec<crate::models::TransactionIdentifier>,
-    ) -> MempoolResponse {
+    pub fn new(transaction_identifiers: Vec<crate::TransactionIdentifier>) -> MempoolResponse {
         MempoolResponse {
             transaction_identifiers,
         }

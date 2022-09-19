@@ -13,23 +13,23 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct ConstructionPayloadsRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "operations")]
-    pub operations: Vec<crate::models::Operation>,
+    pub operations: Vec<crate::Operation>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
     #[serde(rename = "public_keys", skip_serializing_if = "Option::is_none")]
-    pub public_keys: Option<Vec<crate::models::PublicKey>>,
+    pub public_keys: Option<Vec<crate::PublicKey>>,
 }
 
 impl ConstructionPayloadsRequest {
     /// ConstructionPayloadsRequest is the request to `/construction/payloads`. It contains the network, a slice of operations, and arbitrary metadata that was returned by the call to `/construction/metadata`.  Optionally, the request can also include an array of PublicKeys associated with the AccountIdentifiers returned in ConstructionPreprocessResponse.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
-        operations: Vec<crate::models::Operation>,
+        network_identifier: crate::NetworkIdentifier,
+        operations: Vec<crate::Operation>,
     ) -> ConstructionPayloadsRequest {
         ConstructionPayloadsRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             operations,
             metadata: None,
             public_keys: None,

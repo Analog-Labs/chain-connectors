@@ -13,14 +13,12 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct BlockTransactionResponse {
     #[serde(rename = "transaction")]
-    pub transaction: Box<crate::models::Transaction>,
+    pub transaction: crate::Transaction,
 }
 
 impl BlockTransactionResponse {
     /// A BlockTransactionResponse contains information about a block transaction.
-    pub fn new(transaction: crate::models::Transaction) -> BlockTransactionResponse {
-        BlockTransactionResponse {
-            transaction: Box::new(transaction),
-        }
+    pub fn new(transaction: crate::Transaction) -> BlockTransactionResponse {
+        BlockTransactionResponse { transaction }
     }
 }

@@ -13,20 +13,20 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct BlockRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "block_identifier")]
-    pub block_identifier: Box<crate::models::PartialBlockIdentifier>,
+    pub block_identifier: crate::PartialBlockIdentifier,
 }
 
 impl BlockRequest {
     /// A BlockRequest is utilized to make a block request on the /block endpoint.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
-        block_identifier: crate::models::PartialBlockIdentifier,
+        network_identifier: crate::NetworkIdentifier,
+        block_identifier: crate::PartialBlockIdentifier,
     ) -> BlockRequest {
         BlockRequest {
-            network_identifier: Box::new(network_identifier),
-            block_identifier: Box::new(block_identifier),
+            network_identifier,
+            block_identifier,
         }
     }
 }

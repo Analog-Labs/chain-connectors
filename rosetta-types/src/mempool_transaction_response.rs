@@ -13,16 +13,16 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct MempoolTransactionResponse {
     #[serde(rename = "transaction")]
-    pub transaction: Box<crate::models::Transaction>,
+    pub transaction: crate::Transaction,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
 
 impl MempoolTransactionResponse {
     /// A MempoolTransactionResponse contains an estimate of a mempool transaction. It may not be possible to know the full impact of a transaction in the mempool (ex: fee paid).
-    pub fn new(transaction: crate::models::Transaction) -> MempoolTransactionResponse {
+    pub fn new(transaction: crate::Transaction) -> MempoolTransactionResponse {
         MempoolTransactionResponse {
-            transaction: Box::new(transaction),
+            transaction,
             metadata: None,
         }
     }

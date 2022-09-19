@@ -15,14 +15,14 @@ pub struct ConstructionPayloadsResponse {
     #[serde(rename = "unsigned_transaction")]
     pub unsigned_transaction: String,
     #[serde(rename = "payloads")]
-    pub payloads: Vec<crate::models::SigningPayload>,
+    pub payloads: Vec<crate::SigningPayload>,
 }
 
 impl ConstructionPayloadsResponse {
     /// ConstructionTransactionResponse is returned by `/construction/payloads`. It contains an unsigned transaction blob (that is usually needed to construct the a network transaction from a collection of signatures) and an array of payloads that must be signed by the caller.
     pub fn new(
         unsigned_transaction: String,
-        payloads: Vec<crate::models::SigningPayload>,
+        payloads: Vec<crate::SigningPayload>,
     ) -> ConstructionPayloadsResponse {
         ConstructionPayloadsResponse {
             unsigned_transaction,

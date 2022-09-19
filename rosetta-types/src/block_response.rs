@@ -13,10 +13,10 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct BlockResponse {
     #[serde(rename = "block", skip_serializing_if = "Option::is_none")]
-    pub block: Option<Box<crate::models::Block>>,
+    pub block: Option<crate::Block>,
     /// Some blockchains may require additional transactions to be fetched that weren't returned in the block response (ex: block only returns transaction hashes). For blockchains with a lot of transactions in each block, this can be very useful as consumers can concurrently fetch all transactions returned.
     #[serde(rename = "other_transactions", skip_serializing_if = "Option::is_none")]
-    pub other_transactions: Option<Vec<crate::models::TransactionIdentifier>>,
+    pub other_transactions: Option<Vec<crate::TransactionIdentifier>>,
 }
 
 impl BlockResponse {

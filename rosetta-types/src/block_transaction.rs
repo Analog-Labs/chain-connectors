@@ -13,20 +13,20 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct BlockTransaction {
     #[serde(rename = "block_identifier")]
-    pub block_identifier: Box<crate::models::BlockIdentifier>,
+    pub block_identifier: crate::BlockIdentifier,
     #[serde(rename = "transaction")]
-    pub transaction: Box<crate::models::Transaction>,
+    pub transaction: crate::Transaction,
 }
 
 impl BlockTransaction {
     /// BlockTransaction contains a populated Transaction and the BlockIdentifier that contains it.
     pub fn new(
-        block_identifier: crate::models::BlockIdentifier,
-        transaction: crate::models::Transaction,
+        block_identifier: crate::BlockIdentifier,
+        transaction: crate::Transaction,
     ) -> BlockTransaction {
         BlockTransaction {
-            block_identifier: Box::new(block_identifier),
-            transaction: Box::new(transaction),
+            block_identifier,
+            transaction,
         }
     }
 }

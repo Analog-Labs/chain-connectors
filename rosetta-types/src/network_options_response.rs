@@ -13,20 +13,14 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct NetworkOptionsResponse {
     #[serde(rename = "version")]
-    pub version: Box<crate::models::Version>,
+    pub version: crate::Version,
     #[serde(rename = "allow")]
-    pub allow: Box<crate::models::Allow>,
+    pub allow: crate::Allow,
 }
 
 impl NetworkOptionsResponse {
     /// NetworkOptionsResponse contains information about the versioning of the node and the allowed operation statuses, operation types, and errors.
-    pub fn new(
-        version: crate::models::Version,
-        allow: crate::models::Allow,
-    ) -> NetworkOptionsResponse {
-        NetworkOptionsResponse {
-            version: Box::new(version),
-            allow: Box::new(allow),
-        }
+    pub fn new(version: crate::Version, allow: crate::Allow) -> NetworkOptionsResponse {
+        NetworkOptionsResponse { version, allow }
     }
 }

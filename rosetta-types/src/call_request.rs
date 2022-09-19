@@ -13,7 +13,7 @@
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CallRequest {
     #[serde(rename = "network_identifier")]
-    pub network_identifier: Box<crate::models::NetworkIdentifier>,
+    pub network_identifier: crate::NetworkIdentifier,
     /// Method is some network-specific procedure call. This method could map to a network-specific RPC endpoint, a method in an SDK generated from a smart contract, or some hybrid of the two.  The implementation must define all available methods in the Allow object. However, it is up to the caller to determine which parameters to provide when invoking `/call`.
     #[serde(rename = "method")]
     pub method: String,
@@ -25,12 +25,12 @@ pub struct CallRequest {
 impl CallRequest {
     /// CallRequest is the input to the `/call` endpoint.
     pub fn new(
-        network_identifier: crate::models::NetworkIdentifier,
+        network_identifier: crate::NetworkIdentifier,
         method: String,
         parameters: serde_json::Value,
     ) -> CallRequest {
         CallRequest {
-            network_identifier: Box::new(network_identifier),
+            network_identifier,
             method,
             parameters,
         }
