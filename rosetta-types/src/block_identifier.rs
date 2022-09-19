@@ -14,7 +14,7 @@
 pub struct BlockIdentifier {
     /// This is also known as the block height.
     #[serde(rename = "index")]
-    pub index: i64,
+    pub index: u64,
     /// This should be normalized according to the case specified in the block_hash_case network options.
     #[serde(rename = "hash")]
     pub hash: String,
@@ -22,7 +22,7 @@ pub struct BlockIdentifier {
 
 impl BlockIdentifier {
     /// The block_identifier uniquely identifies a block in a particular network.
-    pub fn new(index: i64, hash: String) -> BlockIdentifier {
+    pub fn new(index: u64, hash: String) -> BlockIdentifier {
         BlockIdentifier { index, hash }
     }
 }

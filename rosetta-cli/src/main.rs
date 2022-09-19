@@ -2,9 +2,10 @@ use anyhow::Result;
 use clap::Parser;
 use fraction::{BigDecimal, BigUint};
 use rosetta_client::types::{
-    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, MetadataRequest,
+    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, BlockIdentifier,
+    BlockRequest, BlockTransactionRequest, MempoolTransactionRequest, MetadataRequest,
     NetworkIdentifier, NetworkRequest, PartialBlockIdentifier, SubAccountIdentifier,
-    SubNetworkIdentifier,
+    SubNetworkIdentifier, TransactionIdentifier,
 };
 use rosetta_client::Client;
 
@@ -87,7 +88,7 @@ struct AccountBalanceCommandOpts {
     #[clap(flatten)]
     account: AccountIdentifierOpts,
     #[clap(flatten)]
-    block: PartialBlockIdentifierOpts,
+    block: BlockIdentifierOpts,
 }
 
 #[derive(Parser)]
@@ -124,15 +125,15 @@ impl AccountIdentifierOpts {
 }
 
 #[derive(Parser)]
-struct PartialBlockIdentifierOpts {
+struct BlockIdentifierOpts {
     #[clap(long)]
     index: Option<u64>,
-    #[clap(long)]
+    #[clap(name = "block", long)]
     hash: Option<String>,
 }
 
-impl PartialBlockIdentifierOpts {
-    fn block_identifier(&self) -> Option<PartialBlockIdentifier> {
+impl BlockIdentifierOpts {
+    fn partial_block_identifier(&self) -> Option<PartialBlockIdentifier> {
         if self.index.is_none() && self.hash.is_none() {
             return None;
         }
@@ -141,16 +142,49 @@ impl PartialBlockIdentifierOpts {
             hash: self.hash.clone(),
         })
     }
+
+    fn block_identifier(&self) -> Option<BlockIdentifier> {
+        if let (Some(index), Some(hash)) = (self.index, &self.hash) {
+            Some(BlockIdentifier {
+                index: index,
+                hash: hash.clone(),
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Parser)]
 struct BlockOpts {
-    transaction: Option<String>,
+    #[clap(flatten)]
+    network: NetworkIdentifierOpts,
+    #[clap(flatten)]
+    block: BlockIdentifierOpts,
+    #[clap(flatten)]
+    transaction: TransactionIdentifierOpts,
 }
 
 #[derive(Parser)]
 struct MempoolOpts {
-    transaction: Option<String>,
+    #[clap(flatten)]
+    network: NetworkIdentifierOpts,
+    #[clap(flatten)]
+    transaction: TransactionIdentifierOpts,
+}
+
+#[derive(Parser)]
+struct TransactionIdentifierOpts {
+    #[clap(name = "transaction", long)]
+    hash: Option<String>,
+}
+
+impl TransactionIdentifierOpts {
+    fn transaction_identifier(&self) -> Option<TransactionIdentifier> {
+        Some(TransactionIdentifier {
+            hash: self.hash.as_ref()?.clone(),
+        })
+    }
 }
 
 async fn network_identifier(
@@ -211,10 +245,10 @@ async fn main() -> Result<()> {
                 let req = AccountBalanceRequest {
                     network_identifier: network_identifier(&client, &opts.network).await?,
                     account_identifier: opts.account.account_identifier(),
-                    block_identifier: opts.block.block_identifier(),
+                    block_identifier: opts.block.partial_block_identifier(),
                     currencies: None,
                 };
-                let balance = client.account_balance(req).await?;
+                let balance = client.account_balance(&req).await?;
                 println!(
                     "block {} {}",
                     balance.block_identifier.index, balance.block_identifier.hash
@@ -230,7 +264,7 @@ async fn main() -> Result<()> {
                     currencies: None,
                     include_mempool: opts.include_mempool,
                 };
-                let coins = client.account_coins(req).await?;
+                let coins = client.account_coins(&req).await?;
                 println!(
                     "block {} {}",
                     coins.block_identifier.index, coins.block_identifier.hash
@@ -244,8 +278,54 @@ async fn main() -> Result<()> {
                 }
             }
         },
-        Command::Block(opts) => {}
-        Command::Mempool(opts) => {}
+        Command::Block(opts) => {
+            let network_identifier = network_identifier(&client, &opts.network).await?;
+            if let Some(transaction_identifier) = opts.transaction.transaction_identifier() {
+                let block_identifier = opts
+                    .block
+                    .block_identifier()
+                    .ok_or_else(|| anyhow::anyhow!("missing block identifier"))?;
+                let req = BlockTransactionRequest {
+                    network_identifier,
+                    block_identifier,
+                    transaction_identifier,
+                };
+                let res = client.block_transaction(&req).await?;
+                println!("{:#?}", res);
+            } else {
+                let block_identifier = opts
+                    .block
+                    .partial_block_identifier()
+                    .ok_or_else(|| anyhow::anyhow!("missing partial block identifier"))?;
+                let req = BlockRequest {
+                    network_identifier,
+                    block_identifier,
+                };
+                let res = client.block(&req).await?;
+                println!("{:#?}", res);
+            }
+        }
+        Command::Mempool(opts) => {
+            let network_identifier = network_identifier(&client, &opts.network).await?;
+            if let Some(transaction_identifier) = opts.transaction.transaction_identifier() {
+                let req = MempoolTransactionRequest {
+                    network_identifier,
+                    transaction_identifier,
+                };
+                let res = client.mempool_transaction(&req).await?;
+                println!("{:#?}", res.transaction);
+            } else {
+                let res = client
+                    .mempool(&NetworkRequest::new(network_identifier))
+                    .await?;
+                if res.transaction_identifiers.is_empty() {
+                    println!("no pending transactions");
+                }
+                for transaction in &res.transaction_identifiers {
+                    println!("{}", &transaction.hash);
+                }
+            }
+        }
     }
     Ok(())
 }
