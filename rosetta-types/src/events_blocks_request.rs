@@ -16,10 +16,10 @@ pub struct EventsBlocksRequest {
     pub network_identifier: crate::NetworkIdentifier,
     /// offset is the offset into the event stream to sync events from. If this field is not populated, we return the limit events backwards from tip. If this is set to 0, we start from the beginning.
     #[serde(rename = "offset", skip_serializing_if = "Option::is_none")]
-    pub offset: Option<i64>,
+    pub offset: Option<u64>,
     /// limit is the maximum number of events to fetch in one call. The implementation may return <= limit events.
     #[serde(rename = "limit", skip_serializing_if = "Option::is_none")]
-    pub limit: Option<i64>,
+    pub limit: Option<u64>,
 }
 
 impl EventsBlocksRequest {

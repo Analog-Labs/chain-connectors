@@ -2,190 +2,17 @@ use anyhow::Result;
 use clap::Parser;
 use fraction::{BigDecimal, BigUint};
 use rosetta_client::types::{
-    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, BlockIdentifier,
-    BlockRequest, BlockTransactionRequest, MempoolTransactionRequest, MetadataRequest,
-    NetworkIdentifier, NetworkRequest, PartialBlockIdentifier, SubAccountIdentifier,
-    SubNetworkIdentifier, TransactionIdentifier,
+    AccountBalanceRequest, AccountCoinsRequest, Amount, BlockRequest, BlockTransactionRequest,
+    EventsBlocksRequest, MempoolTransactionRequest, MetadataRequest, NetworkIdentifier,
+    NetworkRequest,
 };
 use rosetta_client::Client;
 
-#[derive(Parser)]
-struct Opts {
-    #[clap(long, default_value = "http://127.0.0.1:8080")]
-    url: String,
-    #[clap(subcommand)]
-    cmd: Command,
-}
+mod args;
+mod identifiers;
 
-#[derive(Parser)]
-enum Command {
-    Network(NetworkOpts),
-    Account(AccountOpts),
-    Block(BlockOpts),
-    Mempool(MempoolOpts),
-}
-
-#[derive(Parser)]
-struct NetworkOpts {
-    #[clap(subcommand)]
-    cmd: NetworkCommand,
-}
-
-#[derive(Parser)]
-enum NetworkCommand {
-    List,
-    Options(NetworkCommandOpts),
-    Status(NetworkCommandOpts),
-}
-
-#[derive(Parser)]
-struct NetworkCommandOpts {
-    #[clap(flatten)]
-    network: NetworkIdentifierOpts,
-}
-
-#[derive(Parser)]
-struct NetworkIdentifierOpts {
-    #[clap(long)]
-    blockchain: Option<String>,
-    #[clap(long)]
-    network: Option<String>,
-    #[clap(long)]
-    subnetwork: Option<String>,
-}
-
-impl NetworkIdentifierOpts {
-    fn network_identifier(&self) -> Option<NetworkIdentifier> {
-        Some(NetworkIdentifier {
-            blockchain: self.blockchain.as_ref()?.into(),
-            network: self.network.as_ref()?.into(),
-            sub_network_identifier: self.subnetwork.as_ref().map(|subnetwork| {
-                SubNetworkIdentifier {
-                    network: subnetwork.clone(),
-                    metadata: None,
-                }
-            }),
-        })
-    }
-}
-
-#[derive(Parser)]
-struct AccountOpts {
-    #[clap(subcommand)]
-    cmd: AccountCommand,
-}
-
-#[derive(Parser)]
-enum AccountCommand {
-    Balance(AccountBalanceCommandOpts),
-    Coins(AccountCoinsCommandOpts),
-}
-
-#[derive(Parser)]
-struct AccountBalanceCommandOpts {
-    #[clap(flatten)]
-    network: NetworkIdentifierOpts,
-    #[clap(flatten)]
-    account: AccountIdentifierOpts,
-    #[clap(flatten)]
-    block: BlockIdentifierOpts,
-}
-
-#[derive(Parser)]
-struct AccountCoinsCommandOpts {
-    #[clap(flatten)]
-    network: NetworkIdentifierOpts,
-    #[clap(flatten)]
-    account: AccountIdentifierOpts,
-    #[clap(long)]
-    include_mempool: bool,
-}
-
-#[derive(Parser)]
-struct AccountIdentifierOpts {
-    account: String,
-    #[clap(long)]
-    subaccount: Option<String>,
-}
-
-impl AccountIdentifierOpts {
-    fn account_identifier(&self) -> AccountIdentifier {
-        AccountIdentifier {
-            address: self.account.clone(),
-            sub_account: self
-                .subaccount
-                .as_ref()
-                .map(|subaccount| SubAccountIdentifier {
-                    address: subaccount.clone(),
-                    metadata: None,
-                }),
-            metadata: None,
-        }
-    }
-}
-
-#[derive(Parser)]
-struct BlockIdentifierOpts {
-    #[clap(long)]
-    index: Option<u64>,
-    #[clap(name = "block", long)]
-    hash: Option<String>,
-}
-
-impl BlockIdentifierOpts {
-    fn partial_block_identifier(&self) -> Option<PartialBlockIdentifier> {
-        if self.index.is_none() && self.hash.is_none() {
-            return None;
-        }
-        Some(PartialBlockIdentifier {
-            index: self.index,
-            hash: self.hash.clone(),
-        })
-    }
-
-    fn block_identifier(&self) -> Option<BlockIdentifier> {
-        if let (Some(index), Some(hash)) = (self.index, &self.hash) {
-            Some(BlockIdentifier {
-                index: index,
-                hash: hash.clone(),
-            })
-        } else {
-            None
-        }
-    }
-}
-
-#[derive(Parser)]
-struct BlockOpts {
-    #[clap(flatten)]
-    network: NetworkIdentifierOpts,
-    #[clap(flatten)]
-    block: BlockIdentifierOpts,
-    #[clap(flatten)]
-    transaction: TransactionIdentifierOpts,
-}
-
-#[derive(Parser)]
-struct MempoolOpts {
-    #[clap(flatten)]
-    network: NetworkIdentifierOpts,
-    #[clap(flatten)]
-    transaction: TransactionIdentifierOpts,
-}
-
-#[derive(Parser)]
-struct TransactionIdentifierOpts {
-    #[clap(name = "transaction", long)]
-    hash: Option<String>,
-}
-
-impl TransactionIdentifierOpts {
-    fn transaction_identifier(&self) -> Option<TransactionIdentifier> {
-        Some(TransactionIdentifier {
-            hash: self.hash.as_ref()?.clone(),
-        })
-    }
-}
+use crate::args::{AccountCommand, AccountOpts, Command, NetworkCommand, NetworkOpts, Opts};
+use crate::identifiers::NetworkIdentifierOpts;
 
 async fn network_identifier(
     client: &Client,
@@ -325,6 +152,15 @@ async fn main() -> Result<()> {
                     println!("{}", &transaction.hash);
                 }
             }
+        }
+        Command::Events(opts) => {
+            let req = EventsBlocksRequest {
+                network_identifier: network_identifier(&client, &opts.network).await?,
+                offset: opts.offset,
+                limit: opts.limit,
+            };
+            let res = client.events_blocks(&req).await?;
+            println!("{:#?}", res);
         }
     }
     Ok(())

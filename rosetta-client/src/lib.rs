@@ -39,11 +39,15 @@ impl Client {
             .send()
             .await
             .map_err(|e| e.into_inner())?;
-        if !res.status().is_success() {
-            let error: rosetta_types::Error = res.body_json().await.map_err(|e| e.into_inner())?;
-            return Err(error.into());
+        match res.status() as u16 {
+            200 => Ok(res.body_json().await.map_err(|e| e.into_inner())?),
+            404 => anyhow::bail!("unsupported endpoint {}", path),
+            500 => {
+                let error: rosetta_types::Error = res.body_json().await.map_err(|e| e.into_inner())?;
+                Err(error.into())
+            }
+            _ => anyhow::bail!("unexpected status code {}", res.status()),
         }
-        Ok(res.body_json().await.map_err(|e| e.into_inner())?)
     }
 
     /// Make a call to the /network/list endpoint.
