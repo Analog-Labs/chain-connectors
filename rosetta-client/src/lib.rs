@@ -43,7 +43,8 @@ impl Client {
             200 => Ok(res.body_json().await.map_err(|e| e.into_inner())?),
             404 => anyhow::bail!("unsupported endpoint {}", path),
             500 => {
-                let error: rosetta_types::Error = res.body_json().await.map_err(|e| e.into_inner())?;
+                let error: rosetta_types::Error =
+                    res.body_json().await.map_err(|e| e.into_inner())?;
                 Err(error.into())
             }
             _ => anyhow::bail!("unexpected status code {}", res.status()),
