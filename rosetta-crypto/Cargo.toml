@@ -1,0 +1,21 @@
+[package]
+name = "rosetta-crypto"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.65"
+bip39 = "1.0.1"
+ecdsa = { version = "0.14.7", features = ["arithmetic"] }
+ed25519-dalek = "1.0.1"
+hmac = "0.12.1"
+k256 = { version = "0.11.5", features = ["keccak256"] }
+p256 = "0.11.1"
+schnorrkel = "0.10.2"
+sha2 = "0.10.6"
+substrate-bip39 = "0.4.4"
+
+[dev-dependencies]
+bs58 = "0.4.0"
+hex = "0.4.3"
+rand = "0.8.5"

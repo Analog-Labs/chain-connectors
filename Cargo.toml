@@ -2,5 +2,6 @@
 members = [
     "rosetta-cli",
     "rosetta-client",
+    "rosetta-crypto",
     "rosetta-types",
 ]
