@@ -1,3 +1,4 @@
+//! BIP32 implementation.
 use crate::bip39::Mnemonic;
 use crate::bip44::ChildNumber;
 use crate::{Algorithm, PublicKey, SecretKey};
@@ -200,6 +201,7 @@ impl DerivedSecretKey {
         &self.chain_code
     }
 
+    /// Returns the derived public key used for verifying signatures.
     pub fn public_key(&self) -> DerivedPublicKey {
         DerivedPublicKey::new(self.secret_key.public_key(), self.chain_code)
     }
@@ -237,6 +239,8 @@ impl DerivedSecretKey {
                     secret_key
                 } else if algorithm.uses_slip10_retry() {
                     continue;
+                } else if algorithm.uses_bip32_retry() {
+                    return self.bip32_derive(child + 1);
                 } else {
                     anyhow::bail!("failed to derive a valid secret key");
                 };
@@ -246,6 +250,8 @@ impl DerivedSecretKey {
                     secret_key = tweaked_secret_key;
                 } else if algorithm.uses_slip10_retry() {
                     continue;
+                } else if algorithm.uses_bip32_retry() {
+                    return self.bip32_derive(child + 1);
                 } else {
                     anyhow::bail!("invalid tweak");
                 }
@@ -258,6 +264,7 @@ impl DerivedSecretKey {
         }
     }
 
+    /// Derives a child secret key.
     pub fn derive(&self, child: ChildNumber) -> Result<Self> {
         match &self.secret_key {
             SecretKey::Sr25519(secret, _) => {
@@ -282,6 +289,7 @@ impl DerivedSecretKey {
     }
 }
 
+/// Public key and chain code used for hierarchical key derivation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DerivedPublicKey {
     public_key: PublicKey,
@@ -289,6 +297,7 @@ pub struct DerivedPublicKey {
 }
 
 impl DerivedPublicKey {
+    /// Constructs a derived public key from a public key and a chain code.
     pub fn new(public_key: PublicKey, chain_code: [u8; 32]) -> Self {
         Self {
             public_key,
@@ -333,9 +342,13 @@ impl DerivedPublicKey {
 
             let public_key = if let Some(public_key) = self.public_key.tweak_add(public_key)? {
                 public_key
-            } else {
+            } else if algorithm.uses_slip10_retry() {
                 retry = Some(chain_code);
                 continue;
+            } else if algorithm.uses_bip32_retry() {
+                return self.bip32_derive(child + 1);
+            } else {
+                anyhow::bail!("failed to derive a valid public key");
             };
 
             return Ok(Self {
@@ -345,6 +358,7 @@ impl DerivedPublicKey {
         }
     }
 
+    /// Derives a child public key.
     pub fn derive(&self, child: ChildNumber) -> Result<Self> {
         anyhow::ensure!(child.is_normal(), "can't derive a hardened public key");
         match &self.public_key {
@@ -420,6 +434,26 @@ mod tests {
                 public,
                 "public key"
             );
+        }
+
+        fn assert_bip32(&self, xprv: &str, xpub: &str) {
+            assert_eq!(&xprv[..4], "xprv");
+            assert_eq!(&xpub[..4], "xpub");
+            let xprv = bs58::decode(xprv)
+                .with_alphabet(bs58::Alphabet::BITCOIN)
+                .into_vec()
+                .unwrap();
+            let xpub = bs58::decode(xpub)
+                .with_alphabet(bs58::Alphabet::BITCOIN)
+                .into_vec()
+                .unwrap();
+            let chain_code1 = &xprv[13..45];
+            let chain_code2 = &xpub[13..45];
+            assert_eq!(chain_code1, chain_code2);
+            let chain_code = hex::encode(&chain_code1);
+            let private = hex::encode(&xprv[46..78]);
+            let public = hex::encode(&xpub[45..78]);
+            self.assert(&chain_code, &private, &public);
         }
     }
 
@@ -770,6 +804,45 @@ mod tests {
             "7762f9729fed06121fd13f326884c82f59aa95c57ac492ce8c9654e60efd130c",
             "3b8c18469a4634517d6d0b65448f8e6c62091b45540a1743c5846be55d47d88f",
             "0383619fadcde31063d8c5cb00dbfe1713f3e6fa169d8541a798752a1c1ca0cb20",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn bip32_derive_secp256k1_3() -> Result<()> {
+        // test vector 3 from BIP32
+        let seed = "4b381541583be4423346c643850da4b320e46a87ae3d2a4e6da11eba819cd4acba45d239319ac14f863b8d5ab5a0d0c64d2e8a1e7d1457df2e5a3c51c73235be";
+        let key = DerivedKey::bip32_master_key(Algorithm::EcdsaSecp256k1, seed)?;
+        key.assert_bip32(
+            "xprv9s21ZrQH143K25QhxbucbDDuQ4naNntJRi4KUfWT7xo4EKsHt2QJDu7KXp1A3u7Bi1j8ph3EGsZ9Xvz9dGuVrtHHs7pXeTzjuxBrCmmhgC6",
+            "xpub661MyMwAqRbcEZVB4dScxMAdx6d4nFc9nvyvH3v4gJL378CSRZiYmhRoP7mBy6gSPSCYk6SzXPTf3ND1cZAceL7SfJ1Z3GC8vBgp2epUt13",
+        );
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(0))?;
+        key.assert_bip32(
+            "xprv9uPDJpEQgRQfDcW7BkF7eTya6RPxXeJCqCJGHuCJ4GiRVLzkTXBAJMu2qaMWPrS7AANYqdq6vcBcBUdJCVVFceUvJFjaPdGZ2y9WACViL4L",
+            "xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y",
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn bip32_derive_secp256k1_4() -> Result<()> {
+        // test vector 4 from BIP32
+        let seed = "3ddd5602285899a946114506157c7997e5444528f3003f6134712147db19b678";
+        let key = DerivedKey::bip32_master_key(Algorithm::EcdsaSecp256k1, seed)?;
+        key.assert_bip32(
+            "xprv9s21ZrQH143K48vGoLGRPxgo2JNkJ3J3fqkirQC2zVdk5Dgd5w14S7fRDyHH4dWNHUgkvsvNDCkvAwcSHNAQwhwgNMgZhLtQC63zxwhQmRv",
+            "xpub661MyMwAqRbcGczjuMoRm6dXaLDEhW1u34gKenbeYqAix21mdUKJyuyu5F1rzYGVxyL6tmgBUAEPrEz92mBXjByMRiJdba9wpnN37RLLAXa",
+        );
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(0))?;
+        key.assert_bip32(
+            "xprv9vB7xEWwNp9kh1wQRfCCQMnZUEG21LpbR9NPCNN1dwhiZkjjeGRnaALmPXCX7SgjFTiCTT6bXes17boXtjq3xLpcDjzEuGLQBM5ohqkao9G",
+            "xpub69AUMk3qDBi3uW1sXgjCmVjJ2G6WQoYSnNHyzkmdCHEhSZ4tBok37xfFEqHd2AddP56Tqp4o56AePAgCjYdvpW2PU2jbUPFKsav5ut6Ch1m",
+        );
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(1))?;
+        key.assert_bip32(
+            "xprv9xJocDuwtYCMNAo3Zw76WENQeAS6WGXQ55RCy7tDJ8oALr4FWkuVoHJeHVAcAqiZLE7Je3vZJHxspZdFHfnBEjHqU5hG1Jaj32dVoS6XLT1",
+            "xpub6BJA1jSqiukeaesWfxe6sNK9CCGaujFFSJLomWHprUL9DePQ4JDkM5d88n49sMGJxrhpjazuXYWdMf17C9T5XnxkopaeS7jGk1GyyVziaMt",
         );
         Ok(())
     }

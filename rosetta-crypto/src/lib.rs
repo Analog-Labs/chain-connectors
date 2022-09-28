@@ -1,3 +1,7 @@
+//! Implements cryptography needed for various chains.
+#![deny(missing_docs)]
+#![deny(warnings)]
+
 use anyhow::Result;
 use ecdsa::signature::Signature as _;
 use ed25519_dalek::{Signer as _, Verifier as _};
@@ -23,10 +27,15 @@ pub enum Algorithm {
 
 /// Secret key used for constructing signatures.
 pub enum SecretKey {
+    /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::SigningKey<k256::Secp256k1>),
+    /// ECDSA with secp256k1 in Ethereum compatible format.
     EcdsaRecoverableSecp256k1(k256::ecdsa::SigningKey),
+    /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::SigningKey<p256::NistP256>),
+    /// Ed25519.
     Ed25519(ed25519_dalek::Keypair),
+    /// Schnorrkel used by substrate/polkadot.
     Sr25519(schnorrkel::Keypair, Option<schnorrkel::MiniSecretKey>),
 }
 
@@ -115,12 +124,18 @@ impl SecretKey {
     }
 }
 
+/// Public key used for verifying signatures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PublicKey {
+    /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::VerifyingKey<k256::Secp256k1>),
+    /// ECDSA with secp256k1 in Ethereum compatible format.
     EcdsaRecoverableSecp256k1(k256::ecdsa::VerifyingKey),
+    /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::VerifyingKey<p256::NistP256>),
+    /// Ed25519.
     Ed25519(ed25519_dalek::PublicKey),
+    /// Schnorrkel used by substrate/polkadot.
     Sr25519(schnorrkel::PublicKey),
 }
 
@@ -196,12 +211,18 @@ impl PublicKey {
     }
 }
 
+/// Signature.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Signature {
+    /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::Signature<k256::Secp256k1>),
+    /// ECDSA with secp256k1 in Ethereum compatible format.
     EcdsaRecoverableSecp256k1(k256::ecdsa::recoverable::Signature),
+    /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::Signature<p256::NistP256>),
+    /// Ed25519.
     Ed25519(ed25519_dalek::Signature),
+    /// Schnorrkel used by substrate/polkadot.
     Sr25519(schnorrkel::Signature),
 }
 
