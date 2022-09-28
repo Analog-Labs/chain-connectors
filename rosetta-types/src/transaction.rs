@@ -10,7 +10,7 @@
 
 /// Transaction : Transactions contain an array of Operations that are attributable to the same TransactionIdentifier.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Transaction {
     #[serde(rename = "transaction_identifier")]
     pub transaction_identifier: crate::TransactionIdentifier,

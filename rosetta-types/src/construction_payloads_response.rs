@@ -10,7 +10,7 @@
 
 /// ConstructionPayloadsResponse : ConstructionTransactionResponse is returned by `/construction/payloads`. It contains an unsigned transaction blob (that is usually needed to construct the a network transaction from a collection of signatures) and an array of payloads that must be signed by the caller.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionPayloadsResponse {
     #[serde(rename = "unsigned_transaction")]
     pub unsigned_transaction: String,

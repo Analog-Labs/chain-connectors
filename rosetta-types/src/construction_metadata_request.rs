@@ -10,7 +10,7 @@
 
 /// ConstructionMetadataRequest : A ConstructionMetadataRequest is utilized to get information required to construct a transaction.  The Options object used to specify which metadata to return is left purposely unstructured to allow flexibility for implementers. Options is not required in the case that there is network-wide metadata of interest.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionMetadataRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

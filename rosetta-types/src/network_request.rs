@@ -10,7 +10,7 @@
 
 /// NetworkRequest : A NetworkRequest is utilized to retrieve some data specific exclusively to a NetworkIdentifier.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NetworkRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

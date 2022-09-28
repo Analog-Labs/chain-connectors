@@ -10,7 +10,7 @@
 
 /// ConstructionSubmitRequest : The transaction submission request includes a signed transaction.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionSubmitRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

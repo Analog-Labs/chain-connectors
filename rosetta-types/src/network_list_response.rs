@@ -10,7 +10,7 @@
 
 /// NetworkListResponse : A NetworkListResponse contains all NetworkIdentifiers that the node can serve information for.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NetworkListResponse {
     #[serde(rename = "network_identifiers")]
     pub network_identifiers: Vec<crate::NetworkIdentifier>,

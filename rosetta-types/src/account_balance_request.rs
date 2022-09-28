@@ -10,7 +10,7 @@
 
 /// AccountBalanceRequest : An AccountBalanceRequest is utilized to make a balance request on the /account/balance endpoint. If the block_identifier is populated, a historical balance query should be performed.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountBalanceRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

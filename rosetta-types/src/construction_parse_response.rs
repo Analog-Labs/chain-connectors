@@ -10,7 +10,7 @@
 
 /// ConstructionParseResponse : ConstructionParseResponse contains an array of operations that occur in a transaction blob. This should match the array of operations provided to `/construction/preprocess` and `/construction/payloads`.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionParseResponse {
     #[serde(rename = "operations")]
     pub operations: Vec<crate::Operation>,

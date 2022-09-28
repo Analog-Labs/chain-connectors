@@ -10,7 +10,7 @@
 
 /// OperationStatus : OperationStatus is utilized to indicate which Operation status are considered successful.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct OperationStatus {
     /// The status is the network-specific status of the operation.
     #[serde(rename = "status")]

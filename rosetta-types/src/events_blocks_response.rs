@@ -10,7 +10,7 @@
 
 /// EventsBlocksResponse : EventsBlocksResponse contains an ordered collection of BlockEvents and the max retrievable sequence.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct EventsBlocksResponse {
     /// max_sequence is the maximum available sequence number to fetch.
     #[serde(rename = "max_sequence")]

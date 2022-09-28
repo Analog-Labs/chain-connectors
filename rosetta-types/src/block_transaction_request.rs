@@ -10,7 +10,7 @@
 
 /// BlockTransactionRequest : A BlockTransactionRequest is used to fetch a Transaction included in a block that is not returned in a BlockResponse.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockTransactionRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,
