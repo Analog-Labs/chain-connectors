@@ -123,10 +123,10 @@ mod tests {
             path,
             DerivationPath {
                 path: vec![
-                    ChildNumber(44 | HARDENED_BIT),
-                    ChildNumber(60 | HARDENED_BIT),
-                    ChildNumber(0 | HARDENED_BIT),
-                    ChildNumber(0),
+                    ChildNumber::hardened_from_u32(44),
+                    ChildNumber::hardened_from_u32(60),
+                    ChildNumber::hardened_from_u32(0),
+                    ChildNumber::non_hardened_from_u32(0),
                 ],
             }
         );
