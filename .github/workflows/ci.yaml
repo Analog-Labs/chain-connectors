@@ -1,0 +1,49 @@
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+
+name: rosetta-wallet
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+
+    - name: cargo test
+      run: cargo test --all-features --workspace
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        components: rustfmt
+
+    - name: cargo fmt
+      run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        components: clippy
+
+    - name: cargo clippy
+      run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
+
