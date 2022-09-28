@@ -10,7 +10,7 @@
 
 /// MetadataRequest : A MetadataRequest is utilized in any request where the only argument is optional metadata.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MetadataRequest {
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,

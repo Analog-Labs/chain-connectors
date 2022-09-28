@@ -10,7 +10,7 @@
 
 /// Error : Instead of utilizing HTTP status codes to describe node errors (which often do not have a good analog), rich errors are returned using this object.  Both the code and message fields can be individually used to correctly identify an error. Implementations MUST use unique values for both fields.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Error {
     /// Code is a network-specific error code. If desired, this code can be equivalent to an HTTP status code.
     #[serde(rename = "code")]

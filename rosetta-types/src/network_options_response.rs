@@ -10,7 +10,7 @@
 
 /// NetworkOptionsResponse : NetworkOptionsResponse contains information about the versioning of the node and the allowed operation statuses, operation types, and errors.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NetworkOptionsResponse {
     #[serde(rename = "version")]
     pub version: crate::Version,

@@ -10,7 +10,7 @@
 
 /// MempoolTransactionResponse : A MempoolTransactionResponse contains an estimate of a mempool transaction. It may not be possible to know the full impact of a transaction in the mempool (ex: fee paid).
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MempoolTransactionResponse {
     #[serde(rename = "transaction")]
     pub transaction: crate::Transaction,

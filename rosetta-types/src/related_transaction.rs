@@ -10,7 +10,7 @@
 
 /// RelatedTransaction : The related_transaction allows implementations to link together multiple transactions. An unpopulated network identifier indicates that the related transaction is on the same network.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RelatedTransaction {
     #[serde(rename = "network_identifier", skip_serializing_if = "Option::is_none")]
     pub network_identifier: Option<crate::NetworkIdentifier>,

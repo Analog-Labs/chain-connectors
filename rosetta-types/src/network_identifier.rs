@@ -10,7 +10,7 @@
 
 /// NetworkIdentifier : The network_identifier specifies which network a particular object is associated with.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct NetworkIdentifier {
     #[serde(rename = "blockchain")]
     pub blockchain: String,

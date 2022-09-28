@@ -10,7 +10,7 @@
 
 /// CallResponse : CallResponse contains the result of a `/call` invocation.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CallResponse {
     /// Result contains the result of the `/call` invocation. This result will not be inspected or interpreted by Rosetta tooling and is left to the caller to decode.
     #[serde(rename = "result")]

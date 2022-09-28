@@ -10,7 +10,7 @@
 
 /// MempoolResponse : A MempoolResponse contains all transaction identifiers in the mempool for a particular network_identifier.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MempoolResponse {
     #[serde(rename = "transaction_identifiers")]
     pub transaction_identifiers: Vec<crate::TransactionIdentifier>,

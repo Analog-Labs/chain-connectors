@@ -10,7 +10,7 @@
 
 /// BlockIdentifier : The block_identifier uniquely identifies a block in a particular network.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockIdentifier {
     /// This is also known as the block height.
     #[serde(rename = "index")]

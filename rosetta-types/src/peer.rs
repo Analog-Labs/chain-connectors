@@ -10,7 +10,7 @@
 
 /// Peer : A Peer is a representation of a node's peer.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Peer {
     #[serde(rename = "peer_id")]
     pub peer_id: String,

@@ -10,7 +10,7 @@
 
 /// Coin : Coin contains its unique identifier and the amount it represents.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Coin {
     #[serde(rename = "coin_identifier")]
     pub coin_identifier: crate::CoinIdentifier,

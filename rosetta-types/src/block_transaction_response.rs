@@ -10,7 +10,7 @@
 
 /// BlockTransactionResponse : A BlockTransactionResponse contains information about a block transaction.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockTransactionResponse {
     #[serde(rename = "transaction")]
     pub transaction: crate::Transaction,

@@ -74,7 +74,7 @@ impl BlockIdentifierOpts {
     pub fn block_identifier(&self) -> Option<BlockIdentifier> {
         if let (Some(index), Some(hash)) = (self.index, &self.hash) {
             Some(BlockIdentifier {
-                index: index,
+                index,
                 hash: hash.clone(),
             })
         } else {

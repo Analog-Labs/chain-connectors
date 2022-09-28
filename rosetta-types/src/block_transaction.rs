@@ -10,7 +10,7 @@
 
 /// BlockTransaction : BlockTransaction contains a populated Transaction and the BlockIdentifier that contains it.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockTransaction {
     #[serde(rename = "block_identifier")]
     pub block_identifier: crate::BlockIdentifier,

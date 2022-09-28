@@ -10,7 +10,7 @@
 
 /// Version : The Version object is utilized to inform the client of the versions of different components of the Rosetta implementation.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Version {
     /// The rosetta_version is the version of the Rosetta interface the implementation adheres to. This can be useful for clients looking to reliably parse responses.
     #[serde(rename = "rosetta_version")]

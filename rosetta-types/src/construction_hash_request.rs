@@ -10,7 +10,7 @@
 
 /// ConstructionHashRequest : ConstructionHashRequest is the input to the `/construction/hash` endpoint.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionHashRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

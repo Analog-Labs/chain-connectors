@@ -10,7 +10,7 @@
 
 /// AccountCoinsResponse : AccountCoinsResponse is returned on the /account/coins endpoint and includes all unspent Coins owned by an AccountIdentifier.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountCoinsResponse {
     #[serde(rename = "block_identifier")]
     pub block_identifier: crate::BlockIdentifier,

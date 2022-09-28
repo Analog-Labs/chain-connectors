@@ -10,7 +10,7 @@
 
 /// MempoolTransactionRequest : A MempoolTransactionRequest is utilized to retrieve a transaction from the mempool.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct MempoolTransactionRequest {
     #[serde(rename = "network_identifier")]
     pub network_identifier: crate::NetworkIdentifier,

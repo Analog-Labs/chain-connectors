@@ -10,7 +10,7 @@
 
 /// ConstructionDeriveResponse : ConstructionDeriveResponse is returned by the `/construction/derive` endpoint.
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionDeriveResponse {
     /// [DEPRECATED by `account_identifier` in `v1.4.4`] Address in network-specific format.
     #[serde(rename = "address", skip_serializing_if = "Option::is_none")]
