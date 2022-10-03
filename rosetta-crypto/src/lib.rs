@@ -3,7 +3,7 @@
 #![deny(warnings)]
 
 use anyhow::Result;
-use ecdsa::signature::Signature as _;
+use ecdsa::signature::{hazmat::PrehashSigner, Signature as _};
 use ed25519_dalek::{Signer as _, Verifier as _};
 
 pub mod bip32;
@@ -121,6 +121,23 @@ impl SecretKey {
             SecretKey::Ed25519(secret) => Signature::Ed25519(secret.sign(msg)),
             SecretKey::Sr25519(secret, _) => Signature::Sr25519(secret.sign_simple(&[], msg)),
         }
+    }
+
+    /// Signs a prehashed message and returns it's signature.
+    pub fn sign_prehashed(&self, hash: &[u8]) -> Result<Signature> {
+        Ok(match self {
+            SecretKey::EcdsaSecp256k1(secret) => {
+                Signature::EcdsaSecp256k1(secret.sign_prehash(hash)?)
+            }
+            SecretKey::EcdsaRecoverableSecp256k1(secret) => {
+                Signature::EcdsaRecoverableSecp256k1(secret.sign_prehash(hash)?)
+            }
+            SecretKey::EcdsaSecp256r1(secret) => {
+                Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?)
+            }
+            SecretKey::Ed25519(_) => anyhow::bail!("unimplemented"),
+            SecretKey::Sr25519(_, _) => anyhow::bail!("unsupported"),
+        })
     }
 }
 
@@ -269,6 +286,27 @@ impl Signature {
             Signature::Sr25519(sig) => sig.to_bytes().to_vec(),
         }
     }
+
+    /// Returns the recovered public key if supported.
+    pub fn recover(&self, msg: &[u8]) -> Result<Option<PublicKey>> {
+        if let Signature::EcdsaRecoverableSecp256k1(signature) = self {
+            let recovered_key = signature.recover_verifying_key(msg)?;
+            Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Returns the recovered public key if supported.
+    pub fn recover_prehashed(&self, hash: &[u8]) -> Result<Option<PublicKey>> {
+        if let Signature::EcdsaRecoverableSecp256k1(signature) = self {
+            let hash: [u8; 32] = hash.try_into()?;
+            let recovered_key = signature.recover_verifying_key_from_digest_bytes(&hash.into())?;
+            Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -342,6 +380,21 @@ mod tests {
             let signature = secret_key.sign(&msg);
             public_key.verify(&msg, &signature)?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn sign_recover_pubkey() -> Result<()> {
+        let mut rng = thread_rng();
+        let mut secret = [0; 32];
+        rng.fill_bytes(&mut secret);
+        let mut msg = [0; 32];
+        rng.fill_bytes(&mut msg);
+        let secret_key = SecretKey::from_bytes(Algorithm::EcdsaRecoverableSecp256k1, &secret[..])?;
+        let public_key = secret_key.public_key();
+        let signature = secret_key.sign(&msg);
+        let recovered_key = signature.recover(&msg)?.unwrap();
+        assert_eq!(public_key, recovered_key);
         Ok(())
     }
 }
