@@ -51,4 +51,24 @@ impl BlockchainConfig {
             utxo: false,
         }
     }
+
+    pub fn polkadot_dev() -> Self {
+        Self {
+            url: "http://127.0.0.1:8081".into(),
+            network: NetworkIdentifier {
+                blockchain: "Polkadot".into(),
+                network: "Dev".into(),
+                sub_network_identifier: None,
+            },
+            algorithm: Algorithm::Sr25519,
+            coin: 1,
+            currency: Currency {
+                symbol: "DOT".into(),
+                decimals: 10,
+                metadata: None,
+            },
+            bip44: false,
+            utxo: false,
+        }
+    }
 }

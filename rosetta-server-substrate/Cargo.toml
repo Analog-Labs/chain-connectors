@@ -1,0 +1,17 @@
+[package]
+name = "rosetta-server-substrate"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.65"
+blake2-rfc = "0.2.18"
+bs58 = "0.4.0"
+hex = "0.4.3"
+parity-scale-codec = "3.2.1"
+rosetta-types = { path = "../rosetta-types" }
+ss58-registry = "1.31.0"
+subxt = "0.24.0"
+tide = "0.16.0"
+tokio = { version = "1.21.2", features = ["full"] }
+tracing-subscriber = "0.3.16"
