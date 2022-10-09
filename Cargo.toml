@@ -3,6 +3,10 @@ members = [
     "rosetta-cli",
     "rosetta-client",
     "rosetta-crypto",
+    "rosetta-server-substrate",
     "rosetta-types",
     "rosetta-wallet",
 ]
+
+[patch.crates-io]
+bip39 = { git = "https://github.com/trevyn/rust-bip39", branch = "unpin-unicode-normalization" }
