@@ -23,6 +23,8 @@ pub enum SignatureType {
     Schnorr1,
     #[serde(rename = "schnorr_poseidon")]
     SchnorrPoseidon,
+    #[serde(rename = "sr25519")]
+    Sr25519,
 }
 
 impl ToString for SignatureType {
@@ -33,6 +35,7 @@ impl ToString for SignatureType {
             Self::Ed25519 => String::from("ed25519"),
             Self::Schnorr1 => String::from("schnorr_1"),
             Self::SchnorrPoseidon => String::from("schnorr_poseidon"),
+            Self::Sr25519 => String::from("sr25519"),
         }
     }
 }
