@@ -23,6 +23,8 @@ pub enum CurveType {
     Tweedle,
     #[serde(rename = "pallas")]
     Pallas,
+    #[serde(rename = "schnorrkel")]
+    Schnorrkel,
 }
 
 impl ToString for CurveType {
@@ -33,6 +35,7 @@ impl ToString for CurveType {
             Self::Edwards25519 => String::from("edwards25519"),
             Self::Tweedle => String::from("tweedle"),
             Self::Pallas => String::from("pallas"),
+            Self::Schnorrkel => String::from("schnorrkel"),
         }
     }
 }
