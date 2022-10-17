@@ -35,3 +35,22 @@ bitcoin-cli -regtest -rpcuser=rosetta -rpcpassword=rosetta generatetoaddress 101
 geth attach http://127.0.0.1:8545
 > eth.sendTransaction({from: eth.coinbase, to: "0xYOUR_ADDRESS", value: web3.toWei(50, "ether")})
 ```
+
+### Bitcoin example
+```
+docker compose up
+rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1000
+rosetta-wallet --chain btc --keyfile /tmp/bob account
+rosetta-wallet --chain btc --keyfile /tmp/alice transfer ACCOUNT 1000
+rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1
+rosetta-wallet --chain btc --keyfile /tmp/bob balance
+```
+
+### Ethereum example
+```
+docker compose up
+rosetta-wallet --chain eth --keyfile /tmp/alice faucet 1000
+rosetta-wallet --chain eth --keyfile /tmp/bob account
+rosetta-wallet --chain eth --keyfile /tmp/alice transfer ACCOUNT 1000
+rosetta-wallet --chain eth --keyfile /tmp/bob balance
+```
