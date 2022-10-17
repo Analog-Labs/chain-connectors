@@ -121,6 +121,7 @@ impl PublicKey {
 }
 
 /// Secret key and chain code used for hierarchical key derivation.
+#[derive(Clone)]
 pub struct DerivedSecretKey {
     secret_key: SecretKey,
     chain_code: [u8; 32],

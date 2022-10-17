@@ -39,6 +39,12 @@ pub enum SecretKey {
     Sr25519(schnorrkel::Keypair, Option<schnorrkel::MiniSecretKey>),
 }
 
+impl Clone for SecretKey {
+    fn clone(&self) -> Self {
+        Self::from_bytes(self.algorithm(), &self.to_bytes()).unwrap()
+    }
+}
+
 impl SecretKey {
     /// Returns the signing algorithm.
     pub fn algorithm(&self) -> Algorithm {
