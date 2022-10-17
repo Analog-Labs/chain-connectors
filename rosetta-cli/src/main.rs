@@ -1,12 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
-use fraction::{BigDecimal, BigUint};
 use rosetta_client::types::{
-    AccountBalanceRequest, AccountCoinsRequest, Amount, BlockRequest, BlockTransactionRequest,
+    AccountBalanceRequest, AccountCoinsRequest, BlockRequest, BlockTransactionRequest,
     EventsBlocksRequest, MempoolTransactionRequest, MetadataRequest, NetworkIdentifier,
     NetworkRequest,
 };
-use rosetta_client::Client;
+use rosetta_client::{amount_to_string, Client};
 
 mod args;
 mod identifiers;
@@ -27,14 +26,6 @@ async fn network_identifier(
             .network_identifiers[0]
             .clone()
     })
-}
-
-fn amount_to_string(amount: &Amount) -> Result<String> {
-    let value = BigUint::parse_bytes(amount.value.as_bytes(), 10)
-        .ok_or_else(|| anyhow::anyhow!("invalid amount {:?}", amount))?;
-    let decimals = BigUint::pow(&10u32.into(), amount.currency.decimals);
-    let value = BigDecimal::from(value) / BigDecimal::from(decimals);
-    Ok(format!("{:.256} {}", value, amount.currency.symbol))
 }
 
 #[async_std::main]
