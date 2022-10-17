@@ -41,7 +41,6 @@ impl Wallet {
         let derive = client.construction_derive(&req).await?;
         let account = derive
             .account_identifier
-            .clone()
             .ok_or_else(|| anyhow::anyhow!("expected account"))?;
         Ok(Self {
             config,
