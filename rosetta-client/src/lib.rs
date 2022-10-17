@@ -1,193 +1,58 @@
+//! Rosetta client.
+use crate::crypto::bip39::{Language, Mnemonic};
+use crate::types::Amount;
 use anyhow::Result;
-use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse,
-    ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
-    ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
-    ConstructionMetadataResponse, ConstructionParseRequest, ConstructionParseResponse,
-    ConstructionPayloadsRequest, ConstructionPayloadsResponse, ConstructionPreprocessRequest,
-    ConstructionPreprocessResponse, ConstructionSubmitRequest, EventsBlocksRequest,
-    EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest, MempoolTransactionResponse,
-    MetadataRequest, NetworkListResponse, NetworkOptionsResponse, NetworkRequest,
-    NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
-    TransactionIdentifierResponse,
-};
-use serde::{de::DeserializeOwned, Serialize};
+use fraction::{BigDecimal, BigUint};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
+pub use crate::client::Client;
+pub use crate::config::BlockchainConfig;
+pub use crate::signer::Signer;
+pub use crate::tx::TransactionBuilder;
+pub use crate::wallet::Wallet;
+pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
 
-/// The client struct to interface with a rosetta endpoint.
-pub struct Client {
-    /// The http client.
-    http: surf::Client,
+mod client;
+mod config;
+pub mod signer;
+mod tx;
+mod wallet;
+
+pub fn amount_to_string(amount: &Amount) -> Result<String> {
+    let value = BigUint::parse_bytes(amount.value.as_bytes(), 10)
+        .ok_or_else(|| anyhow::anyhow!("invalid amount {:?}", amount))?;
+    let decimals = BigUint::pow(&10u32.into(), amount.currency.decimals);
+    let value = BigDecimal::from(value) / BigDecimal::from(decimals);
+    Ok(format!("{:.256} {}", value, amount.currency.symbol))
 }
 
-impl Client {
-    /// `url` should have the form `http[s]://hostname:port`.
-    pub fn new(url: &str) -> Result<Self> {
-        let http = surf::Config::new().set_base_url(url.parse()?).try_into()?;
-        Ok(Self { http })
-    }
+pub fn default_keyfile() -> Result<PathBuf> {
+    Ok(dirs::config_dir()
+        .ok_or_else(|| anyhow::anyhow!("no config dir found"))?
+        .join("rosetta-wallet")
+        .join("mnemonic"))
+}
 
-    /// Makes a POST request to the rosetta endpoint.
-    async fn post<Q: Serialize, R: DeserializeOwned>(&self, path: &str, request: &Q) -> Result<R> {
-        let mut res = self
-            .http
-            .post(path)
-            .body_json(request)
-            .map_err(|e| e.into_inner())?
-            .send()
-            .await
-            .map_err(|e| e.into_inner())?;
-        match res.status() as u16 {
-            200 => Ok(res.body_json().await.map_err(|e| e.into_inner())?),
-            404 => anyhow::bail!("unsupported endpoint {}", path),
-            500 => {
-                let error: rosetta_types::Error =
-                    res.body_json().await.map_err(|e| e.into_inner())?;
-                Err(error.into())
-            }
-            _ => anyhow::bail!("unexpected status code {}", res.status()),
-        }
+pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
+    if !path.exists() {
+        std::fs::create_dir_all(path.parent().unwrap())?;
+        let mut entropy = [0; 32];
+        getrandom::getrandom(&mut entropy)?;
+        let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
+        #[cfg(unix)]
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut opts = OpenOptions::new();
+        opts.create(true).write(true).truncate(true);
+        #[cfg(unix)]
+        opts.mode(0o600);
+        let mut f = opts.open(&path)?;
+        f.write_all(mnemonic.to_string().as_bytes())?;
     }
-
-    /// Make a call to the /network/list endpoint.
-    pub async fn network_list(&self, request: &MetadataRequest) -> Result<NetworkListResponse> {
-        self.post("/network/list", request).await
-    }
-
-    /// Make a call to the /network/options endpoint.
-    pub async fn network_options(
-        &self,
-        request: &NetworkRequest,
-    ) -> Result<NetworkOptionsResponse> {
-        self.post("/network/options", request).await
-    }
-
-    /// Make a call to the /network/status endpoint.
-    pub async fn network_status(&self, request: &NetworkRequest) -> Result<NetworkStatusResponse> {
-        self.post("/network/status", request).await
-    }
-
-    /// Make a call to the /account/balance endpoint.
-    pub async fn account_balance(
-        &self,
-        request: &AccountBalanceRequest,
-    ) -> Result<AccountBalanceResponse> {
-        self.post("/account/balance", &request).await
-    }
-
-    /// Make a call to the /account/coins endpoint.
-    pub async fn account_coins(
-        &self,
-        request: &AccountCoinsRequest,
-    ) -> Result<AccountCoinsResponse> {
-        self.post("/account/coins", &request).await
-    }
-
-    /// Make a call to the /block endpoint.
-    pub async fn block(&self, request: &BlockRequest) -> Result<BlockResponse> {
-        self.post("/block", &request).await
-    }
-
-    /// Make a call to the /block/transaction endpoint.
-    pub async fn block_transaction(
-        &self,
-        request: &BlockTransactionRequest,
-    ) -> Result<BlockTransactionResponse> {
-        self.post("/block/transaction", &request).await
-    }
-
-    /// Make a call to the /mempool endpoint.
-    pub async fn mempool(&self, request: &NetworkRequest) -> Result<MempoolResponse> {
-        self.post("/mempool", &request).await
-    }
-
-    /// Make a call to the /mempool/transaction endpoint.
-    pub async fn mempool_transaction(
-        &self,
-        request: &MempoolTransactionRequest,
-    ) -> Result<MempoolTransactionResponse> {
-        self.post("/mempool/transaction", &request).await
-    }
-
-    /// Make a call to the /construction/combine endpoint.
-    pub async fn construction_combine(
-        &self,
-        request: &ConstructionCombineRequest,
-    ) -> Result<ConstructionCombineResponse> {
-        self.post("/construction/combine", &request).await
-    }
-
-    /// Make a call to the /construction/derive endpoint.
-    pub async fn construction_derive(
-        &self,
-        request: &ConstructionDeriveRequest,
-    ) -> Result<ConstructionDeriveResponse> {
-        self.post("/construction/derive", &request).await
-    }
-
-    /// Make a call to the /construction/hash endpoint.
-    pub async fn construction_hash(
-        &self,
-        request: &ConstructionHashRequest,
-    ) -> Result<TransactionIdentifierResponse> {
-        self.post("/construction/hash", &request).await
-    }
-
-    /// Make a call to the /construction/metadata endpoint.
-    pub async fn construction_metadata(
-        &self,
-        request: &ConstructionMetadataRequest,
-    ) -> Result<ConstructionMetadataResponse> {
-        self.post("/construction/metadata", &request).await
-    }
-
-    /// Make a call to the /construction/parse endpoint.
-    pub async fn construction_parse(
-        &self,
-        request: &ConstructionParseRequest,
-    ) -> Result<ConstructionParseResponse> {
-        self.post("/construction/parse", &request).await
-    }
-
-    /// Make a call to the /construction/payloads endpoint.
-    pub async fn construction_payloads(
-        &self,
-        request: &ConstructionPayloadsRequest,
-    ) -> Result<ConstructionPayloadsResponse> {
-        self.post("/construction/payloads", &request).await
-    }
-
-    /// Make a call to the /construction/preprocess endpoint.
-    pub async fn construction_preprocess(
-        &self,
-        request: &ConstructionPreprocessRequest,
-    ) -> Result<ConstructionPreprocessResponse> {
-        self.post("/construction/preprocess", &request).await
-    }
-
-    /// Make a call to the /construction/submit endpoint.
-    pub async fn construction_submit(
-        &self,
-        request: &ConstructionSubmitRequest,
-    ) -> Result<TransactionIdentifierResponse> {
-        self.post("/construction/submit", &request).await
-    }
-
-    /// Make a call to the /events/blocks endpoint.
-    pub async fn events_blocks(
-        &self,
-        request: &EventsBlocksRequest,
-    ) -> Result<EventsBlocksResponse> {
-        self.post("/events/blocks", &request).await
-    }
-
-    /// Make a call to the /search/transactions endpoint.
-    pub async fn search_transactions(
-        &self,
-        request: &SearchTransactionsRequest,
-    ) -> Result<SearchTransactionsResponse> {
-        self.post("/search/transactions", &request).await
-    }
+    let mnemonic = std::fs::read_to_string(&path)?;
+    let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic)?;
+    let signer = Signer::new(&mnemonic, "")?;
+    Ok(signer)
 }
