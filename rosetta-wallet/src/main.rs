@@ -21,11 +21,17 @@ pub enum Command {
     Account,
     Balance,
     Transfer(TransferOpts),
+    Faucet(FaucetOpts),
 }
 
 #[derive(Parser)]
 pub struct TransferOpts {
     pub account: String,
+    pub amount: u128,
+}
+
+#[derive(Parser)]
+pub struct FaucetOpts {
     pub amount: u128,
 }
 
@@ -89,6 +95,38 @@ async fn main() -> Result<()> {
             let txid = wallet.transfer(&account, amount).await?;
             println!("{}", txid.hash);
         }
+        Command::Faucet(FaucetOpts { amount }) => match opts.chain {
+            Chain::Btc => {
+                use std::process::Command;
+                let status = Command::new("bitcoin-cli")
+                    .arg("-regtest")
+                    .arg("-rpcuser=rosetta")
+                    .arg("-rpcpassword=rosetta")
+                    .arg("generatetoaddress")
+                    .arg(amount.to_string())
+                    .arg(&wallet.account().address)
+                    .status()?;
+                if !status.success() {
+                    anyhow::bail!("cmd failed");
+                }
+            }
+            Chain::Eth => {
+                use std::process::Command;
+                let status = Command::new("geth")
+                    .arg("attach")
+                    .arg("--exec")
+                    .arg(format!(
+                        "eth.sendTransaction({{from: eth.coinbase, to: '{}', value: {}}})",
+                        &wallet.account().address,
+                        amount,
+                    ))
+                    .arg("http://127.0.0.1:8545")
+                    .status()?;
+                if !status.success() {
+                    anyhow::bail!("cmd failed");
+                }
+            }
+        },
     }
     Ok(())
 }
