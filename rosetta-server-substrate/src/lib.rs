@@ -62,11 +62,29 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     let state = State::new(config).await?;
     let mut app = tide::with_state(state);
     app.at("/network/list").post(network_list);
+    // app.at("/network/options").post(network_options);
+    // app.at("/network/status").post(network_status);
     app.at("/account/balance").post(account_balance);
+    // app.at("/account/coins").post(account_coins);
+    // app.at("/block").post(block);
+    // app.at("/block/transaction").post(block_transaction);
+    // app.at("/construction/combine").post(construction_combine);
     app.at("/construction/derive").post(construction_derive);
+    // app.at("/construction/hash").post(construction_hash);
+    // app.at("/construction/metadata").post(construction_metadata);
+    // app.at("/construction/parse").post(construction_parse);
+    // app.at("/construction/payloads").post(construction_payloads);
+    // app.at("/construction/preprocess").post(construction_preprocess);
+    // app.at("/construction/submit").post(construction_submit);
+    // app.at("/events/blocks").post(events_blocks);
+    // app.at("/search/transactions").post(search_transactions);
+    // app.at("/mempool").post(mempool);
+    // app.at("/mempool/transaction").post(mempool_transaction);
+
     Ok(app)
 }
 
+//list of methods implementation for substrate chain
 async fn network_list(mut req: Request<State>) -> tide::Result {
     let _request: MetadataRequest = req.body_json().await?;
     let response = NetworkListResponse {
@@ -77,32 +95,9 @@ async fn network_list(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_derive(mut req: Request<State>) -> tide::Result {
-    let request: ConstructionDeriveRequest = req.body_json().await?;
-    if request.network_identifier != req.state().network {
-        return Error::UnsupportedNetwork.to_response();
-    }
-    if request.public_key.curve_type != CurveType::Schnorrkel {
-        return Error::UnsupportedCurveType.to_response();
-    }
-    let public_key = match hex::decode(&request.public_key.hex_bytes) {
-        Ok(public_key) => public_key,
-        Err(_) => return Error::InvalidHex.to_response(),
-    };
-    let address = ss58::ss58_encode(req.state().ss58_address_format, &public_key);
-    let response = ConstructionDeriveResponse {
-        account_identifier: Some(AccountIdentifier {
-            address: address.clone(),
-            sub_account: None,
-            metadata: None,
-        }),
-        address: Some(address),
-        metadata: None,
-    };
-    Ok(Response::builder(200)
-        .body(Body::from_json(&response)?)
-        .build())
-}
+async fn network_options(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn network_status(mut req: Request<State>) -> tide::Result{todo!()}
 
 async fn account_balance(mut req: Request<State>) -> tide::Result {
     let request: AccountBalanceRequest = req.body_json().await?;
@@ -143,6 +138,63 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
+async fn account_coins(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn block(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn block_transaction(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_combine(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_derive(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionDeriveRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+    if request.public_key.curve_type != CurveType::Schnorrkel {
+        return Error::UnsupportedCurveType.to_response();
+    }
+    let public_key = match hex::decode(&request.public_key.hex_bytes) {
+        Ok(public_key) => public_key,
+        Err(_) => return Error::InvalidHex.to_response(),
+    };
+    let address = ss58::ss58_encode(req.state().ss58_address_format, &public_key);
+    let response = ConstructionDeriveResponse {
+        account_identifier: Some(AccountIdentifier {
+            address: address.clone(),
+            sub_account: None,
+            metadata: None,
+        }),
+        address: Some(address),
+        metadata: None,
+    };
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
+}
+
+async fn construction_hash(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_metadata(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_parse(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_payloads(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_preprocess(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn construction_submit(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn events_blocks(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn search_transactions(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn mempool(mut req: Request<State>) -> tide::Result{todo!()}
+
+async fn mempool_transaction(mut req: Request<State>) -> tide::Result{todo!()}
+
+
+//utils for methods
 enum Error {
     UnsupportedNetwork,
     UnsupportedCurveType,
