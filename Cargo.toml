@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "dioxus-wallet",
     "rosetta-cli",
     "rosetta-client",
     "rosetta-crypto",
@@ -10,3 +11,12 @@ members = [
 
 [patch.crates-io]
 bip39 = { git = "https://github.com/trevyn/rust-bip39", branch = "unpin-unicode-normalization" }
+cc = { git = "https://github.com/rust-lang/cc-rs", branch = "main" }
+dioxus = { git = "https://github.com/dvc94ch/dioxus", branch = "master" }
+dioxus-desktop = { git = "https://github.com/dvc94ch/dioxus", branch = "master" }
+
+[patch.'https://github.com/tauri-apps/tao']
+tao = { git = "https://github.com/dvc94ch/tao", branch = "master" }
+
+[patch.'https://github.com/tauri-apps/wry']
+wry = { git = "https://github.com/dvc94ch/wry", branch = "master" }
