@@ -54,7 +54,7 @@ impl BlockchainConfig {
 
     pub fn polkadot_dev() -> Self {
         Self {
-            url: "http://127.0.0.1:8081".into(),
+            url: "http://127.0.0.1:8082".into(),
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),
