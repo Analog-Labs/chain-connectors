@@ -39,6 +39,7 @@ pub struct FaucetOpts {
 pub enum Chain {
     Btc,
     Eth,
+    Dot,
 }
 
 impl FromStr for Chain {
@@ -48,6 +49,7 @@ impl FromStr for Chain {
         Ok(match chain {
             "btc" => Chain::Btc,
             "eth" => Chain::Eth,
+            "dot" => Chain::Dot,
             _ => anyhow::bail!("unsupported chain {}", chain),
         })
     }
@@ -58,6 +60,7 @@ impl From<Chain> for BlockchainConfig {
         match chain {
             Chain::Btc => Self::bitcoin_regtest(),
             Chain::Eth => Self::ethereum_dev(),
+            Chain::Dot => Self::polkadot_dev(),
         }
     }
 }
@@ -125,6 +128,9 @@ async fn main() -> Result<()> {
                 if !status.success() {
                     anyhow::bail!("cmd failed");
                 }
+            }
+            Chain::Dot => {
+                todo!()
             }
         },
     }
