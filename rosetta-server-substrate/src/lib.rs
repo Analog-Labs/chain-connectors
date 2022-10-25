@@ -202,8 +202,6 @@ async fn block(mut req: Request<State>) -> tide::Result {
     let request: BlockRequest = match req.body_json().await {
         Ok(ok) => ok,
         Err(e) => {
-            println!("error: {:?}", e);
-            // return Ok(Response::builder(400).body(Body::from_json(&e)?).build());
             return Ok(Response::builder(400)
                 .body(Body::from_json(&format!(
                     "error while parsing params {}",
@@ -257,7 +255,6 @@ async fn block(mut req: Request<State>) -> tide::Result {
         .await?
         .unwrap();
 
-    // req.state().client.rpc().request("payment_queryInfo", params);
 
     /////////////////////////
     // Getting transactions data
@@ -309,8 +306,6 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     let request: BlockTransactionRequest = match req.body_json().await {
         Ok(ok) => ok,
         Err(e) => {
-            println!("error: {:?}", e);
-            // return Ok(Response::builder(400).body(Body::from_json(&e)?).build());
             return Ok(Response::builder(400)
                 .body(Body::from_json(&format!(
                     "error while parsing params {}",
@@ -337,8 +332,6 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
         .fetch(&events_storage, Some(block_endcoded_hash))
         .await?
         .unwrap();
-
-    // api::storage().system().
 
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
@@ -407,7 +400,6 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         .fetch_or_default(&nonce_addr, None)
         .await?;
 
-    // req.state().client.tx()
 
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
