@@ -255,7 +255,6 @@ async fn block(mut req: Request<State>) -> tide::Result {
         .await?
         .unwrap();
 
-
     /////////////////////////
     // Getting transactions data
     let mut payment_infos = vec![];
@@ -399,7 +398,6 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         .storage()
         .fetch_or_default(&nonce_addr, None)
         .await?;
-
 
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
