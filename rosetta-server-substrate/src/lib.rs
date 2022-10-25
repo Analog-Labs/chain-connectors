@@ -268,12 +268,13 @@ async fn block(mut req: Request<State>) -> tide::Result {
         let extrincic_bytes = extrinsic.encode();
         let blockhash = block_hash;
         let params = rpc_params![extrincic_bytes, blockhash];
-        payment_infos.push(req
-            .state()
-            .client
-            .rpc()
-            .request("payment_queryInfo", params)
-            .await?);
+        payment_infos.push(
+            req.state()
+                .client
+                .rpc()
+                .request("payment_queryInfo", params)
+                .await?,
+        );
     }
 
     get_transactions(&req.state().client, &block).await;
@@ -562,6 +563,5 @@ async fn get_transactions(
     let extrinsics = block.block.extrinsics.clone();
     let _block_number = block.block.header.number;
 
-    for (_item, _index) in extrinsics.iter().enumerate() {
-    }
+    for (_item, _index) in extrinsics.iter().enumerate() {}
 }
