@@ -10,14 +10,14 @@ use rosetta_types::{
     ConstructionDeriveRequest, ConstructionDeriveResponse, ConstructionMetadataRequest,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, Currency, CurveType,
     MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkRequest, NetworkStatusResponse,
-    PartialBlockIdentifier, Transaction,
+    PartialBlockIdentifier,
 };
 
 use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
-use subxt::ext::sp_runtime::{OpaqueExtrinsic};
+use subxt::ext::sp_runtime::OpaqueExtrinsic;
 use subxt::rpc_params;
 use subxt::{rpc::BlockNumber, OnlineClient, SubstrateConfig};
 use tide::prelude::json;
@@ -109,7 +109,7 @@ async fn network_list(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn network_options(mut req: Request<State>) -> tide::Result {
+async fn network_options(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -193,7 +193,7 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn account_coins(mut req: Request<State>) -> tide::Result {
+async fn account_coins(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -268,13 +268,12 @@ async fn block(mut req: Request<State>) -> tide::Result {
         let extrincic_bytes = extrinsic.encode();
         let blockhash = block_hash;
         let params = rpc_params![extrincic_bytes, blockhash];
-        let pay_info = req
+        payment_infos.push(req
             .state()
             .client
             .rpc()
             .request("payment_queryInfo", params)
-            .await?;
-        payment_infos.push(pay_info);
+            .await?);
     }
 
     get_transactions(&req.state().client, &block).await;
@@ -324,11 +323,11 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let block_index = request.block_identifier.index;
+    let _block_index = request.block_identifier.index;
     let block_hash = request.block_identifier.hash;
     let block_endcoded_hash = H256::from_str(&block_hash).unwrap();
 
-    let transaction_identifier = request.transaction_identifier;
+    let _transaction_identifier = request.transaction_identifier;
     let events_storage = api::storage().system().events();
     let _events = req
         .state()
@@ -343,7 +342,7 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
 
-async fn construction_combine(mut req: Request<State>) -> tide::Result {
+async fn construction_combine(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -374,7 +373,7 @@ async fn construction_derive(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_hash(mut req: Request<State>) -> tide::Result {
+async fn construction_hash(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -400,7 +399,7 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         }
     };
     let nonce_addr = api::storage().system().account(account);
-    let entry = req
+    let _entry = req
         .state()
         .client
         .storage()
@@ -412,11 +411,11 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
 
-async fn construction_parse(mut req: Request<State>) -> tide::Result {
+async fn construction_parse(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
-async fn construction_payloads(mut req: Request<State>) -> tide::Result {
+async fn construction_payloads(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -427,7 +426,7 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let operations = request.operations.clone();
+    let operations = request.operations;
 
     let mut required_tx = vec![];
     for operation in operations.iter() {
@@ -456,23 +455,23 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_submit(mut req: Request<State>) -> tide::Result {
+async fn construction_submit(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
-async fn events_blocks(mut req: Request<State>) -> tide::Result {
+async fn events_blocks(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
-async fn search_transactions(mut req: Request<State>) -> tide::Result {
+async fn search_transactions(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
-async fn mempool(mut req: Request<State>) -> tide::Result {
+async fn mempool(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
-async fn mempool_transaction(mut req: Request<State>) -> tide::Result {
+async fn mempool_transaction(mut _req: Request<State>) -> tide::Result {
     todo!()
 }
 
@@ -557,14 +556,12 @@ async fn resolve_block(
 
 //make transaction identifier here //WIP
 async fn get_transactions(
-    subxt: &OnlineClient<SubstrateConfig>,
+    _subxt: &OnlineClient<SubstrateConfig>,
     block: &SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
 ) {
     let extrinsics = block.block.extrinsics.clone();
     let _block_number = block.block.header.number;
 
-    for index in 0..extrinsics.len() {
-        let extrinsic = extrinsics[index].clone();
-        println!("printing extrinsic {:?}", extrinsic);
+    for (_item, _index) in extrinsics.iter().enumerate() {
     }
 }
