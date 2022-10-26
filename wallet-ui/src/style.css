@@ -1,4 +1,105 @@
-.main-container {
-  
+body {
   background-color: black;
+  font-family: sans-serif;
+  color: whitesmoke;
+}
+
+.main-container {
+  width: 384px;
+  height: 784px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 0 0 0 0;
+  background-color: black;
+  margin-left: 0;
+}
+
+.chain-name {
+  height: 10%;
+  color: whitesmoke;
+}
+
+.dashboard-container {
+  width: 100%;
+  height: 35%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+  border-bottom: 1px solid grey;
+}
+
+.balance-container {
+  font-size: 35px;
+  font-weight: bold;
+  color: whitesmoke;
+
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.button-container {
+  display: flex;
+  justify-content: space-between;
+  width: 80%;
+  align-items: center;
+}
+
+.button {
+  width: 150px;
+  height: 50px;
+  border-radius: 20px;
+  font-size: 15px;
+  background-color: dimgray;
+  color: whitesmoke;
+  border: 1px solid whitesmoke;
+  font-weight: bold;
+  cursor: pointer;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  text-decoration: none;
+}
+.listing-container {
+  height: 65%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.listing-title {
+  width: 100%;
+  height: 10%;
+  font-size: 20px;
+  color: whitesmoke;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  border-bottom: 1px solid grey;
+}
+.list {
+  height: 90%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.list-item {
+  width: 90%;
+  height: 15%;
+  border-bottom: 1px solid grey;
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  cursor: pointer;
+}
+
+.asset-name {
+  color: whitesmoke;
+  font-weight: bold;
+  font-size: 20px;
 }
