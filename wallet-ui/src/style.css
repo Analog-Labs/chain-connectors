@@ -15,14 +15,9 @@ body {
   margin-left: 0;
 }
 
-.chain-name {
-  height: 10%;
-  color: whitesmoke;
-}
-
 .dashboard-container {
   width: 100%;
-  height: 35%;
+  height: 40%;
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
@@ -43,8 +38,9 @@ body {
 .button-container {
   display: flex;
   justify-content: space-between;
-  width: 80%;
+  width: 90%;
   align-items: center;
+  margin-bottom: 10px;
 }
 
 .button {
@@ -102,4 +98,45 @@ body {
   color: whitesmoke;
   font-weight: bold;
   font-size: 20px;
+}
+
+.back-button-container {
+  display: flex;
+  width: 90%;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.back-button {
+  text-decoration: none;
+  font-weight: bold;
+  color: whitesmoke;
+}
+
+.input-container {
+  width: 100%;
+  height: 50%;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  flex-direction: column;
+}
+
+.input {
+  height: 50px;
+  background-color: black;
+  border: 2px solid whitesmoke;
+  border-radius: 200px;
+  width: 90%;
+  color: whitesmoke;
+  font-weight: bold;
+  padding-left: 10px;
+
+  font-size: 12px;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
