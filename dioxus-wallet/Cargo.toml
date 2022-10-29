@@ -8,6 +8,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 dioxus = "0.2.4"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 dioxus-desktop = "0.2.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -15,3 +17,8 @@ android_logger = "0.11.1"
 log = "0.4.17"
 paste = "1.0.9"
 wry = { version = "0.22.0", git = "https://github.com/tauri-apps/wry", branch = "release" }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+console_error_panic_hook = "0.1.7"
+dioxus-web = "0.2.1"
+wasm-logger = "0.2.0"
