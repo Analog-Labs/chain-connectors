@@ -23,8 +23,16 @@ fn _start_app() {
     }
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub fn main() {
     dioxus_desktop::launch(app);
+}
+
+#[cfg(target_family = "wasm")]
+pub fn main() {
+    wasm_logger::init(wasm_logger::Config::default());
+    console_error_panic_hook::set_once();
+    dioxus_web::launch(app);
 }
 
 fn app(cx: Scope) -> Element {
