@@ -61,9 +61,12 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v2
 
-    - run: sudo apt-get update
-    - name: Install deps
-      run: sudo apt-get install llvm
+    - name: Install llvm
+      uses: KyleMayes/install-llvm-action@v1
+      with:
+        version: 13
+    - run: sudo ln -s llvm-ar-13 /usr/bin/llvm-ar
+    - run: sudo ln -s lld-13 /usr/bin/lld
 
     - name: Install rust toolchain
       uses: hecrj/setup-rust-action@v1
