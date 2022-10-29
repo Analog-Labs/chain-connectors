@@ -1,0 +1,12 @@
+{
+    "manifest_version": 3,
+    "name": "dioxus wallet",
+    "description": "multichain wallet",
+    "version": "1.0",
+    "action": {
+        "default_popup": "dist/index.html"
+    },
+    "content_security_policy": {
+        "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'"
+    }
+}
