@@ -34114,9 +34114,15 @@ pub mod api {
         pub mod frame_support {
             use super::runtime_types;
             pub mod dispatch {
+                use serde::{Deserialize, Serialize};
+
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    Serialize,
+                    Deserialize,
                 )]
                 pub enum DispatchClass {
                     #[codec(index = 0)]
@@ -34127,7 +34133,11 @@ pub mod api {
                     Mandatory,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct DispatchInfo {
                     pub weight: runtime_types::sp_weights::weight_v2::Weight,
@@ -34135,7 +34145,11 @@ pub mod api {
                     pub pays_fee: runtime_types::frame_support::dispatch::Pays,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    Serialize,
+                    Deserialize,
                 )]
                 pub enum Pays {
                     #[codec(index = 0)]
@@ -34152,7 +34166,11 @@ pub mod api {
                     pub mandatory: _0,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct PostDispatchInfo {
                     pub actual_weight:
@@ -34191,6 +34209,8 @@ pub mod api {
                         :: subxt :: ext :: codec :: Decode,
                         :: subxt :: ext :: codec :: Encode,
                         Debug,
+                        serde::Serialize,
+                        serde::Deserialize,
                     )]
                     pub enum Bounded<_0> {
                         #[codec(index = 0)]
@@ -34233,6 +34253,8 @@ pub mod api {
                             :: subxt :: ext :: codec :: Decode,
                             :: subxt :: ext :: codec :: Encode,
                             Debug,
+                            serde::Serialize,
+                            serde::Deserialize,
                         )]
                         pub enum BalanceStatus {
                             #[codec(index = 0)]
@@ -34350,6 +34372,7 @@ pub mod api {
                 }
             }
             pub mod pallet {
+
                 use super::runtime_types;
                 #[derive(
                     :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
@@ -34459,7 +34482,11 @@ pub mod api {
                     CallFiltered,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Event for the System pallet."]
                 pub enum Event {
@@ -34522,7 +34549,10 @@ pub mod api {
                 pub spec_name: ::std::string::String,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                PartialEq,
             )]
             pub enum Phase {
                 #[codec(index = 0)]
@@ -34534,6 +34564,7 @@ pub mod api {
             }
         }
         pub mod kitchensink_runtime {
+
             use super::runtime_types;
             #[derive(
                 :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
@@ -34726,7 +34757,11 @@ pub mod api {
                 Void(runtime_types::sp_core::Void),
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum ProxyType {
                 #[codec(index = 0)]
@@ -34846,7 +34881,11 @@ pub mod api {
                 FastUnstake(runtime_types::pallet_fast_unstake::pallet::Call),
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum RuntimeEvent {
                 #[codec(index = 0)]
@@ -35202,7 +35241,11 @@ pub mod api {
                     FoundersMissing,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -35294,7 +35337,11 @@ pub mod api {
             pub mod types {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Cid {
                     pub version: runtime_types::pallet_alliance::types::Version,
@@ -35311,7 +35358,11 @@ pub mod api {
                     pub ally_members: ::core::primitive::u32,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Multihash {
                     pub code: ::core::primitive::u64,
@@ -35320,7 +35371,11 @@ pub mod api {
                     >,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub enum Version {
                     #[codec(index = 0)]
@@ -35343,7 +35398,11 @@ pub mod api {
                 Retiring,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum UnscrupulousItem<_0, _1> {
                 #[codec(index = 0)]
@@ -35357,7 +35416,11 @@ pub mod api {
             pub mod pallet {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -36050,7 +36113,11 @@ pub mod api {
                     WouldBurn,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -36462,7 +36529,11 @@ pub mod api {
                     List(runtime_types::pallet_bags_list::list::ListError),
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -36646,7 +36717,11 @@ pub mod api {
                     TooManyReserves,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -36965,7 +37040,11 @@ pub mod api {
                     TooManyQueued,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -37263,7 +37342,11 @@ pub mod api {
                     TooManyChildBounties,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -37586,7 +37669,11 @@ pub mod api {
                     WrongProposalLength,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -37963,7 +38050,11 @@ pub mod api {
                     CodeRejected,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -38447,7 +38538,11 @@ pub mod api {
                     BadClass,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -38947,7 +39042,11 @@ pub mod api {
                     VotingPeriodLow,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -39067,7 +39166,11 @@ pub mod api {
             pub mod vote {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub enum AccountVote<_0> {
                     #[codec(index = 0)]
@@ -39087,6 +39190,8 @@ pub mod api {
                     :: subxt :: ext :: codec :: Decode,
                     :: subxt :: ext :: codec :: Encode,
                     Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Vote(pub ::core::primitive::u8);
                 #[derive(
@@ -39115,7 +39220,11 @@ pub mod api {
             pub mod vote_threshold {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub enum VoteThreshold {
                     #[codec(index = 0)]
@@ -39180,7 +39289,11 @@ pub mod api {
                     FallbackFailed,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -39242,7 +39355,11 @@ pub mod api {
                 }
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum ElectionCompute {
                 #[codec(index = 0)]
@@ -39496,7 +39613,11 @@ pub mod api {
                     InvalidReplacement,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -39648,7 +39769,11 @@ pub mod api {
                     CallNotAllowed,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "The events of this pallet."]
                 pub enum Event {
@@ -39817,7 +39942,11 @@ pub mod api {
                     NotFound,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -39951,7 +40080,11 @@ pub mod api {
                     DuplicateOffenceReport,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -40382,7 +40515,11 @@ pub mod api {
                     JudgementForDifferentIdentity,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -40661,7 +40798,11 @@ pub mod api {
                     DuplicatedHeartbeat,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -40694,6 +40835,8 @@ pub mod api {
                         :: subxt :: ext :: codec :: Decode,
                         :: subxt :: ext :: codec :: Encode,
                         Debug,
+                        serde::Serialize,
+                        serde::Deserialize,
                     )]
                     pub struct Public(pub runtime_types::sp_core::sr25519::Public);
                     #[derive(
@@ -40879,7 +41022,11 @@ pub mod api {
                     Permanent,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -40987,7 +41134,11 @@ pub mod api {
                     EncodingFailed,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -41119,7 +41270,11 @@ pub mod api {
                     TooManyMembers,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -41362,7 +41517,11 @@ pub mod api {
                     AlreadyStored,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -41414,7 +41573,11 @@ pub mod api {
                 pub approvals: ::std::vec::Vec<_2>,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct Timepoint<_0> {
                 pub height: _0,
@@ -41762,7 +41925,11 @@ pub mod api {
                     PartialUnbondNotAllowedPermissionlessly,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Events of this pallet."]
                 pub enum Event {
@@ -41916,7 +42083,11 @@ pub mod api {
                 pub state_toggler: ::core::option::Option<_0>,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum PoolState {
                 #[codec(index = 0)]
@@ -41958,7 +42129,11 @@ pub mod api {
             pub mod pallet {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Events type."]
                 pub enum Event {
@@ -42035,7 +42210,11 @@ pub mod api {
                     NotRequested,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -42308,7 +42487,11 @@ pub mod api {
                     NoSelfProxy,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -42500,7 +42683,11 @@ pub mod api {
                     NoPermission,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -42542,7 +42729,11 @@ pub mod api {
                 pub rank: ::core::primitive::u16,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct Tally {
                 pub bare_ayes: ::core::primitive::u32,
@@ -42550,7 +42741,11 @@ pub mod api {
                 pub nays: ::core::primitive::u32,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum VoteRecord {
                 #[codec(index = 0)]
@@ -42783,7 +42978,11 @@ pub mod api {
                     BadState,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Events type."]
                 pub enum Event {
@@ -42965,7 +43164,11 @@ pub mod api {
                     NoDeposit,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -43203,7 +43406,11 @@ pub mod api {
                     BadContext,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -43313,7 +43520,11 @@ pub mod api {
                     Named,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Events type."]
                 pub enum Event {
@@ -43439,7 +43650,11 @@ pub mod api {
                     NoAccount,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -43864,7 +44079,11 @@ pub mod api {
                     NotHead,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -44568,6 +44787,8 @@ pub mod api {
                         :: subxt :: ext :: codec :: Decode,
                         :: subxt :: ext :: codec :: Encode,
                         Debug,
+                        serde::Serialize,
+                        serde::Deserialize,
                     )]
                     #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                     pub enum Event {
@@ -44685,7 +44906,11 @@ pub mod api {
                 pub individual: ::subxt::utils::KeyedVec<_0, ::core::primitive::u32>,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct Exposure<_0, _1> {
                 #[codec(compact)]
@@ -44709,7 +44934,11 @@ pub mod api {
                 ForceAlways,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct IndividualExposure<_0, _1> {
                 pub who: _0,
@@ -44806,7 +45035,11 @@ pub mod api {
                 pub era: ::core::primitive::u32,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct ValidatorPrefs {
                 #[codec(compact)]
@@ -44903,7 +45136,11 @@ pub mod api {
                     },
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tCustom [dispatch errors](https://docs.substrate.io/main-docs/build/events-errors/)\n\t\t\tof this pallet.\n\t\t\t"]
                 pub enum Error {
@@ -44933,7 +45170,11 @@ pub mod api {
                     BadChildRoot,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "Inner events of this pallet."]
                 pub enum Event {
@@ -44962,7 +45203,11 @@ pub mod api {
                     },
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub enum MigrationCompute {
                     #[codec(index = 0)]
@@ -45090,7 +45335,11 @@ pub mod api {
                     RequireSudo,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -45325,7 +45574,11 @@ pub mod api {
                     Premature,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -45378,7 +45631,11 @@ pub mod api {
             pub mod pallet {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -45492,7 +45749,11 @@ pub mod api {
                     BadContext,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -45634,7 +45895,11 @@ pub mod api {
                     ProposalNotApproved,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -46313,7 +46578,11 @@ pub mod api {
                     BidTooLow,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -46563,6 +46832,7 @@ pub mod api {
         pub mod pallet_utility {
             use super::runtime_types;
             pub mod pallet {
+
                 use super::runtime_types;
                 #[derive(
                     :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
@@ -46673,7 +46943,11 @@ pub mod api {
                     TooManyCalls,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -46864,7 +47138,11 @@ pub mod api {
                     InvalidScheduleParams,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -46952,7 +47230,11 @@ pub mod api {
                     CallAlreadyWhitelisted,
                 }
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 #[doc = "\n\t\t\tThe [event](https://docs.substrate.io/main-docs/build/events-errors/) emitted\n\t\t\tby this pallet.\n\t\t\t"]
                 pub enum Event {
@@ -47014,6 +47296,8 @@ pub mod api {
                     :: subxt :: ext :: codec :: Decode,
                     :: subxt :: ext :: codec :: Encode,
                     Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Perbill(pub ::core::primitive::u32);
                 #[derive(
@@ -47166,6 +47450,8 @@ pub mod api {
                         :: subxt :: ext :: codec :: Decode,
                         :: subxt :: ext :: codec :: Encode,
                         Debug,
+                        serde::Serialize,
+                        serde::Deserialize,
                     )]
                     pub struct BoundedVec<_0>(pub ::std::vec::Vec<_0>);
                 }
@@ -47200,7 +47486,11 @@ pub mod api {
             pub mod ed25519 {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Public(pub [::core::primitive::u8; 32usize]);
                 #[derive(
@@ -47226,7 +47516,11 @@ pub mod api {
             pub mod sr25519 {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Public(pub [::core::primitive::u8; 32usize]);
                 #[derive(
@@ -47248,7 +47542,11 @@ pub mod api {
             pub mod app {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Public(pub runtime_types::sp_core::ed25519::Public);
                 #[derive(
@@ -47288,7 +47586,11 @@ pub mod api {
         pub mod sp_npos_elections {
             use super::runtime_types;
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct ElectionScore {
                 pub minimal_stake: ::core::primitive::u128,
@@ -47924,7 +48226,11 @@ pub mod api {
                 pub struct BlakeTwo256;
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum ArithmeticError {
                 #[codec(index = 0)]
@@ -47935,7 +48241,11 @@ pub mod api {
                 DivisionByZero,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum DispatchError {
                 #[codec(index = 0)]
@@ -47966,14 +48276,22 @@ pub mod api {
                 Unavailable,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct DispatchErrorWithPostInfo<_0> {
                 pub post_info: _0,
                 pub error: runtime_types::sp_runtime::DispatchError,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub struct ModuleError {
                 pub index: ::core::primitive::u8,
@@ -47991,7 +48309,11 @@ pub mod api {
                 Ecdsa(runtime_types::sp_core::ecdsa::Signature),
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum TokenError {
                 #[codec(index = 0)]
@@ -48010,7 +48332,11 @@ pub mod api {
                 Unsupported,
             }
             #[derive(
-                :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                :: subxt :: ext :: codec :: Decode,
+                :: subxt :: ext :: codec :: Encode,
+                Debug,
+                serde::Serialize,
+                serde::Deserialize,
             )]
             pub enum TransactionalError {
                 #[codec(index = 0)]
@@ -48075,7 +48401,11 @@ pub mod api {
             pub mod weight_v2 {
                 use super::runtime_types;
                 #[derive(
-                    :: subxt :: ext :: codec :: Decode, :: subxt :: ext :: codec :: Encode, Debug,
+                    :: subxt :: ext :: codec :: Decode,
+                    :: subxt :: ext :: codec :: Encode,
+                    Debug,
+                    serde::Serialize,
+                    serde::Deserialize,
                 )]
                 pub struct Weight {
                     #[codec(compact)]
