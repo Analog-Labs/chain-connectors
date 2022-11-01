@@ -14,7 +14,7 @@ use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
-use utils::{get_transaction, get_transactions, resolve_block, Error};
+use utils::{get_block_transactions, get_transaction_detail, resolve_block, Error};
 
 mod chains;
 mod ss58;
@@ -133,9 +133,8 @@ async fn network_status(mut req: Request<State>) -> tide::Result {
         .state()
         .client
         .storage()
-        .fetch(&current_block_timestamp, None)
-        .await?
-        .unwrap_or_default();
+        .fetch_or_default(&current_block_timestamp, None)
+        .await?;
 
     let timestamp_nanos = Duration::from_millis(unix_timestamp_millis).as_nanos() as u64;
 
@@ -238,9 +237,8 @@ async fn block(mut req: Request<State>) -> tide::Result {
         .state()
         .client
         .storage()
-        .fetch(&timestamp, Some(block_hash))
-        .await?
-        .unwrap_or_default();
+        .fetch_or_default(&timestamp, Some(block_hash))
+        .await?;
 
     let timestamp_nanos = Duration::from_millis(unix_timestamp_millis).as_nanos() as u64;
 
@@ -249,17 +247,15 @@ async fn block(mut req: Request<State>) -> tide::Result {
         .state()
         .client
         .storage()
-        .fetch(&events_storage, Some(block_hash))
-        .await?
-        .unwrap_or_default();
+        .fetch_or_default(&events_storage, Some(block_hash))
+        .await?;
 
-    //get transactions data
-    let transactions = match get_transactions(req.state(), &block, &events) {
+    let parent_hash = block.block.header.parent_hash.to_string();
+
+    let transactions = match get_block_transactions(req.state(), block, &events) {
         Ok(ok) => ok,
         Err(e) => return e.to_response(),
     };
-
-    /////////////////////////
 
     let block = Block {
         block_identifier: BlockIdentifier {
@@ -268,7 +264,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
         },
         parent_block_identifier: BlockIdentifier {
             index: index - 1,
-            hash: block.block.header.parent_hash.to_string(),
+            hash: parent_hash,
         },
         timestamp: timestamp_nanos as i64,
         transactions,
@@ -334,7 +330,7 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     };
 
     let transaction =
-        match get_transaction(transaction_identifier.hash, req.state(), &block, &events) {
+        match get_transaction_detail(transaction_identifier.hash, req.state(), block, &events) {
             Ok(transaction) => match transaction {
                 Some(transaction_inner) => transaction_inner,
                 None => {
@@ -413,6 +409,7 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         .fetch_or_default(&nonce_addr, None)
         .await?;
 
+    // implementation still in progress
     Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
 
