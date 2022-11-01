@@ -5,6 +5,9 @@ use fermi::*;
 
 mod qrcode;
 
+mod receive;
+mod send;
+
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn start_app() {
@@ -31,7 +34,13 @@ fn _start_app() {
 pub fn main() {
     #[cfg(any(target_os = "android", target_os = "ios"))]
     std::env::set_var("RUST_BACKTRACE", "1");
-    dioxus_desktop::launch(app);
+    let cfg = dioxus_desktop::Config::new().with_window(
+        dioxus_desktop::WindowBuilder::new()
+            .with_resizable(false)
+            .with_inner_size(dioxus_desktop::tao::dpi::LogicalSize::new(400.0, 800.0))
+            .with_title("Wallet"),
+    );
+    dioxus_desktop::launch_cfg(app, cfg);
 }
 
 #[cfg(target_family = "wasm")]
@@ -41,79 +50,91 @@ pub fn main() {
     dioxus_web::launch(app);
 }
 
-fn app(cx: Scope) -> Element {
+static app: Component<()> = |cx| {
     cx.render(rsx! {
-        Router {
-            style {
-                include_str!("../assets/bootstrap-alert.css")
+                  Router {
+                        style { [include_str!("./style.css")] }
+
+                      Route{to:"/",Dashboard{}}
+                      Route{to:"/send",send::SendComponent{}}
+                      Route{to:"/receive",receive::ReceiveComponent{}}
             }
-            Route { to: "/", Home {} }
-            Route { to: "/scan", Scan {} }
-        }
     })
+};
+
+pub struct AssetsType {
+    name: String,
+    balance: f64,
+    symbol: String,
 }
 
-#[allow(non_snake_case)]
-#[inline_props]
-fn Home(cx: Scope) -> Element {
-    cx.render(rsx! {
+pub fn Dashboard(cx: Scope) -> Element {
+    let dummy_assets = [
+        AssetsType {
+            name: "Bitcoin".to_string(),
+            balance: 1.1,
+            symbol: "BTC".to_string(),
+        },
+        AssetsType {
+            name: "Eth".to_string(),
+            balance: 2.2,
+            symbol: "ETH".to_string(),
+        },
+        AssetsType {
+            name: "Dot".to_string(),
+            balance: 2.2,
+            symbol: "DOT".to_string(),
+        },
+    ];
+    let assets = use_state(&cx, || dummy_assets);
+
+    let balance = use_state(&cx, || 2.30);
+    let account_address = use_state(&cx, || {
+        "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
+    });
+
+    cx.render(rsx!(
         div {
-            Alerts {}
-            Qrcode {
-                data: b"wallet://btc?address=bcrt1q38k5zlaxfumy7gqj200xsqdmyhnlj7wg8wqx9s"
-            }
-            Link { to: "/scan", "scan qr code" }
+                class:"main-container",
+        div{
+        class: "dashboard-container" ,
+        h1{
+            class:"screen-title",
+
+            "Ethereum"
         }
-    })
-}
 
-#[allow(non_snake_case)]
-#[inline_props]
-fn Scan(cx: Scope) -> Element {
-    #[cfg(target_os = "ios")]
-    dioxus_desktop::use_window(&cx).pop_view();
-    let alerts = use_atom_ref(&cx, ALERTS);
-    let router = use_router(&cx);
-    let fut = use_future(&cx, (), move |_| scan_qrcode(&cx));
-    let alert = match fut.value() {
-        Some(Ok(url)) => Some(("success", url.to_string())),
-        Some(Err(error)) => Some(("danger", error.to_string())),
-        None => None,
-    };
-    if let Some(alert) = alert {
-        alerts.write().push(alert);
-        router.pop_route();
-    }
-    None
-}
-
-static ALERTS: AtomRef<Vec<(&'static str, String)>> = |_| vec![];
-
-#[allow(non_snake_case)]
-#[inline_props]
-fn Alerts(cx: Scope) -> Element {
-    let alerts = use_atom_ref(&cx, ALERTS);
-    cx.render(rsx! {
+        h5{
+            "{account_address}"
+        }
+        h2{
+            "{balance} ETH",
+        }
         div {
-            alerts.read().iter().enumerate().map(|(i, (ty, msg))| rsx! {
-                div {
-                    class: "alert alert-{ty} alert-dismissible",
-                    role: "alert",
-                    div { "{msg}" }
-                    button {
-                        r#type: "button",
-                        class: "close",
-                        aria_label: "Close",
-                        onclick: move |_| {
-                            alerts.write().remove(i);
-                        },
-                        span {
-                            aria_hidden: true,
-                            "\u{00d7}"
-                        }
+            "hello world!"
+        }
+    }   div{
+                    class:"listing-container",
+                    div{
+                        class:"listing-title",
+                        "Tokens"}
+                    div {
+                        class:"list",
+                         assets.iter().map(|item| rsx!(
+                            div {
+                                onclick :move |evt| println!("clicked {:?}",evt),
+                                class:"list-item",
+                            div{
+                                class:"asset-name",
+                            "{item.name}",
+                            }
+                            div{
+                                class:"asset-name",
+                                "{item.balance} {item.symbol}",
+                            }
+                            }
+
+                             ))
                     }
-                }
-            })
-        }
-    })
+                }}))
 }
