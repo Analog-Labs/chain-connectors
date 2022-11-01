@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use dioxus_router::Link;
 
 pub fn SendComponent(cx: Scope) -> Element {
     let sender_address = use_state(&cx, || {

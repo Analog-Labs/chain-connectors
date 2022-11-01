@@ -1,5 +1,5 @@
-use arboard::Clipboard;
 use dioxus::prelude::*;
+use dioxus_router::Link;
 
 pub fn ReceiveComponent(cx: Scope) -> Element {
     let account_address = use_state(&cx, || {
@@ -43,9 +43,12 @@ pub fn ReceiveComponent(cx: Scope) -> Element {
 }
 
 // ----- Functionalities ------//
-
+#[cfg(not(target_family = "wasm"))]
 fn copy_to_clipboard(string: String) {
-    let mut clipboard = Clipboard::new().unwrap();
+    let mut clipboard = arboard::Clipboard::new().unwrap();
     clipboard.set_text(string).unwrap();
     println!("copied Text is: \"{:?}\"", clipboard.get_text().unwrap());
 }
+
+#[cfg(target_family = "wasm")]
+fn copy_to_clipboard(string: String) {}
