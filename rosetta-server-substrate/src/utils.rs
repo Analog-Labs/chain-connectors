@@ -1,0 +1,366 @@
+use crate::api;
+use crate::chains;
+use crate::State;
+
+use anyhow::Result;
+use api::runtime_types::frame_system;
+use api::runtime_types::kitchensink_runtime::RuntimeEvent;
+use chains::substrate::api::runtime_types::frame_system::Phase;
+use parity_scale_codec::Encode;
+use rosetta_types::AccountIdentifier;
+use rosetta_types::Amount;
+use rosetta_types::{
+    Operation, OperationIdentifier, PartialBlockIdentifier, SubAccountIdentifier, Transaction,
+    TransactionIdentifier,
+};
+use serde_json::Value;
+use subxt::ext::sp_core::H256;
+use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
+use subxt::ext::sp_runtime::traits::BlakeTwo256;
+use subxt::ext::sp_runtime::OpaqueExtrinsic;
+use subxt::rpc::BlockNumber;
+use subxt::{OnlineClient, SubstrateConfig};
+use tide::{Body, Response};
+
+pub enum Error {
+    UnsupportedNetwork,
+    UnsupportedCurveType,
+    InvalidHex,
+    InvalidAddress,
+    BlockNotFound,
+    InvalidBlockIdentifier,
+    InvalidBlockHash,
+    InvalidParams,
+    NotImplemented,
+    OperationParse,
+    TransactionNotFound,
+    CouldNotSerialize,
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedNetwork => write!(f, "Unsupported network"),
+            Self::UnsupportedCurveType => write!(f, "Unsupported curve type"),
+            Self::InvalidHex => write!(f, "Invalid hex"),
+            Self::InvalidAddress => write!(f, "Invalid address"),
+            Self::BlockNotFound => write!(f, "Block not found"),
+            Self::InvalidBlockIdentifier => write!(f, "Invalid block identifier"),
+            Self::InvalidBlockHash => write!(f, "Invalid block hash"),
+            Self::InvalidParams => write!(f, "Invalid params"),
+            Self::NotImplemented => write!(f, "Not implemented"),
+            Self::OperationParse => write!(f, "Operation parse error"),
+            Self::TransactionNotFound => write!(f, "Transaction not found"),
+            Self::CouldNotSerialize => write!(f, "Serializer error"),
+        }
+    }
+}
+
+impl Error {
+    pub fn to_response(&self) -> tide::Result {
+        let error = rosetta_types::Error {
+            code: 500,
+            message: format!("{}", self),
+            description: None,
+            retriable: false,
+            details: None,
+        };
+        Ok(Response::builder(500)
+            .body(Body::from_json(&error)?)
+            .build())
+    }
+}
+
+pub async fn resolve_block(
+    subxt: &OnlineClient<SubstrateConfig>,
+    partial: Option<&PartialBlockIdentifier>,
+) -> Result<(H256, u64)> {
+    let mindex = if let Some(PartialBlockIdentifier {
+        index: Some(index), ..
+    }) = partial
+    {
+        Some(*index)
+    } else {
+        None
+    };
+    let hash = if let Some(PartialBlockIdentifier {
+        hash: Some(hash), ..
+    }) = partial
+    {
+        hash.parse()?
+    } else if let Some(hash) = subxt
+        .rpc()
+        .block_hash(mindex.map(BlockNumber::from))
+        .await?
+    {
+        hash
+    } else {
+        anyhow::bail!("invalid hash");
+    };
+    let index = if let Some(header) = subxt.rpc().header(Some(hash)).await? {
+        header.number as _
+    } else {
+        anyhow::bail!("invalid hash");
+    };
+    if let Some(mindex) = mindex {
+        anyhow::ensure!(index == mindex);
+    }
+    Ok((hash, index))
+}
+
+//make transaction identifier here
+pub fn get_transactions(
+    state: &State,
+    block: &SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    events: &[frame_system::EventRecord<RuntimeEvent, H256>],
+) -> Result<Vec<Transaction>, Error> {
+    let mut vec_of_extrinsics = vec![];
+
+    let extrinsics = block.block.extrinsics.clone();
+    let _block_number = block.block.header.number;
+
+    for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
+        let encoded_item: &[u8] = &extrinsic.encode();
+        let hex_val = hex::encode(encoded_item);
+        let mut vec_of_operations = vec![];
+
+        let transaction_identifier = TransactionIdentifier {
+            hash: hex_val.clone(),
+        };
+
+        let events_for_current_extrinsic = events
+            .iter()
+            .filter(|e| e.phase == Phase::ApplyExtrinsic(ex_index as u32))
+            .collect::<Vec<&frame_system::EventRecord<RuntimeEvent, H256>>>();
+
+        for (event_index, event) in events_for_current_extrinsic.iter().enumerate() {
+            let operation_identifier = OperationIdentifier {
+                index: event_index as i64,
+                network_index: None,
+            };
+            let json_string = match serde_json::to_string(&event.event) {
+                Ok(json_string) => json_string,
+                Err(_) => return Err(Error::CouldNotSerialize),
+            };
+            let json_event: Value = match serde_json::from_str(&json_string) {
+                Ok(json_event) => json_event,
+                Err(_) => return Err(Error::CouldNotSerialize),
+            };
+            let event_parsed_data = match get_operation_data(json_event.clone()) {
+                Ok(data) => data,
+                Err(e) => return Err(e),
+            };
+
+            let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
+                Some(from) => match event_parsed_data.to {
+                    Some(to) => Some(AccountIdentifier {
+                        address: from,
+                        sub_account: Some(SubAccountIdentifier {
+                            address: to,
+                            metadata: None,
+                        }),
+                        metadata: None,
+                    }),
+                    None => Some(AccountIdentifier {
+                        address: from,
+                        sub_account: None,
+                        metadata: None,
+                    }),
+                },
+                None => None,
+            };
+
+            let op_amount: Option<Amount> = event_parsed_data.amount.map(|amount| Amount {
+                value: amount,
+                currency: state.currency.clone(),
+                metadata: None,
+            });
+
+            let operation = Operation {
+                operation_identifier,
+                related_operations: None,
+                r#type: event_parsed_data.event_type,
+                status: None,
+                account: op_account,
+                amount: op_amount,
+                coin_change: None,
+                metadata: Some(json_event),
+            };
+
+            vec_of_operations.push(operation)
+        }
+
+        let transaction = Transaction {
+            transaction_identifier,
+            operations: vec_of_operations,
+            related_transactions: None,
+            metadata: None,
+        };
+
+        vec_of_extrinsics.push(transaction);
+    }
+    Ok(vec_of_extrinsics)
+}
+
+pub fn get_operation_data(data: Value) -> Result<TransactionOperationStatus, Error> {
+    let root_object = match data.as_object() {
+        Some(root_obj) => root_obj,
+        None => return Err(Error::OperationParse),
+    };
+    let pallet_name = match root_object.keys().next() {
+        Some(pallet_name) => pallet_name,
+        None => return Err(Error::OperationParse),
+    };
+
+    let pallet_object = match root_object.get(pallet_name) {
+        Some(pallet_obj) => match pallet_obj.as_object() {
+            Some(pallet_obj_inner) => pallet_obj_inner,
+            None => return Err(Error::OperationParse),
+        },
+        None => return Err(Error::OperationParse),
+    };
+
+    let event_name = match pallet_object.keys().next() {
+        Some(event_name) => event_name,
+        None => return Err(Error::OperationParse),
+    };
+
+    let event_object = match pallet_object.get(event_name) {
+        Some(event_obj) => match event_obj.as_object() {
+            Some(event_obj_inner) => event_obj_inner,
+            None => return Err(Error::OperationParse),
+        },
+        None => return Err(Error::OperationParse),
+    };
+
+    let call_type = format!("{}.{}", pallet_name.clone(), event_name.clone());
+
+    let amount: Option<String> = match event_object.get("amount") {
+        Some(amount) => Some(amount.to_string()),
+        None => event_object
+            .get("actual_fee")
+            .map(|actual_fee| actual_fee.to_string()),
+    };
+
+    let who: Option<String> = match event_object.get("who") {
+        Some(who) => who.as_str().map(|who_str| who_str.to_string()),
+        None => match event_object.get("account") {
+            Some(account) => account.as_str().map(|account_str| account_str.to_string()),
+            None => match event_object.get("from") {
+                Some(from) => from.as_str().map(|from_str| from_str.to_string()),
+                None => None,
+            },
+        },
+    };
+
+    let to: Option<String> = match event_object.get("to") {
+        Some(to) => to.as_str().map(|to_str| to_str.to_string()),
+        None => None,
+    };
+
+    let transaction_operation_status = TransactionOperationStatus {
+        event_type: call_type,
+        amount,
+        from: who,
+        to,
+    };
+
+    Ok(transaction_operation_status)
+}
+
+pub fn get_transaction(
+    transaction_hash: String,
+    state: &State,
+    block: &SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    events: &[frame_system::EventRecord<RuntimeEvent, H256>],
+) -> Result<Option<Transaction>, Error> {
+    let tx_hash = transaction_hash.trim_start_matches("0x");
+    let extrinsics = block.block.extrinsics.clone();
+    for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
+        let encoded_item: &[u8] = &extrinsic.encode();
+        let hex_val = hex::encode(encoded_item);
+
+        if hex_val.eq(&tx_hash) {
+            let mut vec_of_operations = vec![];
+            let transaction_identifier = TransactionIdentifier { hash: hex_val };
+
+            let events_for_current_extrinsic = events
+                .iter()
+                .filter(|e| e.phase == Phase::ApplyExtrinsic(ex_index as u32))
+                .collect::<Vec<&frame_system::EventRecord<RuntimeEvent, H256>>>();
+
+            for (event_index, event) in events_for_current_extrinsic.iter().enumerate() {
+                let operation_identifier = OperationIdentifier {
+                    index: event_index as i64,
+                    network_index: None,
+                };
+                let json_string = match serde_json::to_string(&event.event) {
+                    Ok(json_string) => json_string,
+                    Err(_) => return Err(Error::CouldNotSerialize),
+                };
+                let json_event: Value = match serde_json::from_str(&json_string) {
+                    Ok(json_event) => json_event,
+                    Err(_) => return Err(Error::CouldNotSerialize),
+                };
+                let event_parsed_data = match get_operation_data(json_event.clone()) {
+                    Ok(event_parsed_data) => event_parsed_data,
+                    Err(e) => return Err(e),
+                };
+
+                let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
+                    Some(from) => match event_parsed_data.to {
+                        Some(to) => Some(AccountIdentifier {
+                            address: from,
+                            sub_account: Some(SubAccountIdentifier {
+                                address: to,
+                                metadata: None,
+                            }),
+                            metadata: None,
+                        }),
+                        None => Some(AccountIdentifier {
+                            address: from,
+                            sub_account: None,
+                            metadata: None,
+                        }),
+                    },
+                    None => None,
+                };
+
+                let op_amount: Option<Amount> = event_parsed_data.amount.map(|amount| Amount {
+                    value: amount,
+                    currency: state.currency.clone(),
+                    metadata: None,
+                });
+
+                let operation = Operation {
+                    operation_identifier,
+                    related_operations: None,
+                    r#type: event_parsed_data.event_type,
+                    status: None,
+                    account: op_account,
+                    amount: op_amount,
+                    coin_change: None,
+                    metadata: Some(json_event),
+                };
+
+                vec_of_operations.push(operation)
+            }
+
+            let transaction = Transaction {
+                transaction_identifier,
+                operations: vec_of_operations,
+                related_transactions: None,
+                metadata: None,
+            };
+            return Ok(Some(transaction));
+        }
+    }
+    Ok(None)
+}
+
+pub struct TransactionOperationStatus {
+    event_type: String,
+    from: Option<String>,
+    to: Option<String>,
+    amount: Option<String>,
+}
