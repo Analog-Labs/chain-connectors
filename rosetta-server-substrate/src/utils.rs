@@ -108,15 +108,14 @@ pub async fn resolve_block(
     Ok((hash, index))
 }
 
-//make transaction identifier here
-pub fn get_transactions(
+pub fn get_block_transactions(
     state: &State,
-    block: &SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
     events: &[frame_system::EventRecord<RuntimeEvent, H256>],
 ) -> Result<Vec<Transaction>, Error> {
     let mut vec_of_extrinsics = vec![];
 
-    let extrinsics = block.block.extrinsics.clone();
+    let extrinsics = block.block.extrinsics;
     let _block_number = block.block.header.number;
 
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
@@ -138,18 +137,14 @@ pub fn get_transactions(
                 index: event_index as i64,
                 network_index: None,
             };
-            let json_string = match serde_json::to_string(&event.event) {
-                Ok(json_string) => json_string,
-                Err(_) => return Err(Error::CouldNotSerialize),
-            };
-            let json_event: Value = match serde_json::from_str(&json_string) {
-                Ok(json_event) => json_event,
-                Err(_) => return Err(Error::CouldNotSerialize),
-            };
-            let event_parsed_data = match get_operation_data(json_event.clone()) {
-                Ok(data) => data,
-                Err(e) => return Err(e),
-            };
+
+            let json_string =
+                serde_json::to_string(&event.event).map_err(|_| Error::CouldNotSerialize)?;
+
+            let json_event: Value =
+                serde_json::from_str(&json_string).map_err(|_| Error::CouldNotSerialize)?;
+
+            let event_parsed_data = get_operation_data(json_event.clone())?;
 
             let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
                 Some(from) => match event_parsed_data.to {
@@ -203,33 +198,19 @@ pub fn get_transactions(
 }
 
 pub fn get_operation_data(data: Value) -> Result<TransactionOperationStatus, Error> {
-    let root_object = match data.as_object() {
-        Some(root_obj) => root_obj,
-        None => return Err(Error::OperationParse),
-    };
-    let pallet_name = match root_object.keys().next() {
-        Some(pallet_name) => pallet_name,
-        None => return Err(Error::OperationParse),
-    };
+    let root_object = data.as_object().ok_or(Error::OperationParse)?;
+
+    let pallet_name = root_object.keys().next().ok_or(Error::OperationParse)?;
 
     let pallet_object = match root_object.get(pallet_name) {
-        Some(pallet_obj) => match pallet_obj.as_object() {
-            Some(pallet_obj_inner) => pallet_obj_inner,
-            None => return Err(Error::OperationParse),
-        },
+        Some(pallet_obj) => pallet_obj.as_object().ok_or(Error::OperationParse)?,
         None => return Err(Error::OperationParse),
     };
 
-    let event_name = match pallet_object.keys().next() {
-        Some(event_name) => event_name,
-        None => return Err(Error::OperationParse),
-    };
+    let event_name = pallet_object.keys().next().ok_or(Error::OperationParse)?;
 
     let event_object = match pallet_object.get(event_name) {
-        Some(event_obj) => match event_obj.as_object() {
-            Some(event_obj_inner) => event_obj_inner,
-            None => return Err(Error::OperationParse),
-        },
+        Some(event_obj) => event_obj.as_object().ok_or(Error::OperationParse)?,
         None => return Err(Error::OperationParse),
     };
 
@@ -268,14 +249,14 @@ pub fn get_operation_data(data: Value) -> Result<TransactionOperationStatus, Err
     Ok(transaction_operation_status)
 }
 
-pub fn get_transaction(
+pub fn get_transaction_detail(
     transaction_hash: String,
     state: &State,
-    block: &SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
     events: &[frame_system::EventRecord<RuntimeEvent, H256>],
 ) -> Result<Option<Transaction>, Error> {
     let tx_hash = transaction_hash.trim_start_matches("0x");
-    let extrinsics = block.block.extrinsics.clone();
+    let extrinsics = block.block.extrinsics;
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
         let encoded_item: &[u8] = &extrinsic.encode();
         let hex_val = hex::encode(encoded_item);
@@ -294,18 +275,12 @@ pub fn get_transaction(
                     index: event_index as i64,
                     network_index: None,
                 };
-                let json_string = match serde_json::to_string(&event.event) {
-                    Ok(json_string) => json_string,
-                    Err(_) => return Err(Error::CouldNotSerialize),
-                };
-                let json_event: Value = match serde_json::from_str(&json_string) {
-                    Ok(json_event) => json_event,
-                    Err(_) => return Err(Error::CouldNotSerialize),
-                };
-                let event_parsed_data = match get_operation_data(json_event.clone()) {
-                    Ok(event_parsed_data) => event_parsed_data,
-                    Err(e) => return Err(e),
-                };
+                let json_string =
+                    serde_json::to_string(&event.event).map_err(|_| Error::CouldNotSerialize)?;
+                let json_event: Value =
+                    serde_json::from_str(&json_string).map_err(|_| Error::CouldNotSerialize)?;
+
+                let event_parsed_data = get_operation_data(json_event.clone())?;
 
                 let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
                     Some(from) => match event_parsed_data.to {
