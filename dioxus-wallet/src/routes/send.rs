@@ -5,6 +5,8 @@ pub fn SendComponent(cx: Scope) -> Element {
     let sender_address = use_state(&cx, || {
         "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
     });
+    let selectedAsset = use_state(&cx, || "");
+
     let amount = use_state(&cx, || "".to_string());
     println!("{:?}", amount);
     cx.render(rsx! {
@@ -20,7 +22,7 @@ pub fn SendComponent(cx: Scope) -> Element {
                      },
                 h2{"SEND ETHEREUM"}
                 div{
-                    class:"input-container",
+                    class:"send-input-container",
                     input{
                         class:"input",
                         "type":"text",
