@@ -1,8 +1,13 @@
 use dioxus::prelude::*;
-use dioxus_router::{Link, Route, Router};
+use dioxus_router::{Route, Router};
 
-mod receive;
-mod send;
+mod components;
+mod routes;
+
+use crate::routes::assets::*;
+use crate::routes::dashboard::*;
+use crate::routes::receive::*;
+use crate::routes::send::*;
 
 #[cfg(target_os = "android")]
 #[no_mangle]
@@ -48,90 +53,17 @@ pub fn main() {
 static app: Component<()> = |cx| {
     cx.render(rsx! {
                   Router {
-                        style { [include_str!("./style.css")] }
+                        style {
+                        [include_str!("./style.css"),
+                        include_str!("./styles/button.css")]
+                    }
 
                       Route{to:"/",Dashboard{}}
-                      Route{to:"/send",send::SendComponent{}}
-                      Route{to:"/receive",receive::ReceiveComponent{}}
+                      Route{to:"/send",SendComponent{}}
+                      Route{to:"/receive",ReceiveComponent{}}
+                      Route{to:"/addAsset",AddAssets{}}
+                      Route{to:"/selectAsset/:from",SelectAsset{}}
             }
     })
 };
-
-pub struct AssetsType {
-    name: String,
-    balance: f64,
-    symbol: String,
-}
-
-pub fn Dashboard(cx: Scope) -> Element {
-    let dummy_assets = [
-        AssetsType {
-            name: "Bitcoin".to_string(),
-            balance: 1.1,
-            symbol: "BTC".to_string(),
-        },
-        AssetsType {
-            name: "Eth".to_string(),
-            balance: 2.2,
-            symbol: "ETH".to_string(),
-        },
-        AssetsType {
-            name: "Dot".to_string(),
-            balance: 2.2,
-            symbol: "DOT".to_string(),
-        },
-    ];
-    let assets = use_state(&cx, || dummy_assets);
-
-    let balance = use_state(&cx, || 2.30);
-    let account_address = use_state(&cx, || {
-        "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
-    });
-
-    cx.render(rsx!(
-        div {
-                class:"main-container",
-        div{
-        class: "dashboard-container" ,
-        h1{
-            class:"screen-title",
-
-            "Ethereum"
-        }
-
-        h5{
-            "{account_address}"
-        }
-        h2{
-            "{balance} ETH",
-        }
-        div {
-            class:"button-container",
-            Link { class:"button", to: "/send", "SEND"},
-            Link { class:"button", to: "/receive", "RECEIVE"}
-        }
-    }   div{
-                    class:"listing-container",
-                    div{
-                        class:"listing-title",
-                        "Tokens"}
-                    div {
-                        class:"list",
-                         assets.iter().map(|item| rsx!(
-                            div {
-                                onclick :move |evt| println!("clicked {:?}",evt),
-                                class:"list-item",
-                            div{
-                                class:"asset-name",
-                            "{item.name}",
-                            }
-                            div{
-                                class:"asset-name",
-                                "{item.balance} {item.symbol}",
-                            }
-                            }
-
-                             ))
-                    }
-                }}))
-}
+ 

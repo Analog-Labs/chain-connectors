@@ -1,0 +1,39 @@
+.link-button {
+
+    height: 70px;
+    width: 70px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    text-decoration: none;
+  }
+
+  .button-icon {
+    width: 25px;
+    height: 25px;
+  
+  
+  }
+  
+  .button-icon-container{
+    width: 40px;
+    height: 40px;
+    background-color: white;
+    border-radius: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  
+    
+    
+  }
+  
+  .button-title { 
+    margin-top: 2px;
+    text-decoration: none;
+    font-size: 13px;
+    color: whitesmoke;
+    
+  
+  }
