@@ -14,11 +14,24 @@ use rosetta_types::{
     TransactionIdentifier,
 };
 use serde_json::Value;
+use subxt::client::OfflineClientT;
+use subxt::ext::sp_core;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::OpaqueExtrinsic;
 use subxt::rpc::BlockNumber;
+use subxt::tx::AssetTip;
+use subxt::tx::BaseExtrinsicParams;
+use subxt::tx::BaseExtrinsicParamsBuilder;
+use subxt::tx::Era;
+use subxt::tx::PlainTip;
+use subxt::tx::PolkadotExtrinsicParamsBuilder;
+use subxt::tx::SubstrateExtrinsicParams;
+use subxt::tx::{ExtrinsicParams, TxPayload};
+use subxt::utils::Encoded;
+use subxt::Config;
+use subxt::PolkadotConfig;
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::{Body, Response};
 
@@ -338,4 +351,45 @@ pub struct TransactionOperationStatus {
     from: Option<String>,
     to: Option<String>,
     amount: Option<String>,
+}
+
+pub fn encode_call_data<Call>(
+    call: &Call,
+    subxt: &OnlineClient<SubstrateConfig>,
+    account_nonce: u32,
+    other_params: BaseExtrinsicParamsBuilder<SubstrateConfig, AssetTip>,
+) -> Result<Vec<u8>, Error>
+where
+    Call: TxPayload,
+{
+    let metadata = subxt.metadata();
+    let mut bytes = Vec::new();
+    call.encode_call_data(&metadata, &mut bytes).unwrap();
+
+    subxt.tx().validate(call).unwrap();
+
+    let encoded_call_data = Encoded(bytes);
+
+    let additional_and_extra_params = {
+        // Obtain spec version and transaction version from the runtime version of the client.
+        let runtime = subxt.runtime_version();
+        SubstrateExtrinsicParams::<SubstrateConfig>::new(
+            runtime.spec_version,
+            runtime.transaction_version,
+            account_nonce,
+            subxt.genesis_hash(),
+            other_params,
+        )
+    };
+
+    let mut params_bytes = Vec::new();
+    encoded_call_data.encode_to(&mut params_bytes);
+    additional_and_extra_params.encode_extra_to(&mut params_bytes);
+    additional_and_extra_params.encode_additional_to(&mut params_bytes);
+
+    if params_bytes.len() > 256{
+        Ok(sp_core::blake2_256(&params_bytes).to_vec())
+    }else{
+        Ok(params_bytes)
+    }
 }

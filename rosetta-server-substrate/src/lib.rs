@@ -1,20 +1,31 @@
 use anyhow::Result;
 use chains::substrate::api;
+use chains::substrate::api::system::constants;
 use rosetta_types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Amount, Block,
     BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
-    ConstructionDeriveRequest, ConstructionDeriveResponse, ConstructionMetadataRequest,
-    ConstructionPreprocessRequest, ConstructionPreprocessResponse, Currency, CurveType,
-    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkRequest, NetworkStatusResponse,
+    ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
+    ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
+    ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
+    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
+    Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkRequest,
+    NetworkStatusResponse, Operation, SignatureType, SigningPayload, TransactionIdentifier,
+    TransactionIdentifierResponse,
 };
 use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use std::str::FromStr;
 use std::time::Duration;
+use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
+use subxt::ext::sp_runtime::MultiAddress;
+use subxt::tx::{AssetTip, SubstrateExtrinsicParamsBuilder as Params};
+use subxt::tx::{Era, PlainTip, TxPayload};
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
-use utils::{get_block_transactions, get_transaction_detail, resolve_block, Error};
+use utils::{
+    encode_call_data, get_block_transactions, get_transaction_detail, resolve_block, Error,
+};
 
 mod chains;
 mod ss58;
@@ -345,10 +356,6 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_combine(mut _req: Request<State>) -> tide::Result {
-    todo!()
-}
-
 async fn construction_derive(mut req: Request<State>) -> tide::Result {
     let request: ConstructionDeriveRequest = req.body_json().await?;
     if request.network_identifier != req.state().network {
@@ -376,49 +383,26 @@ async fn construction_derive(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_hash(mut _req: Request<State>) -> tide::Result {
-    todo!()
-}
-
-async fn construction_metadata(mut req: Request<State>) -> tide::Result {
-    let request: ConstructionMetadataRequest = req.body_json().await?;
+async fn construction_hash(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionHashRequest = req.body_json().await?;
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
-
-    let options = match request.options {
-        Some(options) => options,
-        None => return Error::InvalidParams.to_response(),
+    let received_hex = request.signed_transaction.trim_start_matches("0x");
+    let transaction = match hex::decode(received_hex) {
+        Ok(transaction) => transaction,
+        Err(_) => return Error::InvalidHex.to_response(),
     };
-
-    let received_account_from = options["from"].clone().to_string();
-    let account: Result<AccountId32, Error> = received_account_from
-        .parse()
-        .map_err(|_| Error::InvalidAddress);
-    let account = match account {
-        Ok(account) => account,
-        Err(error) => {
-            return error.to_response();
-        }
+    let hash = blake2_256(&transaction);
+    let response = TransactionIdentifierResponse {
+        transaction_identifier: TransactionIdentifier {
+            hash: format!("{}{}", "0x", hex::encode(hash)),
+        },
+        metadata: None,
     };
-    let nonce_addr = api::storage().system().account(account);
-    let _entry = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&nonce_addr, None)
-        .await?;
-
-    // implementation still in progress
-    Ok(Response::builder(200).body(Body::from_json(&"")?).build())
-}
-
-async fn construction_parse(mut _req: Request<State>) -> tide::Result {
-    todo!()
-}
-
-async fn construction_payloads(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
@@ -452,7 +436,7 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap() > 0)
+                .map(|amount| amount.value.parse::<i32>().unwrap() < 0)
                 .unwrap_or_default()
         })
         .map(|op| op.account.clone().unwrap().address)
@@ -469,8 +453,230 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn construction_submit(mut _req: Request<State>) -> tide::Result {
+async fn construction_metadata(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionMetadataRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    let options = match request.options {
+        Some(options) => options,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let received_account_from = match options["from"].as_str() {
+        Some(received_account_from) => received_account_from,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let account: Result<AccountId32, Error> = received_account_from
+        .parse()
+        .map_err(|_| Error::InvalidAddress);
+    let account = match account {
+        Ok(account) => account,
+        Err(error) => {
+            return error.to_response();
+        }
+    };
+    let nonce_addr = api::storage().system().account(account);
+    let entry = req
+        .state()
+        .client
+        .storage()
+        .fetch_or_default(&nonce_addr, None)
+        .await?;
+
+    let nonce = entry.nonce;
+    let prefix = api::constants().system().ss58_prefix();
+    let ss8_prefix = match req.state().client.constants().at(&prefix) {
+        Ok(ss8_prefix) => ss8_prefix,
+        Err(_) => return Error::InvalidParams.to_response(),
+    };
+
+    let current_block = match req.state().client.rpc().block(None).await {
+        Ok(block) => match block {
+            Some(block) => block,
+            None => return Error::BlockNotFound.to_response(),
+        },
+        Err(_) => return Error::BlockNotFound.to_response(),
+    };
+
+    // let b_weights = api::constants().system().block_weights();
+    // let block_weights = match req.state().client.constants().at(&b_weights){
+    //     Ok(ss8_prefix) => ss8_prefix,
+    //     Err(_) => return Error::InvalidParams.to_response(),
+    // };
+
+    let _response = ConstructionMetadataResponse {
+        metadata: serde_json::json!({
+            "nonce": nonce,
+            "account_sequence": ss8_prefix,
+            "recent_block_hash": current_block.block.header.hash(),
+        }),
+        suggested_fee: None,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&_response)?)
+        .build())
+}
+
+async fn construction_parse(mut _req: Request<State>) -> tide::Result {
     todo!()
+}
+
+async fn construction_payloads(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionPayloadsRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    let metadata = match request.metadata {
+        Some(options) => options,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let nonce = match metadata["nonce"].as_u64() {
+        Some(nonce) => nonce,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let account_sequence = match metadata["account_sequence"].as_u64() {
+        Some(account_sequence) => account_sequence,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let recent_block_hash = match metadata["recent_block_hash"].as_str() {
+        Some(recent_block_hash) => recent_block_hash,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let operations = request.operations;
+
+    //for transafer check
+    if operations.len() != 2 {
+        return Error::InvalidParams.to_response();
+    }
+
+    let sender_operations = operations
+        .iter()
+        .filter(|op| {
+            op.amount
+                .as_ref()
+                .map(|amount| amount.value.parse::<i32>().unwrap() < 0)
+                .unwrap_or_default()
+        })
+        .collect::<Vec<&Operation>>();
+
+    let receiver_operations = operations
+        .iter()
+        .filter(|op| {
+            op.amount
+                .as_ref()
+                .map(|amount| amount.value.parse::<i32>().unwrap() > 0)
+                .unwrap_or_default()
+        })
+        .collect::<Vec<&Operation>>();
+
+    if sender_operations.len() != 1 || receiver_operations.len() != 1 {
+        return Error::InvalidParams.to_response();
+    }
+
+    let sender_address = match sender_operations[0].account.clone() {
+        Some(account) => account.address,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let receiver_address = match receiver_operations[0].account.clone() {
+        Some(account) => account.address,
+        None => return Error::InvalidParams.to_response(),
+    };
+
+    let amount = receiver_operations[0]
+        .amount
+        .as_ref()
+        .map(|amount| amount.value.parse::<u128>().unwrap())
+        .unwrap_or_default();
+
+    let receiver_account: Result<AccountId32, Error> =
+        receiver_address.parse().map_err(|_| Error::InvalidAddress);
+    let receiver_account = match receiver_account {
+        Ok(account) => account,
+        Err(error) => {
+            return error.to_response();
+        }
+    };
+
+    let tx_params = Params::new()
+        .tip(AssetTip::new(0))
+        .era(Era::Immortal, req.state().client.genesis_hash());
+
+    let payload = api::tx()
+        .balances()
+        .transfer(MultiAddress::Id(receiver_account), amount);
+    let encoded_tx = match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params){
+        Ok(encoded_tx) => encoded_tx,
+        Err(_) => return Error::InvalidParams.to_response(),
+    };
+
+    let tx_hex = hex::encode(&encoded_tx);
+
+    let signing_payload = SigningPayload {
+        address: Some(sender_address.clone()),
+        account_identifier: Some(AccountIdentifier {
+            address: sender_address,
+            sub_account: None,
+            metadata: None,
+        }),
+        hex_bytes: tx_hex.clone(),
+        signature_type: Some(SignatureType::Ed25519),
+    };
+
+    let response = ConstructionPayloadsResponse {
+        unsigned_transaction: format!("0x{}", tx_hex),
+        payloads: vec![signing_payload],
+        // metadata: None,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
+}
+
+async fn construction_combine(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionCombineRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    let unsinged_transaction = request.unsigned_transaction;
+    let signatures = request.signatures;
+
+    let response = ConstructionCombineResponse {
+        signed_transaction: "".into(),
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
+}
+
+async fn construction_submit(mut req: Request<State>) -> tide::Result {
+    let request: ConstructionSubmitRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    // let signed_transaction = request.signed_transaction;
+
+    // let response = TransactionIdentifierResponse {
+    //     transaction_identifier: TransactionIdentifier {
+    //         hash: signed_transaction,
+    //     },
+    //     metadata: None,
+    // };
+
+    Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
 
 async fn events_blocks(mut _req: Request<State>) -> tide::Result {

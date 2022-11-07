@@ -11,6 +11,7 @@ use crate::types::{
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
+use rosetta_types::Currency;
 use serde_json::Value;
 
 pub struct Wallet {
