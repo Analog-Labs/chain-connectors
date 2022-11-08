@@ -111,3 +111,67 @@ pub fn SingleSelectListingRow<'a>(cx: Scope<'a, singleSelectListingRowProps<'a>>
 
     })
 }
+
+#[derive(Props)]
+pub struct DashListingRowProps<'a> {
+    assetName: &'a str,
+    assetSymbol: &'a str,
+    marketCap: &'a str,
+    fiatPrice: f64,
+    nativePrice: f64,
+    assetIconUri: &'a str,
+}
+
+pub fn DashListingRow<'a>(cx: Scope<'a, DashListingRowProps<'a>>) -> Element {
+    cx.render(rsx! {
+        div{
+            class:"listing-row-container",
+            div{
+                class:"left-row-container",
+                div{
+                    class:"image-container",
+                    img{
+                        class:"row-image",
+                        src:cx.props.assetIconUri
+                    }
+                }
+                div{
+                    class:"row-left-title-container",
+                    div{
+                        class:"row-title",
+                        "{cx.props.assetName}",
+                        img{
+                            class:"arrow-down",
+                            src:"https://img.icons8.com/ios-glyphs/30/000000/long-arrow-down.png"
+                        }
+                        div{
+                            class:"row-title-2",
+                            "{cx.props.marketCap}",
+                        }
+                    }
+                    div{
+                        class:"row-subtitle",
+                        "{cx.props.assetSymbol}"
+                    }
+                }
+            }
+            div{
+                class:"right-row-container",
+                div{
+                    class:"row-right-title-container",
+                div {
+                    class:"row-title",
+                    "{cx.props.fiatPrice}",
+                }
+                div {
+                    class:"row-subtitle",
+                    "{cx.props.nativePrice}"
+                }
+            }
+
+            }
+
+        }
+
+    })
+}

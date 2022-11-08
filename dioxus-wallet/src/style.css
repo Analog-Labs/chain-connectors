@@ -1,7 +1,6 @@
 
 /* Global Styles */
 
-
 body {
   background-color: black;
   font-family: sans-serif;
@@ -10,7 +9,6 @@ body {
   height: 100vh;
   margin: 0 0 0 0;
   padding: 0 0 0 0;
-
 }
 #main {
   width: 100%;
@@ -23,9 +21,7 @@ body {
   display: flex;
   align-items: center;
   flex-direction: column;
-
 }
-
 
 /* Dashoard Styles */
 
@@ -48,7 +44,6 @@ body {
   align-items: center;
   display: flex;
 }
-
 .button-container {
   display: flex;
   justify-content: space-between;
@@ -56,8 +51,6 @@ body {
   align-items: center;
   margin-bottom: 10px;
 }
-
-
 .listing-container {
   height: 60%;
   width: 100%;
@@ -67,7 +60,6 @@ body {
   border-top-left-radius: 15px;
   border-top-right-radius: 15px;
 }
-
 .list {
   height: 90%;
   width: 100%;
@@ -75,7 +67,6 @@ body {
   align-items: center;
   flex-direction: column;
 }
-
 .wallet-name {
   background-color: #776d6d5d;
   height: 30px;
@@ -86,12 +77,7 @@ body {
   border-radius: 5px;
 }
 
-
-
 /* ........................... */
-
-
-
 
 /* Send/Receive Styles */
 
@@ -108,27 +94,18 @@ body {
   color: whitesmoke;
 }
 
-.send-input-container {
+.input-container {
   width: 100%;
-  height: 50%;
+  height: 30%;
   display: flex;
-  justify-content: space-evenly;
   align-items: center;
+  justify-content:space-evenly;
+
   flex-direction: column;
+  
 }
 
-
-
-
-
-
-
-
 /* ...................... */
-
-
-
-
 
 /* -------- listing component ---------  */
 
@@ -137,22 +114,12 @@ body {
   height: 50px;
   margin-top: 10px ;
   display: flex;
-
-
-  
 }
-
-
-
 .left-row-container{
   width: 70%;
   height: 100%;
   display: flex;
   align-items: center;
-  
-  
-  
-
 }
 .right-row-container{
   width: 30%;
@@ -160,12 +127,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  
-  
-  
-  
 }
-
 .image-container {
   width: 35px;
   height: 35px;
@@ -174,14 +136,10 @@ body {
   justify-content: center;
   align-items: center;
   border-radius: 30px;
-  
-  
 }
 .row-image {
   width: 25px ;
   height: 25px;
-  
-
 }
 .row-left-title-container {
   padding-left: 10px;
@@ -200,19 +158,13 @@ body {
   text-align: right;
 
 }
-
-
 .row-title {
   font-size: 16px;
   display: flex;
   flex-direction: row;
   color:whitesmoke;
   align-items: center;
-  
-  
-
 }
-
 .arrow-down { 
   width: 10px;
   height:10px;
@@ -220,7 +172,6 @@ body {
   border-radius: 10px;
   margin-left: 20px;
 }
-
 .row-title-2 { 
 margin-left: 5px;
 font-size: 12px;
@@ -229,7 +180,6 @@ display: flex;
 justify-content: center;
 align-items: center;
 }
-
 .row-subtitle { 
   font-size: 14px;
   color:rgb(201, 196, 196);
@@ -240,8 +190,7 @@ align-items: center;
 .header-container {
   width: 90%;
   height: 10%;
-  
-  
+
 }
 
 .header{
@@ -249,17 +198,19 @@ align-items: center;
   height: 100%;
   display: flex;
   justify-content: center;
-  
-  
+  position: relative;
 }
 
 .back-button-container {
-  width: 40%;
+  width: 25%;
   height: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
   color:#c9c4c4;
+  position: absolute;
+  left:0;
+
 }
 
 .back-icon{
@@ -268,40 +219,53 @@ align-items: center;
   border-radius: 20px;
   background-color: white;
   margin-right: 10px;
-  
-
 }
 
 .header-title {
-  width: 60%;
+  width: 50%;
   height: 100%;
   display: flex;
   align-items: center;
   font-size: large;
+  justify-content: center;
+
 }
 
+.header-right-container {
 
-
+width:"25%"
+}
 
  /* input-Styles */
 
-
  .input {
-  height: 50px;
-  background-color: black;
-  border: 2px solid whitesmoke;
+  height: 40px;
+  background-color: rgba(119, 109, 109, 0.363);;
   border-radius: 200px;
   width: 90%;
   color: whitesmoke;
   font-weight: bold;
   padding-left: 10px;
-
   font-size: 12px;
+  border: 0px solid transparent;
+  
+}
+.input:focus {
+  outline: none !important;
+  border:1px solid whitesmoke;
 }
 
- .input-container {
+ .search-input-container {
+  height: 10%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+ }
 
-  height: 15%;
+ .amount-input-container {
+
+  height: 5%;
   width: 100%;
   display: flex;
   justify-content: center;
@@ -311,28 +275,24 @@ align-items: center;
  }
 
  .add-asset-listing-container { 
-
   width: 100%;
   height: 60%;
   display: flex;
   align-items: center;
   flex-direction: column;
+  
  }
-
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
-
 /* ---------- Switch Styles--------- */
 .switch {
     position: relative;
     display: inline-block;
     width: 60px;
     height: 34px;
-
 }
 .slider {
   position: absolute;
@@ -345,7 +305,6 @@ input::-webkit-inner-spin-button {
   -webkit-transition: .4s;
   transition: .4s;
 }
-
 .slider:before {
   position: absolute;
   content: "";
@@ -357,29 +316,81 @@ input::-webkit-inner-spin-button {
   -webkit-transition: .4s;
   transition: .4s;
 }
-
 input:checked + .slider {
   background-color: #33f321;
 }
-
 input:focus + .slider {
   box-shadow: 0 0 1px  #33f321;
 }
-
-
 input:checked + .slider:before {
   -webkit-transform: translateX(26px);
   -ms-transform: translateX(26px);
   transform: translateX(26px);
 }
-
 .slider.round {
   border-radius: 34px;
 }
-
 .slider.round:before {
   border-radius: 50%;
 }
+.asset-icon-container { 
+  height: 20%;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+.asset-icon-wrapper{
+  height: 10rem;
+  width: 10rem;
+  border-radius: 5rem;
+  background-color: whitesmoke;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.asset-image{
+  width:40%;
+  height:40%;
+}
+.loader {
+  border: 16px solid #f3f3f3; /* Light grey */
+  border-top: 16px solid #a5a8aa; /* Blue */
+  border-radius: 100px;
+  width: 80px;
+  height: 80px;
+  animation: spin 1s linear infinite;
+}
 
-
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.asset-bottom-container{
+  width: 100%;
+  height: 40%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.qr-code-container { 
+  width:100%;
+  height: 60%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  
+}
+.qr-code-image{
+  background-color:white;
+  width: 80%;
+  height: 80%;
+}
+.receive-bottom-button-container{
+  height: 20%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 

@@ -4,8 +4,6 @@ use dioxus::core::UiEvent;
 use dioxus::events::*;
 use dioxus::prelude::*;
 use dioxus_router::{use_router, use_route};
-use std::sync::Arc;
-
 
 pub struct addAssetsType {
     assetName: String,
@@ -47,9 +45,8 @@ pub fn AddAssets(cx: Scope) -> Element {
                 }
             }
             div{
-                class:"input-container",
+                class:"search-input-container",
                 input{
-
                     class:"input",
                     value:"",
                     placeholder:"Search"
@@ -57,7 +54,6 @@ pub fn AddAssets(cx: Scope) -> Element {
             }
             div {
                 class:"add-asset-listing-container",
-
                 assets.iter().enumerate().map(|(id, asset)| rsx!(
                     MultiSelectListingRow {
                             assetName:asset.assetName.as_str(),
@@ -65,15 +61,13 @@ pub fn AddAssets(cx: Scope) -> Element {
                             assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png",
                             isSelected:asset.isSelected.as_str(),
                             onSelect: move |evt: UiEvent<FormData>| {println!("{:?}",id)} ,
-
                         }
                 ))
-
-
             }
-
-
-
+            Button{
+                title:"Save",
+            }
+           
         }
     })
 }
@@ -109,31 +103,23 @@ pub fn SelectAsset(cx: Scope) -> Element {
         },
     ];
     let router = use_router(&cx);
-
     let assets = use_state(&cx, || dummySelectAssets);
-
     let selectedAsset = use_state(&cx, || "");
-
     let route = use_route(&cx);
-    let name = route.segment("from").unwrap();
-    println!{"{}",name}
-
+    let routeFromName = route.segment("from").unwrap();
     cx.render(rsx! {
-
             div {
                 class:"main-container",
                 div{
                         class:"header-container",
                     Header{
-                        title:"Add Assets",
+                        title:"{routeFromName}",
                         onbackclick: move |evt|  router.push_route("/", None, None),
-
                     }
                 }
                 div{
-                    class:"input-container",
+                    class:"search-input-container",
                     input{
-
                         class:"input",
                         value:"",
                         placeholder:"Search"
@@ -141,37 +127,21 @@ pub fn SelectAsset(cx: Scope) -> Element {
                 }
                 div {
                     class:"add-asset-listing-container",
-
                     assets.iter().enumerate().map(|(id, asset)| rsx!(
-                     
                         SingleSelectListingRow {
                                 assetName:asset.assetName.as_str(),
                                 nativePrice:asset.nativePrice,
                                 assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png",
                                 onSelect: move |evt| {
-                                   match name == "send"   {
+                                   match routeFromName == "SEND"   {
                                     true => router.push_route("/send", None, None),
                                     false => router.push_route("/receive", None, None),
                                    }
-                                } ,
-
+                                },
                             }
                     ))
-
-
                 }
-
-
-                div {
-                    onclick: move |evt| {},
-                    "next",
-                    
-
-                }
-
-
-
+             
             }
-
     })
 }
