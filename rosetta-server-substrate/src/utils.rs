@@ -13,8 +13,9 @@ use rosetta_types::{
     Operation, OperationIdentifier, PartialBlockIdentifier, SubAccountIdentifier, Transaction,
     TransactionIdentifier,
 };
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
-use subxt::client::OfflineClientT;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
@@ -22,16 +23,10 @@ use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::OpaqueExtrinsic;
 use subxt::rpc::BlockNumber;
 use subxt::tx::AssetTip;
-use subxt::tx::BaseExtrinsicParams;
 use subxt::tx::BaseExtrinsicParamsBuilder;
-use subxt::tx::Era;
-use subxt::tx::PlainTip;
-use subxt::tx::PolkadotExtrinsicParamsBuilder;
 use subxt::tx::SubstrateExtrinsicParams;
 use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
-use subxt::Config;
-use subxt::PolkadotConfig;
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::{Body, Response};
 
@@ -358,7 +353,7 @@ pub fn encode_call_data<Call>(
     subxt: &OnlineClient<SubstrateConfig>,
     account_nonce: u32,
     other_params: BaseExtrinsicParamsBuilder<SubstrateConfig, AssetTip>,
-) -> Result<Vec<u8>, Error>
+) -> Result<PayloadData, Error>
 where
     Call: TxPayload,
 {
@@ -387,9 +382,35 @@ where
     additional_and_extra_params.encode_extra_to(&mut params_bytes);
     additional_and_extra_params.encode_additional_to(&mut params_bytes);
 
-    if params_bytes.len() > 256{
-        Ok(sp_core::blake2_256(&params_bytes).to_vec())
-    }else{
-        Ok(params_bytes)
-    }
+    let payload = if params_bytes.len() > 256 {
+        sp_core::blake2_256(&params_bytes).to_vec()
+    } else {
+        params_bytes
+    };
+
+    let mut params_vec = Vec::new();
+    let mut call_data_vec = Vec::new();
+    additional_and_extra_params.encode_extra_to(&mut params_vec);
+    encoded_call_data.encode_to(&mut call_data_vec);
+
+    let payload_data = PayloadData {
+        payload,
+        additional_params: params_vec,
+        call_data: call_data_vec,
+    };
+
+    Ok(payload_data)
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UnsignedTransactionData {
+    pub signer_address: String,
+    pub additional_parmas: Vec<u8>,
+    pub call_data: Vec<u8>,
+}
+
+pub struct PayloadData {
+    pub payload: Vec<u8>,
+    pub additional_params: Vec<u8>,
+    pub call_data: Vec<u8>,
 }

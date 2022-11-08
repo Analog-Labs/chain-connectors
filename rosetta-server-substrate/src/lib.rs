@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chains::substrate::api;
-use chains::substrate::api::system::constants;
+use parity_scale_codec::{Compact, Encode};
 use rosetta_types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Amount, Block,
     BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
@@ -16,15 +16,18 @@ use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
+use subxt::ext::sp_core::ed25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
-use subxt::ext::sp_runtime::MultiAddress;
+use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
+use subxt::tx::Era;
 use subxt::tx::{AssetTip, SubstrateExtrinsicParamsBuilder as Params};
-use subxt::tx::{Era, PlainTip, TxPayload};
+use subxt::utils::Encoded;
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     encode_call_data, get_block_transactions, get_transaction_detail, resolve_block, Error,
+    UnsignedTransactionData,
 };
 
 mod chains;
@@ -541,12 +544,12 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         None => return Error::InvalidParams.to_response(),
     };
 
-    let account_sequence = match metadata["account_sequence"].as_u64() {
+    let _account_sequence = match metadata["account_sequence"].as_u64() {
         Some(account_sequence) => account_sequence,
         None => return Error::InvalidParams.to_response(),
     };
 
-    let recent_block_hash = match metadata["recent_block_hash"].as_str() {
+    let _recent_block_hash = match metadata["recent_block_hash"].as_str() {
         Some(recent_block_hash) => recent_block_hash,
         None => return Error::InvalidParams.to_response(),
     };
@@ -613,13 +616,15 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
 
     let payload = api::tx()
         .balances()
-        .transfer(MultiAddress::Id(receiver_account), amount);
-    let encoded_tx = match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params){
-        Ok(encoded_tx) => encoded_tx,
-        Err(_) => return Error::InvalidParams.to_response(),
-    };
+        .transfer(MultiAddress::Id(receiver_account.clone()), amount);
 
-    let tx_hex = hex::encode(&encoded_tx);
+    let payload_data =
+        match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params) {
+            Ok(payload_data) => payload_data,
+            Err(_) => return Error::InvalidParams.to_response(),
+        };
+
+    let tx_hex = hex::encode(&payload_data.payload);
 
     let signing_payload = SigningPayload {
         address: Some(sender_address.clone()),
@@ -632,10 +637,17 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         signature_type: Some(SignatureType::Ed25519),
     };
 
+    let unsigned_tx = UnsignedTransactionData {
+        signer_address: receiver_address,
+        additional_parmas: payload_data.additional_params,
+        call_data: payload_data.call_data,
+    };
+
+    let usigned_tx = serde_json::to_string(&unsigned_tx).unwrap();
+
     let response = ConstructionPayloadsResponse {
-        unsigned_transaction: format!("0x{}", tx_hex),
+        unsigned_transaction: usigned_tx,
         payloads: vec![signing_payload],
-        // metadata: None,
     };
 
     Ok(Response::builder(200)
@@ -649,11 +661,69 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let unsinged_transaction = request.unsigned_transaction;
+    let unsigned_transaction = request.unsigned_transaction;
     let signatures = request.signatures;
 
+    if signatures.len() != 1 {
+        //return error
+    }
+
+    let signature = signatures[0].clone();
+
+    if signature.signature_type != SignatureType::Ed25519 {
+        //return error
+    }
+
+    let signature = signature.hex_bytes;
+
+    let sig_bytes = hex::decode(&signature).unwrap();
+
+    let sig_slice: &[u8] = &sig_bytes;
+    let sig = Signature::try_from(sig_slice).unwrap();
+    let multisig = MultiSignature::Ed25519(sig);
+
+    let unsigned_tx_data: UnsignedTransactionData =
+        serde_json::from_str(&unsigned_transaction).unwrap();
+
+    let signer_addr = unsigned_tx_data.signer_address;
+
+    let sender_account: Result<AccountId32, Error> =
+        signer_addr.parse().map_err(|_| Error::InvalidAddress);
+    let sender_account = match sender_account {
+        Ok(account) => account,
+        Err(error) => {
+            return error.to_response();
+        }
+    };
+
+    let sender_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(sender_account);
+
+    let extrinsic = {
+        let mut encoded_inner = Vec::new();
+        // "is signed" + transaction protocol version (4)
+        (0b10000000 + 4u8).encode_to(&mut encoded_inner);
+        // from address for signature
+        sender_multiaddr.encode_to(&mut encoded_inner);
+        //signature encode pending to vector
+        multisig.encode_to(&mut encoded_inner);
+        // attach custom extra params
+        encoded_inner.extend(unsigned_tx_data.additional_parmas);
+        // and now, call data
+        encoded_inner.extend(unsigned_tx_data.call_data);
+
+        // now, prefix byte length:
+        let len = Compact(
+            u32::try_from(encoded_inner.len()).expect("extrinsic size expected to be <4GB"),
+        );
+        let mut encoded = Vec::new();
+        len.encode_to(&mut encoded);
+        encoded.extend(encoded_inner);
+        encoded
+    };
+
+    let tx_hex = hex::encode(&extrinsic);
     let response = ConstructionCombineResponse {
-        signed_transaction: "".into(),
+        signed_transaction: format!("0x{}", tx_hex),
     };
 
     Ok(Response::builder(200)
@@ -667,16 +737,23 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    // let signed_transaction = request.signed_transaction;
+    let received_tx_hash = request.signed_transaction;
+    let tx_hash = received_tx_hash.trim_start_matches("0x");
+    let encoded_tx_data = hex::decode(tx_hash).unwrap();
+    let extrinsic = Encoded(encoded_tx_data.encode().to_vec());
 
-    // let response = TransactionIdentifierResponse {
-    //     transaction_identifier: TransactionIdentifier {
-    //         hash: signed_transaction,
-    //     },
-    //     metadata: None,
-    // };
+    let signed_transaction = req.state().client.rpc().submit_extrinsic(extrinsic).await?;
 
-    Ok(Response::builder(200).body(Body::from_json(&"")?).build())
+    let response = TransactionIdentifierResponse {
+        transaction_identifier: TransactionIdentifier {
+            hash: format!("0x{}", signed_transaction),
+        },
+        metadata: None,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn events_blocks(mut _req: Request<State>) -> tide::Result {
