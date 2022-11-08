@@ -1,0 +1,251 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dioxus-wallet'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dioxus-wallet"
+                ],
+                "filter": {
+                    "name": "dioxus-wallet",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dioxus-wallet'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dioxus-wallet",
+                    "--package=dioxus-wallet"
+                ],
+                "filter": {
+                    "name": "dioxus-wallet",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dioxus-wallet'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dioxus-wallet",
+                    "--package=dioxus-wallet"
+                ],
+                "filter": {
+                    "name": "dioxus-wallet",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rosetta-cli'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rosetta-cli",
+                    "--package=rosetta-cli"
+                ],
+                "filter": {
+                    "name": "rosetta-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rosetta-cli'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rosetta-cli",
+                    "--package=rosetta-cli"
+                ],
+                "filter": {
+                    "name": "rosetta-cli",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'rosetta-client'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=rosetta-client"
+                ],
+                "filter": {
+                    "name": "rosetta-client",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'rosetta-crypto'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=rosetta-crypto"
+                ],
+                "filter": {
+                    "name": "rosetta-crypto",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'rosetta-types'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=rosetta-types"
+                ],
+                "filter": {
+                    "name": "rosetta-types",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'rosetta-server-substrate'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=rosetta-server-substrate"
+                ],
+                "filter": {
+                    "name": "rosetta-server-substrate",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rosetta-server-substrate'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rosetta-server-substrate",
+                    "--package=rosetta-server-substrate"
+                ],
+                "filter": {
+                    "name": "rosetta-server-substrate",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rosetta-server-substrate'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rosetta-server-substrate",
+                    "--package=rosetta-server-substrate"
+                ],
+                "filter": {
+                    "name": "rosetta-server-substrate",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rosetta-wallet'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rosetta-wallet",
+                    "--package=rosetta-wallet"
+                ],
+                "filter": {
+                    "name": "rosetta-wallet",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rosetta-wallet'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rosetta-wallet",
+                    "--package=rosetta-wallet"
+                ],
+                "filter": {
+                    "name": "rosetta-wallet",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
