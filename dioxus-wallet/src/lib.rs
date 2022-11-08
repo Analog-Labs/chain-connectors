@@ -61,7 +61,6 @@ static app: Component<()> = |cx| {
                         [include_str!("./style.css"),
                         include_str!("./styles/button.css")]
                     }
-
                       Route{to:"/",Dashboard{}}
                       Route{to:"/send",SendComponent{}}
                       Route{to:"/receive",ReceiveComponent{}}

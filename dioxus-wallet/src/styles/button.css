@@ -35,5 +35,14 @@
     font-size: 13px;
     color: whitesmoke;
     
-  
+  }
+
+  .button {
+    width:80%;
+    height: 50px;
+    border-radius:40px;
+    background-color: white ;
+    color:black;
+    font-weight: bold;
+    
   }

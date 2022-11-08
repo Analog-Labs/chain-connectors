@@ -1,7 +1,7 @@
 #[allow(non_snake_case)]
 use dioxus::prelude::*;
 use dioxus_router::{use_router};
-use crate::components::globals::*;
+use crate::components::{globals::*, listing_rows::DashListingRow};
 pub struct AssetsType {
     assetName: String,
     nativePrice: f64,
@@ -52,12 +52,12 @@ pub fn Dashboard(cx: Scope) -> Element {
                          class:"button-container",
                          LinkButton {
                             title:"Send".to_string(),
-                            onClick: move |evt| {router.push_route(&format!("/selectAsset/{}", "send"), None, None)} ,
+                            onClick: move |evt| {router.push_route(&format!("/selectAsset/{}", "SEND"), None, None)} ,
                             uri:"https://img.icons8.com/ios-glyphs/30/000000/filled-sent.png"
                          }
                          LinkButton {
                             title:"Receive".to_string(),
-                            onClick: move |evt| {router.push_route(&format!("/selectAsset/{}", "receive"), None, None)} ,
+                            onClick: move |evt| {router.push_route(&format!("/selectAsset/{}", "RECEIVE"), None, None)} ,
 
                             uri:"https://img.icons8.com/external-xnimrodx-lineal-xnimrodx/64/000000/external-receive-passive-income-xnimrodx-lineal-xnimrodx.png"
                          }
@@ -69,7 +69,7 @@ pub fn Dashboard(cx: Scope) -> Element {
                             class:"list",
                              assets.iter().map(|item| rsx!(
                              
-                                    ListingRow {
+                                    DashListingRow {
                                     assetName:item.assetName.as_str(),
                                     assetSymbol: item.assetSymbol.as_str(),
                                     marketCap:item.marketCap.as_str(),
@@ -85,7 +85,6 @@ pub fn Dashboard(cx: Scope) -> Element {
                     }
                     LinkButton {
                         onClick: move |evt| {router.push_route("/addAsset", None, None)} ,
-
                         uri: "https://img.icons8.com/ios-glyphs/90/000000/plus-math.png",
                     }
 
@@ -96,74 +95,6 @@ pub fn Dashboard(cx: Scope) -> Element {
 
 
 
-
-// --------------------------------------- //
-
-// ------------ Listing Row --------------- //
-
-#[derive(Props)]
-pub struct ListingRowProps<'a> {
-    assetName: &'a str,
-    assetSymbol: &'a str,
-    marketCap: &'a str,
-    fiatPrice: f64,
-    nativePrice: f64,
-    assetIconUri: &'a str
-}
-
-pub fn ListingRow<'a>(cx: Scope<'a, ListingRowProps<'a>>) -> Element {
-    cx.render(rsx! {
-        div{
-            class:"listing-row-container",
-            div{
-                class:"left-row-container",
-                div{
-                    class:"image-container",
-                    img{
-                        class:"row-image",
-                        src:cx.props.assetIconUri
-                    }
-                }
-                div{
-                    class:"row-left-title-container",
-                    div{
-                        class:"row-title",
-                        "{cx.props.assetName}",
-                        img{
-                            class:"arrow-down",
-                            src:"https://img.icons8.com/ios-glyphs/30/000000/long-arrow-down.png"
-                        }
-                        div{
-                            class:"row-title-2",
-                            "{cx.props.marketCap}",
-                        }
-                    }
-                    div{
-                        class:"row-subtitle",
-                        "{cx.props.assetSymbol}"
-                    }
-                }
-            }
-            div{
-                class:"right-row-container",
-                div{
-                    class:"row-right-title-container",
-                div {
-                    class:"row-title",
-                    "{cx.props.fiatPrice}",
-                }
-                div {
-                    class:"row-subtitle",
-                    "{cx.props.nativePrice}"
-                }
-            }
-
-            }
-        
-        }
-
-    })
-}
 
 
 

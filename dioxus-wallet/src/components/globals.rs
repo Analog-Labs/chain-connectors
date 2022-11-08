@@ -17,7 +17,7 @@ pub fn Button<'a>(cx: Scope<'a, ButtonProps<'a>>) -> Element {
         button{
             class:"button",
 
-            "COPY"
+            "{cx.props.title}"
         }
     })
 }
@@ -67,6 +67,8 @@ pub struct HeaderProps<'a> {
 }
 
 pub fn Header<'a>(cx: Scope<'a, HeaderProps<'a>>) -> Element {
+
+    let title = cx.props.title.to_uppercase();
     cx.render(rsx! {div{
         class:"header",
         div{
@@ -83,8 +85,20 @@ pub fn Header<'a>(cx: Scope<'a, HeaderProps<'a>>) -> Element {
         }
         div{
             class:"header-title",
-            "{cx.props.title}"
+            "{title}",
 
         }
+
+        div{
+            class:"header-right-container"
+        }
     }})
+}
+
+pub fn Loader(cx: Scope) -> Element {
+    cx.render(rsx! {
+        div{
+            class:"loader"
+        }
+    })
 }
