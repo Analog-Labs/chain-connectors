@@ -43,6 +43,7 @@ pub enum Error {
     OperationParse,
     TransactionNotFound,
     CouldNotSerialize,
+    CouldNotDeserialize,
     MoreThanOneSignature,
     InvalidSignatureType,
     CouldNotCreateCallData,
@@ -50,6 +51,9 @@ pub enum Error {
     InvalidOperationsLength,
     SenderNotFound,
     ReceiverNotFound,
+    InvalidSignature,
+    InvalidCallData,
+    InvalidAmount,
 }
 
 impl std::fmt::Display for Error {
@@ -74,6 +78,10 @@ impl std::fmt::Display for Error {
             Self::InvalidOperationsLength => write!(f, "Invalid operations length"),
             Self::SenderNotFound => write!(f, "Sender not found"),
             Self::ReceiverNotFound => write!(f, "Receiver not found"),
+            Self::CouldNotDeserialize => write!(f, "Could not deserialize"),
+            Self::InvalidSignature => write!(f, "Invalid signature"),
+            Self::InvalidCallData => write!(f, "Invalid call data"),
+            Self::InvalidAmount => write!(f, "Invalid amount"),
         }
     }
 }
@@ -373,9 +381,13 @@ where
 {
     let metadata = subxt.metadata();
     let mut bytes = Vec::new();
-    call.encode_call_data(&metadata, &mut bytes).unwrap();
+    call.encode_call_data(&metadata, &mut bytes)
+        .map_err(|_| Error::CouldNotSerialize)?;
 
-    subxt.tx().validate(call).unwrap();
+    subxt
+        .tx()
+        .validate(call)
+        .map_err(|_| Error::InvalidCallData)?;
 
     let encoded_call_data = Encoded(bytes);
 
