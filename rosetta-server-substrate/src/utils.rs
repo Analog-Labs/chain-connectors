@@ -43,6 +43,13 @@ pub enum Error {
     OperationParse,
     TransactionNotFound,
     CouldNotSerialize,
+    MoreThanOneSignature,
+    InvalidSignatureType,
+    CouldNotCreateCallData,
+    InvalidExtrinsic,
+    InvalidOperationsLength,
+    SenderNotFound,
+    ReceiverNotFound,
 }
 
 impl std::fmt::Display for Error {
@@ -60,6 +67,13 @@ impl std::fmt::Display for Error {
             Self::OperationParse => write!(f, "Operation parse error"),
             Self::TransactionNotFound => write!(f, "Transaction not found"),
             Self::CouldNotSerialize => write!(f, "Serializer error"),
+            Self::MoreThanOneSignature => write!(f, "More than one signature"),
+            Self::InvalidSignatureType => write!(f, "Invalid signature type"),
+            Self::CouldNotCreateCallData => write!(f, "Could not create call data"),
+            Self::InvalidExtrinsic => write!(f, "Invalid extrinsic"),
+            Self::InvalidOperationsLength => write!(f, "Invalid operations length"),
+            Self::SenderNotFound => write!(f, "Sender not found"),
+            Self::ReceiverNotFound => write!(f, "Receiver not found"),
         }
     }
 }
