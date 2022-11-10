@@ -727,12 +727,10 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
         }
     };
 
-    println!("tx_hash: {:?}", signed_transaction);
+    let tx_hash = format!("{:?}", signed_transaction);
 
     let response = TransactionIdentifierResponse {
-        transaction_identifier: TransactionIdentifier {
-            hash: format!("0x{}", signed_transaction),
-        },
+        transaction_identifier: TransactionIdentifier { hash: tx_hash },
         metadata: None,
     };
 
