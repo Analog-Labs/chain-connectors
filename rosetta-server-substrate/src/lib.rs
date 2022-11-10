@@ -439,7 +439,7 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap() < 0)
+                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() < 0)
                 .unwrap_or_default()
         })
         .map(|op| op.account.clone().unwrap().address)
@@ -534,7 +534,7 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap() < 0)
+                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() < 0)
                 .unwrap_or_default()
         })
         .collect::<Vec<&Operation>>();
@@ -544,7 +544,7 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap() > 0)
+                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() > 0)
                 .unwrap_or_default()
         })
         .collect::<Vec<&Operation>>();
@@ -566,9 +566,12 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
     let amount = receiver_operations[0]
         .amount
         .as_ref()
-        .map(|amount| amount.value.parse::<u128>().unwrap())
+        .map(|amount| amount.value.parse::<u128>().unwrap_or_default())
         .unwrap_or_default();
 
+    if amount == 0 {
+        return Error::InvalidAmount.to_response();
+    }
     let receiver_account: Result<AccountId32, Error> =
         receiver_address.parse().map_err(|_| Error::InvalidAddress);
     let receiver_account = match receiver_account {
@@ -611,7 +614,10 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         call_data: payload_data.call_data,
     };
 
-    let usigned_tx = serde_json::to_string(&unsigned_tx).unwrap();
+    let usigned_tx = match serde_json::to_string(&unsigned_tx) {
+        Ok(usigned_tx) => usigned_tx,
+        Err(_) => return Error::CouldNotSerialize.to_response(),
+    };
 
     let response = ConstructionPayloadsResponse {
         unsigned_transaction: usigned_tx,
@@ -644,14 +650,23 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
 
     let signature = signature.hex_bytes;
 
-    let sig_bytes = hex::decode(&signature).unwrap();
+    let sig_bytes = match hex::decode(&signature) {
+        Ok(sig_bytes) => sig_bytes,
+        Err(_) => return Error::InvalidHex.to_response(),
+    };
 
     let sig_slice: &[u8] = &sig_bytes;
-    let sig = Signature::try_from(sig_slice).unwrap();
+    let sig = match Signature::try_from(sig_slice) {
+        Ok(sig) => sig,
+        Err(_) => return Error::InvalidSignature.to_response(),
+    };
     let multisig = MultiSignature::Sr25519(sig);
 
     let unsigned_tx_data: UnsignedTransactionData =
-        serde_json::from_str(&unsigned_transaction).unwrap();
+        match serde_json::from_str(&unsigned_transaction) {
+            Ok(unsigned_tx_data) => unsigned_tx_data,
+            Err(_) => return Error::CouldNotDeserialize.to_response(),
+        };
 
     let signer_addr = unsigned_tx_data.signer_address;
 
@@ -707,7 +722,10 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
 
     let received_tx_hash = request.signed_transaction;
     let tx_hash = received_tx_hash.trim_start_matches("0x");
-    let encoded_tx_data = hex::decode(tx_hash).unwrap();
+    let encoded_tx_data = match hex::decode(tx_hash) {
+        Ok(data) => data,
+        Err(_) => return Error::InvalidHex.to_response(),
+    };
     let sb_extrinsic =
         SubmittableExtrinsic::from_bytes(req.state().client.clone(), encoded_tx_data);
 
