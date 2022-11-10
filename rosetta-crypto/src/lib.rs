@@ -125,7 +125,11 @@ impl SecretKey {
             }
             SecretKey::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign(msg)),
             SecretKey::Ed25519(secret) => Signature::Ed25519(secret.sign(msg)),
-            SecretKey::Sr25519(secret, _) => Signature::Sr25519(secret.sign_simple(&[], msg)),
+            SecretKey::Sr25519(secret, _) => {
+                //need a signing context here for substrate
+                let context = schnorrkel::signing_context(b"substrate");
+                Signature::Sr25519(secret.sign(context.bytes(msg)))
+            }
         }
     }
 
@@ -142,7 +146,9 @@ impl SecretKey {
                 Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?)
             }
             SecretKey::Ed25519(_) => anyhow::bail!("unimplemented"),
-            SecretKey::Sr25519(_, _) => anyhow::bail!("unsupported"),
+            SecretKey::Sr25519(_, _) => {
+                anyhow::bail!("unsupported")
+            }
         })
     }
 }

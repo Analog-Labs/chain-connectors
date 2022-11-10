@@ -16,11 +16,11 @@ use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
-use subxt::ext::sp_core::ed25519::Signature;
+use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
-use subxt::tx::Era;
 use subxt::tx::{AssetTip, SubstrateExtrinsicParamsBuilder as Params};
+use subxt::tx::{Era, SubmittableExtrinsic};
 use subxt::utils::Encoded;
 use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
@@ -399,7 +399,7 @@ async fn construction_hash(mut req: Request<State>) -> tide::Result {
     let hash = blake2_256(&transaction);
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
-            hash: format!("{}{}", "0x", hex::encode(hash)),
+            hash: format!("0x{}", hex::encode(hash)),
         },
         metadata: None,
     };
@@ -490,31 +490,10 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         .await?;
 
     let nonce = entry.nonce;
-    let prefix = api::constants().system().ss58_prefix();
-    let ss8_prefix = match req.state().client.constants().at(&prefix) {
-        Ok(ss8_prefix) => ss8_prefix,
-        Err(_) => return Error::InvalidParams.to_response(),
-    };
-
-    let current_block = match req.state().client.rpc().block(None).await {
-        Ok(block) => match block {
-            Some(block) => block,
-            None => return Error::BlockNotFound.to_response(),
-        },
-        Err(_) => return Error::BlockNotFound.to_response(),
-    };
-
-    // let b_weights = api::constants().system().block_weights();
-    // let block_weights = match req.state().client.constants().at(&b_weights){
-    //     Ok(ss8_prefix) => ss8_prefix,
-    //     Err(_) => return Error::InvalidParams.to_response(),
-    // };
 
     let _response = ConstructionMetadataResponse {
         metadata: serde_json::json!({
             "nonce": nonce,
-            "account_sequence": ss8_prefix,
-            "recent_block_hash": current_block.block.header.hash(),
         }),
         suggested_fee: None,
     };
@@ -544,21 +523,10 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         None => return Error::InvalidParams.to_response(),
     };
 
-    let _account_sequence = match metadata["account_sequence"].as_u64() {
-        Some(account_sequence) => account_sequence,
-        None => return Error::InvalidParams.to_response(),
-    };
-
-    let _recent_block_hash = match metadata["recent_block_hash"].as_str() {
-        Some(recent_block_hash) => recent_block_hash,
-        None => return Error::InvalidParams.to_response(),
-    };
-
     let operations = request.operations;
 
-    //for transafer check
     if operations.len() != 2 {
-        return Error::InvalidParams.to_response();
+        return Error::InvalidOperationsLength.to_response();
     }
 
     let sender_operations = operations
@@ -582,17 +550,17 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .collect::<Vec<&Operation>>();
 
     if sender_operations.len() != 1 || receiver_operations.len() != 1 {
-        return Error::InvalidParams.to_response();
+        return Error::InvalidOperationsLength.to_response();
     }
 
     let sender_address = match sender_operations[0].account.clone() {
         Some(account) => account.address,
-        None => return Error::InvalidParams.to_response(),
+        None => return Error::SenderNotFound.to_response(),
     };
 
     let receiver_address = match receiver_operations[0].account.clone() {
         Some(account) => account.address,
-        None => return Error::InvalidParams.to_response(),
+        None => return Error::ReceiverNotFound.to_response(),
     };
 
     let amount = receiver_operations[0]
@@ -616,12 +584,12 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
 
     let payload = api::tx()
         .balances()
-        .transfer(MultiAddress::Id(receiver_account.clone()), amount);
+        .transfer(MultiAddress::Id(receiver_account), amount);
 
     let payload_data =
         match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params) {
             Ok(payload_data) => payload_data,
-            Err(_) => return Error::InvalidParams.to_response(),
+            Err(_) => return Error::CouldNotCreateCallData.to_response(),
         };
 
     let tx_hex = hex::encode(&payload_data.payload);
@@ -629,16 +597,16 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
     let signing_payload = SigningPayload {
         address: Some(sender_address.clone()),
         account_identifier: Some(AccountIdentifier {
-            address: sender_address,
+            address: sender_address.clone(),
             sub_account: None,
             metadata: None,
         }),
-        hex_bytes: tx_hex.clone(),
-        signature_type: Some(SignatureType::Ed25519),
+        hex_bytes: tx_hex,
+        signature_type: Some(SignatureType::Sr25519),
     };
 
     let unsigned_tx = UnsignedTransactionData {
-        signer_address: receiver_address,
+        signer_address: sender_address,
         additional_parmas: payload_data.additional_params,
         call_data: payload_data.call_data,
     };
@@ -665,13 +633,13 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
     let signatures = request.signatures;
 
     if signatures.len() != 1 {
-        //return error
+        return Error::MoreThanOneSignature.to_response();
     }
 
     let signature = signatures[0].clone();
 
-    if signature.signature_type != SignatureType::Ed25519 {
-        //return error
+    if signature.signature_type != SignatureType::Sr25519 {
+        return Error::InvalidSignatureType.to_response();
     }
 
     let signature = signature.hex_bytes;
@@ -680,7 +648,7 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
 
     let sig_slice: &[u8] = &sig_bytes;
     let sig = Signature::try_from(sig_slice).unwrap();
-    let multisig = MultiSignature::Ed25519(sig);
+    let multisig = MultiSignature::Sr25519(sig);
 
     let unsigned_tx_data: UnsignedTransactionData =
         serde_json::from_str(&unsigned_transaction).unwrap();
@@ -704,7 +672,7 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
         (0b10000000 + 4u8).encode_to(&mut encoded_inner);
         // from address for signature
         sender_multiaddr.encode_to(&mut encoded_inner);
-        //signature encode pending to vector
+        // signature encode pending to vector
         multisig.encode_to(&mut encoded_inner);
         // attach custom extra params
         encoded_inner.extend(unsigned_tx_data.additional_parmas);
@@ -740,9 +708,26 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
     let received_tx_hash = request.signed_transaction;
     let tx_hash = received_tx_hash.trim_start_matches("0x");
     let encoded_tx_data = hex::decode(tx_hash).unwrap();
-    let extrinsic = Encoded(encoded_tx_data.encode().to_vec());
+    let sb_extrinsic =
+        SubmittableExtrinsic::from_bytes(req.state().client.clone(), encoded_tx_data);
 
-    let signed_transaction = req.state().client.rpc().submit_extrinsic(extrinsic).await?;
+    let encoded_extrinsic = Encoded(sb_extrinsic.encoded().to_vec());
+
+    let signed_transaction = match req
+        .state()
+        .client
+        .rpc()
+        .submit_extrinsic(encoded_extrinsic)
+        .await
+    {
+        Ok(tx_hash) => tx_hash,
+        Err(e) => {
+            println!("Error: {:?}", e);
+            return Error::InvalidExtrinsic.to_response();
+        }
+    };
+
+    println!("tx_hash: {:?}", signed_transaction);
 
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
