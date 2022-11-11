@@ -38,7 +38,7 @@ mod tests {
         let public_key = "ec41bdaf7893f2dc6dd853eecfdaa220a7d87b6f05801cae18db11ca7b1ba731";
         let ss58 = "5HQUgoe4VCFp4q42XbnnFhDTaveW9W5LQfqiGMVGfTiKDvqi";
         let address_format = Ss58AddressFormat::from(Ss58AddressFormatRegistry::SubstrateAccount);
-        let public_key = hex::decode(&public_key).unwrap();
+        let public_key = hex::decode(public_key).unwrap();
         assert_eq!(ss58_encode(address_format, &public_key), ss58);
     }
 }

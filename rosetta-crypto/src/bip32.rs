@@ -451,7 +451,7 @@ mod tests {
             let chain_code1 = &xprv[13..45];
             let chain_code2 = &xpub[13..45];
             assert_eq!(chain_code1, chain_code2);
-            let chain_code = hex::encode(&chain_code1);
+            let chain_code = hex::encode(chain_code1);
             let private = hex::encode(&xprv[46..78]);
             let public = hex::encode(&xpub[45..78]);
             self.assert(&chain_code, &private, &public);
