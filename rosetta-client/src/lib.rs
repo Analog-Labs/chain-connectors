@@ -48,10 +48,10 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
         opts.create(true).write(true).truncate(true);
         #[cfg(unix)]
         opts.mode(0o600);
-        let mut f = opts.open(&path)?;
+        let mut f = opts.open(path)?;
         f.write_all(mnemonic.to_string().as_bytes())?;
     }
-    let mnemonic = std::fs::read_to_string(&path)?;
+    let mnemonic = std::fs::read_to_string(path)?;
     let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic)?;
     let signer = Signer::new(&mnemonic, "")?;
     Ok(signer)

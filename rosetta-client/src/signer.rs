@@ -84,10 +84,7 @@ impl RosettaSecretKey for DerivedSecretKey {
                 secret_key.sign_prehashed(&payload_bytes)?,
                 SignatureType::Ed25519,
             ),
-            Algorithm::Sr25519 => (
-                secret_key.sign_prehashed(&payload_bytes)?,
-                SignatureType::Sr25519,
-            ),
+            Algorithm::Sr25519 => (secret_key.sign(&payload_bytes), SignatureType::Sr25519),
         };
         Ok(Signature {
             signing_payload: payload,
