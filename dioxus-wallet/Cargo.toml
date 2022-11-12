@@ -13,6 +13,10 @@ dioxus-router = "0.2.3"
 fermi = "0.2.1"
 futures = "0.3.25"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
+rosetta-client = { path = "../rosetta-client" }
+surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
+async-std = { version = "1.12.0", features = ["attributes"] }
+
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 dioxus-desktop = "0.2.3"

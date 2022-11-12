@@ -2,6 +2,8 @@
 use dioxus::prelude::*;
 use dioxus_router::{use_router};
 use crate::components::{globals::*, listing_rows::DashListingRow};
+use rosetta_client::{createWalletEthereum, Wallet};
+
 pub struct AssetsType {
     assetName: String,
     nativePrice: f64,
@@ -41,6 +43,17 @@ pub fn Dashboard(cx: Scope) -> Element {
         "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
     });
     let router = use_router(&cx);
+
+        // For Testing purpose Only 
+    use_effect(&cx, (), |_| async move {
+          if let Ok(wallet)  = rosetta_client::createWalletEthereum().await {
+            println!("{}",wallet.public_key().hex_bytes)
+          }else {
+            println!("Error case while wallet creation  ");
+          }
+        }
+        );
+
     cx.render(rsx!(
             div {
                  class:"main-container",

@@ -1,12 +1,11 @@
 //! Rosetta client.
 use crate::crypto::bip39::{Language, Mnemonic};
 use crate::types::Amount;
-use anyhow::Result;
+use anyhow::{Error, Result};
 use fraction::{BigDecimal, BigUint};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-
 pub use crate::client::Client;
 pub use crate::config::BlockchainConfig;
 pub use crate::signer::Signer;
@@ -55,4 +54,12 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
     let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic)?;
     let signer = Signer::new(&mnemonic, "")?;
     Ok(signer)
+}
+
+pub async fn createWalletEthereum() -> Result<Wallet, Error> {
+    let config = BlockchainConfig::ethereum_dev();
+    let keyfile = default_keyfile()?;
+    let signer = open_or_create_keyfile(&keyfile)?;
+    let wallet = Wallet::new(config, &signer).await?;
+    Ok(wallet)
 }
