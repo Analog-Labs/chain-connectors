@@ -228,18 +228,9 @@ async fn block(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let block_hash: H256 = match request.block_identifier.hash {
-        Some(hash) => match H256::from_str(&hash) {
-            Ok(hash) => hash,
-            Err(_) => return Error::InvalidBlockHash.to_response(),
-        },
-        None => return Error::InvalidBlockIdentifier.to_response(),
-    };
+    let block_identifier = Some(request.block_identifier);
 
-    let index = match request.block_identifier.index {
-        Some(index) => index,
-        None => return Error::InvalidBlockIdentifier.to_response(),
-    };
+    let (block_hash, index) = resolve_block(&req.state().client, block_identifier.as_ref()).await?;
 
     let block = req.state().client.rpc().block(Some(block_hash)).await?;
     let block = match block {
