@@ -187,8 +187,7 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
             Some(account_data) => account_data,
             None => return Error::AccountNotFound.to_response(),
         },
-        Err(e) => {
-            println!("error: {}", e);
+        Err(_) => {
             return Error::BlockNotFound.to_response();
         }
     };
@@ -747,7 +746,6 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
     {
         Ok(tx_hash) => tx_hash,
         Err(e) => {
-            println!("Error: {:?}", e);
             return Error::InvalidExtrinsic.to_response();
         }
     };
