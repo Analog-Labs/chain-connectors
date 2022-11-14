@@ -745,7 +745,7 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
         .await
     {
         Ok(tx_hash) => tx_hash,
-        Err(e) => {
+        Err(_) => {
             return Error::InvalidExtrinsic.to_response();
         }
     };
