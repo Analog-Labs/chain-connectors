@@ -20,12 +20,12 @@ services:
       - "8081:8081"
       - "30303:30303"
       - "8545:8545"
-  explorer:
-    image: "rosetta-explorer"
-    environment:
-      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081"
-    ports:
-      - "3000:3000"
-    links:
-      - bitcoin
-      - ethereum
+  # explorer:
+  # image: "rosetta-explorer"
+  #   environment:
+  #     - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081"
+  #   ports:
+  #     - "3000:3000"
+  #   links:
+  #     - bitcoin
+  #     - ethereum

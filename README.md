@@ -57,10 +57,12 @@ rosetta-wallet --chain eth --keyfile /tmp/bob balance
 
 ### Substrate example
 ```
-docker compose up
+substrate --dev
+cd rosetta-server-substrate 
+cargo run 
+cd ..
 rosetta-wallet --chain dot --keyfile /tmp/alice faucet 3000000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob account
-rosetta-wallet --chain dot --keyfile /tmp/bob balance
-rosetta-wallet --chain dot --keyfile /tmp/alice transfer 15VdDXFKybRiY4Mbz3H4pucM2nzicmEcHvwzhuBXSTdaR7ay 1500000000000000
+rosetta-wallet --chain dot --keyfile /tmp/alice transfer Account 1500000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob balance
 ```
