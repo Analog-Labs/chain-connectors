@@ -63,6 +63,6 @@ cargo run
 cd ..
 rosetta-wallet --chain dot --keyfile /tmp/alice faucet 3000000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob account
-rosetta-wallet --chain dot --keyfile /tmp/alice transfer Account 1500000000000000
+rosetta-wallet --chain dot --keyfile /tmp/alice transfer bob_acc_key 1500000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob balance
 ```
