@@ -33,7 +33,7 @@ services:
   explorer:
     image: "rosetta-explorer"
     environment:
-      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081,Substrate=http://substrate:8082"
+      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081,Polkadot=http://substrate:8082"
     ports:
       - "3000:3000"
     links:
