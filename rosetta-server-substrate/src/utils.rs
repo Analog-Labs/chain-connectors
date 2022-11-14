@@ -54,6 +54,7 @@ pub enum Error {
     InvalidSignature,
     InvalidCallData,
     InvalidAmount,
+    AccountNotFound,
 }
 
 impl std::fmt::Display for Error {
@@ -82,6 +83,7 @@ impl std::fmt::Display for Error {
             Self::InvalidSignature => write!(f, "Invalid signature"),
             Self::InvalidCallData => write!(f, "Invalid call data"),
             Self::InvalidAmount => write!(f, "Invalid amount"),
+            Self::AccountNotFound => write!(f, "Account not found"),
         }
     }
 }

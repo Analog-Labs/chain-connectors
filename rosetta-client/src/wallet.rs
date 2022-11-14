@@ -218,7 +218,6 @@ impl Wallet {
             .combine(&payloads.unsigned_transaction, signatures)
             .await?;
 
-        let tx_hash = self.submit(&tx).await;
-        tx_hash
+        self.submit(&tx).await
     }
 }

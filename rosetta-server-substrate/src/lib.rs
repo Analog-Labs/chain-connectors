@@ -117,7 +117,7 @@ async fn network_list(mut req: Request<State>) -> tide::Result {
 }
 
 async fn network_options(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Error::NotImplemented.to_response()
 }
 
 async fn network_status(mut req: Request<State>) -> tide::Result {
@@ -181,16 +181,20 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
             return error.to_response();
         }
     };
-    let account_key = api::storage().balances().account(&account);
-    let account_data = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&account_key, Some(hash))
-        .await?;
+    let account_key = api::storage().system().account(&account);
+    let account_data = match req.state().client.storage().fetch(&account_key, None).await {
+        Ok(account_data) => match account_data {
+            Some(account_data) => account_data,
+            None => return Error::AccountNotFound.to_response(),
+        },
+        Err(e) => {
+            println!("error: {}", e);
+            return Error::BlockNotFound.to_response();
+        }
+    };
     let response = AccountBalanceResponse {
         balances: vec![Amount {
-            value: account_data.free.to_string(),
+            value: account_data.data.free.to_string(),
             currency: req.state().currency.clone(),
             metadata: None,
         }],
@@ -206,7 +210,7 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
 }
 
 async fn account_coins(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Error::NotImplemented.to_response()
 }
 
 async fn block(mut req: Request<State>) -> tide::Result {
@@ -434,18 +438,21 @@ async fn construction_preprocess(mut req: Request<State>) -> tide::Result {
         required_tx.push(acc);
     }
 
-    let sender_address = operations
+    let sender_addresses = operations
         .iter()
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() < 0)
+                .map(|amount| amount.value.parse::<i128>().unwrap_or_default() < 0)
                 .unwrap_or_default()
         })
         .map(|op| op.account.clone().unwrap().address)
         .collect::<Vec<String>>();
 
-    let options_sender = sender_address[0].clone();
+    if sender_addresses.len() != 1 {
+        return Error::SenderNotFound.to_response();
+    }
+    let options_sender = sender_addresses[0].clone();
     let response = ConstructionPreprocessResponse {
         options: Some(json!({ "from": options_sender })),
         required_public_keys: Some(required_tx),
@@ -504,7 +511,7 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
 }
 
 async fn construction_parse(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Error::NotImplemented.to_response()
 }
 
 async fn construction_payloads(mut req: Request<State>) -> tide::Result {
@@ -534,7 +541,7 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() < 0)
+                .map(|amount| amount.value.parse::<i128>().unwrap_or_default() < 0)
                 .unwrap_or_default()
         })
         .collect::<Vec<&Operation>>();
@@ -544,7 +551,7 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .filter(|op| {
             op.amount
                 .as_ref()
-                .map(|amount| amount.value.parse::<i32>().unwrap_or_default() > 0)
+                .map(|amount| amount.value.parse::<i128>().unwrap_or_default() > 0)
                 .unwrap_or_default()
         })
         .collect::<Vec<&Operation>>();
@@ -758,11 +765,11 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
 }
 
 async fn events_blocks(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Error::NotImplemented.to_response()
 }
 
 async fn search_transactions(mut _req: Request<State>) -> tide::Result {
-    todo!()
+    Error::NotImplemented.to_response()
 }
 
 async fn mempool(_req: Request<State>) -> tide::Result {
