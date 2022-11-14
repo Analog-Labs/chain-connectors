@@ -2,15 +2,15 @@ use anyhow::Result;
 use chains::substrate::api;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Amount, Block,
+    AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Allow, Amount, Block,
     BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
     ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
     ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
-    Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkRequest,
-    NetworkStatusResponse, Operation, SignatureType, SigningPayload, TransactionIdentifier,
-    TransactionIdentifierResponse,
+    Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
+    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use std::str::FromStr;
@@ -116,12 +116,42 @@ async fn network_list(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-async fn network_options(mut _req: Request<State>) -> tide::Result {
-    Error::NotImplemented.to_response()
+// TODO: complete `network_options`.
+async fn network_options(mut req: Request<State>) -> tide::Result {
+    let request: NetworkRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+    let response = NetworkOptionsResponse {
+        version: Version {
+            rosetta_version: "1.0".into(),
+            node_version: "1.0".into(),
+            middleware_version: Some("1.0".into()),
+            metadata: None,
+        },
+        allow: Allow {
+            operation_statuses: vec![],
+            operation_types: vec![],
+            errors: vec![],
+            historical_balance_lookup: true,
+            timestamp_start_index: Some(0),
+            call_methods: Some(vec![]),
+            balance_exemptions: None,
+            mempool_coins: false,
+            block_hash_case: None,
+            transaction_hash_case: None,
+        },
+    };
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn network_status(mut req: Request<State>) -> tide::Result {
-    let _request: NetworkRequest = req.body_json().await?;
+    let request: NetworkRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
 
     let current_block_timestamp = api::storage().timestamp().now();
     let genesis_block_hash = req.state().client.rpc().genesis_hash().await?;
@@ -156,7 +186,7 @@ async fn network_status(mut req: Request<State>) -> tide::Result {
         current_block_identifier,
         current_block_timestamp: timestamp_nanos as i64,
         genesis_block_identifier,
-        peers: None,
+        peers: Some(vec![]),
         oldest_block_identifier: None,
         sync_status: None,
     };
