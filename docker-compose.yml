@@ -20,12 +20,23 @@ services:
       - "8081:8081"
       - "30303:30303"
       - "8545:8545"
+  substrate:
+    image: "rosetta-substrate"
+    environment:
+      - NETWORK=DEV
+      - MODE=ONLINE
+      - PORT=8082
+    ports:
+      - "8082:8082"
+      - "30333:30333"
+      - "9944:9944"
   explorer:
     image: "rosetta-explorer"
     environment:
-      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081"
+      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081,Substrate=http://substrate:8082"
     ports:
       - "3000:3000"
     links:
       - bitcoin
       - ethereum
+      - substrate

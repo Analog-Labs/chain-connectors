@@ -44,7 +44,7 @@ pub struct Config {
 impl Config {
     pub fn dev() -> Self {
         Self {
-            url: "http://127.0.0.1:8082",
+            url: "http://0.0.0.0:8082",
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),
@@ -271,7 +271,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
             hash: block_hash.to_string(),
         },
         parent_block_identifier: BlockIdentifier {
-            index: index - 1,
+            index: index.saturating_sub(1),
             hash: parent_hash,
         },
         timestamp: timestamp_nanos as i64,
