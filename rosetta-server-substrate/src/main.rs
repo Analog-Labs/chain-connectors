@@ -3,7 +3,7 @@ use rosetta_server_substrate::Config;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    femme::start();
     let config = Config::dev();
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
