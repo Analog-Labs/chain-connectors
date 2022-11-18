@@ -1,11 +1,18 @@
+use std::borrow::Borrow;
+
 use crate::api;
 use crate::chains;
+use crate::chains::substrate::api::runtime_types::frame_system::AccountInfo;
+use crate::chains::substrate::api::runtime_types::frame_system::EventRecord;
+use crate::chains::substrate::api::runtime_types::pallet_balances::AccountData;
+// use crate::chains::substrate::api::runtime_types::sp_core::crypto::AccountId32;
 use crate::State;
 
 use anyhow::Result;
 use api::runtime_types::frame_system;
 use api::runtime_types::kitchensink_runtime::RuntimeEvent;
 use chains::substrate::api::runtime_types::frame_system::Phase;
+use parity_scale_codec::Decode;
 use parity_scale_codec::Encode;
 use rosetta_types::AccountIdentifier;
 use rosetta_types::Amount;
@@ -18,12 +25,20 @@ use serde::Serialize;
 use serde_json::Value;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::H256;
+use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
+use subxt::ext::sp_runtime::MultiAddress;
 use subxt::ext::sp_runtime::OpaqueExtrinsic;
+use subxt::metadata::DecodeStaticType;
 use subxt::rpc::BlockNumber;
+use subxt::storage::address;
+use subxt::storage::address::StorageHasher;
+use subxt::storage::address::StorageMapKey;
+use subxt::storage::StaticStorageAddress;
 use subxt::tx::AssetTip;
 use subxt::tx::BaseExtrinsicParamsBuilder;
+use subxt::tx::StaticTxPayload;
 use subxt::tx::SubstrateExtrinsicParams;
 use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
@@ -53,7 +68,8 @@ pub enum Error {
     InvalidSignature,
     InvalidCallData,
     InvalidAmount,
-    AccountNotFound,
+    InvalidMetadata,
+    StorageFetch,
 }
 
 impl std::fmt::Display for Error {
@@ -81,7 +97,8 @@ impl std::fmt::Display for Error {
             Self::InvalidSignature => write!(f, "Invalid signature"),
             Self::InvalidCallData => write!(f, "Invalid call data"),
             Self::InvalidAmount => write!(f, "Invalid amount"),
-            Self::AccountNotFound => write!(f, "Account not found"),
+            Self::InvalidMetadata => write!(f, "Metadata error"),
+            Self::StorageFetch => write!(f, "Storage fetch error"),
         }
     }
 }
@@ -167,6 +184,9 @@ pub fn get_block_transactions(
                 index: event_index as i64,
                 network_index: None,
             };
+
+            let data = format!("{:?}", event);
+            println!("{}", data);
 
             let json_string =
                 serde_json::to_string(&event.event).map_err(|_| Error::CouldNotSerialize)?;
@@ -439,4 +459,106 @@ pub struct PayloadData {
     pub payload: Vec<u8>,
     pub additional_params: Vec<u8>,
     pub call_data: Vec<u8>,
+}
+
+pub async fn get_unix_timestamp(client: &OnlineClient<SubstrateConfig>) -> Result<u64, Error> {
+    let metadata = client.metadata();
+    let storage_hash = metadata
+        .storage_hash("Timestamp", "Now")
+        .map_err(|_| Error::InvalidMetadata)?;
+
+    let current_block_timestamp = StaticStorageAddress::<
+        DecodeStaticType<u64>,
+        address::Yes,
+        address::Yes,
+        (),
+    >::new("Timestamp", "Now", vec![], storage_hash);
+
+    let unix_timestamp_millis = client
+        .storage()
+        .fetch_or_default(&current_block_timestamp, None)
+        .await
+        .map_err(|_| Error::StorageFetch)?;
+
+    Ok(unix_timestamp_millis)
+}
+
+pub async fn get_account_storage(
+    client: &OnlineClient<SubstrateConfig>,
+    account: &AccountId32,
+) -> Result<AccountInfo<u32, AccountData<u128>>, Error> {
+    let metadata = client.metadata();
+    let storage_hash = metadata
+        .storage_hash("System", "Account")
+        .map_err(|_| Error::InvalidMetadata)?;
+    let acc_key = StaticStorageAddress::<
+        DecodeStaticType<AccountInfo<u32, AccountData<u128>>>,
+        address::Yes,
+        address::Yes,
+        address::Yes,
+    >::new(
+        "System",
+        "Account",
+        vec![StorageMapKey::new(
+            account.borrow(),
+            StorageHasher::Blake2_128Concat,
+        )],
+        storage_hash,
+    );
+    let account_data = match client.storage().fetch(&acc_key, None).await {
+        Ok(data) => data.ok_or(Error::StorageFetch)?,
+        Err(_) => return Err(Error::StorageFetch),
+    };
+    Ok(account_data)
+}
+
+pub async fn get_block_events(
+    client: &OnlineClient<SubstrateConfig>,
+    block: H256,
+) -> Result<Vec<EventRecord<RuntimeEvent, H256>>, Error> {
+    let metadata = client.metadata();
+    let storage_hash = metadata
+        .storage_hash("System", "Events")
+        .map_err(|_| Error::InvalidMetadata)?;
+
+    let st_key = StaticStorageAddress::<
+        DecodeStaticType<Vec<EventRecord<RuntimeEvent, H256>>>,
+        address::Yes,
+        address::Yes,
+        (),
+    >::new("System", "Events", vec![], storage_hash);
+
+    let data = client
+        .storage()
+        .fetch_or_default(&st_key, Some(block))
+        .await
+        .map_err(|_| Error::StorageFetch)?;
+
+    Ok(data)
+}
+
+pub fn get_transfer_payload(
+    client: &OnlineClient<SubstrateConfig>,
+    dest: MultiAddress<AccountId32, u32>,
+    value: u128,
+) -> Result<StaticTxPayload<Transfer>, Error> {
+    let metadata = client.metadata();
+    let storage_hash = metadata
+        .call_hash("Balances", "transfer")
+        .map_err(|_| Error::InvalidMetadata)?;
+
+    let call_data = StaticTxPayload::new(
+        "Balances",
+        "transfer",
+        Transfer { dest, value },
+        storage_hash,
+    );
+    Ok(call_data)
+}
+
+#[derive(Decode, Encode, Debug)]
+pub struct Transfer {
+    pub dest: MultiAddress<AccountId32, core::primitive::u32>,
+    #[codec(compact)]
+    pub value: ::core::primitive::u128,
 }

@@ -13,6 +13,8 @@ use rosetta_types::{
     SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
+use std::fs::File;
+use std::io::Write;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
@@ -26,8 +28,9 @@ use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    encode_call_data, get_block_transactions, get_transaction_detail, resolve_block, Error,
-    UnsignedTransactionData,
+    encode_call_data, get_account_storage, get_block_events,
+    get_block_transactions, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    resolve_block, Error, UnsignedTransactionData,
 };
 
 mod chains;
@@ -69,18 +72,49 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(config: &Config) -> Result<Self> {
+    pub async fn new(
+        config: &Config,
+        rpc_url: Option<String>,
+        ws_url: Option<String>,
+    ) -> Result<Self> {
+        match rpc_url {
+            Some(rpc_url) => {
+                use std::process::Command;
+                let cmd = Command::new("subxt")
+                    .args([
+                        "metadata",
+                        format!("--url={}", rpc_url).as_str(),
+                        "-f",
+                        "bytes",
+                    ])
+                    .output()
+                    .expect("failed to fetch metadata");
+                let mut file = File::create("metadata.scale")?;
+                file.write_all(&cmd.stdout)?;
+
+                // polkadot::constants();
+            }
+            None => {}
+        }
+        let client = match ws_url {
+            Some(url) => OnlineClient::from_url(url).await?,
+            None => OnlineClient::new().await?,
+        };
         Ok(Self {
             network: config.network.clone(),
             currency: config.currency.clone(),
             ss58_address_format: config.ss58_address_format,
-            client: OnlineClient::new().await?,
+            client: client,
         })
     }
 }
 
-pub async fn server(config: &Config) -> Result<tide::Server<State>> {
-    let state = State::new(config).await?;
+pub async fn server(
+    config: &Config,
+    http_rpc: String,
+    ws_rpc: String,
+) -> Result<tide::Server<State>> {
+    let state = State::new(config, Some(http_rpc), Some(ws_rpc)).await?;
     let mut app = tide::with_state(state);
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
@@ -153,7 +187,11 @@ async fn network_status(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let current_block_timestamp = api::storage().timestamp().now();
+    let unix_timestamp_millis = match get_unix_timestamp(&req.state().client).await {
+        Ok(timestamp) => timestamp,
+        Err(e) => return e.to_response(),
+    };
+
     let genesis_block_hash = req.state().client.rpc().genesis_hash().await?;
     let current_block = match req.state().client.rpc().block(None).await {
         Ok(block) => match block {
@@ -172,13 +210,6 @@ async fn network_status(mut req: Request<State>) -> tide::Result {
         index: 0,
         hash: genesis_block_hash.to_string(),
     };
-
-    let unix_timestamp_millis = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&current_block_timestamp, None)
-        .await?;
 
     let timestamp_nanos = Duration::from_millis(unix_timestamp_millis).as_nanos() as u64;
 
@@ -211,16 +242,12 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
             return error.to_response();
         }
     };
-    let account_key = api::storage().system().account(&account);
-    let account_data = match req.state().client.storage().fetch(&account_key, None).await {
-        Ok(account_data) => match account_data {
-            Some(account_data) => account_data,
-            None => return Error::AccountNotFound.to_response(),
-        },
-        Err(_) => {
-            return Error::BlockNotFound.to_response();
-        }
+
+    let account_data = match get_account_storage(&req.state().client, &account).await {
+        Ok(account_data) => account_data,
+        Err(e) => return e.to_response(),
     };
+
     let response = AccountBalanceResponse {
         balances: vec![Amount {
             value: account_data.data.free.to_string(),
@@ -270,23 +297,17 @@ async fn block(mut req: Request<State>) -> tide::Result {
         }
     };
 
-    let timestamp = api::storage().timestamp().now();
-    let unix_timestamp_millis = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&timestamp, Some(block_hash))
-        .await?;
+    let unix_timestamp_millis = match get_unix_timestamp(&req.state().client).await {
+        Ok(timestamp) => timestamp,
+        Err(e) => return e.to_response(),
+    };
 
     let timestamp_nanos = Duration::from_millis(unix_timestamp_millis).as_nanos() as u64;
 
-    let events_storage = api::storage().system().events();
-    let events = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&events_storage, Some(block_hash))
-        .await?;
+    let events = match get_block_events(&req.state().client, block_hash).await {
+        Ok(events) => events,
+        Err(e) => return e.to_response(),
+    };
 
     let parent_hash = block.block.header.parent_hash.to_string();
 
@@ -344,14 +365,11 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     };
 
     let transaction_identifier = request.transaction_identifier;
-    let events_storage = api::storage().system().events();
-    let events = req
-        .state()
-        .client
-        .storage()
-        .fetch(&events_storage, Some(block_endcoded_hash))
-        .await?
-        .unwrap_or_default();
+
+    let events = match get_block_events(&req.state().client, block_endcoded_hash).await {
+        Ok(events) => events,
+        Err(e) => return e.to_response(),
+    };
 
     let block = req
         .state()
@@ -508,13 +526,11 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
             return error.to_response();
         }
     };
-    let nonce_addr = api::storage().system().account(account);
-    let entry = req
-        .state()
-        .client
-        .storage()
-        .fetch_or_default(&nonce_addr, None)
-        .await?;
+
+    let entry = match get_account_storage(&req.state().client, &account).await {
+        Ok(acc_data) => acc_data,
+        Err(e) => return e.to_response(),
+    };
 
     let nonce = entry.nonce;
 
@@ -612,9 +628,14 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         .tip(AssetTip::new(0))
         .era(Era::Immortal, req.state().client.genesis_hash());
 
-    let payload = api::tx()
-        .balances()
-        .transfer(MultiAddress::Id(receiver_account), amount);
+    let payload = match get_transfer_payload(
+        &req.state().client,
+        MultiAddress::Id(receiver_account),
+        amount,
+    ) {
+        Ok(payload) => payload,
+        Err(e) => return e.to_response(),
+    };
 
     let payload_data =
         match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params) {
