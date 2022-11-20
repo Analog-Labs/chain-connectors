@@ -1,65 +1,60 @@
+use std::borrow::BorrowMut;
+
 #[allow(non_snake_case)]
 use dioxus::prelude::*;
 use dioxus_router::{use_router};
-use crate::components::{globals::*, listing_rows::DashListingRow};
-use rosetta_client::{createWalletEthereum, Wallet};
+use fermi::{Atom, use_read, use_set};
+use crate::{components::{globals::*, listing_rows::DashListingRow}, EthWalletContext};
 
-pub struct AssetsType {
-    assetName: String,
-    nativePrice: f64,
-    fiatPrice: f64,
-    assetSymbol: String,
-    marketCap:String,
+
+pub(crate) static ASSETS: Atom<Vec<AssetsType>> = |_|  vec![AssetsType {
+    assetName:"Ethereum",
+    nativePrice:"0.0",
+    assetSymbol:"ETH",
+    isSelected:false
+}];
+
+
+#[derive(Clone,Copy)]
+
+pub struct AssetsType<'a> {
+    pub assetName: & 'a str,
+    pub nativePrice:  & 'a  str,
+    pub assetSymbol:  & 'a str,
+    pub  isSelected: bool,
+
 }
 
+
+
+
 pub fn Dashboard(cx: Scope) -> Element {
-    let dummy_assets = [
-        AssetsType {
-            assetName: "Bitcoin".to_string(),
-            fiatPrice: 1.1,
-            nativePrice: 1.2 ,
-            assetSymbol:"BTC".to_string(),
-            marketCap:"2.3%".to_string(),
+    let eth_wallet_context =  cx.consume_context::<EthWalletContext>();
+    let eth_wallet = eth_wallet_context.unwrap().instance;
+    let set_assets = use_set(&cx, ASSETS);
+    let assets_state = use_read(&cx, ASSETS);
+   
+    // let balance = use_future(&cx,(),|_| async move{
 
-        },
-        AssetsType {
-            assetName: "Ethereum".to_string(),
-            fiatPrice: 1.1,
-            nativePrice: 1.2 ,
-            assetSymbol:"ETH".to_string(),
-            marketCap:"2.3%".to_string(),
-        },
-        AssetsType {
-            assetName: "Polkadot".to_string(),
-            fiatPrice: 1.1,
-            nativePrice: 1.2 ,
-            assetSymbol:"Dot".to_string(),
-            marketCap:"2.3%".to_string(),
-        },
-    ];
-    let assets = use_state(&cx, || dummy_assets);
-    let balance = use_state(&cx, || 2.30);
-    let account_address = use_state(&cx, || {
-        "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
-    });
-    let router = use_router(&cx);
+    //     let amount =  eth_wallet.balance().await;
+      
+    //   amount.unwrap()
+    // });
 
-        // For Testing purpose Only 
-    use_effect(&cx, (), |_| async move {
-          if let Ok(wallet)  = rosetta_client::createWalletEthereum().await {
-            println!("{}",wallet.public_key().hex_bytes)
-          }else {
-            println!("Error case while wallet creation  ");
-          }
-        }
-        );
+let eth_account_address = use_state(&cx, || 
+    eth_wallet.public_key().hex_bytes.clone()
+);
 
-    cx.render(rsx!(
+println!("Ethereum Wallett Public Key {}",eth_account_address);
+let router = use_router(&cx);
+
+cx.render(
+        rsx!{
             div {
                  class:"main-container",
                 div {
                     class: "dashboard-container" ,
-                    h2 {"$ {balance}"}
+                    // h2 {"$ {balance}"} //Todo Dollar price MVP phase 2 
                     div { class:"wallet-name", "My Wallet" }
                     div {
                          class:"button-container",
@@ -80,17 +75,17 @@ pub fn Dashboard(cx: Scope) -> Element {
                         class:"listing-container",
                         div {
                             class:"list",
-                             assets.iter().map(|item| rsx!(
-                             
-                                    DashListingRow {
-                                    assetName:item.assetName.as_str(),
-                                    assetSymbol: item.assetSymbol.as_str(),
-                                    marketCap:item.marketCap.as_str(),
-                                    fiatPrice:item.fiatPrice,
-                                    nativePrice:item.nativePrice,
-                                    assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png"
-                                    
 
+                            
+                            assets_state.iter().enumerate().filter(|(_,item)| item.isSelected == true).map(|(id,item)| rsx!(
+                                    DashListingRow {
+                                    assetName:item.assetName,
+                                    assetSymbol: item.assetSymbol,
+                                    marketCap:"",
+                                    fiatPrice:0.0,
+                                    nativePrice:0.0,
+                                    assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png"
+                                
                                 }
 
                                  ))
@@ -102,8 +97,10 @@ pub fn Dashboard(cx: Scope) -> Element {
                     }
 
                 
-                }))
+                }})
 }
+
+
 
 
 

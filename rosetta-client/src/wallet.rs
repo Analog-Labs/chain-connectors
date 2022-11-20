@@ -13,6 +13,7 @@ use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
 use rosetta_types::AccountFaucetRequest;
 use serde_json::Value;
+#[derive(Clone)]
 
 pub struct Wallet {
     config: BlockchainConfig,

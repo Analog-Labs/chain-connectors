@@ -10,7 +10,7 @@ pub struct MultiSelectListingRowProps<'a> {
     assetName: &'a str,
     nativePrice: f64,
     assetIconUri: &'a str,
-    isSelected: &'a str,
+    isSelected: bool,
     onSelect: EventHandler<'a, UiEvent<FormData>>,
 }
 
