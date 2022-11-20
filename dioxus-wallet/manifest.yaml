@@ -1,3 +1,20 @@
 android:
   gradle: true
   wry: true
+  dependencies:
+  - 'androidx.camera:camera-camera2:1.1.0'
+  - 'androidx.camera:camera-lifecycle:1.1.0'
+  - 'androidx.camera:camera-view:1.1.0'
+  - 'com.google.mlkit:barcode-scanning:17.0.2'
+  manifest:
+    application:
+      activities:
+      - name: .MainActivity
+        launch_mode: singleTask
+      - name: .QrCodeScanner
+    uses_permission:
+    - name: "android.permission.CAMERA"
+ios:
+  info:
+    minimum_os_version: '10'
+    camera_usage_description: 'required for qrcode scanning'
