@@ -10,7 +10,9 @@ members = [
 ]
 
 [patch.crates-io]
-bip39 = { git = "https://github.com/trevyn/rust-bip39", branch = "unpin-unicode-normalization" }
-dioxus = { git = "https://github.com/dioxuslabs/dioxus", branch = "master" }
-dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus", branch = "master" }
-dioxus-web = { git = "https://github.com/dioxuslabs/dioxus", branch = "master" }
+bardecoder = { git = "https://github.com/dvc94ch/bardecoder", branch = "fix-ios-crash" }
+dioxus = { git = "https://github.com/dvc94ch/dioxus", branch = "ios-push-view" }
+dioxus-desktop = { git = "https://github.com/dvc94ch/dioxus", branch = "ios-push-view" }
+dioxus-router = { git = "https://github.com/dvc94ch/dioxus", branch = "ios-push-view" }
+dioxus-web = { git = "https://github.com/dvc94ch/dioxus", branch = "ios-push-view" }
+fermi = { git = "https://github.com/dvc94ch/dioxus", branch = "ios-push-view" }
