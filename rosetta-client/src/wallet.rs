@@ -12,6 +12,7 @@ use crate::types::{
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
 use serde_json::Value;
+#[derive(Clone)]
 
 pub struct Wallet {
     config: BlockchainConfig,

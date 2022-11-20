@@ -1,36 +1,17 @@
+
 use crate::components::globals::*;
 use crate::components::listing_rows::{SingleSelectListingRow,MultiSelectListingRow};
-use dioxus::core::UiEvent;
-use dioxus::events::*;
 use dioxus::prelude::*;
 use dioxus_router::{use_router, use_route};
+use fermi::{use_read, use_set};
 
-pub struct addAssetsType {
-    assetName: String,
-    nativePrice: f64,
-    isSelected: String,
-}
+use super::dashboard::ASSETS;
 
 pub fn AddAssets(cx: Scope) -> Element {
-    let mut dummyAddAssets = vec![
-        addAssetsType {
-            assetName: "Bitcoin".to_string(),
-            nativePrice: 1.1,
-            isSelected: "false".to_string(),
-        },
-        addAssetsType {
-            assetName: "Ethereum".to_string(),
-            nativePrice: 1.2,
-            isSelected: "false".to_string(),
-        },
-        addAssetsType {
-            assetName: "Polkadot".to_string(),
-            nativePrice: 1.2,
-            isSelected: "false".to_string(),
-        },
-    ];
-    let assets = use_state(&cx, || dummyAddAssets);
+
     let router = use_router(&cx);
+    let   assets_state = use_read(&cx, ASSETS);
+    let assets_set = use_set(&cx,ASSETS);
 
     cx.render(rsx! {
 
@@ -54,15 +35,21 @@ pub fn AddAssets(cx: Scope) -> Element {
             }
             div {
                 class:"add-asset-listing-container",
-                assets.iter().enumerate().map(|(id, asset)| rsx!(
+                assets_state.iter().enumerate().map(|(id, asset)| rsx!{
+
                     MultiSelectListingRow {
-                            assetName:asset.assetName.as_str(),
-                            nativePrice:asset.nativePrice,
+                            assetName:asset.assetName,
+                            nativePrice:0.0,
                             assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png",
-                            isSelected:asset.isSelected.as_str(),
-                            onSelect: move |evt: UiEvent<FormData>| {println!("{:?}",id)} ,
-                        }
-                ))
+                            isSelected:asset.isSelected,
+                            onSelect: move |_| {
+                                let mut updated_assets = assets_state.clone().to_owned();
+                                updated_assets[id].isSelected = true;
+                                assets_set(updated_assets)
+                            },
+                            } ,
+                        
+            })
             }
             Button{
                 title:"Save",

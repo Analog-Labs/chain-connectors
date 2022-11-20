@@ -1,6 +1,6 @@
 use crate::crypto::Algorithm;
 use crate::types::{Currency, NetworkIdentifier};
-
+#[derive(Clone)]
 pub struct BlockchainConfig {
     pub url: String,
     pub network: NetworkIdentifier,

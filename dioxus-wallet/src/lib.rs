@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
+use rosetta_client::Wallet;
 
 mod components;
 mod routes;
@@ -49,19 +50,39 @@ pub fn main() {
     console_error_panic_hook::set_once();
     dioxus_web::launch(app);
 }
+#[derive(Clone)]
+
+pub struct EthWalletContext {
+    instance: Wallet,
+}
 
 static app: Component<()> = |cx| {
-    cx.render(rsx! {
-                  Router {
-                        style {
-                        [include_str!("./style.css"),
-                        include_str!("./styles/button.css")]
-                    }
-                      Route{to:"/",Dashboard{}}
-                      Route{to:"/send",SendComponent{}}
-                      Route{to:"/receive",ReceiveComponent{}}
-                      Route{to:"/addAsset",AddAssets{}}
-                      Route{to:"/selectAsset/:from",SelectAsset{}}
-            }
-    })
+    let eth_wallet = use_future(&cx, (), |_| async move {
+        rosetta_client::createWalletEthereum().await
+    });
+
+    match eth_wallet.value() {
+        Some(Ok(w)) => {
+            cx.use_hook(|| {
+                cx.provide_context(EthWalletContext {
+                    instance: w.clone(),
+                });
+            });
+            cx.render(rsx! {
+            Router {
+                      style {
+                      [include_str!("./style.css"),
+                      include_str!("./styles/button.css")]
+                  }
+                  Route{to:"/",Dashboard{}}
+                  Route{to:"/send",SendComponent{}}
+                  Route{to:"/receive",ReceiveComponent{}}
+                  Route{to:"/addAsset",AddAssets{}}
+                  Route{to:"/selectAsset/:from",SelectAsset{}}
+                }
+            })
+        }
+        Some(Err(e)) => cx.render(rsx! {div{"Error intialising Wallet"}}),
+        None => cx.render(rsx! {h1{"Error intialising Wallet"}}),
+    }
 };
