@@ -13,8 +13,6 @@ use rosetta_types::{
     SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
-use std::fs::File;
-use std::io::Write;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
@@ -28,12 +26,10 @@ use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    encode_call_data, get_account_storage, get_block_events,
-    get_block_transactions, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    resolve_block, Error, UnsignedTransactionData,
+    encode_call_data, get_account_storage, get_block_events, get_block_transactions,
+    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
+    UnsignedTransactionData,
 };
-
-use crate::utils::codegen;
 
 mod chains;
 mod ss58;
@@ -41,6 +37,7 @@ mod utils;
 
 pub struct Config {
     pub url: &'static str,
+    pub rpc_url: &'static str,
     pub network: NetworkIdentifier,
     pub currency: Currency,
     pub ss58_address_format: Ss58AddressFormat,
@@ -50,6 +47,7 @@ impl Config {
     pub fn dev() -> Self {
         Self {
             url: "http://0.0.0.0:8082",
+            rpc_url: "http://127.0.0.1:9944",
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),
@@ -74,34 +72,8 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(
-        config: &Config,
-        rpc_url: Option<String>,
-        ws_url: Option<String>,
-    ) -> Result<Self> {
-        match rpc_url {
-            Some(rpc_url) => {
-                use std::process::Command;
-                let cmd = Command::new("subxt")
-                    .args([
-                        "metadata",
-                        format!("--url={}", rpc_url).as_str(),
-                        "-f",
-                        "bytes",
-                    ])
-                    .output()
-                    .expect("failed to fetch metadata");
-                let mut file = File::create("metadata.scale")?;
-                file.write_all(&cmd.stdout)?;
-
-                let _data = codegen(&cmd.stdout, vec![], None);
-            }
-            None => {}
-        }
-        let client = match ws_url {
-            Some(url) => OnlineClient::from_url(url).await?,
-            None => OnlineClient::new().await?,
-        };
+    pub async fn new(config: &Config) -> Result<Self> {
+        let client = OnlineClient::from_url(config.rpc_url).await?;
         Ok(Self {
             network: config.network.clone(),
             currency: config.currency.clone(),
@@ -111,12 +83,8 @@ impl State {
     }
 }
 
-pub async fn server(
-    config: &Config,
-    http_rpc: String,
-    ws_rpc: String,
-) -> Result<tide::Server<State>> {
-    let state = State::new(config, Some(http_rpc), Some(ws_rpc)).await?;
+pub async fn server(config: &Config) -> Result<tide::Server<State>> {
+    let state = State::new(config).await?;
     let mut app = tide::with_state(state);
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
