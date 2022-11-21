@@ -1,18 +1,6 @@
-use std::borrow::Borrow;
-
-use crate::api;
-use crate::chains;
-use crate::chains::substrate::api::runtime_types::frame_system::AccountInfo;
-use crate::chains::substrate::api::runtime_types::frame_system::EventRecord;
-use crate::chains::substrate::api::runtime_types::pallet_balances::AccountData;
 use crate::State;
-
 use anyhow::Result;
-use api::runtime_types::frame_system;
-use api::runtime_types::kitchensink_runtime::RuntimeEvent;
-use chains::substrate::api::runtime_types::frame_system::Phase;
-use parity_scale_codec::Decode;
-use parity_scale_codec::Encode;
+use parity_scale_codec::{Decode, Encode};
 use rosetta_types::AccountIdentifier;
 use rosetta_types::Amount;
 use rosetta_types::{
@@ -22,6 +10,8 @@ use rosetta_types::{
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::borrow::Borrow;
+use subxt::events::Phase;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
@@ -157,7 +147,7 @@ pub async fn resolve_block(
 pub fn get_block_transactions(
     state: &State,
     block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
-    events: &[frame_system::EventRecord<RuntimeEvent, H256>],
+    events: &[EventRecord<RuntimeEvent, H256>],
 ) -> Result<Vec<Transaction>, Error> {
     let mut vec_of_extrinsics = vec![];
 
@@ -176,7 +166,7 @@ pub fn get_block_transactions(
         let events_for_current_extrinsic = events
             .iter()
             .filter(|e| e.phase == Phase::ApplyExtrinsic(ex_index as u32))
-            .collect::<Vec<&frame_system::EventRecord<RuntimeEvent, H256>>>();
+            .collect::<Vec<&EventRecord<RuntimeEvent, H256>>>();
 
         for (event_index, event) in events_for_current_extrinsic.iter().enumerate() {
             let operation_identifier = OperationIdentifier {
@@ -302,7 +292,7 @@ pub fn get_transaction_detail(
     transaction_hash: String,
     state: &State,
     block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
-    events: &[frame_system::EventRecord<RuntimeEvent, H256>],
+    events: &[EventRecord<RuntimeEvent, H256>],
 ) -> Result<Option<Transaction>, Error> {
     let tx_hash = transaction_hash.trim_start_matches("0x");
     let extrinsics = block.block.extrinsics;
@@ -317,7 +307,7 @@ pub fn get_transaction_detail(
             let events_for_current_extrinsic = events
                 .iter()
                 .filter(|e| e.phase == Phase::ApplyExtrinsic(ex_index as u32))
-                .collect::<Vec<&frame_system::EventRecord<RuntimeEvent, H256>>>();
+                .collect::<Vec<&EventRecord<RuntimeEvent, H256>>>();
 
             for (event_index, event) in events_for_current_extrinsic.iter().enumerate() {
                 let operation_identifier = OperationIdentifier {
@@ -557,7 +547,31 @@ pub fn get_transfer_payload(
 
 #[derive(Decode, Encode, Debug)]
 pub struct Transfer {
-    pub dest: MultiAddress<AccountId32, core::primitive::u32>,
+    pub dest: MultiAddress<AccountId32, u32>,
     #[codec(compact)]
-    pub value: ::core::primitive::u128,
+    pub value: u128,
+}
+
+#[derive(Decode, Encode, Debug)]
+pub struct AccountInfo<Index, AccountData> {
+    pub nonce: Index,
+    pub consumers: Index,
+    pub providers: Index,
+    pub sufficients: Index,
+    pub data: AccountData,
+}
+
+#[derive(Decode, Encode, Debug)]
+pub struct AccountData {
+    pub free: u128,
+    pub reserved: u128,
+    pub misc_frozen: u128,
+    pub fee_frozen: u128,
+}
+
+#[derive(Decode, Encode, Debug)]
+pub struct EventRecord<Event, Hash> {
+    pub phase: Phase,
+    pub event: Event,
+    pub topics: Vec<Hash>,
 }
