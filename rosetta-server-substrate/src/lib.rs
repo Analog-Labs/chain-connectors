@@ -1,5 +1,4 @@
 use anyhow::Result;
-use chains::substrate::api;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Allow, Amount, Block,
@@ -31,7 +30,6 @@ use utils::{
     UnsignedTransactionData,
 };
 
-mod chains;
 mod ss58;
 mod utils;
 
