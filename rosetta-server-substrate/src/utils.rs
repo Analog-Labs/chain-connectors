@@ -24,9 +24,9 @@ use serde::Serialize;
 use serde_json::Value;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::H256;
-use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
+use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
 use subxt::ext::sp_runtime::OpaqueExtrinsic;
 use subxt::metadata::DecodeStaticType;
@@ -42,7 +42,6 @@ use subxt::tx::SubstrateExtrinsicParams;
 use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
 use subxt::{OnlineClient, SubstrateConfig};
-use subxt_codegen::DerivesRegistry;
 use tide::{Body, Response};
 
 pub enum Error {
@@ -561,32 +560,4 @@ pub struct Transfer {
     pub dest: MultiAddress<AccountId32, core::primitive::u32>,
     #[codec(compact)]
     pub value: ::core::primitive::u128,
-}
-
-pub fn codegen(
-    metadata_bytes: &[u8],
-    raw_derives: Vec<String>,
-    crate_path: Option<String>,
-) -> Result<()> {
-    let item_mod = syn::parse_quote!(
-        pub mod api {}
-    );
-
-    let p = raw_derives
-        .iter()
-        .map(|raw| syn::parse_str(raw))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let crate_path = crate_path.map(Into::into).unwrap_or_default();
-    let mut derives = DerivesRegistry::new(&crate_path);
-    derives.extend_for_all(p.into_iter());
-
-    let runtime_api = subxt_codegen::generate_runtime_api_from_bytes(
-        item_mod,
-        metadata_bytes,
-        derives,
-        crate_path,
-    );
-    println!("{}", runtime_api);
-    Ok(())
 }

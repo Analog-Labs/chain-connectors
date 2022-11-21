@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
     app.at("/")
-        .nest(rosetta_server_substrate::server(&config, "http://localhost:9933/".into(), "ws://localhost:9944/".into()).await?);
+        .nest(rosetta_server_substrate::server(&config).await?);
     app.listen(config.url).await?;
     Ok(())
 }
