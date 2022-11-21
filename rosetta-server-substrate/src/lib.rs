@@ -33,6 +33,8 @@ use utils::{
     resolve_block, Error, UnsignedTransactionData,
 };
 
+use crate::utils::codegen;
+
 mod chains;
 mod ss58;
 mod utils;
@@ -92,7 +94,7 @@ impl State {
                 let mut file = File::create("metadata.scale")?;
                 file.write_all(&cmd.stdout)?;
 
-                // polkadot::constants();
+                let _data = codegen(&cmd.stdout, vec![], None);
             }
             None => {}
         }
