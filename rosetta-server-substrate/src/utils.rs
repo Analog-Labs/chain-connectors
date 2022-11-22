@@ -268,7 +268,6 @@ pub fn get_operation_data(event: EventDetails) -> Result<TransactionOperationSta
     let call_type = format!("{}.{}", pallet_name, event_name);
 
     let event_fields = event.field_values().unwrap();
-    // let event_metadata = event.event_metadata();
     let parsed_data = match event_fields {
         subxt::ext::scale_value::Composite::Named(value) => {
             let from_data = value
