@@ -117,7 +117,7 @@ impl SecretKey {
     }
 
     /// Signs a message and returns it's signature.
-    pub fn sign(&self, msg: &[u8], context_param: String) -> Signature {
+    pub fn sign(&self, msg: &[u8], context_param: &str) -> Signature {
         match self {
             SecretKey::EcdsaSecp256k1(secret) => Signature::EcdsaSecp256k1(secret.sign(msg)),
             SecretKey::EcdsaRecoverableSecp256k1(secret) => {
@@ -371,7 +371,7 @@ mod tests {
         rng.fill_bytes(&mut msg);
         for algorithm in ALGORITHMS {
             let secret_key = SecretKey::from_bytes(*algorithm, &secret[..])?;
-            let signature = secret_key.sign(&msg, "".to_string());
+            let signature = secret_key.sign(&msg, "");
             let sig = signature.to_bytes();
             let signature2 = Signature::from_bytes(*algorithm, &sig[..])?;
             assert_eq!(signature, signature2);
@@ -389,7 +389,7 @@ mod tests {
         for algorithm in ALGORITHMS {
             let secret_key = SecretKey::from_bytes(*algorithm, &secret[..])?;
             let public_key = secret_key.public_key();
-            let signature = secret_key.sign(&msg, "".to_string());
+            let signature = secret_key.sign(&msg, "");
             public_key.verify(&msg, &signature)?;
         }
         Ok(())
@@ -404,7 +404,7 @@ mod tests {
         rng.fill_bytes(&mut msg);
         let secret_key = SecretKey::from_bytes(Algorithm::EcdsaRecoverableSecp256k1, &secret[..])?;
         let public_key = secret_key.public_key();
-        let signature = secret_key.sign(&msg, "".to_string());
+        let signature = secret_key.sign(&msg, "");
         let recovered_key = signature.recover(&msg)?.unwrap();
         assert_eq!(public_key, recovered_key);
         Ok(())

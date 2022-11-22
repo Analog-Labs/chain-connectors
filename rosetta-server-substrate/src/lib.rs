@@ -31,7 +31,7 @@ use utils::{
 };
 
 mod ss58;
-mod utils;
+pub mod utils;
 
 pub struct Config {
     pub url: &'static str,

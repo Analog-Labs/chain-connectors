@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
+use sp_keyring::AccountKeyring;
 use std::borrow::Borrow;
 use subxt::events::EventDetails;
 use subxt::events::Events;
@@ -34,6 +35,7 @@ use subxt::storage::address::StorageMapKey;
 use subxt::storage::StaticStorageAddress;
 use subxt::tx::AssetTip;
 use subxt::tx::BaseExtrinsicParamsBuilder;
+use subxt::tx::PairSigner;
 use subxt::tx::StaticTxPayload;
 use subxt::tx::SubstrateExtrinsicParams;
 use subxt::tx::{ExtrinsicParams, TxPayload};
@@ -595,6 +597,25 @@ pub fn get_transfer_payload(
         storage_hash,
     );
     Ok(call_data)
+}
+
+pub async fn faucet_substrate(address: &str, amount: u128) -> Result<H256, String> {
+    let api = OnlineClient::<SubstrateConfig>::new().await.unwrap();
+    let signer = PairSigner::<SubstrateConfig, _>::new(AccountKeyring::Alice.pair());
+
+    let receiver_account: AccountId32 = address.parse().unwrap();
+    let receiver_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(receiver_account);
+
+    let call_data = match get_transfer_payload(&api, receiver_multiaddr, amount) {
+        Ok(call_data) => call_data,
+        Err(_) => return Err("Could not get transfer payload".to_string()),
+    };
+
+    let hash = match api.tx().sign_and_submit_default(&call_data, &signer).await {
+        Ok(hash) => hash,
+        Err(_) => return Err("Could not sign and submit transaction".to_string()),
+    };
+    Ok(hash)
 }
 
 #[derive(Decode, Encode, Debug)]

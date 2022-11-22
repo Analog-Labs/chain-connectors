@@ -85,7 +85,7 @@ impl RosettaSecretKey for DerivedSecretKey {
                 SignatureType::Ed25519,
             ),
             Algorithm::Sr25519 => {
-                let context = "substrate".to_string();
+                let context = "substrate";
                 (
                     secret_key.sign(&payload_bytes, context),
                     SignatureType::Sr25519,
