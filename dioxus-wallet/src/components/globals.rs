@@ -1,5 +1,4 @@
 use dioxus::{events::MouseEvent, prelude::*};
-use dioxus_router::Link;
 
 #[derive(Props)]
 
@@ -7,16 +6,14 @@ use dioxus_router::Link;
 
 pub struct ButtonProps<'a> {
     title: &'a str,
+    onclick: EventHandler<'a, MouseEvent>,
 }
-
 pub fn Button<'a>(cx: Scope<'a, ButtonProps<'a>>) -> Element {
     cx.render(rsx! {
         style { [include_str!("../styles/button.css")] }
-
-
         button{
+            onclick: move |evt| cx.props.onclick.call(evt),
             class:"button",
-
             "{cx.props.title}"
         }
     })
@@ -24,7 +21,7 @@ pub fn Button<'a>(cx: Scope<'a, ButtonProps<'a>>) -> Element {
 
 #[derive(Props)]
 
-pub struct linkButtonProps<'a> {
+pub struct LinkButtonProps<'a> {
     onClick: EventHandler<'a, MouseEvent>,
     uri: &'a str,
     #[props(optional)]
@@ -32,7 +29,7 @@ pub struct linkButtonProps<'a> {
     backgroundColor: Option<&'a str>,
 }
 
-pub fn LinkButton<'a>(cx: Scope<'a, linkButtonProps<'a>>) -> Element {
+pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
     let renderTitle = match cx.props.title.clone() {
         Some(x) => rsx!(div{class:"button-title", "{x}"}),
         None => rsx!(""),
@@ -67,7 +64,6 @@ pub struct HeaderProps<'a> {
 }
 
 pub fn Header<'a>(cx: Scope<'a, HeaderProps<'a>>) -> Element {
-
     let title = cx.props.title.to_uppercase();
     cx.render(rsx! {div{
         class:"header",

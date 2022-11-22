@@ -56,8 +56,12 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
     Ok(signer)
 }
 
-pub async fn createWalletEthereum() -> Result<Wallet, Error> {
-    let config = BlockchainConfig::ethereum_dev();
+pub async fn create_wallet_instance(chain:String) -> Result<Wallet, Error> {
+   let  config =  match chain.as_str() {
+        "btc" => BlockchainConfig::bitcoin_regtest(),
+        "eth" => BlockchainConfig::ethereum_dev(),
+        _ =>  todo!(),
+    };
     let keyfile = default_keyfile()?;
     let signer = open_or_create_keyfile(&keyfile)?;
     let wallet = Wallet::new(config, &signer).await?;

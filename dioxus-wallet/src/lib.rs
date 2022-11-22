@@ -50,22 +50,30 @@ pub fn main() {
     console_error_panic_hook::set_once();
     dioxus_web::launch(app);
 }
-#[derive(Clone)]
 
-pub struct EthWalletContext {
-    instance: Wallet,
+#[derive(Clone)]
+pub struct WalletContext {
+    eth: Wallet,
+    btc: Wallet,
 }
 
-static app: Component<()> = |cx| {
+fn app(cx: Scope) -> Element {
     let eth_wallet = use_future(&cx, (), |_| async move {
-        rosetta_client::createWalletEthereum().await
+        rosetta_client::create_wallet_instance("eth".to_string())
+            .await
+            .unwrap()
     });
-
-    match eth_wallet.value() {
-        Some(Ok(w)) => {
+    let btc_wallet = use_future(&cx, (), |_| async move {
+        rosetta_client::create_wallet_instance("btc".to_string())
+            .await
+            .unwrap()
+    });
+    match (eth_wallet.value(), btc_wallet.value()) {
+        (Some(eth), Some(btc)) => {
             cx.use_hook(|| {
-                cx.provide_context(EthWalletContext {
-                    instance: w.clone(),
+                cx.provide_context(WalletContext {
+                    eth: eth.clone(),
+                    btc: btc.clone(),
                 });
             });
             cx.render(rsx! {
@@ -75,14 +83,17 @@ static app: Component<()> = |cx| {
                       include_str!("./styles/button.css")]
                   }
                   Route{to:"/",Dashboard{}}
-                  Route{to:"/send",SendComponent{}}
-                  Route{to:"/receive",ReceiveComponent{}}
                   Route{to:"/addAsset",AddAssets{}}
                   Route{to:"/selectAsset/:from",SelectAsset{}}
+                     // todo WIP
+                //   Route{to:"/send",SendComponent{}}
+                //   Route{to:"/receive",ReceiveComponent{}}
                 }
             })
         }
-        Some(Err(e)) => cx.render(rsx! {div{"Error intialising Wallet"}}),
-        None => cx.render(rsx! {h1{"Error intialising Wallet"}}),
+        // todo need to handle these cases
+        (None, None) => cx.render(rsx! {h1{"Loading"}}),
+        (None, Some(_)) => cx.render(rsx! {h1{"Loading"}}),
+        (Some(_), None) => cx.render(rsx! {h1{"Loading"}}),
     }
-};
+}

@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus_router::{use_router, Link};
+use dioxus_router::{use_router};
 
 use crate::components::globals::{Button, Header};
 
@@ -15,7 +15,7 @@ pub fn ReceiveComponent(cx: Scope) -> Element {
             class:"header-container",
         Header{
             title:"Receive",
-            onbackclick: move |evt|  router.push_route("/", None, None),
+            onbackclick: move |_|  router.push_route("/", None, None),
         }
     }
     input{
@@ -41,6 +41,9 @@ pub fn ReceiveComponent(cx: Scope) -> Element {
     div{
         class:"receive-bottom-button-container",
         Button{
+            onclick:move |_|{
+
+            },
             title:"COPY"
         }
     }

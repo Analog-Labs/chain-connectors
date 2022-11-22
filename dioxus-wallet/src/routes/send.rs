@@ -1,19 +1,17 @@
 use dioxus::prelude::*;
-use dioxus_router::{use_router, Link};
+use dioxus_router::{use_router};
 
-use crate::components::globals::{Header, Loader};
+use crate::components::globals::{Header};
 
 pub fn SendComponent(cx: Scope) -> Element {
     let sender_address = use_state(&cx, || {
         "0x853Be3012eCeb1fC9Db70ef0Dc85Ccf3b63994BE".to_string()
     });
-    let selectedAsset = use_state(&cx, || "");
     let amount = use_state(&cx, || "".to_string());
-    let isLoading = use_state(&cx, || false);
+    let is_loading = use_state(&cx, || false);
     // let amountInDollar = use_state(&cx, || "0.00".to_string()); // Todo phase 2
     let router = use_router(&cx);
-
-    if **isLoading {
+    if **is_loading {
         None
         // cx.render(rsx!(Loader {}))
     } else {
@@ -24,7 +22,7 @@ pub fn SendComponent(cx: Scope) -> Element {
                 class:"header-container",
             Header{
                 title:"Send",
-                onbackclick: move |evt|  router.push_route("/", None, None),
+                onbackclick: move |_|  router.push_route("/", None, None),
             }
         }
             div{class:"asset-icon-container",
@@ -62,7 +60,7 @@ pub fn SendComponent(cx: Scope) -> Element {
                         class:"asset-bottom-container",
                         button{
                             class:"button",
-                            onclick: move |evt| { println!("{:?} {:?}", sender_address, amount )},
+                            onclick: move |_| { println!("{:?} {:?}", sender_address, amount )},
                             "NEXT",
                         }
 
