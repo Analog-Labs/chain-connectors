@@ -2,13 +2,9 @@ use anyhow::Result;
 use clap::Parser;
 use rosetta_client::types::AccountIdentifier;
 use rosetta_client::{BlockchainConfig, Wallet};
-use sp_keyring::AccountKeyring;
+use rosetta_server_substrate::utils::faucet_substrate;
 use std::path::PathBuf;
 use std::str::FromStr;
-use subxt::ext::sp_core::{Decode, Encode};
-use subxt::ext::sp_runtime::{AccountId32, MultiAddress};
-use subxt::tx::{PairSigner, StaticTxPayload};
-use subxt::{OnlineClient, SubstrateConfig};
 
 #[derive(Parser)]
 pub struct Opts {
@@ -134,46 +130,11 @@ async fn main() -> Result<()> {
                     anyhow::bail!("cmd failed");
                 }
             }
-            Chain::Dot => {
-                faucet_substrate(&wallet.account().address, amount).await;
-            }
+            Chain::Dot => match faucet_substrate(&wallet.account().address, amount).await {
+                Ok(tx_hash) => println!("success: {:?}", tx_hash),
+                Err(e) => println!("failed: {}", e),
+            },
         },
     }
     Ok(())
-}
-
-async fn faucet_substrate(address: &str, amount: u128) {
-    #[derive(Decode, Encode, Debug)]
-    pub struct Transfer {
-        pub dest: MultiAddress<AccountId32, core::primitive::u32>,
-        #[codec(compact)]
-        pub value: ::core::primitive::u128,
-    }
-
-    let api = OnlineClient::<SubstrateConfig>::new().await.unwrap();
-    let signer = PairSigner::<SubstrateConfig, _>::new(AccountKeyring::Alice.pair());
-
-    let receiver_account: AccountId32 = address.parse().unwrap();
-    let receiver_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(receiver_account);
-
-    let call_data = StaticTxPayload::new(
-        "Balances",
-        "transfer",
-        Transfer {
-            dest: receiver_multiaddr,
-            value: amount,
-        },
-        [
-            255u8, 181u8, 144u8, 248u8, 64u8, 167u8, 5u8, 134u8, 208u8, 20u8, 223u8, 103u8, 235u8,
-            35u8, 66u8, 184u8, 27u8, 94u8, 176u8, 60u8, 233u8, 236u8, 145u8, 218u8, 44u8, 138u8,
-            240u8, 224u8, 16u8, 193u8, 220u8, 95u8,
-        ],
-    );
-
-    let hash = api
-        .tx()
-        .sign_and_submit_default(&call_data, &signer)
-        .await
-        .unwrap();
-    println!("hash: {:?}", hash);
 }
