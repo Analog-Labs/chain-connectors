@@ -66,14 +66,14 @@ pub fn MultiSelectListingRow<'a>(cx: Scope<'a, MultiSelectListingRowProps<'a>>) 
 
 #[derive(Props)]
 
-pub struct singleSelectListingRowProps<'a> {
+pub struct SingleSelectListingRowProps<'a> {
     assetName: &'a str,
     onSelect: EventHandler<'a, MouseEvent>,
     assetIconUri: &'a str,
     nativePrice: f64,
 }
 
-pub fn SingleSelectListingRow<'a>(cx: Scope<'a, singleSelectListingRowProps<'a>>) -> Element {
+pub fn SingleSelectListingRow<'a>(cx: Scope<'a, SingleSelectListingRowProps<'a>>) -> Element {
     cx.render(rsx! {
         div{
             onclick:move |evt| cx.props.onSelect.call(evt),
@@ -118,7 +118,7 @@ pub struct DashListingRowProps<'a> {
     assetSymbol: &'a str,
     marketCap: &'a str,
     fiatPrice: f64,
-    nativePrice: f64,
+    nativePrice: String,
     assetIconUri: &'a str,
 }
 
