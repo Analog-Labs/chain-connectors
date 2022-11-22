@@ -30,6 +30,8 @@ use utils::{
     UnsignedTransactionData,
 };
 
+// use utils::EventRecord;
+
 mod ss58;
 mod utils;
 
@@ -45,7 +47,7 @@ impl Config {
     pub fn dev() -> Self {
         Self {
             url: "http://0.0.0.0:8082",
-            rpc_url: "http://127.0.0.1:9944",
+            rpc_url: "ws://127.0.0.1:9944",
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),
@@ -76,7 +78,7 @@ impl State {
             network: config.network.clone(),
             currency: config.currency.clone(),
             ss58_address_format: config.ss58_address_format,
-            client: client,
+            client,
         })
     }
 }
@@ -326,25 +328,25 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     }
 
     let _block_index = request.block_identifier.index;
-    let block_hash = request.block_identifier.hash;
-    let block_endcoded_hash = match H256::from_str(&block_hash) {
+    let block_hash_str = request.block_identifier.hash;
+    let block_hash = match H256::from_str(&block_hash_str) {
         Ok(ok) => ok,
         Err(_) => return Error::InvalidBlockHash.to_response(),
     };
 
     let transaction_identifier = request.transaction_identifier;
 
-    let events = match get_block_events(&req.state().client, block_endcoded_hash).await {
+    // let events = match get_block_events(&req.state().client, block_endcoded_hash).await {
+    //     Ok(events) => events,
+    //     Err(e) => return e.to_response(),
+    // };
+
+    let events = match get_block_events(&req.state().client, block_hash).await {
         Ok(events) => events,
         Err(e) => return e.to_response(),
     };
 
-    let block = req
-        .state()
-        .client
-        .rpc()
-        .block(Some(block_endcoded_hash))
-        .await?;
+    let block = req.state().client.rpc().block(Some(block_hash)).await?;
 
     let block = match block {
         Some(block) => block,
