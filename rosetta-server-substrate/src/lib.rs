@@ -30,8 +30,6 @@ use utils::{
     UnsignedTransactionData,
 };
 
-// use utils::EventRecord;
-
 mod ss58;
 mod utils;
 
@@ -120,7 +118,6 @@ async fn network_list(mut req: Request<State>) -> tide::Result {
         .build())
 }
 
-// TODO: complete `network_options`.
 async fn network_options(mut req: Request<State>) -> tide::Result {
     let request: NetworkRequest = req.body_json().await?;
     if request.network_identifier != req.state().network {
@@ -335,11 +332,6 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     };
 
     let transaction_identifier = request.transaction_identifier;
-
-    // let events = match get_block_events(&req.state().client, block_endcoded_hash).await {
-    //     Ok(events) => events,
-    //     Err(e) => return e.to_response(),
-    // };
 
     let events = match get_block_events(&req.state().client, block_hash).await {
         Ok(events) => events,
