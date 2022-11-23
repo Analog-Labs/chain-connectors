@@ -1,18 +1,16 @@
 use dioxus::prelude::*;
 use dioxus_router::{ Route, Router};
-
-mod qrcode;
-
-use dioxus_router::{Route, Router};
 use rosetta_client::Wallet;
 
+mod qrcode;
 mod components;
 mod routes;
 
 use crate::routes::assets::*;
 use crate::routes::dashboard::*;
-use crate::routes::receive::*;
-use crate::routes::send::*;
+  //todo WIP
+// use crate::routes::receive::*;
+// use crate::routes::send::*;
 
 #[cfg(target_os = "android")]
 #[no_mangle]

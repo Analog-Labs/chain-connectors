@@ -1,74 +1,75 @@
-
+use crate::{
+    components::{globals::*, listing_rows::DashListingRow},
+    WalletContext,
+};
 #[allow(non_snake_case)]
 use dioxus::prelude::*;
-use dioxus_router::{use_router};
-use fermi::{Atom, use_read, use_set};
-use crate::{components::{globals::*, listing_rows::DashListingRow}, WalletContext};
+use dioxus_router::use_router;
+use fermi::{use_read, use_set, Atom};
 
-
-pub static ASSETS: Atom<Vec<AssetsType>> = |_|  vec![AssetsType {
-    assetName:"Ethereum".to_string(),
-    nativePrice:"0.0".to_string(),
-    assetSymbol:"ETH".to_string(),
-    isSelected:false
-},
-AssetsType {
-    assetName:"Bitcoin".to_string(),
-    nativePrice:"0.0".to_string(),
-    assetSymbol:"BTC".to_string(),
-    isSelected:false
-},];
-
+pub static ASSETS: Atom<Vec<AssetsType>> = |_| {
+    vec![
+        AssetsType {
+            assetName: "Ethereum".to_string(),
+            nativePrice: "0.0".to_string(),
+            assetSymbol: "ETH".to_string(),
+            isSelected: false,
+        },
+        AssetsType {
+            assetName: "Bitcoin".to_string(),
+            nativePrice: "0.0".to_string(),
+            assetSymbol: "BTC".to_string(),
+            isSelected: false,
+        },
+    ]
+};
 
 #[derive(Clone)]
 
 pub struct AssetsType {
     pub assetName: String,
     pub nativePrice: String,
-    pub assetSymbol:  String,
-    pub  isSelected: bool,
+    pub assetSymbol: String,
+    pub isSelected: bool,
 }
 
-
-
-
 pub fn Dashboard(cx: Scope) -> Element {
-    let wallet_context = cx.use_hook(||cx.consume_context::<WalletContext>());
-    let eth_instance =  wallet_context.clone().unwrap().eth;
-    let btc_instance =  wallet_context.clone().unwrap().btc;
+    let wallet_context = cx.use_hook(|| cx.consume_context::<WalletContext>());
+    let eth_instance = wallet_context.clone().unwrap().eth;
+    let btc_instance = wallet_context.clone().unwrap().btc;
     let set_assets = use_set(&cx, ASSETS);
     let assets_state = use_read(&cx, ASSETS);
     let router = use_router(&cx);
-    let assets = cx.use_hook(|| assets_state.clone().to_owned() );
+    let assets = cx.use_hook(|| assets_state.clone().to_owned());
 
-        if assets[0].isSelected{
-            let eth_balance = use_future(&cx,(),|_| async move{
-                let amount =  eth_instance.balance().await; 
-                let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
-                    amount_string.unwrap()
-                    });
-            let eth_balance =   match eth_balance.value() {
-                Some(b) => b,
-                None => "" ,
-            };
-            assets[0].nativePrice = eth_balance.clone().to_string();
-            set_assets(assets.clone());
-        }
+    if assets[0].isSelected {
+        let eth_balance = use_future(&cx, (), |_| async move {
+            let amount = eth_instance.balance().await;
+            let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
+            amount_string.unwrap()
+        });
+        let eth_balance = match eth_balance.value() {
+            Some(b) => b,
+            None => "",
+        };
+        assets[0].nativePrice = eth_balance.clone().to_string();
+        set_assets(assets.clone());
+    }
 
-        if assets[1].isSelected{
-            let btc_balance = use_future(&cx,(),|_| async move{
-                let amount =  btc_instance.balance().await; 
-                let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
-                amount_string.unwrap()
-                });
-            let btc_balance =   match btc_balance.value() {
-                Some(b) => b,
-                None => "" ,
-            };
-            assets[1].nativePrice = btc_balance.clone().to_string();
-            set_assets(assets.clone());
-        }
-cx.render(
+    if assets[1].isSelected {
+        let btc_balance = use_future(&cx, (), |_| async move {
+            let amount = btc_instance.balance().await;
+            let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
+            amount_string.unwrap()
+        });
+        let btc_balance = match btc_balance.value() {
+            Some(b) => b,
+            None => "",
+        };
+        assets[1].nativePrice = btc_balance.clone().to_string();
+        set_assets(assets.clone());
+    }
+    cx.render(
         rsx!{
             div {
                  class:"main-container",
@@ -116,12 +117,3 @@ cx.render(
                     }
                 }})
 }
-
-
-
-
-
-
-
-
-

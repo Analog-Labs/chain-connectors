@@ -8,7 +8,6 @@ members = [
     "rosetta-server-substrate",
     "rosetta-types",
     "rosetta-wallet",
-
 ]
 
 [patch.crates-io]
