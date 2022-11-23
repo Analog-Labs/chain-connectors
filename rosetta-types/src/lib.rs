@@ -9,6 +9,8 @@ pub mod account_coins_request;
 pub use self::account_coins_request::AccountCoinsRequest;
 pub mod account_coins_response;
 pub use self::account_coins_response::AccountCoinsResponse;
+pub mod account_faucet_request;
+pub use self::account_faucet_request::AccountFaucetRequest;
 pub mod account_identifier;
 pub use self::account_identifier::AccountIdentifier;
 pub mod allow;

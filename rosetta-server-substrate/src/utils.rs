@@ -580,11 +580,14 @@ pub async fn get_account_storage(
     Ok(account_data)
 }
 
-pub fn get_transfer_payload(
-    client: &OnlineClient<SubstrateConfig>,
+pub fn get_transfer_payload<T>(
+    client: &OnlineClient<T>,
     dest: MultiAddress<AccountId32, u32>,
     value: u128,
-) -> Result<StaticTxPayload<Transfer>, Error> {
+) -> Result<StaticTxPayload<Transfer>, Error>
+where
+    T: Config,
+{
     let metadata = client.metadata();
     let storage_hash = metadata
         .call_hash("Balances", "transfer")
@@ -599,14 +602,17 @@ pub fn get_transfer_payload(
     Ok(call_data)
 }
 
-pub async fn faucet_substrate(address: &str, amount: u128) -> Result<H256, String> {
-    let api = OnlineClient::<SubstrateConfig>::new().await.unwrap();
+pub async fn faucet_substrate(
+    api: &OnlineClient<SubstrateConfig>,
+    address: &str,
+    amount: u128,
+) -> Result<H256, String> {
     let signer = PairSigner::<SubstrateConfig, _>::new(AccountKeyring::Alice.pair());
 
     let receiver_account: AccountId32 = address.parse().unwrap();
     let receiver_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(receiver_account);
 
-    let call_data = match get_transfer_payload(&api, receiver_multiaddr, amount) {
+    let call_data = match get_transfer_payload(api, receiver_multiaddr, amount) {
         Ok(call_data) => call_data,
         Err(_) => return Err("Could not get transfer payload".to_string()),
     };

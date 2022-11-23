@@ -2,7 +2,6 @@ use anyhow::Result;
 use clap::Parser;
 use rosetta_client::types::AccountIdentifier;
 use rosetta_client::{BlockchainConfig, Wallet};
-use rosetta_server_substrate::utils::faucet_substrate;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -130,10 +129,20 @@ async fn main() -> Result<()> {
                     anyhow::bail!("cmd failed");
                 }
             }
-            Chain::Dot => match faucet_substrate(&wallet.account().address, amount).await {
-                Ok(tx_hash) => println!("success: {:?}", tx_hash),
-                Err(e) => println!("failed: {}", e),
-            },
+            Chain::Dot => {
+                match wallet
+                    .faucet_dev(wallet.account().address.clone(), amount)
+                    .await
+                {
+                    Ok(data) => {
+                        println!("success: {}", data.hash);
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        return Ok(());
+                    }
+                };
+            }
         },
     }
     Ok(())
