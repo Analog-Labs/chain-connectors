@@ -1,5 +1,7 @@
+#![allow(dead_code, non_snake_case)]
+
 use dioxus::prelude::*;
-use dioxus_router::{use_router};
+use dioxus_router::use_router;
 
 use crate::components::globals::{Button, Header};
 
@@ -51,14 +53,3 @@ pub fn ReceiveComponent(cx: Scope) -> Element {
             }
     })
 }
-
-// ----- Functionalities ------//
-#[cfg(not(target_family = "wasm"))]
-fn copy_to_clipboard(string: String) {
-    let mut clipboard = arboard::Clipboard::new().unwrap();
-    clipboard.set_text(string).unwrap();
-    println!("copied Text is: \"{:?}\"", clipboard.get_text().unwrap());
-}
-
-#[cfg(target_family = "wasm")]
-fn copy_to_clipboard(string: String) {}

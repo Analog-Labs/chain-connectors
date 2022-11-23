@@ -1,8 +1,8 @@
+#![allow(dead_code, non_snake_case)]
 use crate::{
     components::{globals::*, listing_rows::DashListingRow},
     WalletContext,
 };
-#[allow(non_snake_case)]
 use dioxus::prelude::*;
 use dioxus_router::use_router;
 use fermi::{use_read, use_set, Atom};
@@ -40,7 +40,7 @@ pub fn Dashboard(cx: Scope) -> Element {
     let set_assets = use_set(&cx, ASSETS);
     let assets_state = use_read(&cx, ASSETS);
     let router = use_router(&cx);
-    let assets = cx.use_hook(|| assets_state.clone().to_owned());
+    let assets = cx.use_hook(|| assets_state.clone());
 
     if assets[0].isSelected {
         let eth_balance = use_future(&cx, (), |_| async move {
@@ -52,7 +52,7 @@ pub fn Dashboard(cx: Scope) -> Element {
             Some(b) => b,
             None => "",
         };
-        assets[0].nativePrice = eth_balance.clone().to_string();
+        assets[0].nativePrice = eth_balance.to_string();
         set_assets(assets.clone());
     }
 
@@ -66,7 +66,7 @@ pub fn Dashboard(cx: Scope) -> Element {
             Some(b) => b,
             None => "",
         };
-        assets[1].nativePrice = btc_balance.clone().to_string();
+        assets[1].nativePrice = btc_balance.to_string();
         set_assets(assets.clone());
     }
     cx.render(
@@ -99,7 +99,7 @@ pub fn Dashboard(cx: Scope) -> Element {
                         class:"listing-container",
                         div {
                             class:"list",
-                            assets_state.iter().enumerate().filter(|(_,item)| item.isSelected == true).map(|(_,item)| rsx!(
+                            assets_state.iter().enumerate().filter(|(_,item)| item.isSelected).map(|(_,item)| rsx!(
                                     DashListingRow {
                                     assetName:item.assetName.as_str(),
                                     assetSymbol: item.assetSymbol.as_str(),

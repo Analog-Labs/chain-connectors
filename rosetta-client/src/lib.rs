@@ -1,18 +1,18 @@
 //! Rosetta client.
+pub use crate::client::Client;
+pub use crate::config::BlockchainConfig;
 use crate::crypto::bip39::{Language, Mnemonic};
+pub use crate::signer::Signer;
+pub use crate::tx::TransactionBuilder;
 use crate::types::Amount;
+pub use crate::wallet::Wallet;
 use anyhow::{Error, Result};
 use fraction::{BigDecimal, BigUint};
+pub use rosetta_crypto as crypto;
+pub use rosetta_types as types;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-pub use crate::client::Client;
-pub use crate::config::BlockchainConfig;
-pub use crate::signer::Signer;
-pub use crate::tx::TransactionBuilder;
-pub use crate::wallet::Wallet;
-pub use rosetta_crypto as crypto;
-pub use rosetta_types as types;
 
 mod client;
 mod config;
@@ -56,11 +56,11 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
     Ok(signer)
 }
 
-pub async fn create_wallet_instance(chain:String) -> Result<Wallet, Error> {
-   let  config =  match chain.as_str() {
+pub async fn create_wallet_instance(chain: String) -> Result<Wallet, Error> {
+    let config = match chain.as_str() {
         "btc" => BlockchainConfig::bitcoin_regtest(),
         "eth" => BlockchainConfig::ethereum_dev(),
-        _ =>  todo!(),
+        _ => todo!(),
     };
     let keyfile = default_keyfile()?;
     let signer = open_or_create_keyfile(&keyfile)?;

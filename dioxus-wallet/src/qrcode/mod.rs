@@ -1,3 +1,5 @@
+#![allow(dead_code, non_snake_case)]
+
 use dioxus::prelude::*;
 use qrcode::render::svg;
 use qrcode::QrCode;

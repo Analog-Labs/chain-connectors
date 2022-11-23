@@ -1,3 +1,5 @@
+#![allow(dead_code, non_snake_case)]
+
 use dioxus::{events::MouseEvent, prelude::*};
 
 #[derive(Props)]
@@ -34,10 +36,7 @@ pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
         Some(x) => rsx!(div{class:"button-title", "{x}"}),
         None => rsx!(""),
     };
-    let background_color = match cx.props.backgroundColor.clone() {
-        Some(x) => x,
-        None => "",
-    };
+    let background_color = cx.props.backgroundColor.unwrap_or("");
     cx.render(rsx! {
             div {
                 class:"link-button",
@@ -90,6 +89,8 @@ pub fn Header<'a>(cx: Scope<'a, HeaderProps<'a>>) -> Element {
         }
     }})
 }
+
+#[allow(non_snake_case, unused)]
 
 pub fn Loader(cx: Scope) -> Element {
     cx.render(rsx! {

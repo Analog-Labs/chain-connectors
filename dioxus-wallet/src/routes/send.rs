@@ -1,7 +1,8 @@
+#![allow(dead_code, non_snake_case)]
 use dioxus::prelude::*;
-use dioxus_router::{use_router};
+use dioxus_router::use_router;
 
-use crate::components::globals::{Header};
+use crate::components::globals::Header;
 
 pub fn SendComponent(cx: Scope) -> Element {
     let sender_address = use_state(&cx, || {

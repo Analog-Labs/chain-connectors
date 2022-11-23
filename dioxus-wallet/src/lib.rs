@@ -1,14 +1,14 @@
 use dioxus::prelude::*;
-use dioxus_router::{ Route, Router};
+use dioxus_router::{Route, Router};
 use rosetta_client::Wallet;
 
-mod qrcode;
 mod components;
+mod qrcode;
 mod routes;
 
 use crate::routes::assets::*;
 use crate::routes::dashboard::*;
-  //todo WIP
+//todo WIP
 // use crate::routes::receive::*;
 // use crate::routes::send::*;
 
@@ -88,7 +88,7 @@ fn app(cx: Scope) -> Element {
                   Route{to:"/",Dashboard{}}
                   Route{to:"/addAsset",AddAssets{}}
                   Route{to:"/selectAsset/:from",SelectAsset{}}
-                     // todo WIP
+                //todo WIP
                 //   Route{to:"/send",SendComponent{}}
                 //   Route{to:"/receive",ReceiveComponent{}}
                 }
