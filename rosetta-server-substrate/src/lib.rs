@@ -1,8 +1,8 @@
 use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountIdentifier, Allow, Amount, Block,
-    BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
+    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Allow,
+    Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
     ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
     ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
@@ -25,9 +25,9 @@ use subxt::{OnlineClient, SubstrateConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    encode_call_data, get_account_storage, get_block_events, get_block_transactions,
-    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    UnsignedTransactionData,
+    encode_call_data, faucet_substrate, get_account_storage, get_block_events,
+    get_block_transactions, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    resolve_block, Error, UnsignedTransactionData,
 };
 
 mod ss58;
@@ -89,6 +89,7 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     app.at("/network/status").post(network_status);
     app.at("/account/balance").post(account_balance);
     app.at("/account/coins").post(account_coins);
+    app.at("/account/faucet").post(account_faucet);
     app.at("/block").post(block);
     app.at("/block/transaction").post(block_transaction);
     app.at("/construction/combine").post(construction_combine);
@@ -234,6 +235,30 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
 
 async fn account_coins(mut _req: Request<State>) -> tide::Result {
     Error::NotImplemented.to_response()
+}
+
+async fn account_faucet(mut req: Request<State>) -> tide::Result {
+    let request: AccountFaucetRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+    let data = faucet_substrate(
+        &req.state().client,
+        &request.account_address,
+        request.amount,
+    )
+    .await
+    .unwrap();
+
+    let response = TransactionIdentifierResponse {
+        transaction_identifier: TransactionIdentifier {
+            hash: format!("{:?}", data),
+        },
+        metadata: None,
+    };
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn block(mut req: Request<State>) -> tide::Result {

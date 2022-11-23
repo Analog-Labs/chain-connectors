@@ -1,15 +1,15 @@
 use anyhow::Result;
 use rosetta_types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse,
-    ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
-    ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
-    ConstructionMetadataResponse, ConstructionParseRequest, ConstructionParseResponse,
-    ConstructionPayloadsRequest, ConstructionPayloadsResponse, ConstructionPreprocessRequest,
-    ConstructionPreprocessResponse, ConstructionSubmitRequest, EventsBlocksRequest,
-    EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest, MempoolTransactionResponse,
-    MetadataRequest, NetworkListResponse, NetworkOptionsResponse, NetworkRequest,
-    NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
+    AccountFaucetRequest, BlockRequest, BlockResponse, BlockTransactionRequest,
+    BlockTransactionResponse, ConstructionCombineRequest, ConstructionCombineResponse,
+    ConstructionDeriveRequest, ConstructionDeriveResponse, ConstructionHashRequest,
+    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionParseRequest,
+    ConstructionParseResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
+    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
+    EventsBlocksRequest, EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest,
+    MempoolTransactionResponse, MetadataRequest, NetworkListResponse, NetworkOptionsResponse,
+    NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
     TransactionIdentifierResponse,
 };
 use serde::{de::DeserializeOwned, Serialize};
@@ -82,6 +82,14 @@ impl Client {
         request: &AccountCoinsRequest,
     ) -> Result<AccountCoinsResponse> {
         self.post("/account/coins", &request).await
+    }
+
+    /// Make a call to the /account/faucet endpoint.
+    pub async fn account_faucet(
+        &self,
+        request: &AccountFaucetRequest,
+    ) -> Result<TransactionIdentifierResponse> {
+        self.post("/account/faucet", &request).await
     }
 
     /// Make a call to the /block endpoint.
@@ -189,4 +197,7 @@ impl Client {
     ) -> Result<SearchTransactionsResponse> {
         self.post("/search/transactions", &request).await
     }
+
+    /// Make a call to /faucet endpoint
+    pub async fn faucet(&self) {}
 }

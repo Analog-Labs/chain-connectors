@@ -11,6 +11,7 @@ use crate::types::{
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
+use rosetta_types::AccountFaucetRequest;
 use serde_json::Value;
 
 pub struct Wallet {
@@ -219,5 +220,16 @@ impl Wallet {
             .await?;
 
         self.submit(&tx).await
+    }
+
+    pub async fn faucet_dev(&self, account: String, amount: u128) -> Result<TransactionIdentifier> {
+        let req = AccountFaucetRequest {
+            network_identifier: self.config.network.clone(),
+            account_address: account,
+            amount,
+        };
+
+        let resp = self.client.account_faucet(&req).await?;
+        Ok(resp.transaction_identifier)
     }
 }
