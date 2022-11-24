@@ -14,5 +14,9 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
     - run: docker compose build
     - run: docker compose push
