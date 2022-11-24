@@ -14,7 +14,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- \
 ENV PATH="${PATH}:/root/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin"
 
 # build substrate
-RUN cargo install node-cli --git https://github.com/paritytech/substrate --root /app
+RUN cargo install node-cli --git https://github.com/paritytech/substrate --root /app --rev 08d1b2c
 
 # build rosetta
 COPY . src
