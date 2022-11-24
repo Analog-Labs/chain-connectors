@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   bitcoin:
-    image: "rosetta-bitcoin"
+    image: "analoglabs/rosetta-bitcoin"
     environment:
       - NETWORK=REGTEST
       - MODE=ONLINE
@@ -11,7 +11,7 @@ services:
       - "18333:18333"
       - "18443:18443"
   ethereum:
-    image: "rosetta-ethereum"
+    image: "analoglabs/rosetta-ethereum"
     environment:
       - NETWORK=TESTNET
       - MODE=ONLINE
@@ -21,7 +21,10 @@ services:
       - "30303:30303"
       - "8545:8545"
   substrate:
-    image: "rosetta-substrate"
+    image: "analoglabs/rosetta-substrate"
+    build:
+      context: "."
+      dockerfile: "./rosetta-server-substrate/Dockerfile"
     environment:
       - NETWORK=DEV
       - MODE=ONLINE
@@ -31,9 +34,7 @@ services:
       - "30333:30333"
       - "9944:9944"
   explorer:
-    image: "rosetta-explorer"
-    environment:
-      - "NEXT_PUBLIC_NETWORKS=Bitcoin=http://bitcoin:8080,Ethereum=http://ethereum:8081,Polkadot=http://substrate:8082"
+    image: "analoglabs/rosetta-explorer"
     ports:
       - "3000:3000"
     links:
