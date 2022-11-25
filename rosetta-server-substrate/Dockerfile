@@ -14,7 +14,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- \
 ENV PATH="${PATH}:/root/.rustup/toolchains/nightly-x86_64-unknown-linux-gnu/bin"
 
 # build substrate
-RUN cargo install node-cli --git https://github.com/paritytech/substrate --root /app --rev 08d1b2c
+RUN cargo install polkadot --git https://github.com/paritytech/polkadot --root /app --tag v0.9.32
 
 # build rosetta
 COPY . src
@@ -32,10 +32,9 @@ RUN mkdir -p /app \
 
 WORKDIR /app
 
-COPY --from=builder /app/bin/substrate /app/substrate
+COPY --from=builder /app/bin/polkadot /app/polkadot
 COPY --from=builder /app/bin/rosetta-server-substrate /app/rosetta-server-substrate
-COPY rosetta-server-substrate/rosetta-substrate.sh /app/rosetta-substrate.sh
 
 RUN chmod -R 755 /app/*
 
-CMD /app/rosetta-substrate.sh
+CMD /app/rosetta-server-substrate

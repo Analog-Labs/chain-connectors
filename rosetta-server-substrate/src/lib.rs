@@ -30,32 +30,39 @@ use utils::{
 };
 
 mod ss58;
-pub mod utils;
+mod utils;
 
 pub struct Config {
-    pub url: &'static str,
-    pub rpc_url: &'static str,
+    pub rpc_url: String,
     pub network: NetworkIdentifier,
     pub currency: Currency,
     pub ss58_address_format: Ss58AddressFormat,
+    pub testnet: bool,
 }
 
 impl Config {
-    pub fn dev() -> Self {
+    pub fn new(
+        blockchain: &str,
+        network: &str,
+        symbol: &str,
+        decimals: u32,
+        format: Ss58AddressFormatRegistry,
+        testnet: bool,
+    ) -> Self {
         Self {
-            url: "http://0.0.0.0:8082",
-            rpc_url: "ws://127.0.0.1:9944",
+            rpc_url: "ws://127.0.0.1:9944".into(),
             network: NetworkIdentifier {
-                blockchain: "Polkadot".into(),
-                network: "Dev".into(),
+                blockchain: blockchain.into(),
+                network: network.into(),
                 sub_network_identifier: None,
             },
             currency: Currency {
-                decimals: 10,
-                symbol: "DOT".into(),
+                decimals,
+                symbol: symbol.into(),
                 metadata: None,
             },
-            ss58_address_format: Ss58AddressFormatRegistry::PolkadotAccount.into(),
+            ss58_address_format: format.into(),
+            testnet,
         }
     }
 }
@@ -70,7 +77,7 @@ pub struct State {
 
 impl State {
     pub async fn new(config: &Config) -> Result<Self> {
-        let client = OnlineClient::from_url(config.rpc_url).await?;
+        let client = OnlineClient::from_url(&config.rpc_url).await?;
         Ok(Self {
             network: config.network.clone(),
             currency: config.currency.clone(),
@@ -88,7 +95,9 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     app.at("/network/status").post(network_status);
     app.at("/account/balance").post(account_balance);
     app.at("/account/coins").post(account_coins);
-    app.at("/account/faucet").post(account_faucet);
+    if config.testnet {
+        app.at("/account/faucet").post(account_faucet);
+    }
     app.at("/block").post(block);
     app.at("/block/transaction").post(block_transaction);
     app.at("/construction/combine").post(construction_combine);
