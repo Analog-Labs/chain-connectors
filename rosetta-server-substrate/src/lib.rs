@@ -42,6 +42,7 @@ pub struct Config {
 
 impl Config {
     pub fn new(
+        rpc_url: &str,
         blockchain: &str,
         network: &str,
         symbol: &str,
@@ -50,7 +51,7 @@ impl Config {
         testnet: bool,
     ) -> Self {
         Self {
-            rpc_url: "ws://127.0.0.1:9944".into(),
+            rpc_url: rpc_url.into(),
             network: NetworkIdentifier {
                 blockchain: blockchain.into(),
                 network: network.into(),

@@ -20,7 +20,7 @@ services:
       - "8081:8081"
       - "30303:30303"
       - "8545:8545"
-  substrate:
+  rosetta-substrate:
     image: "analoglabs/rosetta-substrate"
     build:
       context: "."
@@ -28,8 +28,12 @@ services:
     environment:
       - PORT=8082
       - NETWORK=DEV
+      - NODE=ws://polkadot:9944
     ports:
       - "8082:8082"
+  polkadot:
+    image: "parity/polkadot:v0.9.32"
+    ports:
       - "30333:30333"
   explorer:
     image: "analoglabs/rosetta-explorer"
@@ -38,4 +42,4 @@ services:
     links:
       - bitcoin
       - ethereum
-      - substrate
+      - polkadot

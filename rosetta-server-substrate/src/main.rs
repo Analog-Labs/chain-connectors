@@ -1,7 +1,6 @@
 use anyhow::Result;
 use rosetta_server_substrate::Config;
 use ss58_registry::Ss58AddressFormatRegistry;
-use std::process::Command;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -10,45 +9,37 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "8082".into())
         .parse()?;
     let chain = std::env::var("NETWORK").unwrap_or_else(|_| "DEV".into());
-    let (config, args) = match chain.as_str() {
-        "POLKADOT" => (
-            Config::new(
-                "Polkadot",
-                "Dev",
-                "DOT",
-                10,
-                Ss58AddressFormatRegistry::PolkadotAccount,
-                true,
-            ),
-            ["--dev"],
+    let node = std::env::var("NODE").unwrap_or_else(|_| "ws://127.0.0.1:9944".into());
+    let config = match chain.as_str() {
+        "POLKADOT" => Config::new(
+            &node,
+            "Polkadot",
+            "Dev",
+            "DOT",
+            10,
+            Ss58AddressFormatRegistry::PolkadotAccount,
+            true,
         ),
-        "KUSAMA" => (
-            Config::new(
-                "Kusama",
-                "Kusama",
-                "KSM",
-                12,
-                Ss58AddressFormatRegistry::KusamaAccount,
-                false,
-            ),
-            ["--chain=kusama"],
+        "KUSAMA" => Config::new(
+            &node,
+            "Kusama",
+            "Kusama",
+            "KSM",
+            12,
+            Ss58AddressFormatRegistry::KusamaAccount,
+            false,
         ),
-        "DEV" => (
-            Config::new(
-                "Polkadot",
-                "Polkadot",
-                "DOT",
-                10,
-                Ss58AddressFormatRegistry::PolkadotAccount,
-                false,
-            ),
-            ["--chain=polkadot"],
+        "DEV" => Config::new(
+            &node,
+            "Polkadot",
+            "Polkadot",
+            "DOT",
+            10,
+            Ss58AddressFormatRegistry::PolkadotAccount,
+            false,
         ),
         _ => anyhow::bail!("unsupported chain"),
     };
-
-    Command::new("polkadot").args(args).spawn()?;
-    std::thread::sleep(Duration::from_secs(10));
 
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
