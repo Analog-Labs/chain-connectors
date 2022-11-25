@@ -26,13 +26,11 @@ services:
       context: "."
       dockerfile: "./rosetta-server-substrate/Dockerfile"
     environment:
-      - NETWORK=DEV
-      - MODE=ONLINE
       - PORT=8082
+      - NETWORK=DEV
     ports:
       - "8082:8082"
       - "30333:30333"
-      - "9944:9944"
   explorer:
     image: "analoglabs/rosetta-explorer"
     ports:
