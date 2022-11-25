@@ -1,8 +1,8 @@
-FROM ubuntu:20.04 as builder
+FROM rust:1.64 as builder
 
 # build rosetta
 COPY . src
-RUN cd src && cargo install --path rosetta-server-substrate --root /app
+RUN cd src && cargo install --path rosetta-server-polkadot --root /app
 
 # final image
 FROM ubuntu:20.04
@@ -16,8 +16,8 @@ RUN mkdir -p /app \
 
 WORKDIR /app
 
-COPY --from=builder /app/bin/rosetta-server-substrate /app/rosetta-server-substrate
+COPY --from=builder /app/bin/rosetta-server-polkadot /app/rosetta-server-polkadot
 
 RUN chmod -R 755 /app/*
 
-CMD /app/rosetta-server-substrate
+ENTRYPOINT ["/app/rosetta-server-polkadot"]

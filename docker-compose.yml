@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  bitcoin:
+  rosetta-bitcoin:
     image: "analoglabs/rosetta-bitcoin"
     environment:
       - NETWORK=REGTEST
@@ -10,7 +10,7 @@ services:
       - "8080:8080"
       - "18333:18333"
       - "18443:18443"
-  ethereum:
+  rosetta-ethereum:
     image: "analoglabs/rosetta-ethereum"
     environment:
       - NETWORK=TESTNET
@@ -20,26 +20,29 @@ services:
       - "8081:8081"
       - "30303:30303"
       - "8545:8545"
-  rosetta-substrate:
-    image: "analoglabs/rosetta-substrate"
+  rosetta-polkadot:
+    image: "analoglabs/rosetta-polkadot"
+    command: "--network dev --url http://0.0.0.0:8082 --rpc-url ws://polkadot:9944"
     build:
       context: "."
-      dockerfile: "./rosetta-server-substrate/Dockerfile"
-    environment:
-      - PORT=8082
-      - NETWORK=DEV
-      - NODE=ws://polkadot:9944
+      dockerfile: "./rosetta-server-polkadot/Dockerfile"
+    restart: always
     ports:
-      - "8082:8082"
+    - "8082:8082"
+    links:
+    - polkadot
   polkadot:
     image: "parity/polkadot:v0.9.32"
+    command: "--chain dev --ws-external --rpc-external --rpc-cors=all --force-authoring --alice --tmp"
+    restart: always
     ports:
-      - "30333:30333"
+    - "9944:9944"
   explorer:
     image: "analoglabs/rosetta-explorer"
+    restart: always
     ports:
-      - "3000:3000"
+    - "3000:3000"
     links:
-      - bitcoin
-      - ethereum
-      - polkadot
+    - rosetta-bitcoin
+    - rosetta-ethereum
+    - rosetta-polkadot
