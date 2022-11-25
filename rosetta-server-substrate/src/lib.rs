@@ -11,7 +11,6 @@ use rosetta_types::{
     NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
     SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
-use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
@@ -31,6 +30,8 @@ use utils::{
 
 mod ss58;
 mod utils;
+
+pub use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 
 pub struct Config {
     pub rpc_url: String,
