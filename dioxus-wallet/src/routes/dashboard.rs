@@ -25,7 +25,6 @@ pub static ASSETS: Atom<Vec<AssetsType>> = |_| {
 };
 
 #[derive(Clone)]
-
 pub struct AssetsType {
     pub assetName: String,
     pub nativePrice: String,
@@ -69,27 +68,28 @@ pub fn Dashboard(cx: Scope) -> Element {
         assets[1].nativePrice = btc_balance.to_string();
         set_assets(assets.clone());
     }
+
     cx.render(
         rsx!{
             div {
                  class:"main-container",
                 div {
                     class: "dashboard-container" ,
-                    // h2 {"$ {balance}"} //Todo Dollar price MVP phase 2 
+                    // h2 {"$ {balance}"} //Todo Dollar price MVP phase 2
                     div { class:"wallet-name", "My Wallet" }
                     div {
                          class:"button-container",
                          LinkButton {
                             title:"Send".to_string(),
                             onClick: move |_| {
-                                // router.push_route(&format!("/selectAsset/{}", "SEND"), None, None)
+                                router.push_route(&format!("/selectAsset/{}", "SEND"), None, None)
                             },
                             uri:"https://img.icons8.com/ios-glyphs/30/000000/filled-sent.png"
                          }
                          LinkButton {
                             title:"Receive".to_string(),
                             onClick: move |_| {
-                                // router.push_route(&format!("/selectAsset/{}", "RECEIVE"), None, None)
+                                router.push_route(&format!("/selectAsset/{}", "RECEIVE"), None, None)
                             } ,
                             uri:"https://img.icons8.com/external-xnimrodx-lineal-xnimrodx/64/000000/external-receive-passive-income-xnimrodx-lineal-xnimrodx.png"
                          }

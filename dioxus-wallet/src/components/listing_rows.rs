@@ -7,10 +7,8 @@ use dioxus::{
 };
 
 #[derive(Props)]
-
 pub struct MultiSelectListingRowProps<'a> {
     assetName: &'a str,
-    nativePrice: f64,
     assetIconUri: &'a str,
     isSelected: bool,
     onSelect: EventHandler<'a, UiEvent<FormData>>,
@@ -67,12 +65,11 @@ pub fn MultiSelectListingRow<'a>(cx: Scope<'a, MultiSelectListingRowProps<'a>>) 
 }
 
 #[derive(Props)]
-
 pub struct SingleSelectListingRowProps<'a> {
     assetName: &'a str,
     onSelect: EventHandler<'a, MouseEvent>,
     assetIconUri: &'a str,
-    nativePrice: f64,
+    nativePrice: String
 }
 
 pub fn SingleSelectListingRow<'a>(cx: Scope<'a, SingleSelectListingRowProps<'a>>) -> Element {

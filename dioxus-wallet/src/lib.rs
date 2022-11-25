@@ -9,8 +9,8 @@ mod routes;
 use crate::routes::assets::*;
 use crate::routes::dashboard::*;
 //todo WIP
-// use crate::routes::receive::*;
-// use crate::routes::send::*;
+use crate::routes::receive::*;
+use crate::routes::send::*;
 
 #[cfg(target_os = "android")]
 #[no_mangle]
@@ -62,12 +62,12 @@ pub struct WalletContext {
 
 fn app(cx: Scope) -> Element {
     let eth_wallet = use_future(&cx, (), |_| async move {
-        rosetta_client::create_wallet_instance("eth".to_string())
+        rosetta_client::create_wallet_instance("eth")
             .await
             .unwrap()
     });
     let btc_wallet = use_future(&cx, (), |_| async move {
-        rosetta_client::create_wallet_instance("btc".to_string())
+        rosetta_client::create_wallet_instance("btc")
             .await
             .unwrap()
     });
@@ -89,8 +89,8 @@ fn app(cx: Scope) -> Element {
                   Route{to:"/addAsset",AddAssets{}}
                   Route{to:"/selectAsset/:from",SelectAsset{}}
                 //todo WIP
-                //   Route{to:"/send",SendComponent{}}
-                //   Route{to:"/receive",ReceiveComponent{}}
+                  Route{to:"/send",SendComponent{}}
+                  Route{to:"/receive",ReceiveComponent{}}
                 }
             })
         }

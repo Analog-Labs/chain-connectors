@@ -56,11 +56,11 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
     Ok(signer)
 }
 
-pub async fn create_wallet_instance(chain: String) -> Result<Wallet, Error> {
-    let config = match chain.as_str() {
+pub async fn create_wallet_instance(chain: &str) -> Result<Wallet, Error> {
+    let config = match chain {
         "btc" => BlockchainConfig::bitcoin_regtest(),
         "eth" => BlockchainConfig::ethereum_dev(),
-        _ => todo!(),
+        _ => anyhow::bail!("unsupported blockchain"),
     };
     let keyfile = default_keyfile()?;
     let signer = open_or_create_keyfile(&keyfile)?;

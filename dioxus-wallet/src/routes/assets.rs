@@ -28,7 +28,6 @@ pub fn AddAssets(cx: Scope) -> Element {
                 assets_state.iter().enumerate().map(|(id, asset)| rsx!{
                         MultiSelectListingRow {
                             assetName:asset.assetName.as_str(),
-                            nativePrice:0.0,
                             assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png",
                             isSelected:asset.isSelected,
                             onSelect: move |_| {
@@ -52,32 +51,11 @@ pub fn AddAssets(cx: Scope) -> Element {
     })
 }
 
-pub struct SelectAssetType {
-    assetName: String,
-    nativePrice: f64,
-    symbol: String,
-}
 
 pub fn SelectAsset(cx: Scope) -> Element {
-    let dummy_select_assets = vec![
-        SelectAssetType {
-            assetName: "Bitcoin".to_string(),
-            nativePrice: 1.1,
-            symbol: "BTC".to_string(),
-        },
-        SelectAssetType {
-            assetName: "Ethereum".to_string(),
-            nativePrice: 1.2,
-            symbol: "ETH".to_string(),
-        },
-        SelectAssetType {
-            assetName: "Polkadot".to_string(),
-            nativePrice: 1.2,
-            symbol: "DOT".to_string(),
-        },
-    ];
+
     let router = use_router(&cx);
-    let assets = use_state(&cx, || dummy_select_assets);
+    let assets_state = use_read(&cx, ASSETS);
     let route = use_route(&cx);
     let route_from_name = route.segment("from").unwrap();
     cx.render(rsx! {
@@ -100,10 +78,10 @@ pub fn SelectAsset(cx: Scope) -> Element {
                 }
                 div {
                     class:"add-asset-listing-container",
-                    assets.iter().enumerate().map(|(_, asset)| rsx!(
+                    assets_state.iter().enumerate().map(|(_, asset)| rsx!(
                         SingleSelectListingRow {
                                 assetName:asset.assetName.as_str(),
-                                nativePrice:asset.nativePrice,
+                                nativePrice:asset.nativePrice.to_string(),
                                 assetIconUri:"https://img.icons8.com/ios-filled/50/000000/bitcoin.png",
                                 onSelect: move |_| {
                                    match route_from_name == "SEND"   {

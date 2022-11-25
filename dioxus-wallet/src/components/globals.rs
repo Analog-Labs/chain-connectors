@@ -2,10 +2,10 @@
 
 use dioxus::{events::MouseEvent, prelude::*};
 
-#[derive(Props)]
 
 //----------- Buttons ------------//
 
+#[derive(Props)]
 pub struct ButtonProps<'a> {
     title: &'a str,
     onclick: EventHandler<'a, MouseEvent>,
@@ -22,7 +22,6 @@ pub fn Button<'a>(cx: Scope<'a, ButtonProps<'a>>) -> Element {
 }
 
 #[derive(Props)]
-
 pub struct LinkButtonProps<'a> {
     onClick: EventHandler<'a, MouseEvent>,
     uri: &'a str,
@@ -55,8 +54,8 @@ pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
 }
 
 //-----------Header----------//
-#[derive(Props)]
 
+#[derive(Props)]
 pub struct HeaderProps<'a> {
     title: &'a str,
     onbackclick: EventHandler<'a, MouseEvent>,
@@ -91,7 +90,6 @@ pub fn Header<'a>(cx: Scope<'a, HeaderProps<'a>>) -> Element {
 }
 
 #[allow(non_snake_case, unused)]
-
 pub fn Loader(cx: Scope) -> Element {
     cx.render(rsx! {
         div{
