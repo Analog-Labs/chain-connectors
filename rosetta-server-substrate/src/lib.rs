@@ -18,16 +18,15 @@ use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
-use subxt::tx::{AssetTip, SubstrateExtrinsicParamsBuilder as Params};
-use subxt::tx::{Era, SubmittableExtrinsic};
+use subxt::tx::SubmittableExtrinsic;
 use subxt::utils::Encoded;
-use subxt::{OnlineClient, SubstrateConfig};
+use subxt::{OnlineClient, PolkadotConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    encode_call_data, faucet_substrate, get_account_storage, get_block_events,
-    get_block_transactions, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    resolve_block, Error, UnsignedTransactionData,
+    faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
+    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
+    UnsignedTransactionData,
 };
 
 mod ss58;
@@ -66,7 +65,7 @@ pub struct State {
     network: NetworkIdentifier,
     currency: Currency,
     ss58_address_format: Ss58AddressFormat,
-    client: OnlineClient<SubstrateConfig>,
+    client: OnlineClient<PolkadotConfig>,
 }
 
 impl State {
@@ -611,10 +610,6 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         }
     };
 
-    let tx_params = Params::new()
-        .tip(AssetTip::new(0))
-        .era(Era::Immortal, req.state().client.genesis_hash());
-
     let payload = match get_transfer_payload(
         &req.state().client,
         MultiAddress::Id(receiver_account),
@@ -624,11 +619,10 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
         Err(e) => return e.to_response(),
     };
 
-    let payload_data =
-        match encode_call_data(&payload, &req.state().client, nonce as u32, tx_params) {
-            Ok(payload_data) => payload_data,
-            Err(_) => return Error::CouldNotCreateCallData.to_response(),
-        };
+    let payload_data = match get_call_data(&payload, &req.state().client, nonce as u32) {
+        Ok(payload_data) => payload_data,
+        Err(_) => return Error::CouldNotCreateCallData.to_response(),
+    };
 
     let tx_hex = hex::encode(&payload_data.payload);
 
@@ -761,6 +755,7 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
         Ok(data) => data,
         Err(_) => return Error::InvalidHex.to_response(),
     };
+
     let sb_extrinsic =
         SubmittableExtrinsic::from_bytes(req.state().client.clone(), encoded_tx_data);
 

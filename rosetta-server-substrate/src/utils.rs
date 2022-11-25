@@ -33,18 +33,16 @@ use subxt::storage::address;
 use subxt::storage::address::StorageHasher;
 use subxt::storage::address::StorageMapKey;
 use subxt::storage::StaticStorageAddress;
-use subxt::tx::AssetTip;
-use subxt::tx::BaseExtrinsicParamsBuilder;
 use subxt::tx::PairSigner;
 use subxt::tx::StaticTxPayload;
-use subxt::tx::SubstrateExtrinsicParams;
 use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
 use subxt::Config;
-use subxt::{OnlineClient, SubstrateConfig};
+use subxt::{OnlineClient, PolkadotConfig};
 use tide::{Body, Response};
 
 pub enum Error {
+    AccountNotFound,
     UnsupportedNetwork,
     UnsupportedCurveType,
     InvalidHex,
@@ -74,6 +72,7 @@ pub enum Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            Self::AccountNotFound => write!(f, "Account not found"),
             Self::UnsupportedNetwork => write!(f, "Unsupported network"),
             Self::UnsupportedCurveType => write!(f, "Unsupported curve type"),
             Self::InvalidHex => write!(f, "Invalid hex"),
@@ -118,7 +117,7 @@ impl Error {
 }
 
 pub async fn resolve_block(
-    subxt: &OnlineClient<SubstrateConfig>,
+    subxt: &OnlineClient<PolkadotConfig>,
     partial: Option<&PartialBlockIdentifier>,
 ) -> Result<(H256, u64)> {
     let mindex = if let Some(PartialBlockIdentifier {
@@ -458,14 +457,28 @@ pub struct TransactionOperationStatus {
     amount: Option<String>,
 }
 
-pub fn encode_call_data<Call>(
+pub fn get_call_data<T, Call>(
     call: &Call,
-    subxt: &OnlineClient<SubstrateConfig>,
-    account_nonce: u32,
-    other_params: BaseExtrinsicParamsBuilder<SubstrateConfig, AssetTip>,
+    subxt: &OnlineClient<T>,
+    account_nonce: T::Index,
 ) -> Result<PayloadData, Error>
 where
     Call: TxPayload,
+    T: Config,
+    <T::ExtrinsicParams as ExtrinsicParams<T::Index, T::Hash>>::OtherParams: Default,
+{
+    encode_call_data(call, subxt, account_nonce, Default::default())
+}
+
+fn encode_call_data<T, Call>(
+    call: &Call,
+    subxt: &OnlineClient<T>,
+    account_nonce: T::Index,
+    other_params: <T::ExtrinsicParams as ExtrinsicParams<T::Index, T::Hash>>::OtherParams,
+) -> Result<PayloadData, Error>
+where
+    Call: TxPayload,
+    T: Config,
 {
     let metadata = subxt.metadata();
     let mut bytes = Vec::new();
@@ -482,7 +495,7 @@ where
     let additional_and_extra_params = {
         // Obtain spec version and transaction version from the runtime version of the client.
         let runtime = subxt.runtime_version();
-        SubstrateExtrinsicParams::<SubstrateConfig>::new(
+        <T::ExtrinsicParams as ExtrinsicParams<T::Index, T::Hash>>::new(
             runtime.spec_version,
             runtime.transaction_version,
             account_nonce,
@@ -529,7 +542,7 @@ pub struct PayloadData {
     pub call_data: Vec<u8>,
 }
 
-pub async fn get_unix_timestamp(client: &OnlineClient<SubstrateConfig>) -> Result<u64, Error> {
+pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result<u64, Error> {
     let metadata = client.metadata();
     let storage_hash = metadata
         .storage_hash("Timestamp", "Now")
@@ -552,7 +565,7 @@ pub async fn get_unix_timestamp(client: &OnlineClient<SubstrateConfig>) -> Resul
 }
 
 pub async fn get_account_storage(
-    client: &OnlineClient<SubstrateConfig>,
+    client: &OnlineClient<PolkadotConfig>,
     account: &AccountId32,
 ) -> Result<AccountInfo<u32, AccountData>, Error> {
     let metadata = client.metadata();
@@ -575,7 +588,7 @@ pub async fn get_account_storage(
     );
     let account_data = match client.storage().fetch(&acc_key, None).await {
         Ok(data) => data.ok_or(Error::StorageFetch)?,
-        Err(_) => return Err(Error::StorageFetch),
+        Err(_) => return Err(Error::AccountNotFound),
     };
     Ok(account_data)
 }
@@ -603,11 +616,11 @@ where
 }
 
 pub async fn faucet_substrate(
-    api: &OnlineClient<SubstrateConfig>,
+    api: &OnlineClient<PolkadotConfig>,
     address: &str,
     amount: u128,
 ) -> Result<H256, String> {
-    let signer = PairSigner::<SubstrateConfig, _>::new(AccountKeyring::Alice.pair());
+    let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
 
     let receiver_account: AccountId32 = address.parse().unwrap();
     let receiver_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(receiver_account);
