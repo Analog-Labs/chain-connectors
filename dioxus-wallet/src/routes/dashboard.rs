@@ -1,4 +1,5 @@
 #![allow(dead_code, non_snake_case)]
+
 use crate::{
     components::{globals::*, listing_rows::DashListingRow},
     WalletContext,
@@ -11,13 +12,13 @@ pub static ASSETS: Atom<Vec<AssetsType>> = |_| {
     vec![
         AssetsType {
             assetName: "Ethereum".to_string(),
-            nativePrice: "0.0".to_string(),
+            nativePrice: "0.0 ETH".to_string(),
             assetSymbol: "ETH".to_string(),
             isSelected: false,
         },
         AssetsType {
             assetName: "Bitcoin".to_string(),
-            nativePrice: "0.0".to_string(),
+            nativePrice: "0.0 BTC".to_string(),
             assetSymbol: "BTC".to_string(),
             isSelected: false,
         },
@@ -34,40 +35,42 @@ pub struct AssetsType {
 
 pub fn Dashboard(cx: Scope) -> Element {
     let wallet_context = cx.use_hook(|| cx.consume_context::<WalletContext>());
-    let eth_instance = wallet_context.clone().unwrap().eth;
-    let btc_instance = wallet_context.clone().unwrap().btc;
     let set_assets = use_set(&cx, ASSETS);
     let assets_state = use_read(&cx, ASSETS);
     let router = use_router(&cx);
-    let assets = cx.use_hook(|| assets_state.clone());
 
-    if assets[0].isSelected {
-        let eth_balance = use_future(&cx, (), |_| async move {
-            let amount = eth_instance.balance().await;
-            let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
-            amount_string.unwrap()
-        });
-        let eth_balance = match eth_balance.value() {
-            Some(b) => b,
-            None => "",
-        };
-        assets[0].nativePrice = eth_balance.to_string();
-        set_assets(assets.clone());
+    fn update_assets_balance(
+        cx: &ScopeState,
+        wallet_context: WalletContext,
+        assets: Vec<AssetsType>,
+    ) -> Vec<AssetsType> {
+        let assets = cx.use_hook(|| assets);
+
+        for item in assets.iter_mut() {
+            if item.isSelected {
+                let wallet = match item.assetSymbol.as_str() {
+                    "ETH" => wallet_context.eth.clone(),
+                    "BTC" => wallet_context.btc.clone(),
+                    &_ => wallet_context.eth.clone(),
+                };
+                let balance = use_future(cx, (), |_| async move {
+                    let amount = wallet.balance().await;
+                    let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
+                    amount_string.unwrap()
+                });
+                let balance_in_string = match balance.value() {
+                    Some(b) => b,
+                    None => "",
+                };
+                item.nativePrice = balance_in_string.to_string();
+            }
+        }
+        assets.to_vec()
     }
 
-    if assets[1].isSelected {
-        let btc_balance = use_future(&cx, (), |_| async move {
-            let amount = btc_instance.balance().await;
-            let amount_string = rosetta_client::amount_to_string(&amount.unwrap());
-            amount_string.unwrap()
-        });
-        let btc_balance = match btc_balance.value() {
-            Some(b) => b,
-            None => "",
-        };
-        assets[1].nativePrice = btc_balance.to_string();
-        set_assets(assets.clone());
-    }
+    let updated_assets =
+        update_assets_balance(&cx, wallet_context.clone().unwrap(), assets_state.to_vec());
+    set_assets(updated_assets);
 
     cx.render(
         rsx!{

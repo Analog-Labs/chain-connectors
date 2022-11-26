@@ -69,7 +69,7 @@ pub struct SingleSelectListingRowProps<'a> {
     assetName: &'a str,
     onSelect: EventHandler<'a, MouseEvent>,
     assetIconUri: &'a str,
-    nativePrice: String
+    nativePrice: String,
 }
 
 pub fn SingleSelectListingRow<'a>(cx: Scope<'a, SingleSelectListingRowProps<'a>>) -> Element {

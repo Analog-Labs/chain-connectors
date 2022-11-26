@@ -51,9 +51,7 @@ pub fn AddAssets(cx: Scope) -> Element {
     })
 }
 
-
 pub fn SelectAsset(cx: Scope) -> Element {
-
     let router = use_router(&cx);
     let assets_state = use_read(&cx, ASSETS);
     let route = use_route(&cx);

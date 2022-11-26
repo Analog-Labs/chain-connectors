@@ -2,7 +2,6 @@
 
 use dioxus::{events::MouseEvent, prelude::*};
 
-
 //----------- Buttons ------------//
 
 #[derive(Props)]

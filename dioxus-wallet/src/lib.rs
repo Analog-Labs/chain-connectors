@@ -6,10 +6,11 @@ mod components;
 mod qrcode;
 mod routes;
 
+use crate::components::alerts::Alerts;
 use crate::routes::assets::*;
 use crate::routes::dashboard::*;
-//todo WIP
 use crate::routes::receive::*;
+use crate::routes::scan::Scan;
 use crate::routes::send::*;
 
 #[cfg(target_os = "android")]
@@ -62,14 +63,10 @@ pub struct WalletContext {
 
 fn app(cx: Scope) -> Element {
     let eth_wallet = use_future(&cx, (), |_| async move {
-        rosetta_client::create_wallet_instance("eth")
-            .await
-            .unwrap()
+        rosetta_client::create_wallet_instance("eth").await.unwrap()
     });
     let btc_wallet = use_future(&cx, (), |_| async move {
-        rosetta_client::create_wallet_instance("btc")
-            .await
-            .unwrap()
+        rosetta_client::create_wallet_instance("btc").await.unwrap()
     });
     match (eth_wallet.value(), btc_wallet.value()) {
         (Some(eth), Some(btc)) => {
@@ -85,12 +82,13 @@ fn app(cx: Scope) -> Element {
                       [include_str!("./style.css"),
                       include_str!("./styles/button.css")]
                   }
+                  Alerts{}
                   Route{to:"/",Dashboard{}}
                   Route{to:"/addAsset",AddAssets{}}
                   Route{to:"/selectAsset/:from",SelectAsset{}}
-                //todo WIP
                   Route{to:"/send",SendComponent{}}
                   Route{to:"/receive",ReceiveComponent{}}
+                  Route{to:"/scan",Scan{}}
                 }
             })
         }
