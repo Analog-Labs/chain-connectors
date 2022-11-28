@@ -14,7 +14,7 @@ pub struct BlockchainConfig {
 impl BlockchainConfig {
     pub fn bitcoin_regtest() -> Self {
         Self {
-            url: "http://127.0.0.1:8080".into(),
+            url: "http://rosetta.analog.one:8080".into(),
             network: NetworkIdentifier {
                 blockchain: "Bitcoin".into(),
                 network: "Regtest".into(),
@@ -34,7 +34,7 @@ impl BlockchainConfig {
 
     pub fn ethereum_dev() -> Self {
         Self {
-            url: "http://127.0.0.1:8081".into(),
+            url: "http://rosetta.analog.one:8081".into(),
             network: NetworkIdentifier {
                 blockchain: "Ethereum".into(),
                 network: "Dev".into(),
@@ -54,7 +54,7 @@ impl BlockchainConfig {
 
     pub fn polkadot_dev() -> Self {
         Self {
-            url: "http://127.0.0.1:8082".into(),
+            url: "http://rosetta.analog.one:8082".into(),
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),

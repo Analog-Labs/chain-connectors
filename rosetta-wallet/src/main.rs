@@ -103,6 +103,7 @@ async fn main() -> Result<()> {
                 use std::process::Command;
                 let status = Command::new("bitcoin-cli")
                     .arg("-regtest")
+                    .arg("-rpcconnect=rosetta.analog.one")
                     .arg("-rpcuser=rosetta")
                     .arg("-rpcpassword=rosetta")
                     .arg("generatetoaddress")
@@ -123,7 +124,7 @@ async fn main() -> Result<()> {
                         &wallet.account().address,
                         amount,
                     ))
-                    .arg("http://127.0.0.1:8545")
+                    .arg("http://rosetta.analog.one:8545")
                     .status()?;
                 if !status.success() {
                     anyhow::bail!("cmd failed");
