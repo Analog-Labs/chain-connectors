@@ -33,7 +33,7 @@ services:
     - polkadot
   polkadot:
     image: "parity/polkadot:v0.9.32"
-    command: "--chain dev --ws-external --rpc-external --rpc-cors=all --force-authoring --alice --tmp"
+    command: "--chain dev --ws-external --rpc-cors=all --alice --tmp"
     restart: always
     ports:
     - "9944:9944"
