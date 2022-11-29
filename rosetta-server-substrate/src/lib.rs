@@ -9,9 +9,11 @@ use rosetta_types::{
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
-    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation,
+    SearchTransactionsRequest, SignatureType, SigningPayload, TransactionIdentifier,
+    TransactionIdentifierResponse, Version, SearchTransactionsResponse, transaction_identifier, Operator,
 };
+use subxt::rpc::BlockNumber;
 use std::str::FromStr;
 use std::time::Duration;
 use subxt::ext::sp_core::blake2_256;
@@ -19,13 +21,14 @@ use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
 use subxt::tx::SubmittableExtrinsic;
-use subxt::{OnlineClient, PolkadotConfig};
+use subxt::utils::Encoded;
+use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    make_error_response, resolve_block, Error, UnsignedTransactionData,
+    get_latest_block, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    resolve_block, Error, UnsignedTransactionData, TxIndexerProps, get_indexed_transactions,
 };
 
 mod utils;
@@ -805,8 +808,67 @@ async fn events_blocks(mut _req: Request<State>) -> tide::Result {
     Error::NotImplemented.to_response()
 }
 
-async fn search_transactions(mut _req: Request<State>) -> tide::Result {
-    Error::NotImplemented.to_response()
+async fn search_transactions(mut req: Request<State>) -> tide::Result {
+    let request: SearchTransactionsRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    match request.operator{
+        Some(operator) => {
+            if operator == Operator::Or {
+                return Error::NotSupported.to_response();
+            }
+        },
+        None => {}
+    }
+
+    let max_block = match request.max_block {
+        Some(max_block) => max_block,
+        None => match get_latest_block(&req.state().client).await {
+            Ok(latest_block) => latest_block.block.header.number as i64,
+            Err(e) => return e.to_response(),
+        },
+    };
+
+    let offset = match request.offset{
+        Some(offset) => offset,
+        None => 0,
+    };
+
+    let limit = match request.limit {
+        Some(limit) => {
+            if limit > 1000 {
+                1000
+            } else {
+                limit
+            }
+        }
+        None => 100,
+    };
+
+    let req_props = TxIndexerProps{
+        max_block,
+        offset,
+        limit,
+        transaction_identifier: request.transaction_identifier,
+        account_identifier: request.account_identifier,
+        status: request.status,
+        operation_type: request.r#type,
+        address: request.address,
+        success: request.success,
+    };
+
+    get_indexed_transactions(&req.state().client, req_props).await;
+
+    let response = SearchTransactionsResponse{
+        transactions: vec![],
+        total_count: 0,
+        next_offset: None,
+    };
+
+
+    Ok(Response::builder(200).body(Body::from_json(&response)?).build())
 }
 
 async fn mempool(_req: Request<State>) -> tide::Result {

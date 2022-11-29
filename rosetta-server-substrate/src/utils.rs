@@ -24,6 +24,9 @@ use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
+use subxt::ext::sp_runtime::generic::Block;
+use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
+use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
 use subxt::metadata::DecodeStaticType;
@@ -41,6 +44,7 @@ use subxt::Error as SubxtError;
 use subxt::{OnlineClient, PolkadotConfig};
 use tide::{Body, Response};
 
+#[derive(Debug)]
 pub enum Error {
     AccountNotFound,
     UnsupportedNetwork,
@@ -68,6 +72,7 @@ pub enum Error {
     InvalidMetadata,
     StorageFetch,
     EventDetailParse,
+    NotSupported,
 }
 
 impl std::fmt::Display for Error {
@@ -99,6 +104,7 @@ impl std::fmt::Display for Error {
             Self::InvalidMetadata => write!(f, "Metadata error"),
             Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::EventDetailParse => write!(f, "Event detail parse error"),
+            Self::NotSupported => write!(f, "Operation not supported"),
         }
     }
 }
@@ -132,7 +138,7 @@ pub fn make_error_response(data: String) -> tide::Result {
 }
 
 pub async fn resolve_block(
-    subxt: &OnlineClient<PolkadotConfig>,
+    subxt: &OnlineClient<GenericConfig>,
     partial: Option<&PartialBlockIdentifier>,
 ) -> Result<(H256, u64)> {
     let mindex = if let Some(PartialBlockIdentifier {
@@ -544,20 +550,7 @@ where
     Ok(payload_data)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct UnsignedTransactionData {
-    pub signer_address: String,
-    pub additional_parmas: Vec<u8>,
-    pub call_data: Vec<u8>,
-}
-
-pub struct PayloadData {
-    pub payload: Vec<u8>,
-    pub additional_params: Vec<u8>,
-    pub call_data: Vec<u8>,
-}
-
-pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result<u64, Error> {
+pub async fn get_unix_timestamp(client: &OnlineClient<GenericConfig>) -> Result<u64, Error> {
     let metadata = client.metadata();
     let storage_hash = metadata
         .storage_hash("Timestamp", "Now")
@@ -580,7 +573,7 @@ pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result
 }
 
 pub async fn get_account_storage(
-    client: &OnlineClient<PolkadotConfig>,
+    client: &OnlineClient<GenericConfig>,
     account: &AccountId32,
 ) -> Result<AccountInfo<u32, AccountData>, Error> {
     let metadata = client.metadata();
@@ -631,11 +624,11 @@ where
 }
 
 pub async fn faucet_substrate(
-    api: &OnlineClient<PolkadotConfig>,
+    api: &OnlineClient<GenericConfig>,
     address: &str,
     amount: u128,
 ) -> Result<H256, String> {
-    let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
+    let signer = PairSigner::<GenericConfig, _>::new(AccountKeyring::Alice.pair());
 
     let receiver_account: AccountId32 = address
         .parse()
@@ -676,6 +669,150 @@ pub fn get_runtime_error(error: SubxtError) -> String {
     }
 }
 
+pub async fn get_latest_block(
+    client: &OnlineClient<GenericConfig>,
+) -> Result<SignedBlock<Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>, Error> {
+    let req_block = match client.rpc().block(None).await {
+        Ok(block) => block.ok_or(Error::BlockNotFound)?,
+        Err(_) => return Err(Error::BlockNotFound),
+    };
+
+    Ok(req_block)
+}
+
+pub async fn get_indexed_transactions(client: &OnlineClient<GenericConfig>, req: TxIndexerProps) {
+    for value in (0..req.max_block).rev() {
+        let block_hash = client
+            .rpc()
+            .block_hash(Some(BlockNumber::from(value as u64)))
+            .await
+            //improvement needed here
+            .unwrap()
+            .unwrap();
+
+        let block_data = client
+            .rpc()
+            .block(Some(block_hash))
+            .await
+            //improvement needed here
+            .unwrap()
+            .unwrap();
+
+        let extrinsics = block_data.block.extrinsics;
+        filter_extrinsic(client, extrinsics, &req, block_hash).await;
+    }
+}
+
+pub async fn filter_extrinsic<T>(
+    client: &OnlineClient<T>,
+    extrinsics: Vec<OpaqueExtrinsic>,
+    req: &TxIndexerProps,
+    block_hash: T::Hash,
+) -> Result<(), Error>
+where
+    T: Config,
+{
+    let filtered_op: Vec<Operation> = vec![];
+    for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
+        let encoded_extrinsic = extrinsic.encode();
+        let tx_hash = hex::encode(encoded_extrinsic);
+
+        let current_block_events = match get_block_events(client, block_hash).await {
+            Ok(events) => events,
+            Err(_) => continue,
+        };
+
+        let current_tx_events = current_block_events
+            .iter()
+            .filter(|event| {
+                event.as_ref().unwrap().phase() == Phase::ApplyExtrinsic(ex_index as u32)
+            })
+            .collect::<Vec<_>>();
+
+        let extrinsic_status = match current_tx_events.last() {
+            Some(event) => event.as_ref().unwrap(),
+            None => continue,
+        };
+
+        match req.success {
+            Some(success_status) => {
+                if success_status {
+                    let extrinsic_event_name = extrinsic_status.event_metadata().event();
+                    if extrinsic_event_name.eq("ExtrinsicSuccess") {
+                    } else {
+                        //operation did not match requirement
+                        continue;
+                    }
+                } else {
+                    let extrinsic_event_name = extrinsic_status.event_metadata().event();
+                    if extrinsic_event_name.eq("ExtrinsicSuccess") {
+                    } else {
+                        // operation did not match requirement
+                        continue;
+                    }
+                }
+            }
+            None => {
+                //do nothing
+            }
+        }
+
+        for (event_index, event_data) in current_tx_events.iter().enumerate() {
+            let event = event_data.as_ref().unwrap();
+            let event_name = event.event_metadata().event();
+
+            match req.operation_type.as_ref() {
+                Some(operation_type) => {
+                    if operation_type.eq(&event_name) {
+                        //operation matched requirement
+                        //pass
+                    } else {
+                        //operation did not match requirement
+                        continue;
+                    }
+                }
+                None => {}
+            }
+
+            let event_parsed = get_operation_data(event.clone()).unwrap();
+
+            match req.account_identifier.as_ref() {
+                Some(acc_identifier) => {
+                    let mut event_addresses = vec![];
+                    match event_parsed.from {
+                        Some(from) => event_addresses.push(from),
+                        None => {}
+                    };
+                    match event_parsed.to {
+                        Some(to) => event_addresses.push(to),
+                        None => {}
+                    };
+
+                    // let abc = event_addresses
+                    //     .iter()
+                    //     .filter(|address| address.eq(&acc_identifier.address));
+                }
+                None => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct UnsignedTransactionData {
+    pub signer_address: String,
+    pub additional_parmas: Vec<u8>,
+    pub call_data: Vec<u8>,
+}
+
+pub struct PayloadData {
+    pub payload: Vec<u8>,
+    pub additional_params: Vec<u8>,
+    pub call_data: Vec<u8>,
+}
+
 #[derive(Decode, Encode, Debug)]
 pub struct Transfer {
     pub dest: MultiAddress<AccountId32, u32>,
@@ -705,4 +842,21 @@ pub struct EventRecord<Event, Hash> {
     pub phase: Phase,
     pub event: Event,
     pub topics: Vec<Hash>,
+}
+
+pub struct TxIndexerProps {
+    pub max_block: i64,
+    pub offset: i64,
+    pub limit: i64,
+    pub transaction_identifier: Option<TransactionIdentifier>,
+    pub account_identifier: Option<AccountIdentifier>,
+    pub status: Option<String>,
+    pub operation_type: Option<String>,
+    pub address: Option<String>,
+    pub success: Option<bool>,
+}
+
+pub struct FilteredIndexData {
+    pub ex_index: i64,
+    pub event_detail: EventDetails,
 }
