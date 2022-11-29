@@ -58,7 +58,7 @@ pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
     Ok(signer)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Chain {
     Btc,
     Eth,

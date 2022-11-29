@@ -1,4 +1,4 @@
-use crate::components::alerts::ALERTS;
+use crate::components::alerts::{Alert, ALERTS};
 use crate::qrcode::scan_qrcode;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
@@ -13,8 +13,8 @@ pub fn Scan(cx: Scope) -> Element {
     let router = use_router(&cx);
     let fut = use_future(&cx, (), move |_| scan_qrcode(&cx));
     let alert = match fut.value() {
-        Some(Ok(url)) => Some(("success", url.to_string())),
-        Some(Err(error)) => Some(("danger", error.to_string())),
+        Some(Ok(url)) => Some(Alert::info(url.to_string())),
+        Some(Err(error)) => Some(Alert::error(error.to_string())),
         None => None,
     };
     if let Some(alert) = alert {

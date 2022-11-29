@@ -1,10 +1,12 @@
 use crate::components::alerts::Alerts;
+use crate::routes::*;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
 
 mod components;
 mod qrcode;
 mod routes;
+mod worker;
 
 #[cfg(target_os = "android")]
 #[no_mangle]
@@ -43,7 +45,7 @@ pub fn main() {
 }
 
 fn app(cx: Scope) -> Element {
-    use crate::routes::*;
+    worker::use_worker(&cx);
     cx.render(rsx! {
         Alerts {},
         Router {
