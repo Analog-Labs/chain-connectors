@@ -567,7 +567,7 @@ pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result
 pub async fn get_account_storage(
     client: &OnlineClient<PolkadotConfig>,
     account: &AccountId32,
-) -> Result<Option<AccountInfo<u32, AccountData>>, Error> {
+) -> Result<AccountInfo<u32, AccountData>, Error> {
     let metadata = client.metadata();
     let storage_hash = metadata
         .storage_hash("System", "Account")
@@ -586,7 +586,7 @@ pub async fn get_account_storage(
         )],
         storage_hash,
     );
-    let account_data = match client.storage().fetch(&acc_key, None).await {
+    let account_data = match client.storage().fetch_or_default(&acc_key, None).await {
         Ok(data) => data,
         Err(_) => return Err(Error::AccountNotFound),
     };
