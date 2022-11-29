@@ -2,11 +2,14 @@ use crate::identifiers::{
     AccountIdentifierOpts, BlockIdentifierOpts, NetworkIdentifierOpts, TransactionIdentifierOpts,
 };
 use clap::Parser;
+use rosetta_client::Chain;
 
 #[derive(Parser)]
 pub struct Opts {
-    #[clap(long, default_value = "http://127.0.0.1:8080")]
-    pub url: String,
+    #[clap(long)]
+    pub url: Option<String>,
+    #[clap(long)]
+    pub chain: Option<Chain>,
     #[clap(subcommand)]
     pub cmd: Command,
 }

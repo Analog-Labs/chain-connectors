@@ -31,7 +31,14 @@ async fn network_identifier(
 #[async_std::main]
 async fn main() -> Result<()> {
     let opts = Opts::parse();
-    let client = Client::new(&opts.url)?;
+    let url = if let Some(url) = opts.url.as_ref() {
+        url
+    } else if let Some(chain) = opts.chain {
+        chain.url()
+    } else {
+        "http://127.0.0.1:8080"
+    };
+    let client = Client::new(url)?;
 
     match opts.cmd {
         Command::Network(NetworkOpts { cmd }) => match cmd {

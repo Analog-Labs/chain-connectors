@@ -1,14 +1,15 @@
 use anyhow::Result;
 use clap::Parser;
 use rosetta_client::types::AccountIdentifier;
-use rosetta_client::{BlockchainConfig, Wallet};
+use rosetta_client::Chain;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 #[derive(Parser)]
 pub struct Opts {
     #[clap(long)]
     pub keyfile: Option<PathBuf>,
+    #[clap(long)]
+    pub url: Option<String>,
     #[clap(long)]
     pub chain: Chain,
     #[clap(subcommand)]
@@ -35,48 +36,13 @@ pub struct FaucetOpts {
     pub amount: u128,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum Chain {
-    Btc,
-    Eth,
-    Dot,
-}
-
-impl FromStr for Chain {
-    type Err = anyhow::Error;
-
-    fn from_str(chain: &str) -> Result<Self> {
-        Ok(match chain {
-            "btc" => Chain::Btc,
-            "eth" => Chain::Eth,
-            "dot" => Chain::Dot,
-            _ => anyhow::bail!("unsupported chain {}", chain),
-        })
-    }
-}
-
-impl From<Chain> for BlockchainConfig {
-    fn from(chain: Chain) -> Self {
-        match chain {
-            Chain::Btc => Self::bitcoin_regtest(),
-            Chain::Eth => Self::ethereum_dev(),
-            Chain::Dot => Self::polkadot_dev(),
-        }
-    }
-}
-
 #[async_std::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let opts = Opts::parse();
-    let config = BlockchainConfig::from(opts.chain);
-    let keyfile = if let Some(keyfile) = opts.keyfile {
-        keyfile
-    } else {
-        rosetta_client::default_keyfile()?
-    };
-    let signer = rosetta_client::open_or_create_keyfile(&keyfile)?;
-    let wallet = Wallet::new(config, &signer).await?;
+    let wallet =
+        rosetta_client::create_wallet(opts.chain, opts.url.as_deref(), opts.keyfile.as_deref())
+            .await?;
 
     match opts.cmd {
         Command::Pubkey => {
