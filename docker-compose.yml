@@ -10,6 +10,10 @@ services:
     - "8080:8080"
     - "18333:18333"
     - "18443:18443"
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
   rosetta-ethereum:
     image: "analoglabs/rosetta-ethereum"
     environment:
@@ -18,8 +22,12 @@ services:
     - PORT=8081
     ports:
     - "8081:8081"
-    - "30303:30303"
+    #- "30303:30303"
     - "8545:8545"
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
   rosetta-polkadot:
     image: "analoglabs/rosetta-polkadot"
     command: "--network dev --url http://0.0.0.0:8082 --rpc-url ws://polkadot:9944"
