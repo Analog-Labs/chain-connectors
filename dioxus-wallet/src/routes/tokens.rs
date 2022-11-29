@@ -1,21 +1,16 @@
 use crate::components::token_list::TokenList;
 use dioxus::prelude::*;
-use dioxus_router::Link;
+use dioxus_router::{use_router, Link};
 
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Tokens(cx: Scope) -> Element {
+    let router = use_router(&cx);
     cx.render(rsx! {
         div {
-            ul {
-                li {
-                    Link { to: "/send", "Send" }
-                },
-                li {
-                    Link { to: "/recv", "Receive" }
-                },
+            TokenList {
+                onclick: |chain| router.navigate_to(&format!("/txns/{}", chain)),
             },
-            TokenList {},
         }
     })
 }
