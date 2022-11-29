@@ -226,9 +226,14 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
         Err(e) => return e.to_response(),
     };
 
+    let balance = match account_data {
+        Some(balance) => balance.data.free.to_string(),
+        None => "0".into(),
+    };
+
     let response = AccountBalanceResponse {
         balances: vec![Amount {
-            value: account_data.data.free.to_string(),
+            value: balance,
             currency: req.state().currency.clone(),
             metadata: None,
         }],
@@ -524,12 +529,15 @@ async fn construction_metadata(mut req: Request<State>) -> tide::Result {
         }
     };
 
-    let entry = match get_account_storage(&req.state().client, &account).await {
+    let acc_data = match get_account_storage(&req.state().client, &account).await {
         Ok(acc_data) => acc_data,
         Err(e) => return e.to_response(),
     };
 
-    let nonce = entry.nonce;
+    let nonce = match acc_data {
+        Some(acc_data) => acc_data.nonce,
+        None => 0,
+    };
 
     let _response = ConstructionMetadataResponse {
         metadata: serde_json::json!({
