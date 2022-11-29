@@ -23,7 +23,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    pub async fn new(config: BlockchainConfig, signer: &Signer) -> Result<Self> {
+    pub async fn new(url: &str, config: BlockchainConfig, signer: &Signer) -> Result<Self> {
         let secret_key = if config.bip44 {
             signer
                 .bip44_account(config.algorithm, config.coin, 0)?
@@ -33,7 +33,7 @@ impl Wallet {
         };
         let public_key = secret_key.public_key().to_rosetta();
 
-        let client = Client::new(&config.url)?;
+        let client = Client::new(url)?;
         let req = ConstructionDeriveRequest {
             network_identifier: config.network.clone(),
             public_key: public_key.clone(),

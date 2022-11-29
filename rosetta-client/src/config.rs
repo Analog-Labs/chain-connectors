@@ -2,7 +2,6 @@ use crate::crypto::Algorithm;
 use crate::types::{Currency, NetworkIdentifier};
 
 pub struct BlockchainConfig {
-    pub url: String,
     pub network: NetworkIdentifier,
     pub algorithm: Algorithm,
     pub coin: u32,
@@ -14,7 +13,6 @@ pub struct BlockchainConfig {
 impl BlockchainConfig {
     pub fn bitcoin_regtest() -> Self {
         Self {
-            url: "http://rosetta.analog.one:8080".into(),
             network: NetworkIdentifier {
                 blockchain: "Bitcoin".into(),
                 network: "Regtest".into(),
@@ -34,7 +32,6 @@ impl BlockchainConfig {
 
     pub fn ethereum_dev() -> Self {
         Self {
-            url: "http://rosetta.analog.one:8081".into(),
             network: NetworkIdentifier {
                 blockchain: "Ethereum".into(),
                 network: "Dev".into(),
@@ -54,7 +51,6 @@ impl BlockchainConfig {
 
     pub fn polkadot_dev() -> Self {
         Self {
-            url: "http://rosetta.analog.one:8082".into(),
             network: NetworkIdentifier {
                 blockchain: "Polkadot".into(),
                 network: "Dev".into(),
