@@ -17,6 +17,14 @@ impl Token {
         self.chain
     }
 
+    pub fn name(&self) -> &str {
+        self.name
+    }
+
+    pub fn icon(&self) -> &Path {
+        self.icon
+    }
+
     pub fn set_balance(&mut self, balance: String) {
         self.balance = balance;
     }
@@ -47,7 +55,7 @@ pub static TOKENS: AtomRef<Vec<Token>> = |_| {
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn TokenList(cx: Scope) -> Element {
+pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element {
     use_coroutine_handle(&cx)
         .unwrap()
         .send(Action::SyncBalances);
@@ -57,6 +65,7 @@ pub fn TokenList(cx: Scope) -> Element {
             tokens.read().iter().map(|token| rsx! {
                 TokenListItem {
                     token: token.clone(),
+                    onclick: |chain| onclick.call(chain),
                 }
             })
         }
@@ -65,12 +74,13 @@ pub fn TokenList(cx: Scope) -> Element {
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn TokenListItem(cx: Scope, token: Token) -> Element {
+fn TokenListItem<'a>(cx: Scope<'a>, token: Token, onclick: EventHandler<'a, Chain>) -> Element {
     let name = &token.name;
     let balance = &token.balance;
     let icon = token.icon.to_str().unwrap();
     cx.render(rsx! {
         li {
+            onclick: move |_| onclick.call(token.chain),
             height: "50px",
             div {
                 style: "float: left;",
