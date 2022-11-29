@@ -1,3 +1,4 @@
+use crate::components::alerts::Alerts;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
 
@@ -44,6 +45,7 @@ pub fn main() {
 fn app(cx: Scope) -> Element {
     use crate::routes::*;
     cx.render(rsx! {
+        Alerts {},
         Router {
             style {
                 include_str!("../assets/bootstrap-alert.css")

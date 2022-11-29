@@ -1,4 +1,4 @@
-use crate::components::ALERTS;
+use crate::components::alerts::ALERTS;
 use crate::qrcode::scan_qrcode;
 use dioxus::prelude::*;
 use dioxus_router::use_router;

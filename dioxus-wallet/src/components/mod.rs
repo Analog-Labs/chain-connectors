@@ -1,3 +1,2 @@
-mod alerts;
-
-pub use alerts::{Alerts, ALERTS};
+pub mod alerts;
+pub mod token_list;
