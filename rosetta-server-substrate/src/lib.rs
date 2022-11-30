@@ -2,33 +2,64 @@ use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Allow,
-    Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
-    ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
-    ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
-    ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
-    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
-    Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation,
-    SearchTransactionsRequest, SignatureType, SigningPayload, TransactionIdentifier,
-    TransactionIdentifierResponse, Version, SearchTransactionsResponse, transaction_identifier, Operator,
+    // transaction_identifier,
+    AccountBalanceRequest,
+    AccountBalanceResponse,
+    AccountFaucetRequest,
+    AccountIdentifier,
+    Allow,
+    Amount,
+    Block,
+    BlockIdentifier,
+    BlockRequest,
+    BlockResponse,
+    BlockTransactionRequest,
+    ConstructionCombineRequest,
+    ConstructionCombineResponse,
+    ConstructionDeriveRequest,
+    ConstructionDeriveResponse,
+    ConstructionHashRequest,
+    ConstructionMetadataRequest,
+    ConstructionMetadataResponse,
+    ConstructionPayloadsRequest,
+    ConstructionPayloadsResponse,
+    ConstructionPreprocessRequest,
+    ConstructionPreprocessResponse,
+    ConstructionSubmitRequest,
+    Currency,
+    CurveType,
+    MetadataRequest,
+    NetworkIdentifier,
+    NetworkListResponse,
+    NetworkOptionsResponse,
+    NetworkRequest,
+    NetworkStatusResponse,
+    Operation,
+    Operator,
+    SearchTransactionsRequest,
+    SearchTransactionsResponse,
+    SignatureType,
+    SigningPayload,
+    TransactionIdentifier,
+    TransactionIdentifierResponse,
+    Version,
 };
-use subxt::rpc::BlockNumber;
 use std::str::FromStr;
 use std::time::Duration;
-use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
+// use subxt::rpc::BlockNumber;
 use subxt::tx::SubmittableExtrinsic;
 use subxt::utils::Encoded;
 use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_latest_block, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    resolve_block, Error, UnsignedTransactionData, TxIndexerProps, get_indexed_transactions,
+    convert_extrinsic_to_hash, faucet_substrate, get_account_storage, get_block_events,
+    get_block_transactions, get_call_data, get_indexed_transactions, get_latest_block,
+    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
+    TxIndexerProps, UnsignedTransactionData, search_transaction_response,
 };
 
 mod utils;
@@ -438,16 +469,14 @@ async fn construction_hash(mut req: Request<State>) -> tide::Result {
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
-    let received_hex = request.signed_transaction.trim_start_matches("0x");
-    let transaction = match hex::decode(received_hex) {
-        Ok(transaction) => transaction,
-        Err(_) => return Error::InvalidHex.to_response(),
+
+    let hash = match convert_extrinsic_to_hash(request.signed_transaction) {
+        Ok(hash) => hash,
+        Err(e) => return e.to_response(),
     };
-    let hash = blake2_256(&transaction);
+
     let response = TransactionIdentifierResponse {
-        transaction_identifier: TransactionIdentifier {
-            hash: format!("0x{}", hex::encode(hash)),
-        },
+        transaction_identifier: TransactionIdentifier { hash: hash },
         metadata: None,
     };
     Ok(Response::builder(200)
@@ -814,12 +843,12 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    match request.operator{
+    match request.operator {
         Some(operator) => {
             if operator == Operator::Or {
                 return Error::NotSupported.to_response();
             }
-        },
+        }
         None => {}
     }
 
@@ -831,7 +860,7 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         },
     };
 
-    let offset = match request.offset{
+    let offset = match request.offset {
         Some(offset) => offset,
         None => 0,
     };
@@ -847,10 +876,8 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         None => 100,
     };
 
-    let req_props = TxIndexerProps{
+    let req_props = TxIndexerProps {
         max_block,
-        offset,
-        limit,
         transaction_identifier: request.transaction_identifier,
         account_identifier: request.account_identifier,
         status: request.status,
@@ -859,16 +886,24 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         success: request.success,
     };
 
-    get_indexed_transactions(&req.state().client, req_props).await;
+    let _filtered_ex = get_indexed_transactions(
+        &req.state().client,
+        &req.state().ss58_address_format,
+        req_props,
+    )
+    .await;
 
-    let response = SearchTransactionsResponse{
+    let response_data = search_transaction_response(_filtered_ex);
+
+    let response = SearchTransactionsResponse {
         transactions: vec![],
         total_count: 0,
         next_offset: None,
     };
 
-
-    Ok(Response::builder(200).body(Body::from_json(&response)?).build())
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn mempool(_req: Request<State>) -> tide::Result {
