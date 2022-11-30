@@ -1,3 +1,4 @@
+use crate::ss58;
 use crate::State;
 use anyhow::Result;
 use parity_scale_codec::{Decode, Encode};
@@ -13,7 +14,9 @@ use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
+use ss58_registry::Ss58AddressFormat;
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use subxt::events::EventDetails;
 use subxt::events::Events;
 use subxt::events::Phase;
@@ -23,6 +26,7 @@ use subxt::ext::scale_value::Primitive;
 use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
+use subxt::ext::sp_core::ByteArray;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::Block;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
@@ -640,7 +644,12 @@ pub async fn get_latest_block(
     Ok(req_block)
 }
 
-pub async fn get_indexed_transactions(client: &OnlineClient<GenericConfig>, req: TxIndexerProps) {
+pub async fn get_indexed_transactions(
+    client: &OnlineClient<GenericConfig>,
+    address_format: &Ss58AddressFormat,
+    req: TxIndexerProps,
+) -> Vec<FilteredIndexData> {
+    let mut filtered_ex = vec![];
     for value in (0..req.max_block).rev() {
         let block_hash = client
             .rpc()
@@ -659,27 +668,49 @@ pub async fn get_indexed_transactions(client: &OnlineClient<GenericConfig>, req:
             .unwrap();
 
         let extrinsics = block_data.block.extrinsics;
-        filter_extrinsic(client, extrinsics, &req, block_hash).await;
+        let (tx_data, can_fetch_data) =
+            filter_extrinsic(client, &address_format, extrinsics, &req, block_hash).await;
+        filtered_ex.extend(tx_data);
+
+        if !can_fetch_data {
+            break;
+        }
     }
+    filtered_ex
 }
 
 pub async fn filter_extrinsic<T>(
     client: &OnlineClient<T>,
+    address_format: &Ss58AddressFormat,
     extrinsics: Vec<OpaqueExtrinsic>,
     req: &TxIndexerProps,
     block_hash: T::Hash,
-) -> Result<(), Error>
+) -> (Vec<FilteredIndexData>, bool)
 where
     T: Config,
 {
-    let filtered_op: Vec<Operation> = vec![];
+    let mut can_fetch = true;
+    let mut filtered_op: Vec<FilteredIndexData> = vec![];
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
         let encoded_extrinsic = extrinsic.encode();
         let tx_hash = hex::encode(encoded_extrinsic);
 
+        match req.transaction_identifier {
+            Some(ref tx_id) => {
+                if tx_id.hash.eq(&tx_hash) {
+                    continue;
+                }
+            }
+            None => {}
+        }
+
         let current_block_events = match get_block_events(client, block_hash).await {
             Ok(events) => events,
-            Err(_) => continue,
+            Err(_) => {
+                //could not get events break the loop
+                can_fetch = false;
+                break;
+            }
         };
 
         let current_tx_events = current_block_events
@@ -698,23 +729,17 @@ where
             Some(success_status) => {
                 if success_status {
                     let extrinsic_event_name = extrinsic_status.event_metadata().event();
-                    if extrinsic_event_name.eq("ExtrinsicSuccess") {
-                    } else {
-                        //operation did not match requirement
+                    if !extrinsic_event_name.eq("ExtrinsicSuccess") {
                         continue;
                     }
                 } else {
                     let extrinsic_event_name = extrinsic_status.event_metadata().event();
-                    if extrinsic_event_name.eq("ExtrinsicSuccess") {
-                    } else {
-                        // operation did not match requirement
+                    if !extrinsic_event_name.eq("ExtrinsicSuccess") {
                         continue;
                     }
                 }
             }
-            None => {
-                //do nothing
-            }
+            None => {}
         }
 
         for (event_index, event_data) in current_tx_events.iter().enumerate() {
@@ -723,18 +748,14 @@ where
 
             match req.operation_type.as_ref() {
                 Some(operation_type) => {
-                    if operation_type.eq(&event_name) {
-                        //operation matched requirement
-                        //pass
-                    } else {
-                        //operation did not match requirement
+                    if !operation_type.eq(&event_name) {
                         continue;
                     }
                 }
                 None => {}
             }
 
-            let event_parsed = get_operation_data(event.clone()).unwrap();
+            let event_parsed = get_operation_data(event.clone(), address_format).unwrap();
 
             match req.account_identifier.as_ref() {
                 Some(acc_identifier) => {
@@ -748,15 +769,63 @@ where
                         None => {}
                     };
 
-                    // let abc = event_addresses
-                    //     .iter()
-                    //     .filter(|address| address.eq(&acc_identifier.address));
+                    let address_match = event_addresses
+                        .iter()
+                        .filter(|address| address.to_owned().eq(&acc_identifier.address))
+                        .collect::<Vec<_>>();
+
+                    let matched_address = if address_match.len() > 0 {
+                        true
+                    } else {
+                        match acc_identifier.sub_account.as_ref() {
+                            Some(sub_address) => {
+                                let sub_address_match = event_addresses
+                                    .iter()
+                                    .filter(|address| address.to_owned().eq(&sub_address.address))
+                                    .collect::<Vec<_>>();
+                                if sub_address_match.len() > 0 {
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                            None => {
+                                //did not match any address
+                                false
+                            }
+                        }
+                    };
+
+                    if !matched_address {
+                        continue;
+                    }
                 }
                 None => {}
             }
+
+            //add to vector of operations
+            let filtered_data = FilteredIndexData {
+                ex_hash: tx_hash.clone(),
+                event_details_data: EventDetailsData {
+                    op_index: event_index,
+                    event_detail: event.clone(),
+                },
+            };
+
+            filtered_op.push(filtered_data);
         }
     }
-    Ok(())
+    (filtered_op, can_fetch)
+}
+
+pub fn search_transaction_response(data: Vec<FilteredIndexData>) {
+    let data_hashmap: HashMap<String, EventDetailsData> = data
+        .iter()
+        .map(|v| (v.ex_hash.clone(), v.event_details_data.clone()))
+        .collect();
+
+    println!("data_hashmap: {:#?}", data_hashmap);
+    let a = 1;
 }
 
 
@@ -806,8 +875,6 @@ pub struct EventRecord<Event, Hash> {
 
 pub struct TxIndexerProps {
     pub max_block: i64,
-    pub offset: i64,
-    pub limit: i64,
     pub transaction_identifier: Option<TransactionIdentifier>,
     pub account_identifier: Option<AccountIdentifier>,
     pub status: Option<String>,
@@ -816,7 +883,14 @@ pub struct TxIndexerProps {
     pub success: Option<bool>,
 }
 
+#[derive(Debug)]
 pub struct FilteredIndexData {
-    pub ex_index: i64,
+    pub ex_hash: String,
+    pub event_details_data: EventDetailsData,
+}
+
+#[derive(Clone, Debug)]
+pub struct EventDetailsData {
+    pub op_index: usize,
     pub event_detail: EventDetails,
 }
