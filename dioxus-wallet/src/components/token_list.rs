@@ -1,71 +1,24 @@
+use crate::state::{Chain, CHAINS};
 use crate::worker::Action;
 use dioxus::prelude::*;
 use fermi::*;
-use rosetta_client::Chain;
-use std::path::Path;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Token {
-    chain: Chain,
-    name: &'static str,
-    icon: &'static Path,
-    balance: String,
-}
-
-impl Token {
-    pub fn chain(&self) -> Chain {
-        self.chain
-    }
-
-    pub fn name(&self) -> &str {
-        self.name
-    }
-
-    pub fn icon(&self) -> &Path {
-        self.icon
-    }
-
-    pub fn set_balance(&mut self, balance: String) {
-        self.balance = balance;
-    }
-}
-
-pub static TOKENS: AtomRef<Vec<Token>> = |_| {
-    vec![
-        Token {
-            chain: Chain::Btc,
-            name: "Bitcoin",
-            icon: "btc.png".as_ref(),
-            balance: "0".into(),
-        },
-        Token {
-            chain: Chain::Eth,
-            name: "Ethereum",
-            icon: "eth.png".as_ref(),
-            balance: "0".into(),
-        },
-        Token {
-            chain: Chain::Dot,
-            name: "Polkadot",
-            icon: "dot.png".as_ref(),
-            balance: "0".into(),
-        },
-    ]
-};
+pub static TOKENS: AtomRef<Vec<Chain>> = |_| vec![Chain::Btc, Chain::Eth, Chain::Dot];
 
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element {
-    use_coroutine_handle(&cx)
-        .unwrap()
-        .send(Action::SyncBalances);
+    let handle = use_coroutine_handle(&cx).unwrap();
     let tokens = use_atom_ref(&cx, TOKENS);
     cx.render(rsx! {
         ul {
-            tokens.read().iter().map(|token| rsx! {
-                TokenListItem {
-                    token: token.clone(),
-                    onclick: |chain| onclick.call(chain),
+            tokens.read().iter().copied().map(|chain| {
+                handle.send(Action::SyncBalance(chain));
+                rsx! {
+                    TokenListItem {
+                        chain: chain,
+                        onclick: |chain| onclick.call(chain),
+                    }
                 }
             })
         }
@@ -74,13 +27,14 @@ pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element
 
 #[allow(non_snake_case)]
 #[inline_props]
-fn TokenListItem<'a>(cx: Scope<'a>, token: Token, onclick: EventHandler<'a, Chain>) -> Element {
-    let name = &token.name;
-    let balance = &token.balance;
-    let icon = token.icon.to_str().unwrap();
+fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chain>) -> Element {
+    let chain = CHAINS.get(&chain).unwrap();
+    let info = chain.info();
+    let state = chain.use_state(&cx).read();
+    let icon = info.icon.to_str().unwrap();
     cx.render(rsx! {
         li {
-            onclick: move |_| onclick.call(token.chain),
+            onclick: move |_| onclick.call(info.chain),
             height: "50px",
             div {
                 style: "float: left;",
@@ -88,11 +42,11 @@ fn TokenListItem<'a>(cx: Scope<'a>, token: Token, onclick: EventHandler<'a, Chai
                     width: "25px",
                     src: icon,
                 },
-                "{name}",
+                "{info.name}",
             }
             div {
                 style: "float: right;",
-                "{balance}",
+                "{state.balance}",
             }
         }
     })

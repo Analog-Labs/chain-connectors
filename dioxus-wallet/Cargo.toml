@@ -12,6 +12,7 @@ dioxus = "0.2.4"
 dioxus-router = "0.2.3"
 fermi = "0.2.1"
 futures = "0.3.25"
+lazy_static = "1.4.0"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
 rosetta-client = { path = "../rosetta-client" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
