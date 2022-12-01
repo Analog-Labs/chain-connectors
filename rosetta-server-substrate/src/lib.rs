@@ -59,7 +59,7 @@ use utils::{
     convert_extrinsic_to_hash, faucet_substrate, get_account_storage, get_block_events,
     get_block_transactions, get_call_data, get_indexed_transactions, get_latest_block,
     get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    TxIndexerProps, UnsignedTransactionData, search_transaction_response,
+    TxIndexerProps, UnsignedTransactionData,
 };
 
 mod utils;
@@ -886,18 +886,12 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         success: request.success,
     };
 
-    let _filtered_ex = get_indexed_transactions(
-        &req.state().client,
-        &req.state().ss58_address_format,
-        req_props,
-    )
-    .await;
+    let filtered_ex = get_indexed_transactions(&req.state(), req_props).await;
 
-    let response_data = search_transaction_response(_filtered_ex);
-
+    let total_length = filtered_ex.len() as i64;
     let response = SearchTransactionsResponse {
-        transactions: vec![],
-        total_count: 0,
+        transactions: filtered_ex,
+        total_count: total_length,
         next_offset: None,
     };
 
