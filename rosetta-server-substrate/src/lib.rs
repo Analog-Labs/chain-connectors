@@ -476,7 +476,7 @@ async fn construction_hash(mut req: Request<State>) -> tide::Result {
     };
 
     let response = TransactionIdentifierResponse {
-        transaction_identifier: TransactionIdentifier { hash: hash },
+        transaction_identifier: TransactionIdentifier { hash },
         metadata: None,
     };
     Ok(Response::builder(200)
@@ -843,13 +843,8 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    match request.operator {
-        Some(operator) => {
-            if operator == Operator::Or {
-                return Error::NotSupported.to_response();
-            }
-        }
-        None => {}
+    if let Some(Operator::Or) = request.operator {
+        return Error::NotSupported.to_response();
     }
 
     let max_block = match request.max_block {
@@ -860,12 +855,9 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         },
     };
 
-    let offset = match request.offset {
-        Some(offset) => offset,
-        None => 0,
-    };
+    let _offset = request.offset.unwrap_or(0);
 
-    let limit = match request.limit {
+    let _limit = match request.limit {
         Some(limit) => {
             if limit > 1000 {
                 1000
@@ -886,9 +878,13 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         success: request.success,
     };
 
-    let filtered_ex = get_indexed_transactions(&req.state(), req_props).await;
+    let filtered_ex = match get_indexed_transactions(req.state(), req_props).await{
+        Ok(ex) => ex,
+        Err(e) => return e.to_response(),
+    };
 
     let total_length = filtered_ex.len() as i64;
+
     let response = SearchTransactionsResponse {
         transactions: filtered_ex,
         total_count: total_length,

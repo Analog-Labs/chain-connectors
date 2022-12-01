@@ -5,6 +5,8 @@ use parity_scale_codec::{Decode, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::AccountIdentifier;
 use rosetta_types::Amount;
+use rosetta_types::BlockIdentifier;
+use rosetta_types::BlockTransaction;
 use rosetta_types::Currency;
 use rosetta_types::{
     Operation, OperationIdentifier, PartialBlockIdentifier, SubAccountIdentifier, Transaction,
@@ -17,7 +19,6 @@ use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use ss58_registry::Ss58AddressFormat;
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use subxt::events::EventDetails;
 use subxt::events::Events;
 use subxt::events::Phase;
@@ -27,7 +28,6 @@ use subxt::ext::scale_value::Primitive;
 use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
-use subxt::ext::sp_core::ByteArray;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::Block;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
@@ -685,26 +685,26 @@ pub async fn get_latest_block(
     Ok(req_block)
 }
 
-pub async fn get_indexed_transactions(state: &State, req: TxIndexerProps) -> Vec<BlockTransaction> {
+pub async fn get_indexed_transactions(
+    state: &State,
+    req: TxIndexerProps,
+) -> Result<Vec<BlockTransaction>, Error> {
     let mut filtered_ex = vec![];
     for value in (0..req.max_block).rev() {
-        let block_hash = state
+        let block_hash = match state
             .client
             .rpc()
             .block_hash(Some(BlockNumber::from(value as u64)))
             .await
-            //improvement needed here
-            .unwrap()
-            .unwrap();
+        {
+            Ok(block_hash) => block_hash.ok_or(Error::BlockNotFound)?,
+            Err(_) => return Err(Error::StorageFetch),
+        };
 
-        let block_data = state
-            .client
-            .rpc()
-            .block(Some(block_hash))
-            .await
-            //improvement needed here
-            .unwrap()
-            .unwrap();
+        let block_data = match state.client.rpc().block(Some(block_hash)).await {
+            Ok(block_data) => block_data.ok_or(Error::BlockNotFound)?,
+            Err(_) => return Err(Error::StorageFetch),
+        };
 
         let extrinsics = block_data.block.extrinsics;
         let (tx_data, can_fetch_data) = filter_extrinsic(
@@ -715,9 +715,9 @@ pub async fn get_indexed_transactions(state: &State, req: TxIndexerProps) -> Vec
             &req,
             block_hash,
         )
-        .await;
+        .await?;
 
-        if tx_data.len() > 0 {
+        if !tx_data.is_empty() {
             for tx in tx_data {
                 let block_transaction = BlockTransaction {
                     block_identifier: BlockIdentifier {
@@ -730,13 +730,12 @@ pub async fn get_indexed_transactions(state: &State, req: TxIndexerProps) -> Vec
                 filtered_ex.push(block_transaction);
             }
         }
-        
 
         if !can_fetch_data {
             break;
         }
     }
-    filtered_ex
+    Ok(filtered_ex)
 }
 
 pub async fn filter_extrinsic<T>(
@@ -746,7 +745,7 @@ pub async fn filter_extrinsic<T>(
     extrinsics: Vec<OpaqueExtrinsic>,
     req: &TxIndexerProps,
     block_hash: T::Hash,
-) -> (Vec<Transaction>, bool)
+) -> Result<(Vec<Transaction>, bool), Error>
 where
     T: Config,
 {
@@ -755,7 +754,8 @@ where
 
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
         let encoded_extrinsic = extrinsic.encode();
-        let tx_hash = hex::encode(encoded_extrinsic);
+        let tx_hash_hex = hex::encode(encoded_extrinsic);
+        let tx_hash = convert_extrinsic_to_hash(tx_hash_hex)?;
         let mut vector_of_operations: Vec<Operation> = vec![];
 
         let transaction_identifier = TransactionIdentifier {
@@ -841,30 +841,17 @@ where
                         None => {}
                     };
 
-                    let address_match = event_addresses
+                    let matched_address = if event_addresses
                         .iter()
-                        .filter(|address| address.to_owned().eq(&acc_identifier.address))
-                        .collect::<Vec<_>>();
-
-                    let matched_address = if address_match.len() > 0 {
+                        .any(|address| address.to_owned().eq(&acc_identifier.address))
+                    {
                         true
                     } else {
                         match acc_identifier.sub_account.as_ref() {
-                            Some(sub_address) => {
-                                let sub_address_match = event_addresses
-                                    .iter()
-                                    .filter(|address| address.to_owned().eq(&sub_address.address))
-                                    .collect::<Vec<_>>();
-                                if sub_address_match.len() > 0 {
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
-                            None => {
-                                //did not match any address
-                                false
-                            }
+                            Some(sub_address) => event_addresses
+                                .iter()
+                                .any(|address| address.to_owned().eq(&sub_address.address)),
+                            None => false,
                         }
                     };
 
@@ -875,7 +862,7 @@ where
                 None => {}
             }
 
-            //make operations object
+            //all checks passed process the operation
             let event_metadata = event.event_metadata();
 
             let mut vec_metadata = vec![];
@@ -925,7 +912,7 @@ where
             vector_of_operations.push(operation);
         }
 
-        if vector_of_operations.len() > 0 {
+        if !vector_of_operations.is_empty() {
             let transaction = Transaction {
                 transaction_identifier,
                 operations: vector_of_operations,
@@ -935,7 +922,7 @@ where
             vec_of_extrinsics.push(transaction);
         }
     }
-    (vec_of_extrinsics, can_fetch)
+    Ok((vec_of_extrinsics, can_fetch))
 }
 
 
