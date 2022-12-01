@@ -2,7 +2,6 @@ use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
-    // transaction_identifier,
     AccountBalanceRequest,
     AccountBalanceResponse,
     AccountFaucetRequest,
@@ -49,7 +48,6 @@ use std::time::Duration;
 use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
-// use subxt::rpc::BlockNumber;
 use subxt::tx::SubmittableExtrinsic;
 use subxt::utils::Encoded;
 use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
