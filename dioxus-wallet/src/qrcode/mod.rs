@@ -5,7 +5,7 @@ use qrcode::QrCode;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Qrcode(cx: Scope, data: Vec<u8>) -> Element {
-    let code = QrCode::new(&data).unwrap();
+    let code = QrCode::new(data).unwrap();
     let xml = code.render::<svg::Color>().build();
     let svg = xml
         .strip_prefix(r#"<?xml version="1.0" standalone="yes"?>"#)

@@ -28,7 +28,7 @@ pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element
 #[allow(non_snake_case)]
 #[inline_props]
 fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chain>) -> Element {
-    let chain = CHAINS.get(&chain).unwrap();
+    let chain = CHAINS.get(chain).unwrap();
     let info = chain.info();
     let state = chain.use_state(&cx).read();
     let icon = info.icon.to_str().unwrap();
