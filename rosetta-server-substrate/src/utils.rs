@@ -397,7 +397,7 @@ pub fn get_transaction_detail<T: Config>(
             .trim_start_matches("0x")
             .into();
 
-        if hex_val.eq(&tx_hash) {
+        if hex_val.eq(tx_hash) {
             let mut vec_of_operations = vec![];
             let transaction_identifier = TransactionIdentifier { hash: hex_val };
 
@@ -722,7 +722,7 @@ pub async fn get_indexed_transactions(
                 let block_transaction = BlockTransaction {
                     block_identifier: BlockIdentifier {
                         index: value as u64,
-                        hash: block_hash.to_string(),
+                        hash: format!("{:?}", block_hash),
                     },
                     transaction: tx,
                 };

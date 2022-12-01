@@ -878,7 +878,7 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         success: request.success,
     };
 
-    let filtered_ex = match get_indexed_transactions(req.state(), req_props).await{
+    let filtered_ex = match get_indexed_transactions(req.state(), req_props).await {
         Ok(ex) => ex,
         Err(e) => return e.to_response(),
     };
