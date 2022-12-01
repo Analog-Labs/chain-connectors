@@ -1,3 +1,4 @@
+#![allow(clippy::derive_partial_eq_without_eq)]
 use crate::components::alerts::Alerts;
 use crate::routes::*;
 use dioxus::prelude::*;

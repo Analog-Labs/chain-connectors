@@ -6,7 +6,7 @@ use fermi::*;
 use futures::channel::mpsc::UnboundedReceiver;
 use futures::stream::StreamExt;
 use rosetta_client::{Signer, Wallet};
-use std::collections::BTreeMap;
+use std::collections::btree_map::{BTreeMap, Entry};
 
 pub enum Action {
     SyncAccount(Chain),
@@ -14,8 +14,8 @@ pub enum Action {
 }
 
 pub fn use_worker(cx: &Scope) {
-    let state = State::new(&cx);
-    use_coroutine(&cx, |rx| worker(rx, state));
+    let state = State::new(cx);
+    use_coroutine(cx, |rx| worker(rx, state));
 }
 
 #[derive(Clone)]
@@ -66,10 +66,10 @@ impl Chains {
         })
     }
 
-    async fn wallet<'a>(&'a mut self, chain: Chain) -> Result<&'a Wallet> {
-        if !self.chains.contains_key(&chain) {
+    async fn wallet(&mut self, chain: Chain) -> Result<&Wallet> {
+        if let Entry::Vacant(entry) = self.chains.entry(chain) {
             let wallet = Wallet::new(chain.url(), chain.config(), &self.signer).await?;
-            self.chains.insert(chain, wallet);
+            entry.insert(wallet);
         }
         Ok(self.chains.get(&chain).unwrap())
     }
