@@ -1,30 +1,25 @@
-use crate::components::token_list::TOKENS;
 use crate::qrcode::Qrcode;
+use crate::state::use_chain_from_route;
+use crate::worker::Action;
 use dioxus::prelude::*;
-use dioxus_router::{use_route, Link};
-use fermi::*;
-use rosetta_client::Chain;
+use dioxus_router::Link;
 
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Recv(cx: Scope) -> Element {
-    let tokens = use_atom_ref(&cx, TOKENS);
-    let route = use_route(&cx);
-    let chain: Chain = route.last_segment().unwrap().parse().unwrap();
-    let token = tokens
-        .read()
-        .iter()
-        .find(|token| token.chain() == chain)
-        .cloned()
-        .unwrap();
-    let address = "0xdeadbeef";
+    let handle = use_coroutine_handle(&cx).unwrap();
+    let chain = use_chain_from_route(&cx);
+    let info = chain.info();
+    let state = chain.use_state(&cx).read();
+    handle.send(Action::SyncAccount(info.chain));
+    let qrcode = format!("{};{}", info.chain, &state.account);
     cx.render(rsx! {
         div {
             Link { to: "/", "Back" },
             Qrcode {
-                data: b"chain={chain};addr={address}",
+                data: qrcode.into(),
             },
-            "Recv {token.name()}"
+            "Recv {info.name}"
         }
     })
 }

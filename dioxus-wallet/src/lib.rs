@@ -6,6 +6,7 @@ use dioxus_router::{Route, Router};
 mod components;
 mod qrcode;
 mod routes;
+mod state;
 mod worker;
 
 #[cfg(target_os = "android")]

@@ -1,6 +1,6 @@
 use crate::components::token_list::TokenList;
 use dioxus::prelude::*;
-use dioxus_router::{use_router, Link};
+use dioxus_router::use_router;
 
 #[allow(non_snake_case)]
 #[inline_props]
