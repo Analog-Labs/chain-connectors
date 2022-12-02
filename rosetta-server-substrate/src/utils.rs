@@ -722,13 +722,10 @@ where
             hash: tx_hash.clone(),
         };
 
-        match req.transaction_identifier {
-            Some(ref tx_id) => {
-                if tx_id.hash.eq(&tx_hash) {
-                    continue;
-                }
+        if let Some(ref tx_id) = req.transaction_identifier {
+            if tx_id.hash.eq(&tx_hash) {
+                continue;
             }
-            None => {}
         }
 
         let current_block_events = match get_block_events(client, block_hash).await {
@@ -752,21 +749,18 @@ where
             None => continue,
         };
 
-        match req.success {
-            Some(success_status) => {
-                if success_status {
-                    let extrinsic_event_name = extrinsic_status.event_metadata().event();
-                    if !extrinsic_event_name.eq("ExtrinsicSuccess") {
-                        continue;
-                    }
-                } else {
-                    let extrinsic_event_name = extrinsic_status.event_metadata().event();
-                    if !extrinsic_event_name.eq("ExtrinsicFailed") {
-                        continue;
-                    }
+        if let Some(success_status) = req.success {
+            if success_status {
+                let extrinsic_event_name = extrinsic_status.event_metadata().event();
+                if !extrinsic_event_name.eq("ExtrinsicSuccess") {
+                    continue;
+                }
+            } else {
+                let extrinsic_event_name = extrinsic_status.event_metadata().event();
+                if !extrinsic_event_name.eq("ExtrinsicFailed") {
+                    continue;
                 }
             }
-            None => {}
         }
 
         for (event_index, event_data) in current_tx_events.iter().enumerate() {
@@ -778,49 +772,44 @@ where
             let event = event_data.as_ref().unwrap();
             let event_name = event.event_metadata().event();
 
-            match req.operation_type.as_ref() {
-                Some(operation_type) => {
-                    if !operation_type.eq(&event_name) {
-                        continue;
-                    }
+            if let Some(operation_type) = req.operation_type.as_ref() {
+                if !operation_type.eq(&event_name) {
+                    continue;
                 }
-                None => {}
             }
 
             let event_parsed = get_operation_data(event.clone(), address_format).unwrap();
 
-            match req.account_identifier.as_ref() {
-                Some(acc_identifier) => {
-                    let mut event_addresses = vec![];
-                    match event_parsed.from.clone() {
-                        Some(from) => event_addresses.push(from),
-                        None => {}
-                    };
-                    match event_parsed.to.clone() {
-                        Some(to) => event_addresses.push(to),
-                        None => {}
-                    };
-
-                    let matched_address = if event_addresses
-                        .iter()
-                        .any(|address| address.to_owned().eq(&acc_identifier.address))
-                    {
-                        true
-                    } else {
-                        match acc_identifier.sub_account.as_ref() {
-                            Some(sub_address) => event_addresses
-                                .iter()
-                                .any(|address| address.to_owned().eq(&sub_address.address)),
-                            None => false,
-                        }
-                    };
-
-                    if !matched_address {
-                        continue;
-                    }
+            if let Some(acc_identifier) = req.account_identifier.as_ref() {
+                let mut event_addresses = vec![];
+                if let Some(from) = event_parsed.from.clone() {
+                    event_addresses.push(from);
                 }
-                None => {}
+
+                if let Some(to) = event_parsed.to.clone() {
+                    event_addresses.push(to);
+                }
+
+                let matched_address = if event_addresses
+                    .iter()
+                    .any(|address| address.to_owned().eq(&acc_identifier.address))
+                {
+                    true
+                } else {
+                    match acc_identifier.sub_account.as_ref() {
+                        Some(sub_address) => event_addresses
+                            .iter()
+                            .any(|address| address.to_owned().eq(&sub_address.address)),
+                        None => false,
+                    }
+                };
+
+                if !matched_address {
+                    continue;
+                }
             }
+            //     None => {}
+            // }
 
             //all checks passed process the operation
             let event_metadata = event.event_metadata();
