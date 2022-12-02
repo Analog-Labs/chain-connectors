@@ -821,9 +821,9 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         },
     };
 
-    let _offset = request.offset.unwrap_or(0);
+    let offset = request.offset.unwrap_or(0);
 
-    let _limit = match request.limit {
+    let limit = match request.limit {
         Some(limit) => {
             if limit > 1000 {
                 1000
@@ -849,12 +849,34 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         Err(e) => return e.to_response(),
     };
 
-    let total_length = filtered_ex.len() as i64;
+    let total_count = filtered_ex.len() as i64;
+
+    if offset >= total_count {
+        return Error::InvalidOffset.to_response();
+    }
+
+    let idx_end = if offset + limit > total_count {
+        total_count
+    } else {
+        offset + limit
+    };
+
+    let limited_tx = if total_count <= limit {
+        filtered_ex
+    } else {
+        filtered_ex[offset as usize..idx_end as usize].to_vec()
+    };
+
+    let next_offset = if idx_end == total_count {
+        None
+    } else {
+        Some(idx_end)
+    };
 
     let response = SearchTransactionsResponse {
-        transactions: filtered_ex,
-        total_count: total_length,
-        next_offset: None,
+        transactions: limited_tx,
+        total_count,
+        next_offset,
     };
 
     Ok(Response::builder(200)

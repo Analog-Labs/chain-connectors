@@ -76,6 +76,7 @@ pub enum Error {
     InvalidMetadata,
     StorageFetch,
     NotSupported,
+    InvalidOffset,
 }
 
 impl std::fmt::Display for Error {
@@ -107,6 +108,7 @@ impl std::fmt::Display for Error {
             Self::InvalidMetadata => write!(f, "Metadata error"),
             Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::NotSupported => write!(f, "Operation not supported"),
+            Self::InvalidOffset => write!(f, "Invalid offset"),
         }
     }
 }
@@ -808,8 +810,6 @@ where
                     continue;
                 }
             }
-            //     None => {}
-            // }
 
             //all checks passed process the operation
             let event_metadata = event.event_metadata();
