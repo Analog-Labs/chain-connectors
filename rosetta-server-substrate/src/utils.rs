@@ -78,6 +78,7 @@ pub enum Error {
     StorageFetch,
     EventDetailParse,
     NotSupported,
+    InvalidOffset,
 }
 
 impl std::fmt::Display for Error {
@@ -110,6 +111,7 @@ impl std::fmt::Display for Error {
             Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::EventDetailParse => write!(f, "Event detail parse error"),
             Self::NotSupported => write!(f, "Operation not supported"),
+            Self::InvalidOffset => write!(f, "Invalid offset"),
         }
     }
 }
@@ -848,8 +850,6 @@ where
                     continue;
                 }
             }
-            //     None => {}
-            // }
 
             //all checks passed process the operation
             let event_metadata = event.event_metadata();
