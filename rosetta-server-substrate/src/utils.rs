@@ -792,16 +792,19 @@ where
                     event_addresses.push(to);
                 }
 
-                let matched_address = if event_addresses
-                    .iter()
-                    .any(|address| address.to_owned().eq(&acc_identifier.address))
-                {
+                let matched_address = if event_addresses.iter().any(|address| {
+                    address
+                        .to_owned()
+                        .eq(&acc_identifier.address.trim_start_matches("0x"))
+                }) {
                     true
                 } else {
                     match acc_identifier.sub_account.as_ref() {
-                        Some(sub_address) => event_addresses
-                            .iter()
-                            .any(|address| address.to_owned().eq(&sub_address.address)),
+                        Some(sub_address) => event_addresses.iter().any(|address| {
+                            address
+                                .to_owned()
+                                .eq(&sub_address.address.trim_start_matches("0x"))
+                        }),
                         None => false,
                     }
                 };
