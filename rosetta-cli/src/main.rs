@@ -30,6 +30,7 @@ async fn network_identifier(
 
 #[async_std::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     let opts = Opts::parse();
     let url = if let Some(url) = opts.url.as_ref() {
         url

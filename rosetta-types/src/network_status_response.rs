@@ -17,8 +17,10 @@ pub struct NetworkStatusResponse {
     /// The timestamp of the block in milliseconds since the Unix Epoch. The timestamp is stored in milliseconds because some blockchains produce blocks more often than once a second.
     #[serde(rename = "current_block_timestamp")]
     pub current_block_timestamp: i64,
+    // TODO: genesis_block_identifier is not nullable. rosetta-ethereum can't determine
+    // it on dev net.
     #[serde(rename = "genesis_block_identifier")]
-    pub genesis_block_identifier: crate::BlockIdentifier,
+    pub genesis_block_identifier: Option<crate::BlockIdentifier>,
     #[serde(
         rename = "oldest_block_identifier",
         skip_serializing_if = "Option::is_none"
@@ -40,7 +42,7 @@ impl NetworkStatusResponse {
         NetworkStatusResponse {
             current_block_identifier,
             current_block_timestamp,
-            genesis_block_identifier,
+            genesis_block_identifier: Some(genesis_block_identifier),
             oldest_block_identifier: None,
             sync_status: None,
             peers: None,

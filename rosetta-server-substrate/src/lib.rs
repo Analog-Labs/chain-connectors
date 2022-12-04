@@ -184,10 +184,10 @@ async fn network_status(mut req: Request<State>) -> tide::Result {
         hash: current_block.block.header.hash().to_string(),
     };
 
-    let genesis_block_identifier = BlockIdentifier {
+    let genesis_block_identifier = Some(BlockIdentifier {
         index: 0,
         hash: genesis_block_hash.to_string(),
-    };
+    });
 
     let timestamp_nanos = Duration::from_millis(unix_timestamp_millis).as_nanos() as u64;
 

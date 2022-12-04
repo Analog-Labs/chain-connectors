@@ -43,7 +43,7 @@ impl Client {
             500 => {
                 let error: rosetta_types::Error =
                     res.body_json().await.map_err(|e| e.into_inner())?;
-                tracing::error!("{:#?}", error);
+                log::error!("{:#?}", error);
                 Err(error.into())
             }
             _ => anyhow::bail!("unexpected status code {}", res.status()),
