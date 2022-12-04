@@ -110,11 +110,7 @@ impl Chain {
     }
 }
 
-pub async fn create_wallet(
-    chain: Chain,
-    url: Option<&str>,
-    keyfile: Option<&Path>,
-) -> Result<Wallet> {
+pub fn create_wallet(chain: Chain, url: Option<&str>, keyfile: Option<&Path>) -> Result<Wallet> {
     let keyfile = if let Some(keyfile) = keyfile {
         keyfile.to_path_buf()
     } else {
@@ -126,6 +122,6 @@ pub async fn create_wallet(
         chain.url()
     };
     let signer = open_or_create_keyfile(&keyfile)?;
-    let wallet = Wallet::new(url, chain.config(), &signer).await?;
+    let wallet = Wallet::new(url, chain.config(), &signer)?;
     Ok(wallet)
 }

@@ -197,7 +197,4 @@ impl Client {
     ) -> Result<SearchTransactionsResponse> {
         self.post("/search/transactions", &request).await
     }
-
-    /// Make a call to /faucet endpoint
-    pub async fn faucet(&self) {}
 }

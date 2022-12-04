@@ -1,13 +1,13 @@
 use crate::crypto::bip32::DerivedSecretKey;
 use crate::crypto::bip44::ChildNumber;
-use crate::signer::{RosettaPublicKey, RosettaSecretKey, Signer};
+use crate::signer::{RosettaAccount, RosettaPublicKey, RosettaSecretKey, Signer};
 use crate::types::{
-    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, Coin,
-    ConstructionCombineRequest, ConstructionDeriveRequest, ConstructionHashRequest,
-    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionParseRequest,
-    ConstructionParseResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
-    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
-    Operation, PublicKey, Signature, TransactionIdentifier,
+    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, BlockIdentifier, Coin,
+    ConstructionCombineRequest, ConstructionHashRequest, ConstructionMetadataRequest,
+    ConstructionMetadataResponse, ConstructionParseRequest, ConstructionParseResponse,
+    ConstructionPayloadsRequest, ConstructionPayloadsResponse, ConstructionPreprocessRequest,
+    ConstructionPreprocessResponse, ConstructionSubmitRequest, NetworkRequest, Operation,
+    PublicKey, Signature, TransactionIdentifier,
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
@@ -23,7 +23,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    pub async fn new(url: &str, config: BlockchainConfig, signer: &Signer) -> Result<Self> {
+    pub fn new(url: &str, config: BlockchainConfig, signer: &Signer) -> Result<Self> {
         let secret_key = if config.bip44 {
             signer
                 .bip44_account(config.algorithm, config.coin, 0)?
@@ -31,18 +31,10 @@ impl Wallet {
         } else {
             signer.master_key(config.algorithm)?.clone()
         };
-        let public_key = secret_key.public_key().to_rosetta();
-
+        let public_key = secret_key.public_key();
+        let account = public_key.to_address(config.address_format).to_rosetta();
+        let public_key = public_key.to_rosetta();
         let client = Client::new(url)?;
-        let req = ConstructionDeriveRequest {
-            network_identifier: config.network.clone(),
-            public_key: public_key.clone(),
-            metadata: None,
-        };
-        let derive = client.construction_derive(&req).await?;
-        let account = derive
-            .account_identifier
-            .ok_or_else(|| anyhow::anyhow!("expected account"))?;
         Ok(Self {
             config,
             client,
@@ -66,6 +58,17 @@ impl Wallet {
 
     pub fn account(&self) -> &AccountIdentifier {
         &self.account
+    }
+
+    pub async fn status(&self) -> Result<BlockIdentifier> {
+        let status = self
+            .client
+            .network_status(&NetworkRequest {
+                network_identifier: self.config.network.clone(),
+                metadata: None,
+            })
+            .await?;
+        Ok(status.current_block_identifier)
     }
 
     pub async fn balance(&self) -> Result<Amount> {

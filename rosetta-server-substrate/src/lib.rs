@@ -1,5 +1,6 @@
 use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
+use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Allow,
     Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
@@ -28,16 +29,15 @@ use utils::{
     UnsignedTransactionData,
 };
 
-mod ss58;
 mod utils;
 
-pub use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
+pub use rosetta_crypto::address::Ss58AddressFormatRegistry;
 
 pub struct Config {
     pub rpc_url: String,
     pub network: NetworkIdentifier,
     pub currency: Currency,
-    pub ss58_address_format: Ss58AddressFormat,
+    pub address_format: AddressFormat,
     pub testnet: bool,
 }
 
@@ -63,7 +63,7 @@ impl Config {
                 symbol: symbol.into(),
                 metadata: None,
             },
-            ss58_address_format: format.into(),
+            address_format: format.into(),
             testnet,
         }
     }
@@ -73,7 +73,7 @@ impl Config {
 pub struct State {
     network: NetworkIdentifier,
     currency: Currency,
-    ss58_address_format: Ss58AddressFormat,
+    address_format: AddressFormat,
     client: OnlineClient<PolkadotConfig>,
 }
 
@@ -83,7 +83,7 @@ impl State {
         Ok(Self {
             network: config.network.clone(),
             currency: config.currency.clone(),
-            ss58_address_format: config.ss58_address_format,
+            address_format: config.address_format,
             client,
         })
     }
@@ -410,7 +410,10 @@ async fn construction_derive(mut req: Request<State>) -> tide::Result {
         Ok(public_key) => public_key,
         Err(_) => return Error::InvalidHex.to_response(),
     };
-    let address = ss58::ss58_encode(req.state().ss58_address_format, &public_key);
+    let address = String::from(Address::from_public_key_bytes(
+        req.state().address_format,
+        &public_key,
+    ));
     let response = ConstructionDeriveResponse {
         account_identifier: Some(AccountIdentifier {
             address: address.clone(),

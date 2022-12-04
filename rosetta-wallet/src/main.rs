@@ -41,8 +41,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let opts = Opts::parse();
     let wallet =
-        rosetta_client::create_wallet(opts.chain, opts.url.as_deref(), opts.keyfile.as_deref())
-            .await?;
+        rosetta_client::create_wallet(opts.chain, opts.url.as_deref(), opts.keyfile.as_deref())?;
 
     match opts.cmd {
         Command::Pubkey => {

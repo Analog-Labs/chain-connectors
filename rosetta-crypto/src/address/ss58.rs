@@ -1,4 +1,4 @@
-use ss58_registry::Ss58AddressFormat;
+pub use ss58_registry::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 
 pub fn ss58_encode(address_format: Ss58AddressFormat, public_key: &[u8]) -> String {
     // We mask out the upper two bits of the ident - SS58 Prefix currently only supports 14-bits

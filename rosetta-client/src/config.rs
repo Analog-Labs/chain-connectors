@@ -1,9 +1,11 @@
+use crate::crypto::address::{AddressFormat, Ss58AddressFormatRegistry};
 use crate::crypto::Algorithm;
 use crate::types::{Currency, NetworkIdentifier};
 
 pub struct BlockchainConfig {
     pub network: NetworkIdentifier,
     pub algorithm: Algorithm,
+    pub address_format: AddressFormat,
     pub coin: u32,
     pub currency: Currency,
     pub bip44: bool,
@@ -19,6 +21,7 @@ impl BlockchainConfig {
                 sub_network_identifier: None,
             },
             algorithm: Algorithm::EcdsaSecp256k1,
+            address_format: AddressFormat::Bech32("bcrt"),
             coin: 1,
             currency: Currency {
                 symbol: "tBTC".into(),
@@ -38,6 +41,7 @@ impl BlockchainConfig {
                 sub_network_identifier: None,
             },
             algorithm: Algorithm::EcdsaRecoverableSecp256k1,
+            address_format: AddressFormat::Eip55,
             coin: 1,
             currency: Currency {
                 symbol: "ETH".into(),
@@ -57,6 +61,7 @@ impl BlockchainConfig {
                 sub_network_identifier: None,
             },
             algorithm: Algorithm::Sr25519,
+            address_format: AddressFormat::Ss58(Ss58AddressFormatRegistry::PolkadotAccount.into()),
             coin: 1,
             currency: Currency {
                 symbol: "DOT".into(),
