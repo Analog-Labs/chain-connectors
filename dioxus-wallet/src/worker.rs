@@ -68,7 +68,7 @@ impl Chains {
 
     async fn wallet(&mut self, chain: Chain) -> Result<&Wallet> {
         if let Entry::Vacant(entry) = self.chains.entry(chain) {
-            let wallet = Wallet::new(chain.url(), chain.config(), &self.signer).await?;
+            let wallet = Wallet::new(chain.url(), chain.config(), &self.signer)?;
             entry.insert(wallet);
         }
         Ok(self.chains.get(&chain).unwrap())

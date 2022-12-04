@@ -1,10 +1,13 @@
 use crate::crypto::{
+    address::Address,
     bip32::{DerivedPublicKey, DerivedSecretKey},
     bip39::Mnemonic,
     bip44::ChildNumber,
     Algorithm,
 };
-use crate::types::{CurveType, PublicKey, Signature, SignatureType, SigningPayload};
+use crate::types::{
+    AccountIdentifier, CurveType, PublicKey, Signature, SignatureType, SigningPayload,
+};
 use anyhow::Result;
 
 pub struct Signer {
@@ -112,6 +115,20 @@ impl RosettaPublicKey for DerivedPublicKey {
                 Algorithm::Sr25519 => CurveType::Schnorrkel,
             },
             hex_bytes: hex::encode(&self.public_key().to_bytes()),
+        }
+    }
+}
+
+pub trait RosettaAccount {
+    fn to_rosetta(&self) -> AccountIdentifier;
+}
+
+impl RosettaAccount for Address {
+    fn to_rosetta(&self) -> AccountIdentifier {
+        AccountIdentifier {
+            address: self.address().into(),
+            sub_account: None,
+            metadata: None,
         }
     }
 }

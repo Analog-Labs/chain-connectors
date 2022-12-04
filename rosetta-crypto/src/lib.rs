@@ -6,6 +6,7 @@ use anyhow::Result;
 use ecdsa::signature::{hazmat::PrehashSigner, Signature as _};
 use ed25519_dalek::{Signer as _, Verifier as _};
 
+pub mod address;
 pub mod bip32;
 pub use bip39;
 pub mod bip44;
@@ -210,6 +211,20 @@ impl PublicKey {
                 public.to_encoded_point(true).as_bytes().to_vec()
             }
             PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
+            PublicKey::Ed25519(public) => public.to_bytes().to_vec(),
+            PublicKey::Sr25519(public) => public.to_bytes().to_vec(),
+        }
+    }
+
+    /// Returns an uncompressed byte sequence representing the public key.
+    pub fn to_uncompressed_bytes(&self) -> Vec<u8> {
+        match self {
+            PublicKey::EcdsaSecp256k1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
+            PublicKey::EcdsaRecoverableSecp256k1(public) => {
+                use ecdsa::elliptic_curve::sec1::ToEncodedPoint;
+                public.to_encoded_point(false).as_bytes().to_vec()
+            }
+            PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
             PublicKey::Ed25519(public) => public.to_bytes().to_vec(),
             PublicKey::Sr25519(public) => public.to_bytes().to_vec(),
         }
