@@ -1,5 +1,4 @@
 use crate::state::{Chain, CHAINS};
-use crate::worker::Action;
 use dioxus::prelude::*;
 use fermi::*;
 
@@ -8,12 +7,10 @@ pub static TOKENS: AtomRef<Vec<Chain>> = |_| vec![Chain::Btc, Chain::Eth, Chain:
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element {
-    let handle = use_coroutine_handle(&cx).unwrap();
     let tokens = use_atom_ref(&cx, TOKENS);
     cx.render(rsx! {
         ul {
             tokens.read().iter().copied().map(|chain| {
-                handle.send(Action::SyncBalance(chain));
                 rsx! {
                     TokenListItem {
                         chain: chain,

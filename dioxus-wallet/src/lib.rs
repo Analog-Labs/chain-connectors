@@ -47,7 +47,8 @@ pub fn main() {
 }
 
 fn app(cx: Scope) -> Element {
-    worker::use_worker(&cx);
+    // TODO: don't unwrap
+    worker::use_chain_workers(&cx).unwrap();
     cx.render(rsx! {
         Alerts {},
         Router {
@@ -58,7 +59,7 @@ fn app(cx: Scope) -> Element {
             Route { to: "/txns/:chain", Txns {} }
             Route { to: "/send/:chain", Send {} }
             Route { to: "/recv/:chain", Recv {} }
-            Route { to: "/scan", Scan {} }
+            Route { to: "/scan/:chain", Scan {} }
         }
     })
 }
