@@ -460,7 +460,7 @@ where
 
 pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> Result<String, Error> {
     let transaction = &extrinsic.encode();
-    let hash = blake2_256(&transaction);
+    let hash = blake2_256(transaction);
     let hash_string = format!("0x{}", hex::encode(hash));
     Ok(hash_string)
 }
