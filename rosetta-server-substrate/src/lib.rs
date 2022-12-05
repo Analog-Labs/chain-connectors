@@ -254,8 +254,8 @@ async fn account_faucet(mut req: Request<State>) -> tide::Result {
     }
     let data = faucet_substrate(
         &req.state().client,
-        &request.account_address,
-        request.amount,
+        &request.account_identifier.address,
+        request.faucet_parameter,
     )
     .await
     .unwrap();

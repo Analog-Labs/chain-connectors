@@ -96,10 +96,7 @@ async fn main() -> Result<()> {
                 }
             }
             Chain::Dot => {
-                match wallet
-                    .faucet_dev(wallet.account().address.clone(), amount)
-                    .await
-                {
+                match wallet.faucet_dev(amount).await {
                     Ok(data) => {
                         println!("success: {}", data.hash);
                     }

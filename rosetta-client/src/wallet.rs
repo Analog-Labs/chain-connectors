@@ -225,11 +225,11 @@ impl Wallet {
         self.submit(&tx).await
     }
 
-    pub async fn faucet_dev(&self, account: String, amount: u128) -> Result<TransactionIdentifier> {
+    pub async fn faucet_dev(&self, faucet_parameter: u128) -> Result<TransactionIdentifier> {
         let req = AccountFaucetRequest {
             network_identifier: self.config.network.clone(),
-            account_address: account,
-            amount,
+            account_identifier: self.account.clone(),
+            faucet_parameter,
         };
 
         let resp = self.client.account_faucet(&req).await?;
