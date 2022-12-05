@@ -49,9 +49,9 @@ static DOT: AtomRef<ChainState> = |_| ChainState::default();
 lazy_static! {
     pub static ref CHAINS: BTreeMap<Chain, ChainHandle> = {
         let data = [
-            (Chain::Btc, "Bitcoin", "btc.png", BTC),
-            (Chain::Eth, "Ethereum", "eth.png", ETH),
-            (Chain::Dot, "Polkadot", "dot.png", DOT),
+            (Chain::Btc, "Bitcoin", "asset://img/btc.png", BTC),
+            (Chain::Eth, "Ethereum", "asset://img/eth.png", ETH),
+            (Chain::Dot, "Polkadot", "asset://img/dot.png", DOT),
         ];
 
         let mut chains = BTreeMap::new();
