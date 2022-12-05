@@ -234,7 +234,7 @@ async fn account_balance(mut req: Request<State>) -> tide::Result {
         }],
         block_identifier: BlockIdentifier {
             index,
-            hash: hash.to_string(),
+            hash: format!("{:?}", hash),
         },
         metadata: None,
     };
@@ -311,7 +311,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
         Err(e) => return e.to_response(),
     };
 
-    let parent_hash = block.block.header.parent_hash.to_string();
+    let parent_hash = format!("{:?}", block.block.header.parent_hash);
 
     let transactions = match get_block_transactions(req.state(), block, &events) {
         Ok(ok) => ok,
@@ -321,7 +321,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
     let block = Block {
         block_identifier: BlockIdentifier {
             index,
-            hash: block_hash.to_string(),
+            hash: format!("{:?}", block_hash),
         },
         parent_block_identifier: BlockIdentifier {
             index: index.saturating_sub(1),
