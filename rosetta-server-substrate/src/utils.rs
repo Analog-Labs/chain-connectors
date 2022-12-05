@@ -185,7 +185,7 @@ where
     let _block_number = block.block.header.number;
 
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let hex_val = convert_extrinsic_to_hash(extrinsic)?;
+        let hex_val = convert_extrinsic_to_hash(extrinsic);
 
         let mut vec_of_operations = vec![];
 
@@ -380,7 +380,7 @@ where
     let tx_hash = transaction_hash.trim_start_matches("0x");
     let extrinsics = block.block.extrinsics;
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let hex_val: String = convert_extrinsic_to_hash(extrinsic)?
+        let hex_val: String = convert_extrinsic_to_hash(extrinsic)
             .trim_start_matches("0x")
             .into();
 
@@ -458,11 +458,10 @@ where
     Ok(None)
 }
 
-pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> Result<String, Error> {
+pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> String {
     let transaction = &extrinsic.encode();
     let hash = blake2_256(transaction);
-    let hash_string = format!("0x{}", hex::encode(hash));
-    Ok(hash_string)
+    format!("0x{}", hex::encode(hash))
 }
 
 pub struct TransactionOperationStatus {
