@@ -8,6 +8,7 @@ members = [
     "rosetta-server-substrate",
     "rosetta-types",
     "rosetta-wallet",
+    "rosetta-indexer",
 ]
 resolver = "2"
 
