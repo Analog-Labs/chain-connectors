@@ -39,7 +39,7 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
                     width: "25px",
                     src: icon,
                 },
-                "{info.name}",
+                "{info.config.network.blockchain}",
             }
             div {
                 style: "float: right;",

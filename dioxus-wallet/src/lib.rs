@@ -64,7 +64,7 @@ fn app(cx: Scope) -> Element {
             }
             Route { to: "/", Tokens {} }
             Route { to: "/txns/:chain", Txns {} }
-            Route { to: "/send/:chain", Send {} }
+            Route { to: "/send/:chain/:address", Send {} }
             Route { to: "/recv/:chain", Recv {} }
             Route { to: "/scan/:chain", Scan {} }
         }

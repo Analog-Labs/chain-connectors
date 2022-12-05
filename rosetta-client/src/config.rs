@@ -2,6 +2,7 @@ use crate::crypto::address::{AddressFormat, Ss58AddressFormatRegistry};
 use crate::crypto::Algorithm;
 use crate::types::{Currency, NetworkIdentifier};
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BlockchainConfig {
     pub network: NetworkIdentifier,
     pub algorithm: Algorithm,
@@ -10,6 +11,7 @@ pub struct BlockchainConfig {
     pub currency: Currency,
     pub bip44: bool,
     pub utxo: bool,
+    pub unit: &'static str,
 }
 
 impl BlockchainConfig {
@@ -30,6 +32,7 @@ impl BlockchainConfig {
             },
             bip44: true,
             utxo: true,
+            unit: "satoshi",
         }
     }
 
@@ -50,6 +53,7 @@ impl BlockchainConfig {
             },
             bip44: true,
             utxo: false,
+            unit: "wei",
         }
     }
 
@@ -70,6 +74,7 @@ impl BlockchainConfig {
             },
             bip44: false,
             utxo: false,
+            unit: "planck",
         }
     }
 }

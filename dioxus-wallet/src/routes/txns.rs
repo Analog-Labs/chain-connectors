@@ -8,15 +8,18 @@ pub fn Txns(cx: Scope) -> Element {
     let chain = use_chain_from_route(&cx);
     let info = chain.info();
     let icon = info.icon.to_str().unwrap();
+    let state = chain.use_state(&cx).read();
     cx.render(rsx! {
         div {
+            Link { to: "/", "Back" },
             img {
                 src: "{icon}",
             }
-            "{info.name}",
+            "{info.config.network.blockchain}",
+            "{state.balance}",
             ul {
                 li {
-                    Link { to: "/send/{info.chain}", "Send" }
+                    Link { to: "/scan/{info.chain}", "Send" }
                 },
                 li {
                     Link { to: "/recv/{info.chain}", "Receive" }
