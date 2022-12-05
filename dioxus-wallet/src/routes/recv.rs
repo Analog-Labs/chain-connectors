@@ -9,14 +9,14 @@ pub fn Recv(cx: Scope) -> Element {
     let chain = use_chain_from_route(&cx);
     let info = chain.info();
     let state = chain.use_state(&cx).read();
-    let qrcode = format!("{};{}", info.chain, &state.account);
     cx.render(rsx! {
         div {
-            Link { to: "/", "Back" },
+            Link { to: "/txns/{info.chain}", "Back" },
             Qrcode {
-                data: qrcode.into(),
+                data: state.account.as_bytes().to_vec(),
             },
-            "Recv {info.name}"
+            "{state.account}",
+            "Recv {info.config.network.blockchain}"
         }
     })
 }

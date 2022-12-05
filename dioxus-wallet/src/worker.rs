@@ -56,7 +56,7 @@ async fn chain_worker(state: State, wallet: Wallet) {
 }
 
 async fn fallible_chain_worker(state: &State, wallet: &Wallet) -> Result<()> {
-    let synced = None;
+    let mut synced = None;
     loop {
         let current = Some(wallet.status().await?);
         if current == synced {
@@ -66,5 +66,6 @@ async fn fallible_chain_worker(state: &State, wallet: &Wallet) -> Result<()> {
         let amount = wallet.balance().await?;
         let balance = rosetta_client::amount_to_string(&amount)?;
         state.set_balance(balance);
+        synced = current;
     }
 }

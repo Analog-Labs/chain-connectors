@@ -17,13 +17,6 @@ pub fn Qrcode(cx: Scope, data: Vec<u8>) -> Element {
     })
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-pub fn scan_qrcode(_: &ScopeState) -> impl std::future::Future<Output = anyhow::Result<String>> {
-    async move {
-        anyhow::bail!("qr scanning is unsupported on this platform");
-    }
-}
-
 #[cfg(target_os = "android")]
 mod android;
 #[cfg(target_os = "android")]
