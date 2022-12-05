@@ -4,9 +4,7 @@ use crate::PublicKey;
 
 mod bech32;
 mod eip55;
-
-/// Address formatting module for a specific blockchain.
-pub mod ss58;
+mod ss58;
 
 pub use ss58::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 

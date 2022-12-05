@@ -185,9 +185,7 @@ where
     let _block_number = block.block.header.number;
 
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let encoded_item: &[u8] = &extrinsic.encode();
-        let hex_val_string = hex::encode(encoded_item);
-        let hex_val = convert_extrinsic_to_hash(hex_val_string)?;
+        let hex_val = convert_extrinsic_to_hash(extrinsic)?;
 
         let mut vec_of_operations = vec![];
 
@@ -382,9 +380,7 @@ where
     let tx_hash = transaction_hash.trim_start_matches("0x");
     let extrinsics = block.block.extrinsics;
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let encoded_item: &[u8] = &extrinsic.encode();
-        let hex_val_string = hex::encode(encoded_item);
-        let hex_val: String = convert_extrinsic_to_hash(hex_val_string)?
+        let hex_val: String = convert_extrinsic_to_hash(extrinsic)?
             .trim_start_matches("0x")
             .into();
 
@@ -462,8 +458,10 @@ where
     Ok(None)
 }
 
-pub fn convert_extrinsic_to_hash(hex_string: String) -> Result<String, Error> {
-    let received_hex = hex_string.trim_start_matches("0x");
+pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> Result<String, Error> {
+    let encoded_item: &[u8] = &extrinsic.encode();
+    let hex_val_string = hex::encode(encoded_item);
+    let received_hex = hex_val_string.trim_start_matches("0x");
     let transaction = match hex::decode(received_hex) {
         Ok(transaction) => transaction,
         Err(_) => return Err(Error::InvalidHex),
