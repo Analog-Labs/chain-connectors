@@ -20,3 +20,7 @@ jobs:
 
     - run: docker compose build
     - run: docker compose push
+
+    - uses: withlogicco/setup-compose-cli@v1
+    - run: docker context create ecs aws --from-env
+    - run: docker --context=aws compose up
