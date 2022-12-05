@@ -24,12 +24,26 @@ use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    convert_extrinsic_to_hash, faucet_substrate, get_account_storage, get_block_events,
-    get_block_transactions, get_call_data, get_indexed_transactions, get_latest_block,
-    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    TxIndexerProps, UnsignedTransactionData,
+    convert_extrinsic_to_hash,
+    faucet_substrate,
+    get_account_storage,
+    get_block_events,
+    get_block_transactions,
+    get_call_data,
+    // get_indexed_transactions,
+    get_latest_block,
+    get_transaction_detail,
+    get_transfer_payload,
+    get_unix_timestamp,
+    resolve_block,
+    Error,
+    TxIndexerProps,
+    UnsignedTransactionData,
 };
 
+use rosetta_indexer::indexer_search_transactions;
+
+mod ss58;
 mod utils;
 
 pub use rosetta_crypto::address::Ss58AddressFormatRegistry;
@@ -292,9 +306,9 @@ async fn block(mut req: Request<State>) -> tide::Result {
     }
 
     let block_identifier = Some(request.block_identifier);
-
+    println!("1");
     let (block_hash, index) = resolve_block(&req.state().client, block_identifier.as_ref()).await?;
-
+    println!("1");
     let block = req.state().client.rpc().block(Some(block_hash)).await?;
     let block = match block {
         Some(block) => block,
@@ -807,83 +821,90 @@ async fn events_blocks(mut _req: Request<State>) -> tide::Result {
 
 async fn search_transactions(mut req: Request<State>) -> tide::Result {
     let request: SearchTransactionsRequest = req.body_json().await?;
+
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    if let Some(Operator::Or) = request.operator {
-        return Error::NotSupported.to_response();
-    }
+    indexer_search_transactions(
+        request,
+        &req.state().client,
+        &req.state().currency,
+        &req.state().ss58_address_format,
+    )
+    .await?;
 
-    let max_block = match request.max_block {
-        Some(max_block) => max_block,
-        None => match get_latest_block(&req.state().client).await {
-            Ok(latest_block) => latest_block.block.header.number as i64,
-            Err(e) => return e.to_response(),
-        },
-    };
+    // if let Some(Operator::Or) = request.operator {
+    //     return Error::NotSupported.to_response();
+    // }
 
-    let offset = request.offset.unwrap_or(0);
+    // let max_block = match request.max_block {
+    //     Some(max_block) => max_block,
+    //     None => match get_latest_block(&req.state().client).await {
+    //         Ok(latest_block) => latest_block.block.header.number as i64,
+    //         Err(e) => return e.to_response(),
+    //     },
+    // };
 
-    let limit = match request.limit {
-        Some(limit) => {
-            if limit > 1000 {
-                1000
-            } else {
-                limit
-            }
-        }
-        None => 100,
-    };
+    // let offset = request.offset.unwrap_or(0);
 
-    let req_props = TxIndexerProps {
-        max_block,
-        transaction_identifier: request.transaction_identifier,
-        account_identifier: request.account_identifier,
-        status: request.status,
-        operation_type: request.r#type,
-        address: request.address,
-        success: request.success,
-    };
+    // let limit = match request.limit {
+    //     Some(limit) => {
+    //         if limit > 1000 {
+    //             1000
+    //         } else {
+    //             limit
+    //         }
+    //     }
+    //     None => 100,
+    // };
 
-    let filtered_ex = match get_indexed_transactions(req.state(), req_props).await {
-        Ok(ex) => ex,
-        Err(e) => return e.to_response(),
-    };
+    // let req_props = TxIndexerProps {
+    //     max_block,
+    //     transaction_identifier: request.transaction_identifier,
+    //     account_identifier: request.account_identifier,
+    //     status: request.status,
+    //     operation_type: request.r#type,
+    //     address: request.address,
+    //     success: request.success,
+    // };
 
-    let total_count = filtered_ex.len() as i64;
+    // let filtered_ex = match get_indexed_transactions(req.state(), req_props).await {
+    //     Ok(ex) => ex,
+    //     Err(e) => return e.to_response(),
+    // };
 
-    if offset >= total_count {
-        return Error::InvalidOffset.to_response();
-    }
+    // let total_count = filtered_ex.len() as i64;
 
-    let idx_end = if offset + limit > total_count {
-        total_count
-    } else {
-        offset + limit
-    };
+    // if offset >= total_count {
+    //     return Error::InvalidOffset.to_response();
+    // }
 
-    let limited_tx = if total_count <= limit {
-        filtered_ex
-    } else {
-        filtered_ex[offset as usize..idx_end as usize].to_vec()
-    };
+    // let idx_end = if offset + limit > total_count {
+    //     total_count
+    // } else {
+    //     offset + limit
+    // };
 
-    let next_offset = if idx_end == total_count {
-        None
-    } else {
-        Some(idx_end)
-    };
+    // let limited_tx = if total_count <= limit {
+    //     filtered_ex
+    // } else {
+    //     filtered_ex[offset as usize..idx_end as usize].to_vec()
+    // };
 
-    let response = SearchTransactionsResponse {
-        transactions: limited_tx,
-        total_count,
-        next_offset,
-    };
+    // let next_offset = if idx_end == total_count {
+    //     None
+    // } else {
+    //     Some(idx_end)
+    // };
 
-    Ok(Response::builder(200)
-        .body(Body::from_json(&response)?)
-        .build())
+    // let response = SearchTransactionsResponse {
+    //     transactions: limited_tx,
+    //     total_count,
+    //     next_offset,
+    // };
+
+    Ok(Response::builder(200).body(Body::from_json(&"")?).build())
 }
 
 async fn mempool(_req: Request<State>) -> tide::Result {
