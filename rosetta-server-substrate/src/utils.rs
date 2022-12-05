@@ -1,6 +1,7 @@
 use crate::State;
 use anyhow::Result;
 use parity_scale_codec::{Decode, Encode};
+use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::AccountIdentifier;
 use rosetta_types::Amount;
 use rosetta_types::{
@@ -21,6 +22,7 @@ use subxt::ext::scale_value::Composite;
 use subxt::ext::scale_value::Primitive;
 use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
+use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
@@ -183,8 +185,8 @@ where
     let _block_number = block.block.header.number;
 
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let encoded_item: &[u8] = &extrinsic.encode();
-        let hex_val = hex::encode(encoded_item);
+        let hex_val = convert_extrinsic_to_hash(extrinsic);
+
         let mut vec_of_operations = vec![];
 
         let transaction_identifier = TransactionIdentifier {
@@ -208,7 +210,7 @@ where
                 }
                 let op_metadata = Value::Array(vec_metadata);
 
-                let event_parsed_data = get_operation_data(event)?;
+                let event_parsed_data = get_operation_data(event, &state.address_format)?;
 
                 let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
                     Some(from) => match event_parsed_data.to {
@@ -262,7 +264,10 @@ where
     Ok(vec_of_extrinsics)
 }
 
-pub fn get_operation_data(event: EventDetails) -> Result<TransactionOperationStatus, Error> {
+pub fn get_operation_data(
+    event: EventDetails,
+    address_format: &AddressFormat,
+) -> Result<TransactionOperationStatus, Error> {
     let pallet_name = event.pallet_name();
     let event_name = event.variant_name();
 
@@ -279,7 +284,7 @@ pub fn get_operation_data(event: EventDetails) -> Result<TransactionOperationSta
             let sender_address: Option<String> = if !from_data.is_empty() {
                 let data = from_data.into_iter().next().ok_or(Error::OperationParse)?;
 
-                let address = generate_address(data.1.value.clone())?;
+                let address = generate_address(data.1.value.clone(), address_format)?;
                 Some(address)
             } else {
                 None
@@ -311,7 +316,7 @@ pub fn get_operation_data(event: EventDetails) -> Result<TransactionOperationSta
             let to_address: Option<String> = if !to_data.is_empty() {
                 let data = to_data.into_iter().next().ok_or(Error::OperationParse)?;
 
-                let address = generate_address(data.1.value.clone())?;
+                let address = generate_address(data.1.value.clone(), address_format)?;
                 Some(address)
             } else {
                 None
@@ -333,7 +338,10 @@ pub fn get_operation_data(event: EventDetails) -> Result<TransactionOperationSta
     Ok(transaction_operation_status)
 }
 
-pub fn generate_address(val: ValueDef<TypeId>) -> Result<String, Error> {
+pub fn generate_address(
+    val: ValueDef<TypeId>,
+    address_format: &AddressFormat,
+) -> Result<String, Error> {
     let mut addr_array: Vec<u8> = vec![];
     match val {
         ValueDef::Composite(Composite::Unnamed(unamed_data)) => {
@@ -356,9 +364,8 @@ pub fn generate_address(val: ValueDef<TypeId>) -> Result<String, Error> {
         _ => return Err(Error::OperationParse),
     }
 
-    let addr_bytes: &[u8] = &addr_array;
-    let address = AccountId32::try_from(addr_bytes).unwrap();
-    Ok(address.to_string())
+    let address = Address::from_public_key_bytes(*address_format, &addr_array);
+    Ok(address.address().to_string())
 }
 
 pub fn get_transaction_detail<T>(
@@ -373,8 +380,9 @@ where
     let tx_hash = transaction_hash.trim_start_matches("0x");
     let extrinsics = block.block.extrinsics;
     for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
-        let encoded_item: &[u8] = &extrinsic.encode();
-        let hex_val = hex::encode(encoded_item);
+        let hex_val: String = convert_extrinsic_to_hash(extrinsic)
+            .trim_start_matches("0x")
+            .into();
 
         if hex_val.eq(&tx_hash) {
             let mut vec_of_operations = vec![];
@@ -396,7 +404,7 @@ where
                         vec_metadata.push(json!({"name":name, "type": type_name}));
                     }
                     let op_metadata = Value::Array(vec_metadata);
-                    let event_parsed_data = get_operation_data(event)?;
+                    let event_parsed_data = get_operation_data(event, &state.address_format)?;
 
                     let op_account: Option<AccountIdentifier> = match event_parsed_data.from {
                         Some(from) => match event_parsed_data.to {
@@ -448,6 +456,12 @@ where
         }
     }
     Ok(None)
+}
+
+pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> String {
+    let transaction = &extrinsic.encode();
+    let hash = blake2_256(transaction);
+    format!("0x{}", hex::encode(hash))
 }
 
 pub struct TransactionOperationStatus {
