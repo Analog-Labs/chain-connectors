@@ -459,13 +459,7 @@ where
 }
 
 pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> Result<String, Error> {
-    let encoded_item: &[u8] = &extrinsic.encode();
-    let hex_val_string = hex::encode(encoded_item);
-    let received_hex = hex_val_string.trim_start_matches("0x");
-    let transaction = match hex::decode(received_hex) {
-        Ok(transaction) => transaction,
-        Err(_) => return Err(Error::InvalidHex),
-    };
+    let transaction = &extrinsic.encode();
     let hash = blake2_256(&transaction);
     let hash_string = format!("0x{}", hex::encode(hash));
     Ok(hash_string)
