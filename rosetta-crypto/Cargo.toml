@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.65"
+anyhow = "1.0.66"
 bech32 = "0.9.1"
 blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
-ecdsa = { version = "0.14.7", features = ["arithmetic"] }
+ecdsa = { version = "0.14.8", features = ["arithmetic"] }
 ed25519-dalek = "1.0.1"
 hex = "0.4.3"
 hmac = "0.12.1"
-k256 = { version = "0.11.5", features = ["keccak256"] }
+k256 = { version = "0.11.6", features = ["keccak256"] }
 p256 = "0.11.1"
 ripemd = "0.1.3"
 rust-bip39 = "1.0.0"

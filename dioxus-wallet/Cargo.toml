@@ -17,10 +17,10 @@ include_dir = "0.7.3"
 lazy_static = "1.4.0"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
 rosetta-client = { path = "../rosetta-client" }
-surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 dioxus-desktop = "0.2.3"
+surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.11.1"
@@ -28,7 +28,7 @@ jni = "0.20.0"
 log = "0.4.17"
 ndk-context = "0.1.1"
 paste = "1.0.9"
-wry = "0.22.0"
+wry = "0.23.1"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 bardecoder = "0.4.0"
@@ -37,12 +37,13 @@ core-media-sys = "0.1.2"
 objc = { version = "0.2.7", features = ["exception"] }
 objc-foundation = "0.1.1"
 objc_id = "0.1.1"
-image = { version = "0.23.14", default-features = false }
+image = { version = "0.23", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 console_error_panic_hook = "0.1.7"
 dioxus-web = "0.2.1"
+surf = { version = "2.3.2", default-features = false, features = ["wasm-client"] }
 wasm-logger = "0.2.0"
 
 [build-dependencies]
-cc = "1.0.76"
+cc = "1.0.77"
