@@ -313,7 +313,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
 
     let parent_hash = format!("{:?}", block.block.header.parent_hash);
 
-    let transactions = match get_block_transactions(req.state(), block, &events) {
+    let transactions = match get_block_transactions(req.state(), &block, &events) {
         Ok(ok) => ok,
         Err(e) => return e.to_response(),
     };
@@ -383,7 +383,7 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
     };
 
     let transaction =
-        match get_transaction_detail(transaction_identifier.hash, req.state(), block, &events) {
+        match get_transaction_detail(transaction_identifier.hash, req.state(), &block, &events) {
             Ok(transaction) => match transaction {
                 Some(transaction_inner) => transaction_inner,
                 None => {
