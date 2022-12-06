@@ -5,9 +5,6 @@ use parity_scale_codec::{Decode, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::AccountIdentifier;
 use rosetta_types::Amount;
-use rosetta_types::BlockIdentifier;
-use rosetta_types::BlockTransaction;
-use rosetta_types::Currency;
 use rosetta_types::{
     Operation, OperationIdentifier, PartialBlockIdentifier, SubAccountIdentifier, Transaction,
     TransactionIdentifier,
@@ -29,7 +26,6 @@ use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
-use subxt::ext::sp_runtime::generic::Block;
 use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
 use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::AccountId32;
@@ -78,6 +74,8 @@ pub enum Error {
     StorageFetch,
     EventDetailParse,
     NotSupported,
+    NoBlockEvents,
+    FailedTimestamp,
     InvalidOffset,
 }
 
@@ -111,6 +109,8 @@ impl std::fmt::Display for Error {
             Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::EventDetailParse => write!(f, "Event detail parse error"),
             Self::NotSupported => write!(f, "Operation not supported"),
+            Self::NoBlockEvents => write!(f, "No block events found"),
+            Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
             Self::InvalidOffset => write!(f, "Invalid offset"),
         }
     }
@@ -131,10 +131,10 @@ impl Error {
     }
 }
 
-pub fn make_error_response(data: String) -> tide::Result {
+pub fn string_to_err_response(err: String) -> tide::Result {
     let error = rosetta_types::Error {
         code: 500,
-        message: data,
+        message: err,
         description: None,
         retriable: false,
         details: None,
@@ -192,7 +192,7 @@ where
         .events()
         .at(Some(block))
         .await
-        .map_err(|_| Error::StorageFetch)?;
+        .map_err(|_| Error::NoBlockEvents)?;
 
     Ok(abc)
 }
@@ -574,7 +574,7 @@ pub async fn get_unix_timestamp(client: &OnlineClient<GenericConfig>) -> Result<
         .storage()
         .fetch_or_default(&current_block_timestamp, None)
         .await
-        .map_err(|_| Error::StorageFetch)?;
+        .map_err(|_| Error::FailedTimestamp)?;
 
     Ok(unix_timestamp_millis)
 }
@@ -676,17 +676,6 @@ pub fn get_runtime_error(error: SubxtError) -> String {
     }
 }
 
-pub async fn get_latest_block(
-    client: &OnlineClient<GenericConfig>,
-) -> Result<SignedBlock<Block<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>, Error> {
-    let req_block = match client.rpc().block(None).await {
-        Ok(block) => block.ok_or(Error::BlockNotFound)?,
-        Err(_) => return Err(Error::BlockNotFound),
-    };
-
-    Ok(req_block)
-}
-
 pub struct TransactionOperationStatus {
     event_type: String,
     from: Option<String>,
@@ -736,16 +725,6 @@ pub struct EventRecord<Event, Hash> {
     pub phase: Phase,
     pub event: Event,
     pub topics: Vec<Hash>,
-}
-
-pub struct TxIndexerProps {
-    pub max_block: i64,
-    pub transaction_identifier: Option<TransactionIdentifier>,
-    pub account_identifier: Option<AccountIdentifier>,
-    pub status: Option<String>,
-    pub operation_type: Option<String>,
-    pub address: Option<String>,
-    pub success: Option<bool>,
 }
 
 #[derive(Debug)]

@@ -1,46 +1,27 @@
 use rosetta_client::Client;
-use rosetta_types::{Currency, Operator, SearchTransactionsRequest, network_identifier};
-use subxt::{
-    ext::sp_core::crypto::Ss58AddressFormat, Config, OnlineClient, PolkadotConfig as CustomConfig,
-};
-use tide::{Body, Response};
-use utils::{TxIndexerProps, get_indexed_transactions};
+use rosetta_types::{BlockTransaction, Operator, SearchTransactionsRequest};
+use subxt::{OnlineClient, PolkadotConfig as CustomConfig};
+use utils::{get_indexed_transactions, TxIndexerProps};
 
 mod utils;
 
 pub async fn indexer_search_transactions(
     request: SearchTransactionsRequest,
     client: &OnlineClient<CustomConfig>,
-    currency: &Currency,
-    address_format: &Ss58AddressFormat,
-) -> tide::Result {
+) -> Result<Vec<BlockTransaction>, String> {
     if let Some(Operator::Or) = request.operator {
-        // return Error::NotSupported.to_response();
+        return Err("Invalid Operator".into());
     }
 
     let max_block = match request.max_block {
         Some(max_block) => max_block,
         None => {
-            let block = client.rpc().block(None).await?;
+            let block = client.rpc().block(None).await.unwrap();
             match block {
                 Some(block) => block.block.header.number as i64,
-                None => 0,
-                // None => return Err(Error::BlockNotFound),
+                None => return Err("Invalid Block".into()),
             }
         }
-    };
-
-    let offset = request.offset.unwrap_or(0);
-
-    let limit = match request.limit {
-        Some(limit) => {
-            if limit > 1000 {
-                1000
-            } else {
-                limit
-            }
-        }
-        None => 100,
     };
 
     let req_props = TxIndexerProps {
@@ -53,9 +34,13 @@ pub async fn indexer_search_transactions(
         success: request.success,
     };
 
-    let server_client = Client::new("http://rosetta.analog.one:8082".into())?;
+    let server_client = match Client::new("http://127.0.0.1:8082") {
+        Ok(client) => client,
+        Err(_) => return Err("Invalid Rosetta Server".into()),
+    };
 
-    get_indexed_transactions(&server_client, client, request.network_identifier, req_props).await.unwrap();
+    let tx_data =
+        get_indexed_transactions(&server_client, request.network_identifier, req_props).await?;
 
-    Ok(Response::builder(200).body(Body::from_json(&"")?).build())
+    Ok(tx_data)
 }
