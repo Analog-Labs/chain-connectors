@@ -9,7 +9,6 @@ pub static TOKENS: AtomRef<Vec<Chain>> = |_| vec![Chain::Btc, Chain::Eth, Chain:
 pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element {
     let tokens = use_atom_ref(&cx, TOKENS);
     cx.render(rsx! {
-        ul {
             tokens.read().iter().copied().map(|chain| {
                 rsx! {
                     TokenListItem {
@@ -18,7 +17,6 @@ pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element
                     }
                 }
             })
-        }
     })
 }
 
@@ -30,20 +28,31 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
     let state = chain.use_state(&cx).read();
     let icon = info.icon.to_str().unwrap();
     cx.render(rsx! {
-        li {
+        div {
+            class:"token-list-item",
             onclick: move |_| onclick.call(info.chain),
-            height: "50px",
-            div {
-                style: "float: left;",
-                img {
-                    width: "25px",
-                    src: icon,
-                },
-                "{info.config.network.blockchain}",
+            div{
+                class:"list-item-left-container",
+                div{
+                    class:"image-container",
+                    img {
+                        class:"list-item-image",
+                        src: icon,
+                    },
+                }
+                div{
+                    class:"list-item-title-container",
+                    div{
+                        class:"row-title",
+                        "{info.config.network.blockchain}",
+                    }
+                }
             }
-            div {
-                style: "float: right;",
-                "{state.balance}",
+            div{
+                class:"list-item-right-container",
+                    div{
+                        "{state.balance}"
+                    }
             }
         }
     })
