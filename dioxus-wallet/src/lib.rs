@@ -2,7 +2,6 @@
 use crate::components::alerts::Alerts;
 use crate::routes::*;
 use dioxus::prelude::*;
-use dioxus_desktop::Config;
 use dioxus_router::{Route, Router};
 
 #[macro_use]
@@ -35,22 +34,20 @@ fn _start_app() {
     }
 }
 
-fn config() -> Config {
-    Config::default().with_custom_protocol("asset".into(), assets::asset_handler)
-}
-
 #[cfg(not(target_family = "wasm"))]
 pub fn main() {
+    use dioxus_desktop::Config;
     #[cfg(any(target_os = "android", target_os = "ios"))]
     std::env::set_var("RUST_BACKTRACE", "1");
-    dioxus_desktop::launch_cfg(app, config());
+    let config = Config::default().with_custom_protocol("asset".into(), assets::asset_handler);
+    dioxus_desktop::launch_cfg(app, config);
 }
 
 #[cfg(target_family = "wasm")]
 pub fn main() {
     wasm_logger::init(wasm_logger::Config::default());
     console_error_panic_hook::set_once();
-    dioxus_web::launch_cfg(app, config());
+    dioxus_web::launch(app);
 }
 
 fn app(cx: Scope) -> Element {

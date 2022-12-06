@@ -9,6 +9,7 @@ members = [
     "rosetta-types",
     "rosetta-wallet",
 ]
+resolver = "2"
 
 [patch.crates-io]
 dioxus = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
