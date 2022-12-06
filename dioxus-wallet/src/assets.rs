@@ -1,4 +1,6 @@
+#[cfg(not(target_family = "wasm"))]
 use dioxus_desktop::wry::http::{Request, Response, StatusCode};
+#[cfg(not(target_family = "wasm"))]
 use dioxus_desktop::wry::Result;
 use include_dir::{include_dir, Dir};
 
@@ -14,6 +16,7 @@ macro_rules! css {
     };
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub fn asset_handler(request: &Request<Vec<u8>>) -> Result<Response<Vec<u8>>> {
     let path = request.uri().to_string().replace("asset://", "");
     let mime = match path.rsplit_once('.') {
