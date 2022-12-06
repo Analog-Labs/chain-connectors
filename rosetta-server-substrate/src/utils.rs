@@ -24,13 +24,10 @@ use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
-use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
-use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
-use subxt::ext::sp_runtime::OpaqueExtrinsic;
 use subxt::metadata::DecodeStaticType;
-use subxt::rpc::BlockNumber;
+use subxt::rpc::{BlockNumber, ChainBlockExtrinsic, ChainBlockResponse};
 use subxt::storage::address;
 use subxt::storage::address::StorageHasher;
 use subxt::storage::address::StorageMapKey;
@@ -171,20 +168,13 @@ where
     Ok(abc)
 }
 
-pub fn get_block_transactions<T>(
+pub fn get_block_transactions<T: Config>(
     state: &State,
-    block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    block: &ChainBlockResponse<T>,
     events: &Events<T>,
-) -> Result<Vec<Transaction>, Error>
-where
-    T: Config,
-{
+) -> Result<Vec<Transaction>, Error> {
     let mut vec_of_extrinsics = vec![];
-
-    let extrinsics = block.block.extrinsics;
-    let _block_number = block.block.header.number;
-
-    for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
+    for (ex_index, extrinsic) in block.block.extrinsics.iter().enumerate() {
         let hex_val = convert_extrinsic_to_hash(extrinsic);
 
         let mut vec_of_operations = vec![];
@@ -368,18 +358,14 @@ pub fn generate_address(
     Ok(address.address().to_string())
 }
 
-pub fn get_transaction_detail<T>(
+pub fn get_transaction_detail<T: Config>(
     transaction_hash: String,
     state: &State,
-    block: SignedBlock<SPBlock<Header<u32, BlakeTwo256>, OpaqueExtrinsic>>,
+    block: &ChainBlockResponse<T>,
     events: &Events<T>,
-) -> Result<Option<Transaction>, Error>
-where
-    T: Config,
-{
+) -> Result<Option<Transaction>, Error> {
     let tx_hash = transaction_hash.trim_start_matches("0x");
-    let extrinsics = block.block.extrinsics;
-    for (ex_index, extrinsic) in extrinsics.iter().enumerate() {
+    for (ex_index, extrinsic) in block.block.extrinsics.iter().enumerate() {
         let hex_val: String = convert_extrinsic_to_hash(extrinsic)
             .trim_start_matches("0x")
             .into();
@@ -458,9 +444,8 @@ where
     Ok(None)
 }
 
-pub fn convert_extrinsic_to_hash(extrinsic: &OpaqueExtrinsic) -> String {
-    let transaction = &extrinsic.encode();
-    let hash = blake2_256(transaction);
+pub fn convert_extrinsic_to_hash(extrinsic: &ChainBlockExtrinsic) -> String {
+    let hash = blake2_256(&extrinsic.0);
     format!("0x{}", hex::encode(hash))
 }
 
@@ -495,8 +480,8 @@ where
     T: Config,
 {
     let metadata = subxt.metadata();
-    let mut bytes = Vec::new();
-    call.encode_call_data(&metadata, &mut bytes)
+    let bytes = call
+        .encode_call_data(&metadata)
         .map_err(|_| Error::CouldNotSerialize)?;
 
     subxt
