@@ -81,3 +81,18 @@ jobs:
     - name: Build ios
       run: x build --platform ios --arch arm64
       working-directory: dioxus-wallet
+
+  dioxus-wallet-wasm:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        targets: wasm32-unknown-unknown
+
+    - name: Build wasm
+      run: cargo build --target wasm32-unknown-unknown
+      working-directory: dioxus-wallet
