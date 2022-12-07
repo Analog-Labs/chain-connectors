@@ -17,3 +17,4 @@ dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35"
 dioxus-router = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
 dioxus-web = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
 fermi = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
+dirs-next = { git = "https://github.com/dvc94ch/dirs", branch = "android" }
