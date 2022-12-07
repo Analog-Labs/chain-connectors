@@ -8,8 +8,7 @@ use rosetta_client::Wallet;
 use std::time::Duration;
 
 pub fn use_chain_workers(cx: &Scope) -> Result<()> {
-    let keyfile = rosetta_client::default_keyfile()?;
-    let signer = rosetta_client::open_or_create_keyfile(&keyfile)?;
+    let signer = rosetta_client::create_signer(None)?;
     for (chain, _) in CHAINS.iter() {
         let state = State::new(cx, *chain);
         let wallet = Wallet::new(chain.url(), chain.config(), &signer)?;
