@@ -31,7 +31,7 @@ pub async fn get_indexed_transactions(
         if let Ok(data) = server_client.block(&block_request).await {
             let filtered_data = filter_tx(&data, &req)?;
 
-            let block_hash = data.block.map(|e| format!("{}", e.block_identifier.hash));
+            let block_hash = data.block.map(|e| e.block_identifier.hash);
 
             for tx in filtered_data {
                 let block_transaction = BlockTransaction {

@@ -15,6 +15,7 @@ use rosetta_types::{
 };
 use std::str::FromStr;
 use std::time::Duration;
+use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
@@ -24,14 +25,13 @@ use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    convert_extrinsic_to_hash, faucet_substrate, get_account_storage, get_block_events,
-    get_block_transactions, get_call_data, get_transaction_detail, get_transfer_payload,
-    get_unix_timestamp, resolve_block, string_to_err_response, Error, UnsignedTransactionData,
+    faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
+    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block,
+    string_to_err_response, Error, UnsignedTransactionData,
 };
 
 use rosetta_indexer::indexer_search_transactions;
 
-mod ss58;
 mod utils;
 
 pub use rosetta_crypto::address::Ss58AddressFormatRegistry;
@@ -77,7 +77,7 @@ pub struct State {
     network: NetworkIdentifier,
     currency: Currency,
     address_format: AddressFormat,
-    client: OnlineClient<PolkadotConfig>,
+    client: OnlineClient<GenericConfig>,
 }
 
 impl State {
@@ -435,13 +435,17 @@ async fn construction_hash(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let hash = match convert_extrinsic_to_hash(request.signed_transaction) {
-        Ok(hash) => hash,
-        Err(e) => return e.to_response(),
+    let received_hex = request.signed_transaction.trim_start_matches("0x");
+    let transaction = match hex::decode(received_hex) {
+        Ok(transaction) => transaction,
+        Err(_) => return Error::InvalidHex.to_response(),
     };
+    let hash = blake2_256(&transaction);
 
     let response = TransactionIdentifierResponse {
-        transaction_identifier: TransactionIdentifier { hash },
+        transaction_identifier: TransactionIdentifier {
+            hash: format!("0x{}", hex::encode(hash)),
+        },
         metadata: None,
     };
     Ok(Response::builder(200)
