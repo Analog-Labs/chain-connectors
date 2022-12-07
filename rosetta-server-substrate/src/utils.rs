@@ -1,4 +1,3 @@
-use crate::ss58;
 use crate::State;
 use anyhow::Result;
 use parity_scale_codec::{Decode, Encode};
@@ -14,7 +13,6 @@ use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
-use ss58_registry::Ss58AddressFormat;
 use std::borrow::Borrow;
 use subxt::events::EventDetails;
 use subxt::events::Events;
@@ -26,8 +24,6 @@ use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
-use subxt::ext::sp_runtime::generic::{Block as SPBlock, Header, SignedBlock};
-use subxt::ext::sp_runtime::traits::BlakeTwo256;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
 use subxt::metadata::DecodeStaticType;
@@ -674,13 +670,6 @@ pub fn get_runtime_error(error: SubxtError) -> String {
     } else {
         format!("{}", Error::InvalidExtrinsic)
     }
-}
-
-pub struct TransactionOperationStatus {
-    event_type: String,
-    from: Option<String>,
-    to: Option<String>,
-    amount: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
