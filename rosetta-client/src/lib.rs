@@ -37,25 +37,70 @@ pub fn default_keyfile() -> Result<PathBuf> {
         .join("mnemonic"))
 }
 
-pub fn open_or_create_keyfile(path: &Path) -> Result<Signer> {
-    if !path.exists() {
-        std::fs::create_dir_all(path.parent().unwrap())?;
-        let mut entropy = [0; 32];
-        getrandom::getrandom(&mut entropy)?;
-        let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
-        #[cfg(unix)]
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut opts = OpenOptions::new();
-        opts.create(true).write(true).truncate(true);
-        #[cfg(unix)]
-        opts.mode(0o600);
-        let mut f = opts.open(path)?;
-        f.write_all(mnemonic.to_string().as_bytes())?;
-    }
+pub fn generate_mnemonic() -> Result<Mnemonic> {
+    let mut entropy = [0; 32];
+    getrandom::getrandom(&mut entropy)?;
+    let mnemonic = Mnemonic::from_entropy_in(Language::English, &entropy)?;
+    Ok(mnemonic)
+}
+
+pub fn create_keyfile(path: &Path, mnemonic: &Mnemonic) -> Result<()> {
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    #[cfg(unix)]
+    use std::os::unix::fs::OpenOptionsExt;
+    let mut opts = OpenOptions::new();
+    opts.create(true).write(true).truncate(true);
+    #[cfg(unix)]
+    opts.mode(0o600);
+    let mut f = opts.open(path)?;
+    f.write_all(mnemonic.to_string().as_bytes())?;
+    Ok(())
+}
+
+pub fn open_keyfile(path: &Path) -> Result<Mnemonic> {
     let mnemonic = std::fs::read_to_string(path)?;
     let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic)?;
-    let signer = Signer::new(&mnemonic, "")?;
-    Ok(signer)
+    Ok(mnemonic)
+}
+
+pub fn open_or_create_keyfile(path: Option<&Path>) -> Result<Mnemonic> {
+    let path = if let Some(path) = path {
+        path.to_path_buf()
+    } else {
+        default_keyfile()?
+    };
+    if !path.exists() {
+        let mnemonic = generate_mnemonic()?;
+        create_keyfile(&path, &mnemonic)?;
+    }
+    open_keyfile(&path)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn get_or_set_mnemonic() -> Result<Mnemonic> {
+    use wasm_bindgen::{JsCast, UnwrapThrowExt};
+    let local_storage = web_sys::window()
+        .expect_throw("no window")
+        .local_storage()
+        .expect_throw("failed to get local_storage")
+        .expect_throw("no local storage");
+    let item = local_storage
+        .get_item("mnemonic")
+        .expect_throw("unreachable: get_item does not throw an exception");
+    let mnemonic = if let Some(mnemonic) = item {
+        Mnemonic::parse_in(Language::English, &mnemonic)?
+    } else {
+        let mnemonic = generate_mnemonic()?;
+        local_storage
+            .set_item("mnemonic", &mnemonic.to_string())
+            .map_err(|value| {
+                anyhow::anyhow!(String::from(
+                    value.dyn_into::<js_sys::Error>().unwrap().to_string()
+                ))
+            })?;
+        mnemonic
+    };
+    Ok(mnemonic)
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -110,18 +155,21 @@ impl Chain {
     }
 }
 
+pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
+    #[cfg(not(target_family = "wasm"))]
+    let mnemonic = open_or_create_keyfile(_keyfile)?;
+    #[cfg(target_family = "wasm")]
+    let mnemonic = get_or_set_mnemonic()?;
+    Signer::new(&mnemonic, "")
+}
+
 pub fn create_wallet(chain: Chain, url: Option<&str>, keyfile: Option<&Path>) -> Result<Wallet> {
-    let keyfile = if let Some(keyfile) = keyfile {
-        keyfile.to_path_buf()
-    } else {
-        default_keyfile()?
-    };
     let url = if let Some(url) = url {
         url
     } else {
         chain.url()
     };
-    let signer = open_or_create_keyfile(&keyfile)?;
+    let signer = create_signer(keyfile)?;
     let wallet = Wallet::new(url, chain.config(), &signer)?;
     Ok(wallet)
 }
