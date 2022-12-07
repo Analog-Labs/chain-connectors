@@ -31,23 +31,27 @@ impl NetworkIdentifierOpts {
 
 #[derive(Parser)]
 pub struct AccountIdentifierOpts {
-    account: String,
+    account: Option<String>,
     #[clap(long)]
     subaccount: Option<String>,
 }
 
 impl AccountIdentifierOpts {
-    pub fn account_identifier(&self) -> AccountIdentifier {
-        AccountIdentifier {
-            address: self.account.clone(),
-            sub_account: self
-                .subaccount
-                .as_ref()
-                .map(|subaccount| SubAccountIdentifier {
-                    address: subaccount.clone(),
-                    metadata: None,
-                }),
-            metadata: None,
+    pub fn account_identifier(&self) -> Option<AccountIdentifier> {
+        if self.account.is_none() {
+            None
+        } else {
+            Some(AccountIdentifier {
+                address: self.account.as_ref()?.clone(),
+                sub_account: self
+                    .subaccount
+                    .as_ref()
+                    .map(|subaccount| SubAccountIdentifier {
+                        address: subaccount.clone(),
+                        metadata: None,
+                    }),
+                metadata: None,
+            })
         }
     }
 }

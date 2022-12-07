@@ -68,9 +68,15 @@ async fn main() -> Result<()> {
         },
         Command::Account(AccountOpts { cmd }) => match cmd {
             AccountCommand::Balance(opts) => {
+                let account_identifier = match opts.account.account_identifier() {
+                    Some(account_identifier) => account_identifier,
+                    None => {
+                        anyhow::bail!("No account identifier provided");
+                    }
+                };
                 let req = AccountBalanceRequest {
                     network_identifier: network_identifier(&client, &opts.network).await?,
-                    account_identifier: opts.account.account_identifier(),
+                    account_identifier,
                     block_identifier: opts.block.partial_block_identifier(),
                     currencies: None,
                 };
@@ -84,9 +90,15 @@ async fn main() -> Result<()> {
                 }
             }
             AccountCommand::Coins(opts) => {
+                let account_identifier = match opts.account.account_identifier() {
+                    Some(account_identifier) => account_identifier,
+                    None => {
+                        anyhow::bail!("No account identifier provided");
+                    }
+                };
                 let req = AccountCoinsRequest {
                     network_identifier: network_identifier(&client, &opts.network).await?,
-                    account_identifier: opts.account.account_identifier(),
+                    account_identifier,
                     currencies: None,
                     include_mempool: opts.include_mempool,
                 };
@@ -167,8 +179,8 @@ async fn main() -> Result<()> {
                 max_block: opts.max_block,
                 offset: opts.offset,
                 limit: opts.limit,
-                transaction_identifier: None,
-                account_identifier: None,
+                transaction_identifier: opts.transaction.transaction_identifier(),
+                account_identifier: opts.account.account_identifier(),
                 r#type: opts.r#type,
                 success: opts.success,
                 operator: None,

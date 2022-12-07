@@ -2,7 +2,7 @@ use crate::identifiers::{
     AccountIdentifierOpts, BlockIdentifierOpts, NetworkIdentifierOpts, TransactionIdentifierOpts,
 };
 use clap::Parser;
-use rosetta_client::{Chain, types::Operator};
+use rosetta_client::Chain;
 
 #[derive(Parser)]
 pub struct Opts {
