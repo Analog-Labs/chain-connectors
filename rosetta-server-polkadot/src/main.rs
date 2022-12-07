@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use rosetta_server_substrate::{Config, Ss58AddressFormatRegistry};
+use tide::http::headers::HeaderValue;
+use tide::security::{CorsMiddleware, Origin};
 
 #[derive(Parser)]
 struct Opts {
@@ -52,8 +54,14 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("connecting to {}", &opts.rpc_url))?;
 
+    let cors = CorsMiddleware::new()
+        .allow_methods("POST".parse::<HeaderValue>().unwrap())
+        .allow_origin(Origin::from("*"))
+        .allow_credentials(false);
+
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
+    app.with(cors);
     app.at("/").nest(server);
     app.listen(&opts.url)
         .await
