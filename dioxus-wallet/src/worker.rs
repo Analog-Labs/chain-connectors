@@ -12,7 +12,6 @@ pub fn use_chain_workers(cx: &Scope) -> Result<()> {
     for (chain, _) in CHAINS.iter() {
         let state = State::new(cx, *chain);
         let wallet = Wallet::new(chain.url(), chain.config(), &signer)?;
-        state.set_account(wallet.account().address.clone());
         use_coroutine(cx, |_: UnboundedReceiver<()>| chain_worker(state, wallet));
     }
     Ok(())
@@ -46,6 +45,7 @@ impl State {
 }
 
 async fn chain_worker(state: State, wallet: Wallet) {
+    state.set_account(wallet.account().address.clone());
     loop {
         if let Err(error) = fallible_chain_worker(&state, &wallet).await {
             state.add_error(error);
