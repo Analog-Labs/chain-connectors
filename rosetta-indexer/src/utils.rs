@@ -102,7 +102,7 @@ pub fn filter_tx(
                         if !address_match {
                             continue;
                         }
-                    }else{
+                    } else {
                         continue;
                     }
                 }
