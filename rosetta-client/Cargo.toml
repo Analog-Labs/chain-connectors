@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.66"
-dirs = "4.0.0"
+dirs-next = "2.0.0"
 fraction = { version = "0.12.2", default-features = false, features = ["with-bigint", "with-decimal"] }
 getrandom = "0.2.8"
 hex = "0.4.3"

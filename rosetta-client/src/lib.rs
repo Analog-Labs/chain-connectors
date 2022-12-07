@@ -31,7 +31,7 @@ pub fn amount_to_string(amount: &Amount) -> Result<String> {
 }
 
 pub fn default_keyfile() -> Result<PathBuf> {
-    Ok(dirs::config_dir()
+    Ok(dirs_next::config_dir()
         .ok_or_else(|| anyhow::anyhow!("no config dir found"))?
         .join("rosetta-wallet")
         .join("mnemonic"))
