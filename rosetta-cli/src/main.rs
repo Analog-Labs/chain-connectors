@@ -161,6 +161,8 @@ async fn main() -> Result<()> {
             let res = client.events_blocks(&req).await?;
             println!("{:#?}", res);
         }
+        Command::Search(opts) => {
+        }
     }
     Ok(())
 }
