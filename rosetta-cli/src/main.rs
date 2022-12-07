@@ -3,7 +3,7 @@ use clap::Parser;
 use rosetta_client::types::{
     AccountBalanceRequest, AccountCoinsRequest, BlockRequest, BlockTransactionRequest,
     EventsBlocksRequest, MempoolTransactionRequest, MetadataRequest, NetworkIdentifier,
-    NetworkRequest,
+    NetworkRequest, SearchTransactionsRequest,
 };
 use rosetta_client::{amount_to_string, Client};
 
@@ -162,6 +162,23 @@ async fn main() -> Result<()> {
             println!("{:#?}", res);
         }
         Command::Search(opts) => {
+            let req = SearchTransactionsRequest {
+                network_identifier: network_identifier(&client, &opts.network).await?,
+                max_block: opts.max_block,
+                offset: opts.offset,
+                limit: opts.limit,
+                transaction_identifier: None,
+                account_identifier: None,
+                r#type: opts.r#type,
+                success: opts.success,
+                operator: None,
+                coin_identifier: None,
+                currency: None,
+                address: None,
+                status: None,
+            };
+            let res = client.search_transactions(&req).await?;
+            println!("{:#?}", res);
         }
     }
     Ok(())

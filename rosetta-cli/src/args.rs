@@ -2,7 +2,7 @@ use crate::identifiers::{
     AccountIdentifierOpts, BlockIdentifierOpts, NetworkIdentifierOpts, TransactionIdentifierOpts,
 };
 use clap::Parser;
-use rosetta_client::Chain;
+use rosetta_client::{Chain, types::Operator};
 
 #[derive(Parser)]
 pub struct Opts {
@@ -107,8 +107,8 @@ pub struct EventsOpts {
 pub struct SearchOpts {
     #[clap(flatten)]
     pub network: NetworkIdentifierOpts,
-    //#[clap(long)]
-    //pub operator: Option<Operator>,
+    // #[clap(long)]
+    // pub operator: Option<Operator>,
     #[clap(long)]
     pub max_block: Option<i64>,
     #[clap(long)]
@@ -121,8 +121,8 @@ pub struct SearchOpts {
     pub account: AccountIdentifierOpts,
     //#[clap(flatten)]
     //pub coin: CoinIdentifierOpts,
-    //#[clap(flatten)]
-    //pub currency: CurrencyIdentifierOpts,
+    // #[clap(flatten)]
+    // pub currency: CurrencyIdentifierOpts,
     #[clap(long)]
     pub r#type: Option<String>,
     #[clap(long)]
