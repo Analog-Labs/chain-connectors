@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
                 let account_identifier = match opts.account.account_identifier() {
                     Some(account_identifier) => account_identifier,
                     None => {
-                        anyhow::bail!("No account identifier provided");
+                        anyhow::bail!("No account provided");
                     }
                 };
                 let req = AccountBalanceRequest {
@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
                 let account_identifier = match opts.account.account_identifier() {
                     Some(account_identifier) => account_identifier,
                     None => {
-                        anyhow::bail!("No account identifier provided");
+                        anyhow::bail!("No account provided");
                     }
                 };
                 let req = AccountCoinsRequest {
