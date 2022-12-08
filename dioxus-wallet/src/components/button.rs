@@ -34,18 +34,18 @@ pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
     };
     let background_color = cx.props.background_color.unwrap_or("");
     cx.render(rsx! {
+        div {
+            class: "link-button",
+            onclick: |evt| { cx.props.onclick.call(evt) },
             div {
-                class: "link-button",
-                onclick:|evt| { cx.props.onclick.call(evt)},
-                div {
-                    class: "button-icon-container",
-                    background_color: background_color,
-                    img {
-                        class: "button-icon",
-                        src: cx.props.uri,
-                        }
-                    },
-                    renderTitle
-            }
+                class: "button-icon-container",
+                background_color: background_color,
+                img {
+                    class: "button-icon",
+                    src: cx.props.uri,
+                }
+            },
+            renderTitle
+        }
     })
 }

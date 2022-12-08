@@ -12,38 +12,38 @@ pub fn Recv(cx: Scope) -> Element {
     let router = use_router(&cx);
     cx.render(rsx! {
         div {
-            class:"main-container",
+            class: "main-container",
             Header {
-                title:"receive",
-                onbackclick: move |_| {router.navigate_to(&format!("/txns/{}", info.chain))}
+                title: "receive",
+                onbackclick: move |_| router.navigate_to(&format!("/txns/{}", info.chain)),
             }
-            div{
-                class:"title",
-                    "QR-CODE"
+            div {
+                class: "title",
+                "QR-CODE"
             }
-            div{
-                class:"label",
-                    "i.e scan and share to receive"
+            div {
+                class: "label",
+                "i.e scan and share to receive"
             }
-            div{
-                class:"qr-code-container",
+            div {
+                class: "qr-code-container",
                 Qrcode {
                     data: state.account.as_bytes().to_vec(),
                 },
             }
-            div{
-                class:"title",
-                style:"height: 25px",
-                    "Account address:"
+            div {
+                class: "title",
+                style: "height: 25px",
+                "Account address:"
             }
-            div{
+            div {
                 class:"label",
                 style:"font-size: 13px;",
-             "{state.account}",
+                "{state.account}",
             }
-            div{
-                class:"label",
-                style:"font-size: 13px;",
+            div {
+                class: "label",
+                style: "font-size: 13px;",
                 "i.e Receive on {info.config.network.blockchain} network.
                  Otherwise it may cause lost of funds."
             }

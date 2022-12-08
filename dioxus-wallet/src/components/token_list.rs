@@ -9,14 +9,14 @@ pub static TOKENS: AtomRef<Vec<Chain>> = |_| vec![Chain::Btc, Chain::Eth, Chain:
 pub fn TokenList<'a>(cx: Scope<'a>, onclick: EventHandler<'a, Chain>) -> Element {
     let tokens = use_atom_ref(&cx, TOKENS);
     cx.render(rsx! {
-            tokens.read().iter().copied().map(|chain| {
-                rsx! {
-                    TokenListItem {
-                        chain: chain,
-                        onclick: |chain| onclick.call(chain),
-                    }
+        tokens.read().iter().copied().map(|chain| {
+            rsx! {
+                TokenListItem {
+                    chain: chain,
+                    onclick: |chain| onclick.call(chain),
                 }
-            })
+            }
+        })
     })
 }
 
