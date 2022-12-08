@@ -8,15 +8,18 @@ pub fn Tokens(cx: Scope) -> Element {
     let router = use_router(&cx);
     cx.render(rsx! {
         div {
-            class:"main-container",
+            class: "main-container",
             div {
-                class: "upper-container" ,
-                div { class:"title", "Analog Wallet" }
+                class: "upper-container",
+                div {
+                    class:"title",
+                    "Analog Wallet"
+                }
             }
             div {
                 class: "tokens-listing-container",
                 div {
-                    class:"list",
+                    class: "list",
                     TokenList {
                         onclick: |chain| router.navigate_to(&format!("/txns/{}", chain)),
                     },

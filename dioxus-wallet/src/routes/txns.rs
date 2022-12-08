@@ -20,7 +20,7 @@ pub fn Txns(cx: Scope) -> Element {
         div {
             class: "main-container",
             Header {
-                onbackclick:|_| {router.replace_route("/", None, None)},
+                onbackclick:|_| router.replace_route("/", None, None),
                 title: "{info.config.network.blockchain}"
             }
             div {
@@ -40,23 +40,23 @@ pub fn Txns(cx: Scope) -> Element {
             div {
                 class: "horizontal-button-container",
                 LinkButton {
-                   title: "Send".to_string(),
-                   onclick: move |_| {
-                       router.navigate_to(&format!("/scan/{}", info.chain));
-                   },
-                   uri: img!("receive.png")
+                    title: "Send".to_string(),
+                    onclick: move |_| {
+                        router.navigate_to(&format!("/scan/{}", info.chain));
+                    },
+                    uri: img!("receive.png")
                 }
                 LinkButton {
-                   title: "Receive".to_string(),
-                   onclick: move |_| {
-                    router.navigate_to(&format!("/recv/{}", info.chain));
-                } ,
-                   uri: img!("send.png")
+                    title: "Receive".to_string(),
+                    onclick: move |_| {
+                        router.navigate_to(&format!("/recv/{}", info.chain));
+                    },
+                    uri: img!("send.png")
                 }
-               }
-                // Only for dev/testing purpose
-                h5 {"i.e  Only for dev/testing purpose"}
-               Button {
+            }
+            // Only for dev/testing purpose
+            h5 {"i.e  Only for dev/testing purpose"}
+            Button {
                 title: "Get Test Tokens",
                 onclick: move |_|  {
                     let alerts = alerts.clone();

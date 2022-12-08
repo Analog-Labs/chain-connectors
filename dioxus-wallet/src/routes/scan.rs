@@ -40,7 +40,7 @@ pub fn Scan(cx: Scope) -> Element {
         div {
             class: "main-container",
             Header {
-                onbackclick: move |_| {router.navigate_to(&format!("/txns/{}", chain))},
+                onbackclick: move |_| router.navigate_to(&format!("/txns/{}", chain)),
                 title: "SEND"
             },
             div {
