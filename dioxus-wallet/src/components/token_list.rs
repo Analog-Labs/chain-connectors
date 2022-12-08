@@ -38,7 +38,7 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
                     img {
                         class: "list-item-image",
                         src: icon,
-                    },
+                    }
                 }
                 div {
                     class: "list-item-title-container",
@@ -50,9 +50,9 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
             }
             div {
                 class: "list-item-right-container",
-                    div {
-                        "{state.balance}"
-                    }
+                 div {
+                    "{state.balance}"
+                }
             }
         }
     })

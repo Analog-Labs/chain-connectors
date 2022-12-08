@@ -44,14 +44,14 @@ pub fn Txns(cx: Scope) -> Element {
                    onclick: move |_| {
                        router.navigate_to(&format!("/scan/{}", info.chain));
                    },
-                   uri:"https://img.icons8.com/ios-glyphs/30/000000/filled-sent.png"
+                   uri: img!("receive.png")
                 }
                 LinkButton {
                    title: "Receive".to_string(),
                    onclick: move |_| {
                     router.navigate_to(&format!("/recv/{}", info.chain));
                 } ,
-                   uri: "https://img.icons8.com/external-xnimrodx-lineal-xnimrodx/64/000000/external-receive-passive-income-xnimrodx-lineal-xnimrodx.png"
+                   uri: img!("send.png")
                 }
                }
                 // Only for dev/testing purpose
@@ -60,11 +60,11 @@ pub fn Txns(cx: Scope) -> Element {
                 title: "Get Test Tokens",
                 onclick: move |_|  {
                     let alerts = alerts.clone();
-                            cx.spawn(async move {
-                                faucet(alerts, info.chain, 3000000000000000).await
-                            });
+                    cx.spawn(async move {
+                        faucet(alerts, info.chain, 3000000000000000).await;
+                    });
                 }
-               }
+            }
         }
     })
 }
