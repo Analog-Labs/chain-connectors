@@ -37,15 +37,15 @@ pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
             div {
                 class: "link-button",
                 onclick:|evt| { cx.props.onclick.call(evt)},
-                    div {
-                        class: "button-icon-container",
-                        background_color: background_color,
-                        img{
-                            class: "button-icon",
-                            src: cx.props.uri,
-                            }
-                        },
-                        renderTitle
+                div {
+                    class: "button-icon-container",
+                    background_color: background_color,
+                    img {
+                        class: "button-icon",
+                        src: cx.props.uri,
                         }
+                    },
+                    renderTitle
+            }
     })
 }

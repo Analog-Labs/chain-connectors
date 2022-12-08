@@ -44,7 +44,8 @@ pub fn Recv(cx: Scope) -> Element {
             div{
                 class:"label",
                 style:"font-size: 13px;",
-                "i.e Receive on {info.config.network.blockchain} network. Otherwise it my cause in lost of funds."
+                "i.e Receive on {info.config.network.blockchain} network.
+                 Otherwise it may cause lost of funds."
             }
         }
     })
