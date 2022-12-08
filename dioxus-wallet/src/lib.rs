@@ -59,9 +59,9 @@ fn app(cx: Scope) -> Element {
             style {
                 css!("buttons")
                 css!("bootstrap-alert")
-                css!("global")
+                css!("common")
                 css!("listings")
-
+                css!("inputs")
             }
             Route { to: "/", Tokens {} }
             Route { to: "/txns/:chain", Txns {} }

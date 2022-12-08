@@ -33,7 +33,7 @@
     color: var(--button-title-color);
 }
 .button {
-    width: 80%;
+    width: 40%;
     height: 50px;
     border-radius: 40px;
     background-color: var(--button-background-color) ;
