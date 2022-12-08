@@ -1,9 +1,10 @@
 use anyhow::Result;
+use args::OperatorEnum;
 use clap::Parser;
 use rosetta_client::types::{
     AccountBalanceRequest, AccountCoinsRequest, BlockRequest, BlockTransactionRequest,
     EventsBlocksRequest, MempoolTransactionRequest, MetadataRequest, NetworkIdentifier,
-    NetworkRequest, SearchTransactionsRequest,
+    NetworkRequest, Operator, SearchTransactionsRequest,
 };
 use rosetta_client::{amount_to_string, Client};
 
@@ -174,6 +175,12 @@ async fn main() -> Result<()> {
             println!("{:#?}", res);
         }
         Command::Search(opts) => {
+            let operator = match opts.operator {
+                Some(OperatorEnum::And) => Some(Operator::And),
+                Some(OperatorEnum::Or) => Some(Operator::Or),
+                None => None,
+            };
+
             let req = SearchTransactionsRequest {
                 network_identifier: network_identifier(&client, &opts.network).await?,
                 max_block: opts.max_block,
@@ -183,11 +190,11 @@ async fn main() -> Result<()> {
                 account_identifier: opts.account.account_identifier(),
                 r#type: opts.r#type,
                 success: opts.success,
-                operator: None,
-                coin_identifier: None,
-                currency: None,
-                address: None,
-                status: None,
+                operator,
+                coin_identifier: opts.coin.coin_identifier(),
+                currency: opts.currency.currency_identifier(),
+                address: opts.address,
+                status: opts.status,
             };
             let res = client.search_transactions(&req).await?;
             println!("{:#?}", res);

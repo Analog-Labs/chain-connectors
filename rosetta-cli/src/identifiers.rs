@@ -1,7 +1,7 @@
 use clap::Parser;
 use rosetta_client::types::{
-    AccountIdentifier, BlockIdentifier, NetworkIdentifier, PartialBlockIdentifier,
-    SubAccountIdentifier, SubNetworkIdentifier, TransactionIdentifier,
+    AccountIdentifier, BlockIdentifier, CoinIdentifier, Currency, NetworkIdentifier,
+    PartialBlockIdentifier, SubAccountIdentifier, SubNetworkIdentifier, TransactionIdentifier,
 };
 
 #[derive(Parser)]
@@ -97,6 +97,38 @@ impl TransactionIdentifierOpts {
     pub fn transaction_identifier(&self) -> Option<TransactionIdentifier> {
         Some(TransactionIdentifier {
             hash: self.hash.as_ref()?.clone(),
+        })
+    }
+}
+
+#[derive(Parser)]
+pub struct CoinIdentifierOpts {
+    #[clap(long)]
+    identifier: Option<String>,
+}
+
+impl CoinIdentifierOpts {
+    pub fn coin_identifier(&self) -> Option<CoinIdentifier> {
+        Some(CoinIdentifier {
+            identifier: self.identifier.as_ref()?.clone(),
+        })
+    }
+}
+
+#[derive(Parser)]
+pub struct CurrencyIdentifierOpts {
+    #[clap(long)]
+    symbol: Option<String>,
+    #[clap(long)]
+    decimals: Option<u32>,
+}
+
+impl CurrencyIdentifierOpts {
+    pub fn currency_identifier(&self) -> Option<Currency> {
+        Some(Currency {
+            symbol: self.symbol.as_ref()?.clone(),
+            decimals: *self.decimals.as_ref()?,
+            metadata: None,
         })
     }
 }
