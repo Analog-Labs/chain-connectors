@@ -1,3 +1,5 @@
+use crate::components::button::Button;
+use crate::components::common::Header;
 use crate::state::use_chain_from_route;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
@@ -30,31 +32,39 @@ pub fn Scan(cx: Scope) -> Element {
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[allow(non_snake_case)]
-#[inline_props]
 pub fn Scan(cx: Scope) -> Element {
-    use dioxus_router::Link;
-
     let chain = use_chain_from_route(&cx).info().chain;
     let router = use_router(&cx);
     let address = use_state(&cx, String::new);
     cx.render(rsx! {
         div {
-            Link { to: "/txns/{chain}", "Back" },
-            label {
-                r#for: "address",
-                "Address: ",
+            class: "main-container",
+            Header {
+                onbackclick: move |_| {router.navigate_to(&format!("/txns/{}", chain))},
+                title: "SEND"
             },
-            input {
-                id: "address",
-                r#type: "text",
-                value: "{address}",
-                autofocus: true,
-                oninput: move |e| address.set(e.value.clone()),
+            div {
+                class: "container",
+                div {
+                    class: "label",
+                    "Receiver Address:"
+                },
+                input {
+                    id: "address",
+                    r#type: "text",
+                    class: "input",
+                    value: "{address}",
+                    autofocus: true,
+                    oninput: move |e| address.set(e.value.clone())
+                },
             },
-            button {
-                onclick: move |_| router.navigate_to(&format!("/send/{}/{}", chain, address)),
-                "Next",
-            }
-        }
+            div {
+                class: "container",
+                Button {
+                    onclick: move |_| router.navigate_to(&format!("/send/{}/{}", chain, address)),
+                    title:"Next",
+                },
+             },
+        },
     })
 }

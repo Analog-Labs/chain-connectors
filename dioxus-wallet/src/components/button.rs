@@ -3,12 +3,14 @@ use dioxus::{events::MouseEvent, prelude::*};
 #[derive(Props)]
 pub struct ButtonProps<'a> {
     title: &'a str,
+    onclick: EventHandler<'a, MouseEvent>,
 }
 
 #[allow(non_snake_case)]
 pub fn Button<'a>(cx: Scope<'a, ButtonProps<'a>>) -> Element {
     cx.render(rsx! {
         button{
+            onclick:|evt| {cx.props.onclick.call(evt)},
             class:"button",
             "{cx.props.title}"
         }
@@ -30,10 +32,7 @@ pub fn LinkButton<'a>(cx: Scope<'a, LinkButtonProps<'a>>) -> Element {
         Some(x) => rsx!(div { class: "button-title", "{x}" }),
         None => rsx!(""),
     };
-    let background_color = match cx.props.background_color.clone() {
-        Some(x) => x,
-        None => "",
-    };
+    let background_color = cx.props.background_color.unwrap_or("");
     cx.render(rsx! {
             div {
                 class: "link-button",

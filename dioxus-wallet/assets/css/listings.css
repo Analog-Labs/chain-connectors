@@ -24,6 +24,7 @@
     height: 50px;
     margin-top: 10px ;
     display: flex;
+    cursor: pointer;
 }
 .list-item-left-container {
     width: 70%;
@@ -64,6 +65,3 @@
   align-items: center;
   justify-content: flex-end;
   }
-
-
-

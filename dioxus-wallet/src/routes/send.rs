@@ -1,8 +1,10 @@
 use crate::components::alerts::{Alert, ALERTS};
+use crate::components::button::Button;
+use crate::components::common::Header;
 use crate::state::{use_chain_from_route, Chain};
 use anyhow::Result;
 use dioxus::prelude::*;
-use dioxus_router::{use_route, use_router, Link, RouterService};
+use dioxus_router::{use_route, use_router, RouterService};
 use fermi::*;
 use rosetta_client::crypto::address::Address;
 use rosetta_client::signer::RosettaAccount;
@@ -14,40 +16,55 @@ pub fn Send(cx: Scope) -> Element {
     let info = chain.info();
     let amount = use_state(&cx, || 0u128);
     let alerts = use_atom_ref(&cx, ALERTS).clone();
-    let router = use_router(&cx).clone();
+    let router = use_router(&cx);
     let address = use_route(&cx).segment("address").unwrap().to_string();
     let address = Address::new(info.config.address_format, address);
     cx.render(rsx! {
         div {
-            Link { to: "/txns/{info.chain}", "Back" },
-            "Send {info.config.network.blockchain}",
-            label {
-                r#for: "amount",
-                "Amount: ",
-            },
-            input {
-                id: "amount",
-                r#type: "number",
-                value: "{amount}",
-                autofocus: true,
-                oninput: move |e| {
-                    if let Ok(value) = e.value.parse() {
-                        amount.set(value);
-                    }
+            class: "main-container",
+            Header{
+                title:"send {info.config.network.blockchain}",
+                onbackclick: move  |_| {
+                    router.navigate_to(&format!("/txns/{}", info.chain));
                 }
-            },
-            "{info.config.unit}",
-            button {
-                onclick: move |_| {
-                    let router = router.clone();
-                    let alerts = alerts.clone();
-                    let address = address.clone();
-                    let amount = *amount.get();
-                    cx.spawn(async move {
-                        transfer(router, alerts, info.chain, address, amount).await;
-                    });
+            }
+            div {
+                class:"container",
+                div {
+                    class: "title",
+                    "Unit: {info.config.unit}",
+                }
+                div {
+                    class: "label",
+                    "Amount:"
+                }
+                input {
+                    class: "input",
+                    id: "amount",
+                    r#type: "number",
+                    value: "{amount}",
+                    autofocus: true,
+                    oninput: move |e| {
+                        if let Ok(value) = e.value.parse() {
+                            amount.set(value);
+                        }
+                    }
                 },
-                "Send",
+            }
+            div {
+                class:"container",
+                Button {
+                    onclick: move |_| {
+                        let router = router.clone();
+                        let alerts = alerts.clone();
+                        let address = address.clone();
+                        let amount = *amount.get();
+                        cx.spawn(async move {
+                            transfer(router, alerts, info.chain, address, amount).await;
+                        });
+                    },
+                   title:"Send",
+                }
             }
         }
     })

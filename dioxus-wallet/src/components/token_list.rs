@@ -29,28 +29,28 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
     let icon = info.icon.to_str().unwrap();
     cx.render(rsx! {
         div {
-            class:"token-list-item",
+            class: "token-list-item",
             onclick: move |_| onclick.call(info.chain),
-            div{
-                class:"list-item-left-container",
-                div{
-                    class:"image-container",
+            div {
+                class: "list-item-left-container",
+                div {
+                    class: "list-item-image-container",
                     img {
-                        class:"list-item-image",
+                        class: "list-item-image",
                         src: icon,
                     },
                 }
-                div{
-                    class:"list-item-title-container",
-                    div{
-                        class:"row-title",
+                div {
+                    class: "list-item-title-container",
+                    div {
+                        class: "list-item-title",
                         "{info.config.network.blockchain}",
                     }
                 }
             }
-            div{
-                class:"list-item-right-container",
-                    div{
+            div {
+                class: "list-item-right-container",
+                    div {
                         "{state.balance}"
                     }
             }
