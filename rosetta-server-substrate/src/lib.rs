@@ -829,7 +829,7 @@ async fn search_transactions(mut req: Request<State>) -> tide::Result {
         None => 100,
     };
 
-    let filtered_ex = match indexer_search_transactions(request, &req.state().client).await {
+    let filtered_ex = match indexer_search_transactions(request).await {
         Ok(filtered_ex) => filtered_ex,
         Err(error) => {
             return string_to_err_response(error);

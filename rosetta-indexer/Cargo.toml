@@ -9,5 +9,4 @@ edition = "2021"
 rosetta-types = { path = "../rosetta-types" }
 rosetta-client = { path = "../rosetta-client" }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
-subxt = "0.25.0"
 tide = "0.16.0"

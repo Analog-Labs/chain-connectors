@@ -1,25 +1,32 @@
 use rosetta_client::Client;
-use rosetta_types::{BlockTransaction, Operator, SearchTransactionsRequest};
-use subxt::{OnlineClient, PolkadotConfig as CustomConfig};
+use rosetta_types::{BlockTransaction, NetworkRequest, Operator, SearchTransactionsRequest};
 use utils::{get_indexed_transactions, TxIndexerProps};
 
 mod utils;
 
 pub async fn indexer_search_transactions(
     request: SearchTransactionsRequest,
-    client: &OnlineClient<CustomConfig>,
 ) -> Result<Vec<BlockTransaction>, String> {
     if let Some(Operator::Or) = request.operator {
         return Err("Invalid Operator".into());
     }
 
+    let server_client = match Client::new("http://127.0.0.1:8082") {
+        Ok(client) => client,
+        Err(_) => return Err("Invalid Rosetta Server".into()),
+    };
+
     let max_block = match request.max_block {
         Some(max_block) => max_block,
         None => {
-            let block = client.rpc().block(None).await.unwrap();
+            let request = NetworkRequest {
+                network_identifier: request.network_identifier.clone(),
+                metadata: None,
+            };
+            let block = server_client.network_status(&request).await;
             match block {
-                Some(block) => block.block.header.number as i64,
-                None => return Err("Invalid Block".into()),
+                Ok(block) => block.current_block_identifier.index as i64,
+                Err(_) => return Err("Invalid Block".into()),
             }
         }
     };
@@ -32,11 +39,6 @@ pub async fn indexer_search_transactions(
         operation_type: request.r#type,
         address: request.address,
         success: request.success,
-    };
-
-    let server_client = match Client::new("http://127.0.0.1:8082") {
-        Ok(client) => client,
-        Err(_) => return Err("Invalid Rosetta Server".into()),
     };
 
     let tx_data =
