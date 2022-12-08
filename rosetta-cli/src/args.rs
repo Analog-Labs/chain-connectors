@@ -1,7 +1,8 @@
 use crate::identifiers::{
-    AccountIdentifierOpts, BlockIdentifierOpts, NetworkIdentifierOpts, TransactionIdentifierOpts,
+    AccountIdentifierOpts, BlockIdentifierOpts, CoinIdentifierOpts, CurrencyIdentifierOpts,
+    NetworkIdentifierOpts, TransactionIdentifierOpts,
 };
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use rosetta_client::Chain;
 
 #[derive(Parser)]
@@ -21,6 +22,7 @@ pub enum Command {
     Block(BlockOpts),
     Mempool(MempoolOpts),
     Events(EventsOpts),
+    Search(SearchOpts),
 }
 
 #[derive(Parser)]
@@ -100,4 +102,40 @@ pub struct EventsOpts {
     pub offset: Option<u64>,
     #[clap(long)]
     pub limit: Option<u64>,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum OperatorEnum {
+    Or,
+    And,
+}
+
+#[derive(Parser)]
+pub struct SearchOpts {
+    #[clap(flatten)]
+    pub network: NetworkIdentifierOpts,
+    #[clap(long, value_enum)]
+    pub operator: Option<OperatorEnum>,
+    #[clap(long)]
+    pub max_block: Option<i64>,
+    #[clap(long)]
+    pub offset: Option<i64>,
+    #[clap(long)]
+    pub limit: Option<i64>,
+    #[clap(flatten)]
+    pub transaction: TransactionIdentifierOpts,
+    #[clap(flatten)]
+    pub account: AccountIdentifierOpts,
+    #[clap(flatten)]
+    pub coin: CoinIdentifierOpts,
+    #[clap(flatten)]
+    pub currency: CurrencyIdentifierOpts,
+    #[clap(long)]
+    pub r#type: Option<String>,
+    #[clap(long)]
+    pub address: Option<String>,
+    #[clap(long)]
+    pub status: Option<String>,
+    #[clap(long)]
+    pub success: Option<bool>,
 }

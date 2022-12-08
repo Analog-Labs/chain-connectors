@@ -1,9 +1,10 @@
 use anyhow::Result;
+use args::OperatorEnum;
 use clap::Parser;
 use rosetta_client::types::{
     AccountBalanceRequest, AccountCoinsRequest, BlockRequest, BlockTransactionRequest,
     EventsBlocksRequest, MempoolTransactionRequest, MetadataRequest, NetworkIdentifier,
-    NetworkRequest,
+    NetworkRequest, Operator, SearchTransactionsRequest,
 };
 use rosetta_client::{amount_to_string, Client};
 
@@ -68,9 +69,15 @@ async fn main() -> Result<()> {
         },
         Command::Account(AccountOpts { cmd }) => match cmd {
             AccountCommand::Balance(opts) => {
+                let account_identifier = match opts.account.account_identifier() {
+                    Some(account_identifier) => account_identifier,
+                    None => {
+                        anyhow::bail!("No account provided");
+                    }
+                };
                 let req = AccountBalanceRequest {
                     network_identifier: network_identifier(&client, &opts.network).await?,
-                    account_identifier: opts.account.account_identifier(),
+                    account_identifier,
                     block_identifier: opts.block.partial_block_identifier(),
                     currencies: None,
                 };
@@ -84,9 +91,15 @@ async fn main() -> Result<()> {
                 }
             }
             AccountCommand::Coins(opts) => {
+                let account_identifier = match opts.account.account_identifier() {
+                    Some(account_identifier) => account_identifier,
+                    None => {
+                        anyhow::bail!("No account provided");
+                    }
+                };
                 let req = AccountCoinsRequest {
                     network_identifier: network_identifier(&client, &opts.network).await?,
-                    account_identifier: opts.account.account_identifier(),
+                    account_identifier,
                     currencies: None,
                     include_mempool: opts.include_mempool,
                 };
@@ -159,6 +172,31 @@ async fn main() -> Result<()> {
                 limit: opts.limit,
             };
             let res = client.events_blocks(&req).await?;
+            println!("{:#?}", res);
+        }
+        Command::Search(opts) => {
+            let operator = match opts.operator {
+                Some(OperatorEnum::And) => Some(Operator::And),
+                Some(OperatorEnum::Or) => Some(Operator::Or),
+                None => None,
+            };
+
+            let req = SearchTransactionsRequest {
+                network_identifier: network_identifier(&client, &opts.network).await?,
+                max_block: opts.max_block,
+                offset: opts.offset,
+                limit: opts.limit,
+                transaction_identifier: opts.transaction.transaction_identifier(),
+                account_identifier: opts.account.account_identifier(),
+                r#type: opts.r#type,
+                success: opts.success,
+                operator,
+                coin_identifier: opts.coin.coin_identifier(),
+                currency: opts.currency.currency_identifier(),
+                address: opts.address,
+                status: opts.status,
+            };
+            let res = client.search_transactions(&req).await?;
             println!("{:#?}", res);
         }
     }
