@@ -114,7 +114,7 @@ pub enum OperatorEnum {
 pub struct SearchOpts {
     #[clap(flatten)]
     pub network: NetworkIdentifierOpts,
-    #[clap(value_enum)]
+    #[clap(long, value_enum)]
     pub operator: Option<OperatorEnum>,
     #[clap(long)]
     pub max_block: Option<i64>,
