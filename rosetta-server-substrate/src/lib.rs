@@ -19,14 +19,13 @@ use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
 use subxt::tx::SubmittableExtrinsic;
-use subxt::utils::Encoded;
 use subxt::{OnlineClient, PolkadotConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    UnsignedTransactionData,
+    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    make_error_response, resolve_block, Error, UnsignedTransactionData,
 };
 
 mod utils;
@@ -252,13 +251,16 @@ async fn account_faucet(mut req: Request<State>) -> tide::Result {
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
-    let data = faucet_substrate(
+    let data = match faucet_substrate(
         &req.state().client,
         &request.account_identifier.address,
         request.faucet_parameter,
     )
     .await
-    .unwrap();
+    {
+        Ok(data) => data,
+        Err(e) => return make_error_response(e),
+    };
 
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
@@ -773,22 +775,21 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
     let sb_extrinsic =
         SubmittableExtrinsic::from_bytes(req.state().client.clone(), encoded_tx_data);
 
-    let encoded_extrinsic = Encoded(sb_extrinsic.encoded().to_vec());
-
-    let signed_transaction = match req
-        .state()
-        .client
-        .rpc()
-        .submit_extrinsic(encoded_extrinsic)
-        .await
-    {
-        Ok(tx_hash) => tx_hash,
-        Err(_) => {
-            return Error::InvalidExtrinsic.to_response();
+    let tx_progress = match sb_extrinsic.submit_and_watch().await {
+        Ok(tx_progress) => tx_progress,
+        Err(error) => {
+            return make_error_response(get_runtime_error(error));
         }
     };
 
-    let tx_hash = format!("{:?}", signed_transaction);
+    let status = match tx_progress.wait_for_finalized_success().await {
+        Ok(status) => status,
+        Err(error) => {
+            return make_error_response(get_runtime_error(error));
+        }
+    };
+
+    let tx_hash = format!("{:?}", status.extrinsic_hash());
 
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier { hash: tx_hash },
