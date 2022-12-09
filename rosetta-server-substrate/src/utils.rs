@@ -37,6 +37,7 @@ use subxt::tx::StaticTxPayload;
 use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
 use subxt::Config;
+use subxt::Error as SubxtError;
 use subxt::{OnlineClient, PolkadotConfig};
 use tide::{Body, Response};
 
@@ -66,6 +67,7 @@ pub enum Error {
     InvalidAmount,
     InvalidMetadata,
     StorageFetch,
+    EventDetailParse,
 }
 
 impl std::fmt::Display for Error {
@@ -96,6 +98,7 @@ impl std::fmt::Display for Error {
             Self::InvalidAmount => write!(f, "Invalid amount"),
             Self::InvalidMetadata => write!(f, "Metadata error"),
             Self::StorageFetch => write!(f, "Storage fetch error"),
+            Self::EventDetailParse => write!(f, "Event detail parse error"),
         }
     }
 }
@@ -113,6 +116,19 @@ impl Error {
             .body(Body::from_json(&error)?)
             .build())
     }
+}
+
+pub fn make_error_response(data: String) -> tide::Result {
+    let error = rosetta_types::Error {
+        code: 500,
+        message: data,
+        description: None,
+        retriable: false,
+        details: None,
+    };
+    Ok(Response::builder(500)
+        .body(Body::from_json(&error)?)
+        .build())
 }
 
 pub async fn resolve_block(
@@ -184,7 +200,7 @@ pub fn get_block_transactions<T: Config>(
         };
 
         for (event_index, event_data) in events.iter().enumerate() {
-            let event = event_data.unwrap();
+            let event = event_data.map_err(|_| Error::EventDetailParse)?;
             if event.phase() == Phase::ApplyExtrinsic(ex_index as u32) {
                 let operation_identifier = OperationIdentifier {
                     index: event_index as i64,
@@ -263,7 +279,7 @@ pub fn get_operation_data(
 
     let call_type = format!("{}.{}", pallet_name, event_name);
 
-    let event_fields = event.field_values().unwrap();
+    let event_fields = event.field_values().map_err(|_| Error::OperationParse)?;
     let parsed_data = match event_fields {
         subxt::ext::scale_value::Composite::Named(value) => {
             let from_data = value
@@ -375,7 +391,7 @@ pub fn get_transaction_detail<T: Config>(
             let transaction_identifier = TransactionIdentifier { hash: hex_val };
 
             for (event_index, event_data) in events.iter().enumerate() {
-                let event = event_data.unwrap();
+                let event = event_data.map_err(|_| Error::EventDetailParse)?;
                 if event.phase() == Phase::ApplyExtrinsic(ex_index as u32) {
                     let operation_identifier = OperationIdentifier {
                         index: event_index as i64,
@@ -621,19 +637,43 @@ pub async fn faucet_substrate(
 ) -> Result<H256, String> {
     let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
 
-    let receiver_account: AccountId32 = address.parse().unwrap();
+    let receiver_account: AccountId32 = address
+        .parse()
+        .map_err(|_| format!("{}", Error::InvalidAddress))?;
     let receiver_multiaddr: MultiAddress<AccountId32, u32> = MultiAddress::Id(receiver_account);
 
     let call_data = match get_transfer_payload(api, receiver_multiaddr, amount) {
         Ok(call_data) => call_data,
-        Err(_) => return Err("Could not get transfer payload".to_string()),
+        Err(error) => return Err(format!("{}", error)),
     };
 
-    let hash = match api.tx().sign_and_submit_default(&call_data, &signer).await {
-        Ok(hash) => hash,
-        Err(_) => return Err("Could not sign and submit transaction".to_string()),
+    let tx_progress = match api
+        .tx()
+        .sign_and_submit_then_watch_default(&call_data, &signer)
+        .await
+    {
+        Ok(tx_progress) => tx_progress,
+        Err(error) => {
+            return Err(error.to_string());
+        }
     };
-    Ok(hash)
+
+    let status = match tx_progress.wait_for_finalized_success().await {
+        Ok(status) => status,
+        Err(error) => {
+            return Err(error.to_string());
+        }
+    };
+
+    Ok(status.extrinsic_hash())
+}
+
+pub fn get_runtime_error(error: SubxtError) -> String {
+    if let SubxtError::Runtime(subxt::error::DispatchError::Module(msg)) = error {
+        msg.error
+    } else {
+        format!("{}", Error::InvalidExtrinsic)
+    }
 }
 
 #[derive(Decode, Encode, Debug)]
