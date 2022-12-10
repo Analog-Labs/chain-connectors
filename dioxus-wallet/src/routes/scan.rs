@@ -1,16 +1,16 @@
+use crate::components::alerts::{Alert, ALERTS};
 use crate::components::button::Button;
 use crate::components::common::Header;
 use crate::state::use_chain_from_route;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
+use fermi::*;
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Scan(cx: Scope) -> Element {
-    use crate::components::alerts::{Alert, ALERTS};
     use crate::qrcode::scan_qrcode;
-    use fermi::*;
 
     #[cfg(target_os = "ios")]
     dioxus_desktop::use_window(&cx).pop_view();
@@ -36,6 +36,7 @@ pub fn Scan(cx: Scope) -> Element {
     let chain = use_chain_from_route(&cx).info().chain;
     let router = use_router(&cx);
     let address = use_state(&cx, String::new);
+    let alerts = use_atom_ref(&cx, ALERTS);
     cx.render(rsx! {
         div {
             class: "main-container",
@@ -61,7 +62,18 @@ pub fn Scan(cx: Scope) -> Element {
             div {
                 class: "container",
                 Button {
-                    onclick: move |_| router.navigate_to(&format!("/send/{}/{}", chain, address)),
+                    onclick: move |_| {
+                        match address.is_empty() {
+                            true => {
+                                let alert =
+                                Alert::warning(" i.e Receiver address is required.".into());
+                                alerts.write().push(alert);
+                            },
+                            false => {
+                                router.navigate_to(&format!("/send/{}/{}", chain, address))
+                            }
+                        }
+                    }
                     title:"Next",
                 },
              },

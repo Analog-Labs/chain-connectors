@@ -11,13 +11,14 @@ impl Alert {
     fn new(class: &'static str, msg: String) -> Self {
         Self { class, msg }
     }
-
     pub fn info(msg: String) -> Self {
         Self::new("success", msg)
     }
-
     pub fn error(msg: String) -> Self {
         Self::new("danger", msg)
+    }
+    pub fn warning(msg: String) -> Self {
+        Self::new("warning", msg)
     }
 }
 
@@ -29,11 +30,13 @@ pub fn Alerts(cx: Scope) -> Element {
     let alerts = use_atom_ref(&cx, ALERTS);
     cx.render(rsx! {
         div {
+           class:"alert-container",
             alerts.read().iter().enumerate().map(|(i, alert)| rsx! {
                 div {
                     class: "alert alert-{alert.class} alert-dismissible",
                     role: "alert",
-                    div { "{alert.msg}" }
+                    div { class:"alert_message",
+                     "{alert.msg}" }
                     button {
                         r#type: "button",
                         class: "close",

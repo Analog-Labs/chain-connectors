@@ -55,15 +55,22 @@ pub fn Send(cx: Scope) -> Element {
                 class:"container",
                 Button {
                     onclick: move |_| {
-                        let router = router.clone();
-                        let alerts = alerts.clone();
-                        let address = address.clone();
-                        let amount = *amount.get();
-                        cx.spawn(async move {
+                        if amount.clone() == 0u128   {
+                            let alert =
+                            Alert::warning("i.e amount is required.".into());
+                            alerts.write().push(alert);
+                        }
+                        else {
+                            let router = router.clone();
+                            let alerts = alerts.clone();
+                            let address = address.clone();
+                            let amount = *amount.get();
+                            cx.spawn(async move {
                             transfer(router, alerts, info.chain, address, amount).await;
-                        });
-                    },
-                   title:"Send",
+                            });
+                        }
+                    }
+                    title:"Send",
                 }
             }
         }
