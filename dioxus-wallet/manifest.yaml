@@ -1,3 +1,4 @@
+icon: "./icon.png"
 android:
   gradle: true
   wry: true
@@ -16,5 +17,5 @@ android:
     - name: "android.permission.CAMERA"
 ios:
   info:
-    minimum_os_version: '10'
+    bundle_identifier: one.analog.wallet
     camera_usage_description: 'required for qrcode scanning'
