@@ -19,14 +19,13 @@ use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
 use subxt::tx::SubmittableExtrinsic;
-use subxt::utils::Encoded;
 use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
     get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    UnsignedTransactionData,
+    UnsignedTransactionData, get_runtime_error, string_to_err_response,
 };
 
 mod utils;
@@ -260,7 +259,7 @@ async fn account_faucet(mut req: Request<State>) -> tide::Result {
     .await
     {
         Ok(data) => data,
-        Err(e) => return make_error_response(e),
+        Err(e) => return string_to_err_response(e),
     };
 
     let response = TransactionIdentifierResponse {
@@ -779,14 +778,14 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
     let tx_progress = match sb_extrinsic.submit_and_watch().await {
         Ok(tx_progress) => tx_progress,
         Err(error) => {
-            return make_error_response(get_runtime_error(error));
+            return string_to_err_response(get_runtime_error(error));
         }
     };
 
     let status = match tx_progress.wait_for_finalized_success().await {
         Ok(status) => status,
         Err(error) => {
-            return make_error_response(get_runtime_error(error));
+            return string_to_err_response(get_runtime_error(error));
         }
     };
 

@@ -38,7 +38,7 @@ use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
 use subxt::Config;
 use subxt::Error as SubxtError;
-use subxt::{OnlineClient, PolkadotConfig};
+use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::{Body, Response};
 
 #[derive(Debug)]
@@ -67,9 +67,7 @@ pub enum Error {
     InvalidCallData,
     InvalidAmount,
     InvalidMetadata,
-    StorageFetch,
     EventDetailParse,
-    NotSupported,
     NoBlockEvents,
     FailedTimestamp,
 }
@@ -101,9 +99,7 @@ impl std::fmt::Display for Error {
             Self::InvalidCallData => write!(f, "Invalid call data"),
             Self::InvalidAmount => write!(f, "Invalid amount"),
             Self::InvalidMetadata => write!(f, "Metadata error"),
-            Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::EventDetailParse => write!(f, "Event detail parse error"),
-            Self::NotSupported => write!(f, "Operation not supported"),
             Self::NoBlockEvents => write!(f, "No block events found"),
             Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
         }
@@ -655,6 +651,19 @@ pub fn get_runtime_error(error: SubxtError) -> String {
     } else {
         format!("{}", Error::InvalidExtrinsic)
     }
+}
+
+pub fn string_to_err_response(err: String) -> tide::Result {
+    let error = rosetta_types::Error {
+        code: 500,
+        message: err,
+        description: None,
+        retriable: false,
+        details: None,
+    };
+    Ok(Response::builder(500)
+        .body(Body::from_json(&error)?)
+        .build())
 }
 
 #[derive(Serialize, Deserialize)]
