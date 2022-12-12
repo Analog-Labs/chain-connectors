@@ -1,6 +1,7 @@
 use crate::components::alerts::{Alert, ALERTS};
 use crate::components::button::Button;
 use crate::components::common::Header;
+use crate::helpers::unit_converter::convert_to_lowest;
 use crate::state::{use_chain_from_route, Chain};
 use anyhow::Result;
 use dioxus::prelude::*;
@@ -32,7 +33,7 @@ pub fn Send(cx: Scope) -> Element {
                 class:"container",
                 div {
                     class: "title",
-                    "Unit: {info.config.unit}",
+                    "Unit: {info.config.currency.symbol.to_lowercase()}",
                 }
                 div {
                     class: "label",
@@ -64,7 +65,7 @@ pub fn Send(cx: Scope) -> Element {
                             let router = router.clone();
                             let alerts = alerts.clone();
                             let address = address.clone();
-                            let amount = *amount.get();
+                            let amount = convert_to_lowest(*amount.get(), info.chain);
                             cx.spawn(async move {
                             transfer(router, alerts, info.chain, address, amount).await;
                             });

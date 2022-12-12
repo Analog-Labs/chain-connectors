@@ -7,6 +7,7 @@ use dioxus_router::{Route, Router};
 #[macro_use]
 mod assets;
 mod components;
+mod helpers;
 mod qrcode;
 mod routes;
 mod state;

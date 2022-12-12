@@ -63,20 +63,18 @@ pub fn Scan(cx: Scope) -> Element {
                 class: "container",
                 Button {
                     onclick: move |_| {
-                        match address.is_empty() {
-                            true => {
-                                let alert =
+                        if address.is_empty() {
+                            let alert =
                                 Alert::warning(" i.e Receiver address is required.".into());
                                 alerts.write().push(alert);
-                            },
-                            false => {
-                                router.navigate_to(&format!("/send/{}/{}", chain, address))
-                            }
+                        }
+                        else {
+                            router.navigate_to(&format!("/send/{}/{}", chain, address));
                         }
                     }
                     title:"Next",
-                },
-             },
+                }
+            },
         },
     })
 }
