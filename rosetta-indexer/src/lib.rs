@@ -38,7 +38,7 @@ pub async fn indexer_search_transactions(mut req: Request<State>) -> tide::Resul
     let request: SearchTransactionsRequest = req.body_json().await?;
 
     if request.network_identifier != req.state().network {
-        // return Error::UnsupportedNetwork.to_response();
+        return string_to_err_response("Unsupported Network".into())
     }
 
     let offset = request.offset.unwrap_or(0);
@@ -76,7 +76,7 @@ pub async fn indexer_search_transactions(mut req: Request<State>) -> tide::Resul
     };
 
     let req_props = TxIndexerProps {
-        max_block,
+        max_block: max_block + 1,
         transaction_identifier: request.transaction_identifier,
         account_identifier: request.account_identifier,
         status: request.status,
