@@ -10,7 +10,6 @@ hex = "0.4.3"
 parity-scale-codec = "3.2.1"
 rosetta-crypto = { path = "../rosetta-crypto" }
 rosetta-types = { path = "../rosetta-types" }
-rosetta-indexer = { path = "../rosetta-indexer" }
 serde = "1.0.149"
 serde_json = "1.0.89"
 sp-keyring = "7.0.0"

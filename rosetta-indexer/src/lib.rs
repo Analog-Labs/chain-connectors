@@ -38,7 +38,7 @@ pub async fn indexer_search_transactions(mut req: Request<State>) -> tide::Resul
     let request: SearchTransactionsRequest = req.body_json().await?;
 
     if request.network_identifier != req.state().network {
-        return string_to_err_response("Unsupported Network".into())
+        return string_to_err_response("Unsupported Network".into());
     }
 
     let offset = request.offset.unwrap_or(0);

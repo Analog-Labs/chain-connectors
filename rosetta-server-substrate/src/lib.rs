@@ -24,8 +24,8 @@ use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
-    UnsignedTransactionData, get_runtime_error, string_to_err_response,
+    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    resolve_block, string_to_err_response, Error, UnsignedTransactionData,
 };
 
 mod utils;
