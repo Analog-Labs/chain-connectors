@@ -72,7 +72,6 @@ pub enum Error {
     NotSupported,
     NoBlockEvents,
     FailedTimestamp,
-    InvalidOffset,
 }
 
 impl std::fmt::Display for Error {
@@ -107,7 +106,6 @@ impl std::fmt::Display for Error {
             Self::NotSupported => write!(f, "Operation not supported"),
             Self::NoBlockEvents => write!(f, "No block events found"),
             Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
-            Self::InvalidOffset => write!(f, "Invalid offset"),
         }
     }
 }
@@ -125,19 +123,6 @@ impl Error {
             .body(Body::from_json(&error)?)
             .build())
     }
-}
-
-pub fn string_to_err_response(err: String) -> tide::Result {
-    let error = rosetta_types::Error {
-        code: 500,
-        message: err,
-        description: None,
-        retriable: false,
-        details: None,
-    };
-    Ok(Response::builder(500)
-        .body(Body::from_json(&error)?)
-        .build())
 }
 
 pub async fn resolve_block(

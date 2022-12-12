@@ -3,6 +3,8 @@ use rosetta_types::{
     AccountIdentifier, BlockIdentifier, BlockRequest, BlockResponse, BlockTransaction,
     NetworkIdentifier, PartialBlockIdentifier, Transaction, TransactionIdentifier,
 };
+use surf::Body;
+use tide::Response;
 
 pub struct TxIndexerProps {
     pub max_block: i64,
@@ -122,4 +124,17 @@ pub fn filter_tx(
         }
     }
     Ok(vec_of_extrinsics)
+}
+
+pub fn string_to_err_response(err: String) -> tide::Result {
+    let error = rosetta_types::Error {
+        code: 500,
+        message: err,
+        description: None,
+        retriable: false,
+        details: None,
+    };
+    Ok(Response::builder(500)
+        .body(Body::from_json(&error)?)
+        .build())
 }

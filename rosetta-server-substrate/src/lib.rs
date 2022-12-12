@@ -9,9 +9,8 @@ use rosetta_types::{
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation,
-    SearchTransactionsRequest, SearchTransactionsResponse, SignatureType, SigningPayload,
-    TransactionIdentifier, TransactionIdentifierResponse, Version,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
+    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::str::FromStr;
 use std::time::Duration;
@@ -26,11 +25,9 @@ use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block,
-    string_to_err_response, Error, UnsignedTransactionData,
+    get_transaction_detail, get_transfer_payload, get_unix_timestamp, resolve_block, Error,
+    UnsignedTransactionData,
 };
-
-use rosetta_indexer::indexer_search_transactions;
 
 mod utils;
 
@@ -809,67 +806,7 @@ async fn events_blocks(mut _req: Request<State>) -> tide::Result {
     Error::NotImplemented.to_response()
 }
 
-async fn search_transactions(mut req: Request<State>) -> tide::Result {
-    // let request: SearchTransactionsRequest = req.body_json().await?;
-
-    // if request.network_identifier != req.state().network {
-    //     return Error::UnsupportedNetwork.to_response();
-    // }
-
-    // let offset = request.offset.unwrap_or(0);
-
-    // let limit = match request.limit {
-    //     Some(limit) => {
-    //         if limit > 1000 {
-    //             1000
-    //         } else {
-    //             limit
-    //         }
-    //     }
-    //     None => 100,
-    // };
-
-    // let filtered_ex = match indexer_search_transactions(request).await {
-    //     Ok(filtered_ex) => filtered_ex,
-    //     Err(error) => {
-    //         return string_to_err_response(error);
-    //     }
-    // };
-
-    // let total_count = filtered_ex.len() as i64;
-
-    // if offset > 0 && offset >= total_count {
-    //     return Error::InvalidOffset.to_response();
-    // }
-
-    // let idx_end = if offset + limit > total_count {
-    //     total_count
-    // } else {
-    //     offset + limit
-    // };
-
-    // let limited_tx = if total_count <= limit {
-    //     filtered_ex
-    // } else {
-    //     filtered_ex[offset as usize..idx_end as usize].to_vec()
-    // };
-
-    // let next_offset = if idx_end == total_count {
-    //     None
-    // } else {
-    //     Some(idx_end)
-    // };
-
-    // let response = SearchTransactionsResponse {
-    //     transactions: limited_tx,
-    //     total_count,
-    //     next_offset,
-    // };
-
-    // Ok(Response::builder(200)
-    //     .body(Body::from_json(&response)?)
-    //     .build())
-
+async fn search_transactions(mut _req: Request<State>) -> tide::Result {
     Error::NotImplemented.to_response()
 }
 

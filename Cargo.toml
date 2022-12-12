@@ -4,11 +4,11 @@ members = [
     "rosetta-cli",
     "rosetta-client",
     "rosetta-crypto",
+    "rosetta-indexer",
     "rosetta-server-polkadot",
     "rosetta-server-substrate",
     "rosetta-types",
     "rosetta-wallet",
-    "rosetta-indexer",
 ]
 resolver = "2"
 

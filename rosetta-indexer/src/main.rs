@@ -8,13 +8,12 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let opts = IndexerArgs::parse();
-    
 
-    
+    let chain = opts.chain;
+
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
-    app.at("/")
-        .nest(server().await?);
+    app.at("/").nest(server(chain).await?);
     app.listen(format!("127.0.0.1:{}", opts.port)).await?;
     Ok(())
 }
