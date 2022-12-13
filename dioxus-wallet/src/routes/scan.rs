@@ -10,7 +10,7 @@ use fermi::*;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Scan(cx: Scope) -> Element {
-    use crate::helpers::helpers::slice_string;
+    use crate::helpers::slice_string;
     use crate::qrcode::scan_qrcode;
 
     #[cfg(target_os = "ios")]
