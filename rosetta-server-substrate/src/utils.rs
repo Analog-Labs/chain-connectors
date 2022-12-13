@@ -38,9 +38,10 @@ use subxt::tx::{ExtrinsicParams, TxPayload};
 use subxt::utils::Encoded;
 use subxt::Config;
 use subxt::Error as SubxtError;
-use subxt::{OnlineClient, PolkadotConfig};
+use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::{Body, Response};
 
+#[derive(Debug)]
 pub enum Error {
     AccountNotFound,
     UnsupportedNetwork,
@@ -66,8 +67,9 @@ pub enum Error {
     InvalidCallData,
     InvalidAmount,
     InvalidMetadata,
-    StorageFetch,
     EventDetailParse,
+    NoBlockEvents,
+    FailedTimestamp,
 }
 
 impl std::fmt::Display for Error {
@@ -97,8 +99,9 @@ impl std::fmt::Display for Error {
             Self::InvalidCallData => write!(f, "Invalid call data"),
             Self::InvalidAmount => write!(f, "Invalid amount"),
             Self::InvalidMetadata => write!(f, "Metadata error"),
-            Self::StorageFetch => write!(f, "Storage fetch error"),
             Self::EventDetailParse => write!(f, "Event detail parse error"),
+            Self::NoBlockEvents => write!(f, "No block events found"),
+            Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
         }
     }
 }
@@ -118,21 +121,8 @@ impl Error {
     }
 }
 
-pub fn make_error_response(data: String) -> tide::Result {
-    let error = rosetta_types::Error {
-        code: 500,
-        message: data,
-        description: None,
-        retriable: false,
-        details: None,
-    };
-    Ok(Response::builder(500)
-        .body(Body::from_json(&error)?)
-        .build())
-}
-
 pub async fn resolve_block(
-    subxt: &OnlineClient<PolkadotConfig>,
+    subxt: &OnlineClient<GenericConfig>,
     partial: Option<&PartialBlockIdentifier>,
 ) -> Result<(H256, u64)> {
     let mindex = if let Some(PartialBlockIdentifier {
@@ -179,7 +169,7 @@ where
         .events()
         .at(Some(block))
         .await
-        .map_err(|_| Error::StorageFetch)?;
+        .map_err(|_| Error::NoBlockEvents)?;
 
     Ok(abc)
 }
@@ -386,7 +376,7 @@ pub fn get_transaction_detail<T: Config>(
             .trim_start_matches("0x")
             .into();
 
-        if hex_val.eq(&tx_hash) {
+        if hex_val.eq(tx_hash) {
             let mut vec_of_operations = vec![];
             let transaction_identifier = TransactionIdentifier { hash: hex_val };
 
@@ -544,20 +534,7 @@ where
     Ok(payload_data)
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct UnsignedTransactionData {
-    pub signer_address: String,
-    pub additional_parmas: Vec<u8>,
-    pub call_data: Vec<u8>,
-}
-
-pub struct PayloadData {
-    pub payload: Vec<u8>,
-    pub additional_params: Vec<u8>,
-    pub call_data: Vec<u8>,
-}
-
-pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result<u64, Error> {
+pub async fn get_unix_timestamp(client: &OnlineClient<GenericConfig>) -> Result<u64, Error> {
     let metadata = client.metadata();
     let storage_hash = metadata
         .storage_hash("Timestamp", "Now")
@@ -574,13 +551,13 @@ pub async fn get_unix_timestamp(client: &OnlineClient<PolkadotConfig>) -> Result
         .storage()
         .fetch_or_default(&current_block_timestamp, None)
         .await
-        .map_err(|_| Error::StorageFetch)?;
+        .map_err(|_| Error::FailedTimestamp)?;
 
     Ok(unix_timestamp_millis)
 }
 
 pub async fn get_account_storage(
-    client: &OnlineClient<PolkadotConfig>,
+    client: &OnlineClient<GenericConfig>,
     account: &AccountId32,
 ) -> Result<AccountInfo<u32, AccountData>, Error> {
     let metadata = client.metadata();
@@ -631,11 +608,11 @@ where
 }
 
 pub async fn faucet_substrate(
-    api: &OnlineClient<PolkadotConfig>,
+    api: &OnlineClient<GenericConfig>,
     address: &str,
     amount: u128,
 ) -> Result<H256, String> {
-    let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
+    let signer = PairSigner::<GenericConfig, _>::new(AccountKeyring::Alice.pair());
 
     let receiver_account: AccountId32 = address
         .parse()
@@ -676,6 +653,32 @@ pub fn get_runtime_error(error: SubxtError) -> String {
     }
 }
 
+pub fn string_to_err_response(err: String) -> tide::Result {
+    let error = rosetta_types::Error {
+        code: 500,
+        message: err,
+        description: None,
+        retriable: false,
+        details: None,
+    };
+    Ok(Response::builder(500)
+        .body(Body::from_json(&error)?)
+        .build())
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct UnsignedTransactionData {
+    pub signer_address: String,
+    pub additional_parmas: Vec<u8>,
+    pub call_data: Vec<u8>,
+}
+
+pub struct PayloadData {
+    pub payload: Vec<u8>,
+    pub additional_params: Vec<u8>,
+    pub call_data: Vec<u8>,
+}
+
 #[derive(Decode, Encode, Debug)]
 pub struct Transfer {
     pub dest: MultiAddress<AccountId32, u32>,
@@ -705,4 +708,16 @@ pub struct EventRecord<Event, Hash> {
     pub phase: Phase,
     pub event: Event,
     pub topics: Vec<Hash>,
+}
+
+#[derive(Debug)]
+pub struct FilteredIndexData {
+    pub ex_hash: String,
+    pub event_details_data: EventDetailsData,
+}
+
+#[derive(Clone, Debug)]
+pub struct EventDetailsData {
+    pub op_index: usize,
+    pub event_detail: EventDetails,
 }

@@ -19,13 +19,13 @@ use subxt::ext::sp_core::sr25519::Signature;
 use subxt::ext::sp_core::{crypto::AccountId32, H256};
 use subxt::ext::sp_runtime::{MultiAddress, MultiSignature};
 use subxt::tx::SubmittableExtrinsic;
-use subxt::{OnlineClient, PolkadotConfig};
+use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
     get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    make_error_response, resolve_block, Error, UnsignedTransactionData,
+    resolve_block, string_to_err_response, Error, UnsignedTransactionData,
 };
 
 mod utils;
@@ -73,7 +73,7 @@ pub struct State {
     network: NetworkIdentifier,
     currency: Currency,
     address_format: AddressFormat,
-    client: OnlineClient<PolkadotConfig>,
+    client: OnlineClient<GenericConfig>,
 }
 
 impl State {
@@ -259,7 +259,7 @@ async fn account_faucet(mut req: Request<State>) -> tide::Result {
     .await
     {
         Ok(data) => data,
-        Err(e) => return make_error_response(e),
+        Err(e) => return string_to_err_response(e),
     };
 
     let response = TransactionIdentifierResponse {
@@ -290,9 +290,7 @@ async fn block(mut req: Request<State>) -> tide::Result {
     }
 
     let block_identifier = Some(request.block_identifier);
-
     let (block_hash, index) = resolve_block(&req.state().client, block_identifier.as_ref()).await?;
-
     let block = req.state().client.rpc().block(Some(block_hash)).await?;
     let block = match block {
         Some(block) => block,
@@ -435,12 +433,14 @@ async fn construction_hash(mut req: Request<State>) -> tide::Result {
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
+
     let received_hex = request.signed_transaction.trim_start_matches("0x");
     let transaction = match hex::decode(received_hex) {
         Ok(transaction) => transaction,
         Err(_) => return Error::InvalidHex.to_response(),
     };
     let hash = blake2_256(&transaction);
+
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
             hash: format!("0x{}", hex::encode(hash)),
@@ -778,14 +778,14 @@ async fn construction_submit(mut req: Request<State>) -> tide::Result {
     let tx_progress = match sb_extrinsic.submit_and_watch().await {
         Ok(tx_progress) => tx_progress,
         Err(error) => {
-            return make_error_response(get_runtime_error(error));
+            return string_to_err_response(get_runtime_error(error));
         }
     };
 
     let status = match tx_progress.wait_for_finalized_success().await {
         Ok(status) => status,
         Err(error) => {
-            return make_error_response(get_runtime_error(error));
+            return string_to_err_response(get_runtime_error(error));
         }
     };
 
