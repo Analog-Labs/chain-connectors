@@ -10,6 +10,7 @@ use fermi::*;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Scan(cx: Scope) -> Element {
+    use crate::helpers::helpers::slice_string;
     use crate::qrcode::scan_qrcode;
 
     #[cfg(target_os = "ios")]
@@ -19,7 +20,9 @@ pub fn Scan(cx: Scope) -> Element {
     let router = use_router(&cx);
     let fut = use_future(&cx, (), move |_| scan_qrcode(&cx));
     match fut.value() {
-        Some(Ok(address)) => router.navigate_to(&format!("/send/{}/{}", chain, address)),
+        Some(Ok(address)) => {
+            router.navigate_to(&format!("/send/{}/{}", chain, slice_string(address, b':')))
+        }
         Some(Err(error)) => {
             let alert = Alert::error(error.to_string());
             alerts.write().push(alert);
