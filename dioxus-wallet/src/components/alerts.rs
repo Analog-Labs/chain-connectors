@@ -35,8 +35,10 @@ pub fn Alerts(cx: Scope) -> Element {
                 div {
                     class: "alert alert-{alert.class} alert-dismissible",
                     role: "alert",
-                    div { class:"alert_message",
-                     "{alert.msg}" }
+                    div {
+                        class:"alert_message",
+                        "{alert.msg}"
+                    }
                     button {
                         r#type: "button",
                         class: "close",
