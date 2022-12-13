@@ -14,8 +14,8 @@ use rosetta_types::{
 };
 use serde::{de::DeserializeOwned, Serialize};
 
-#[derive(Clone)]
 /// The client struct to interface with a rosetta endpoint.
+#[derive(Clone)]
 pub struct Client {
     /// The http client.
     http: surf::Client,
