@@ -1,4 +1,4 @@
-icon: "./icon.png"
+icon: ./icon.png
 android:
   gradle: true
   wry: true
@@ -8,14 +8,21 @@ android:
   - 'androidx.camera:camera-view:1.1.0'
   - 'com.google.mlkit:barcode-scanning:17.0.2'
   manifest:
+    package: one.analog.wallet
     application:
       activities:
       - name: .MainActivity
         launch_mode: singleTask
       - name: .QrCodeScanner
     uses_permission:
-    - name: "android.permission.CAMERA"
+    - name: android.permission.CAMERA
 ios:
+  assets_car: ./Assets.car
   info:
-    bundle_identifier: one.analog.wallet
-    camera_usage_description: 'required for qrcode scanning'
+    cf_bundle_identifier: one.analog.wallet
+    ns_camera_usage_description: 'required for qrcode scanning'
+    cf_bundle_icons:
+      cf_bundle_primary_icon:
+        cf_bundle_icon_name: AppIcon
+    ui_launch_screen:
+      ui_color_name: red
