@@ -65,10 +65,24 @@ async fn main() -> Result<()> {
         }
         Command::Faucet(FaucetOpts { amount }) => match opts.chain {
             Chain::Btc => {
+                let url_str = opts.url.unwrap_or_else(|| opts.chain.url().into());
+                let url_obj = match surf::Url::parse(&url_str) {
+                    Ok(url) => url,
+                    Err(e) => {
+                        anyhow::bail!("Url parse error: {}", e);
+                    }
+                };
+                let url = match url_obj.domain() {
+                    Some(url) => url,
+                    None => {
+                        anyhow::bail!("Invalid Url");
+                    }
+                };
+
                 use std::process::Command;
                 let status = Command::new("bitcoin-cli")
                     .arg("-regtest")
-                    .arg("-rpcconnect=rosetta.analog.one")
+                    .arg(format!("-rpcconnect={}", url))
                     .arg("-rpcuser=rosetta")
                     .arg("-rpcpassword=rosetta")
                     .arg("generatetoaddress")
@@ -80,6 +94,20 @@ async fn main() -> Result<()> {
                 }
             }
             Chain::Eth => {
+                let url_str = opts.url.unwrap_or_else(|| opts.chain.url().into());
+                let url_obj = match surf::Url::parse(&url_str) {
+                    Ok(url) => url,
+                    Err(e) => {
+                        anyhow::bail!("Url parse error: {}", e);
+                    }
+                };
+                let url = match url_obj.domain() {
+                    Some(url) => format!("{}{}{}{}", url_obj.scheme(), "://", url, ":8545"),
+                    None => {
+                        anyhow::bail!("Invalid Url");
+                    }
+                };
+
                 use std::process::Command;
                 let status = Command::new("geth")
                     .arg("attach")
@@ -89,7 +117,7 @@ async fn main() -> Result<()> {
                         &wallet.account().address,
                         amount,
                     ))
-                    .arg("http://rosetta.analog.one:8545")
+                    .arg(&url)
                     .status()?;
                 if !status.success() {
                     anyhow::bail!("cmd failed");
