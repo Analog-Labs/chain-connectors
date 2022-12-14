@@ -65,7 +65,9 @@ async fn main() -> Result<()> {
         }
         Command::Faucet(FaucetOpts { amount }) => match opts.chain {
             Chain::Btc => {
-                let url_str = opts.url.unwrap_or("http://rosetta.analog.one".into());
+                let url_str = opts
+                    .url
+                    .unwrap_or_else(|| "http://rosetta.analog.one".into());
                 let url_obj = match surf::Url::parse(&url_str) {
                     Ok(url) => url,
                     Err(e) => {
@@ -94,7 +96,9 @@ async fn main() -> Result<()> {
                 }
             }
             Chain::Eth => {
-                let url_str = opts.url.unwrap_or("http://rosetta.analog.one".into());
+                let url_str = opts
+                    .url
+                    .unwrap_or_else(|| "http://rosetta.analog.one".into());
                 let url_obj = match surf::Url::parse(&url_str) {
                     Ok(url) => url,
                     Err(e) => {
@@ -117,7 +121,7 @@ async fn main() -> Result<()> {
                         &wallet.account().address,
                         amount,
                     ))
-                    .arg(format!("{}", url))
+                    .arg(&url)
                     .status()?;
                 if !status.success() {
                     anyhow::bail!("cmd failed");
