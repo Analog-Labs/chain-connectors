@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
                         anyhow::bail!("Url parse error: {}", e);
                     }
                 };
-                let url = match url_obj.domain() {
+                let url = match url_obj.host() {
                     Some(url) => url,
                     None => {
                         anyhow::bail!("Invalid Url");
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
                         anyhow::bail!("Url parse error: {}", e);
                     }
                 };
-                let url = match url_obj.domain() {
+                let url = match url_obj.host() {
                     Some(url) => format!("{}{}{}{}", url_obj.scheme(), "://", url, ":8545"),
                     None => {
                         anyhow::bail!("Invalid Url");
