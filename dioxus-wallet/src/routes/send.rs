@@ -1,6 +1,7 @@
 use crate::components::alerts::{Alert, ALERTS};
 use crate::components::button::Button;
 use crate::components::common::Header;
+use crate::components::loader::LOADER;
 use crate::helpers::convert_to_lowest_unit;
 use crate::state::{use_chain_from_route, Chain};
 use anyhow::Result;
@@ -9,6 +10,7 @@ use dioxus_router::{use_route, use_router, RouterService};
 use fermi::*;
 use rosetta_client::crypto::address::Address;
 use rosetta_client::signer::RosettaAccount;
+use std::rc::Rc;
 
 #[allow(non_snake_case)]
 #[inline_props]
@@ -20,6 +22,7 @@ pub fn Send(cx: Scope) -> Element {
     let router = use_router(&cx);
     let address = use_route(&cx).segment("address").unwrap().to_string();
     let address = Address::new(info.config.address_format, address);
+    let loader_state = use_set(&cx, LOADER).clone();
     cx.render(rsx! {
         div {
             class: "main-container",
@@ -66,9 +69,10 @@ pub fn Send(cx: Scope) -> Element {
                             let alerts = alerts.clone();
                             let address = address.clone();
                             let amount = convert_to_lowest_unit(*amount.get(), info.chain);
+                            let loader = loader_state.clone();
                             cx.spawn(async move {
-                            transfer(router, alerts, info.chain, address, amount).await;
-                            });
+                            loader(true);
+                            transfer(router, alerts, info.chain, address, amount,loader).await;                            });
                         }
                     }
                     title:"Send",
@@ -84,15 +88,20 @@ async fn transfer(
     chain: Chain,
     address: Address,
     amount: u128,
+    loader: Rc<dyn Fn(bool)>,
 ) {
     match fallible_transfer(chain, address, amount).await {
         Ok(_) => {
+            loader(false);
             alerts
                 .write()
                 .push(Alert::info("transfer successful".into()));
             router.navigate_to(&format!("/txns/{}", chain));
         }
-        Err(error) => alerts.write().push(Alert::error(error.to_string())),
+        Err(error) => {
+            loader(false);
+            alerts.write().push(Alert::error(error.to_string()));
+        }
     }
 }
 

@@ -1,11 +1,13 @@
 use crate::components::alerts::{Alert, ALERTS};
 use crate::components::button::{Button, LinkButton};
 use crate::components::common::Header;
+use crate::components::loader::LOADER;
 use crate::state::{use_chain_from_route, Chain};
 use anyhow::Result;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
 use fermi::*;
+use std::rc::Rc;
 
 #[allow(non_snake_case)]
 #[inline_props]
@@ -16,6 +18,7 @@ pub fn Txns(cx: Scope) -> Element {
     let state = chain.use_state(&cx).read();
     let alerts = use_atom_ref(&cx, ALERTS);
     let router = use_router(&cx);
+    let loader_state = use_set(&cx, LOADER).clone();
     cx.render(rsx! {
         div {
             class: "main-container",
@@ -60,8 +63,10 @@ pub fn Txns(cx: Scope) -> Element {
                 title: "Get Test Tokens",
                 onclick: move |_|  {
                     let alerts = alerts.clone();
+                    let loader = loader_state.clone();
                     cx.spawn(async move {
-                        faucet(alerts, info.chain, 3000000000000000).await;
+                        loader(true);
+                        faucet(alerts, info.chain, 3000000000000000, loader).await;
                     });
                 }
             }
@@ -69,14 +74,23 @@ pub fn Txns(cx: Scope) -> Element {
     })
 }
 
-async fn faucet(alerts: UseAtomRef<Vec<Alert>>, chain: Chain, amount: u128) {
+async fn faucet(
+    alerts: UseAtomRef<Vec<Alert>>,
+    chain: Chain,
+    amount: u128,
+    loader: Rc<dyn Fn(bool)>,
+) {
     match fallible_faucet(chain, amount).await {
         Ok(_) => {
+            loader(false);
             alerts
                 .write()
                 .push(Alert::info("transfer successful".into()));
         }
-        Err(error) => alerts.write().push(Alert::error(error.to_string())),
+        Err(error) => {
+            loader(false);
+            alerts.write().push(Alert::error(error.to_string()));
+        }
     }
 }
 
