@@ -695,7 +695,7 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
 
     let signature = signature.hex_bytes;
 
-    let sig_bytes = match hex::decode(&signature) {
+    let sig_bytes = match hex::decode(signature) {
         Ok(sig_bytes) => sig_bytes,
         Err(_) => return Error::InvalidHex.to_response(),
     };
@@ -749,7 +749,7 @@ async fn construction_combine(mut req: Request<State>) -> tide::Result {
         encoded
     };
 
-    let tx_hex = hex::encode(&extrinsic);
+    let tx_hex = hex::encode(extrinsic);
     let response = ConstructionCombineResponse {
         signed_transaction: format!("0x{}", tx_hex),
     };

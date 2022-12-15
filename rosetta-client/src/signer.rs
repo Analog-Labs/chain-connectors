@@ -99,7 +99,7 @@ impl RosettaSecretKey for DerivedSecretKey {
             signing_payload: payload,
             public_key: self.public_key().to_rosetta(),
             signature_type,
-            hex_bytes: hex::encode(&signature.to_bytes()),
+            hex_bytes: hex::encode(signature.to_bytes()),
         })
     }
 }
@@ -114,7 +114,7 @@ impl RosettaPublicKey for DerivedPublicKey {
                 Algorithm::Ed25519 => CurveType::Edwards25519,
                 Algorithm::Sr25519 => CurveType::Schnorrkel,
             },
-            hex_bytes: hex::encode(&self.public_key().to_bytes()),
+            hex_bytes: hex::encode(self.public_key().to_bytes()),
         }
     }
 }

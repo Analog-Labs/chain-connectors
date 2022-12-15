@@ -59,7 +59,7 @@ pub fn create_keyfile(path: &Path, mnemonic: &Mnemonic) -> Result<()> {
 
 pub fn open_keyfile(path: &Path) -> Result<Mnemonic> {
     let mnemonic = std::fs::read_to_string(path)?;
-    let mnemonic = Mnemonic::parse_in(Language::English, &mnemonic)?;
+    let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
     Ok(mnemonic)
 }
 
