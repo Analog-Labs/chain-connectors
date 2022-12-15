@@ -21,7 +21,7 @@ pub fn Scan(cx: Scope) -> Element {
     let fut = use_future(&cx, (), move |_| scan_qrcode(&cx));
     match fut.value() {
         Some(Ok(address)) => {
-            router.navigate_to(&format!("/send/{}/{}", chain, slice_string(address, b':')))
+            router.navigate_to(&format!("/send/{}/{}", chain, slice_string(address, ":")))
         }
         Some(Err(error)) => {
             let alert = Alert::error(error.to_string());

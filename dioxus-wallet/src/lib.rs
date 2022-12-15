@@ -1,5 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
-use crate::components::alerts::Alerts;
+use crate::components::{alerts::Alerts, loader::Loader};
 use crate::routes::*;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
@@ -56,6 +56,7 @@ fn app(cx: Scope) -> Element {
     worker::use_chain_workers(&cx).unwrap();
     cx.render(rsx! {
         Alerts {},
+        Loader{},
         Router {
             style {
                 css!("buttons")
