@@ -164,7 +164,7 @@ pub fn match_address(
                     None => false,
                 }
             };
-            !address_match
+            address_match
         } else {
             return false;
         }

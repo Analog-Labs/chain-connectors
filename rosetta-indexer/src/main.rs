@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
 
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
-    app.at("/").nest(server(chain).await?);
+    app.at("/").nest(server(chain, opts.url).await?);
     app.listen(format!("127.0.0.1:{}", opts.port)).await?;
     Ok(())
 }
