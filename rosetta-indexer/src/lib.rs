@@ -83,6 +83,7 @@ pub async fn indexer_search_transactions(mut req: Request<State>) -> tide::Resul
         operation_type: request.r#type,
         address: request.address,
         success: request.success,
+        currency: request.currency,
     };
 
     let filtered_ex = match get_indexed_transactions(
