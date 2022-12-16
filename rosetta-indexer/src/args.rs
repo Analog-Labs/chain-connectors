@@ -6,5 +6,7 @@ pub struct IndexerArgs {
     #[clap(long)]
     pub port: String,
     #[clap(long)]
+    pub url: Option<String>,
+    #[clap(long)]
     pub chain: Chain,
 }

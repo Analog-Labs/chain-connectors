@@ -18,16 +18,21 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(chain: Chain) -> Self {
+    pub fn new(chain: Chain, server_url: Option<String>) -> Self {
+        let url = if let Some(url) = server_url {
+            url
+        } else {
+            chain.url().to_string()
+        };
         State {
             network: chain.config().network,
-            rosetta_server: Client::new(chain.url()).unwrap(),
+            rosetta_server: Client::new(&url).unwrap(),
         }
     }
 }
 
-pub async fn server(config: Chain) -> Result<tide::Server<State>> {
-    let state = State::new(config);
+pub async fn server(config: Chain, url: Option<String>) -> Result<tide::Server<State>> {
+    let state = State::new(config, url);
     let mut app = tide::with_state(state);
     app.at("/search/transactions")
         .post(indexer_search_transactions);
