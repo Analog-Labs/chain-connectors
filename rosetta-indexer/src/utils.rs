@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use rosetta_client::Client;
 use rosetta_types::{
     AccountIdentifier, Amount, BlockIdentifier, BlockRequest, BlockResponse, BlockTransaction,
-    Currency, NetworkIdentifier, PartialBlockIdentifier, Transaction, TransactionIdentifier,
+    Currency, NetworkIdentifier, Operation, PartialBlockIdentifier, Transaction,
+    TransactionIdentifier,
 };
 use surf::Body;
 use tide::Response;
@@ -76,16 +79,27 @@ pub fn filter_tx(
                 continue;
             }
 
+            let get_transfer_operations = find_transfer_operation(tx.operations.clone());
+            let is_utxo_transfer = find_utxo_transfer_operation(tx.operations.clone());
             for op in tx.operations {
                 if !match_operation_type(&req.operation_type, &op.r#type) {
-                    continue;
+                    if let Some(op_type) = &req.operation_type {
+                        if op_type.to_lowercase().contains("transfer")
+                            && !get_transfer_operations.contains(&op)
+                            && !is_utxo_transfer
+                        {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
                 }
 
                 if !match_address(&req.account_identifier, &op.account) {
                     continue;
                 };
 
-                if !match_currency(&req.currency, &op.amount){
+                if !match_currency(&req.currency, &op.amount) {
                     continue;
                 }
 
@@ -127,19 +141,20 @@ pub fn match_tx_id(tx_identifier: &Option<TransactionIdentifier>, received_tx: &
     }
 }
 
-pub fn match_success(tx_success: &String, received_success: Option<bool>) -> bool {
+pub fn match_success(tx_success: &str, received_success: Option<bool>) -> bool {
+    let tx_success_status = tx_success.to_lowercase().contains("fail");
     if let Some(success) = received_success {
         if success {
-            tx_success.to_lowercase().contains("success")
+            !tx_success_status
         } else {
-            tx_success.to_lowercase().contains("fail")
+            tx_success_status
         }
     } else {
         true
     }
 }
 
-pub fn match_operation_type(op_type: &Option<String>, received_type: &String) -> bool {
+pub fn match_operation_type(op_type: &Option<String>, received_type: &str) -> bool {
     if let Some(operation_type) = op_type.as_ref() {
         received_type
             .to_lowercase()
@@ -156,20 +171,22 @@ pub fn match_address(
     if let Some(acc_identifier) = received_acc_identifier.as_ref() {
         let filter_address = acc_identifier.address.trim_start_matches("0x");
         if let Some(op_identifier) = op_acc_identifier.clone() {
-            let address_match = if filter_address.eq(&op_identifier.address) {
-                true
-            } else {
-                match op_identifier.sub_account.as_ref() {
-                    Some(sub_address) => filter_address.eq(&sub_address.address),
-                    None => false,
-                }
-            };
+            let address_match =
+                if filter_address.eq(&op_identifier.address.trim_start_matches("0x").to_string()) {
+                    true
+                } else {
+                    match op_identifier.sub_account.as_ref() {
+                        Some(sub_address) => filter_address
+                            .eq(&sub_address.address.trim_start_matches("0x").to_string()),
+                        None => false,
+                    }
+                };
             address_match
         } else {
-            return false;
+            false
         }
     } else {
-        return true;
+        true
     }
 }
 
@@ -184,4 +201,49 @@ pub fn match_currency(received_curreny: &Option<Currency>, op_amount: &Option<Am
     } else {
         true
     }
+}
+
+pub fn find_transfer_operation(operations: Vec<Operation>) -> Vec<Operation> {
+    let mut op_hashmap: HashMap<i128, Vec<Operation>> = HashMap::new();
+    for op in operations {
+        if let Some(amount) = op.amount.clone() {
+            if !op.r#type.to_lowercase().contains("fee") {
+                let amount: i128 = match amount.value.parse() {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+                op_hashmap.entry(amount.abs()).or_default().push(op);
+            }
+        }
+    }
+
+    let transfer_operations = op_hashmap
+        .iter()
+        .filter(|&(_, v)| v.len() > 1)
+        .map(|(_, v)| v.clone())
+        .collect::<Vec<Vec<Operation>>>()
+        .into_iter()
+        .flatten()
+        .collect::<Vec<Operation>>();
+
+    transfer_operations
+}
+
+fn find_utxo_transfer_operation(operations: Vec<Operation>) -> bool {
+    let mut input_amount: i128 = 0;
+    let mut output_amount: i128 = 0;
+
+    for op in operations {
+        if op.r#type.to_lowercase().contains("input") {
+            if let Some(amount) = op.amount {
+                input_amount += amount.value.parse::<i128>().unwrap().abs();
+            }
+        } else if op.r#type.to_lowercase().contains("output") {
+            if let Some(amount) = op.amount {
+                output_amount += amount.value.parse::<i128>().unwrap().abs();
+            }
+        }
+    }
+
+    (input_amount > 0 && output_amount > 0) && (input_amount - output_amount).abs() < 1000
 }
