@@ -2,22 +2,22 @@ use crate::components::alerts::{Alert, ALERTS};
 use crate::components::button::Button;
 use crate::components::common::Header;
 use crate::components::loader::LOADER;
-use crate::helpers::convert_to_lowest_unit;
+use crate::helpers::{convert_to_lowest_unit, display_loader};
 use crate::state::{use_chain_from_route, Chain};
 use anyhow::Result;
 use dioxus::prelude::*;
 use dioxus_router::{use_route, use_router, RouterService};
 use fermi::*;
+use fraction::BigDecimal;
 use rosetta_client::crypto::address::Address;
 use rosetta_client::signer::RosettaAccount;
-use std::rc::Rc;
 
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Send(cx: Scope) -> Element {
     let chain = use_chain_from_route(&cx);
     let info = chain.info();
-    let amount = use_state(&cx, || 0u128);
+    let amount = use_state(&cx, || BigDecimal::from(0));
     let alerts = use_atom_ref(&cx, ALERTS).clone();
     let router = use_router(&cx);
     let address = use_route(&cx).segment("address").unwrap().to_string();
@@ -59,7 +59,7 @@ pub fn Send(cx: Scope) -> Element {
                 class:"container",
                 Button {
                     onclick: move |_| {
-                        if amount.clone() == 0u128   {
+                        if amount.clone() == BigDecimal::from(0)  {
                             let alert =
                             Alert::warning("i.e amount is required.".into());
                             alerts.write().push(alert);
@@ -68,11 +68,14 @@ pub fn Send(cx: Scope) -> Element {
                             let router = router.clone();
                             let alerts = alerts.clone();
                             let address = address.clone();
-                            let amount = convert_to_lowest_unit(*amount.get(), info.chain);
+                            let amount = convert_to_lowest_unit(amount.get().clone(), info.chain);
                             let loader = loader_state.clone();
                             cx.spawn(async move {
-                            loader(true);
-                            transfer(router, alerts, info.chain, address, amount,loader).await;                            });
+                                display_loader(
+                                    loader,
+                                    transfer(router, alerts, info.chain, address, amount)
+                                ).await;
+                            })
                         }
                     }
                     title:"Send",
@@ -88,18 +91,15 @@ async fn transfer(
     chain: Chain,
     address: Address,
     amount: u128,
-    loader: Rc<dyn Fn(bool)>,
 ) {
     match fallible_transfer(chain, address, amount).await {
         Ok(_) => {
-            loader(false);
             alerts
                 .write()
                 .push(Alert::info("transfer successful".into()));
             router.navigate_to(&format!("/txns/{}", chain));
         }
         Err(error) => {
-            loader(false);
             alerts.write().push(Alert::error(error.to_string()));
         }
     }

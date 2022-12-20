@@ -13,6 +13,7 @@ dioxus = "0.2.4"
 dioxus-router = "0.2.3"
 fermi = "0.2.1"
 futures = "0.3.25"
+fraction = { version = "0.12.2", default-features = false, features = ["with-bigint", "with-decimal"] }
 include_dir = "0.7.3"
 lazy_static = "1.4.0"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
