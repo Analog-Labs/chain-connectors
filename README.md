@@ -47,6 +47,13 @@ rosetta-wallet --chain dot --keyfile /tmp/alice transfer bob_acc_key 15000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob balance
 ```
 
+### Indexer example
+```
+rosetta-cli search --chain=btc --server=http://localhost:8083
+rosetta-cli search --chain=btc --server=http://localhost:8083
+rosetta-cli search --chain=btc --server=http://localhost:8083
+```
+
 ### Block Explorer
 Open in your web browser [http://rosetta.analog.one:3000](http://rosetta.analog.one:3000)
 
