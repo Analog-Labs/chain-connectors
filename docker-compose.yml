@@ -58,6 +58,39 @@ services:
           memory: 1g
     volumes:
     - "polkadot-volume:/polkadot"
+  rosetta-bitcoin-indexer:
+    image: "analoglabs/rosetta-bitcoin-indexer"
+    command: "--chain btc --url http://0.0.0.0:8080 --port 8083"
+    restart: always
+    build:
+      context: "."
+      dockerfile: "./rosetta-indexer/Dockerfile"
+    ports:
+    - "8083:8083"
+    depends_on:
+    - rosetta-bitcoin
+  rosetta-ethereum-indexer:
+    image: "analoglabs/rosetta-ethereum-indexer"
+    command: "--chain btc --url http://0.0.0.0:8081 --port 8084"
+    restart: always
+    build:
+      context: "."
+      dockerfile: "./rosetta-indexer/Dockerfile"
+    ports:
+    - "8084:8084"
+    depends_on:
+    - rosetta-ethereum
+  rosetta-polkadot-indexer:
+    image: "analoglabs/rosetta-polkadot-indexer"
+    command: "--chain btc --url http://0.0.0.0:8082 --port 8085"
+    restart: always
+    build:
+      context: "."
+      dockerfile: "./rosetta-indexer/Dockerfile"
+    ports:
+    - "8085:8085"
+    depends_on:
+    - rosetta-polkadot
   explorer:
     image: "analoglabs/rosetta-explorer"
     ports:
