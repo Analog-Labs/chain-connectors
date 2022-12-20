@@ -73,8 +73,8 @@ pub async fn indexer_search_transactions(mut req: Request<State>) -> tide::Resul
             let block = req.state().rosetta_server.network_status(&request).await;
             match block {
                 Ok(block) => block.current_block_identifier.index as i64,
-                Err(_) => {
-                    return string_to_err_response("Invalid Block".into());
+                Err(e) => {
+                    return string_to_err_response(e.to_string());
                 }
             }
         }
