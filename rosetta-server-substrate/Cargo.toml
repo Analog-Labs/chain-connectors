@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.68"
 array-bytes = "6.0.0"
 hex = "0.4.3"
 parity-scale-codec = "3.2.1"
 rosetta-crypto = { path = "../rosetta-crypto" }
 rosetta-types = { path = "../rosetta-types" }
-serde = "1.0.149"
-serde_json = "1.0.89"
+serde = "1.0.151"
+serde_json = "1.0.91"
 sp-keyring = "7.0.0"
 subxt = "0.25.0"
-syn = "1.0.105"
+syn = "1.0.107"
 tide = "0.16.0"

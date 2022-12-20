@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.65"
+anyhow = "1.0.68"
 clap = { version = "4.0.29", features = ["derive"] }
 rosetta-client = { path = "../rosetta-client" }
 rosetta-types = { path = "../rosetta-types" }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 tide = "0.16.0"
-tokio = { version = "1.21.2", features = ["full"] }
+tokio = { version = "1.23.0", features = ["full"] }
 tracing-subscriber = "0.3.16"

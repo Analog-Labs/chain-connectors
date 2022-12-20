@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = "1.0.68"
 bech32 = "0.9.1"
 blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
@@ -19,7 +19,7 @@ rust-bip39 = "1.0.0"
 schnorrkel = "0.10.2"
 sha2 = "0.10.6"
 sha3 = "0.10.6"
-ss58-registry = "1.35.0"
+ss58-registry = "1.36.0"
 substrate-bip39 = "0.4.4"
 
 [dev-dependencies]
