@@ -23,21 +23,20 @@ cargo install --path rosetta-wallet
 
 ### Bitcoin example
 ```
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/alice faucet 1000
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/alice balance
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/bob account
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/alice transfer bcrt1qsvxky70j0xfp3gvz6706wdy9my3xmtu38kuu3h 1000
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/alice faucet 1
-rosetta-wallet --url http://localhost:8080 --chain btc --keyfile /tmp/bob balance
+rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1000
+rosetta-wallet --chain btc --keyfile /tmp/bob account
+rosetta-wallet --chain btc --keyfile /tmp/alice transfer bob_acc_key 1000
+rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1
+rosetta-wallet --chain btc --keyfile /tmp/bob balance
 ```
 
 ### Ethereum example
 ```
-rosetta-wallet --url http://localhost:8081 --chain eth --keyfile /tmp/alice faucet 10000000000000000000
-rosetta-wallet --url http://localhost:8081 --chain eth --keyfile /tmp/alice balance
-rosetta-wallet --url http://localhost:8081 --chain eth --keyfile /tmp/bob account
-rosetta-wallet --url http://localhost:8081 --chain eth --keyfile /tmp/alice transfer 0x4f8A0B34641521705943D70e08Ae7D5Cf441f0a3 1000000000
-rosetta-wallet --url http://localhost:8081 --chain eth --keyfile /tmp/bob balance
+rosetta-wallet --chain eth --keyfile /tmp/alice faucet 100000000000000
+rosetta-wallet --chain eth --keyfile /tmp/alice balance
+rosetta-wallet --chain eth --keyfile /tmp/bob account
+rosetta-wallet --chain eth --keyfile /tmp/alice transfer bob_acc_key 10000000000000
+rosetta-wallet --chain eth --keyfile /tmp/bob balance
 ```
 
 ### Substrate example
