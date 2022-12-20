@@ -236,11 +236,25 @@ fn find_utxo_transfer_operation(operations: Vec<Operation>) -> bool {
     for op in operations {
         if op.r#type.to_lowercase().contains("input") {
             if let Some(amount) = op.amount {
-                input_amount += amount.value.parse::<i128>().unwrap().abs();
+                match amount.value.parse::<i128>() {
+                    Ok(e) => {
+                        input_amount += e.abs();
+                    }
+                    Err(_) => {
+                        return false;
+                    }
+                };
             }
         } else if op.r#type.to_lowercase().contains("output") {
             if let Some(amount) = op.amount {
-                output_amount += amount.value.parse::<i128>().unwrap().abs();
+                match amount.value.parse::<i128>() {
+                    Ok(e) => {
+                        output_amount += e.abs();
+                    }
+                    Err(_) => {
+                        return false;
+                    }
+                };
             }
         }
     }
