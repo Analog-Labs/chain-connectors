@@ -28,3 +28,73 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+  play:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Install llvm
+      run: sudo apt-get update && sudo apt-get install llvm
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+
+    - name: Install xbuild
+      uses: rust-mobile/setup-xbuild-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build android
+      run: x build --platform android --arch arm64 --release
+      working-directory: dioxus-wallet
+
+    - name: Install key
+      run: echo "${{ secrets.JAVA_KEYSTORE }}" | base64 -d > keystore
+
+    - name: Sign aab
+      run: jarsigner ./target/x/release/android/dioxus-wallet.aab key -keystore keystore -storepass android
+
+    - name: Upload aab
+      run: gh release upload $TAG ./target/x/release/android/dioxus-wallet.aab -R Analog-Labs/rosetta-wallet
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TAG: ${{ github.event.release.tag_name }}
+
+  testflight:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Install llvm
+      run: |
+        brew install llvm
+        echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+
+    - name: Install xbuild
+      uses: rust-mobile/setup-xbuild-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build ios
+      run: x build --platform ios --arch arm64 --release
+      working-directory: dioxus-wallet
+      env:
+        X_PEM: ${{ secrets.X_PEM }}
+        X_PROVISIONING_PROFILE: ${{ secrets.X_PROVISIONING_PROFILE }}
+
+    - name: Install key
+      run: |
+        mkdir -p ~/.appstoreconnect/private_keys
+        echo "${{ secrets.APPLE_KEY }}" > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.APPLE_KEY_ID }}.p8
+
+    - name: Check ipa
+      run: xcrun altool --validate-app -f ./target/x/release/ios/arm64/dioxus-wallet.ipa -t ios --apiKey ${{ secrets.APPLE_KEY_ID }} --apiIssuer ${{ secrets.APPLE_ISSUER }}
+
+    - name: Upload ipa
+      run: xcrun altool --upload-app -f ./target/x/release/ios/arm64/dioxus-wallet.ipa -t ios --apiKey ${{ secrets.APPLE_KEY_ID }} --apiIssuer ${{ secrets.APPLE_ISSUER }}
