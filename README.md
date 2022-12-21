@@ -48,12 +48,13 @@ rosetta-wallet --chain dot --keyfile /tmp/bob balance
 ```
 
 ### Indexer example
+To Run indexer we need rosetta-server url which we need pass with --url flag and indexer url which we need pass with --indexer-url flag e.g. For local run we can use below commands
 ```
-rosetta-cli --url=http://localhost:8080 --chain=btc search --server-url=http://localhost:8083 --type=Transfer --success=true
+rosetta-cli --url=http://localhost:8080 --chain=btc search --indexer-url=http://localhost:8083 --type=Transfer --success=true
 
-rosetta-cli --url=http://localhost:8081 --chain=eth search --server-url=http://localhost:8084 --type=Transfer --success=true
+rosetta-cli --url=http://localhost:8081 --chain=eth search --indexer-url=http://localhost:8084 --type=Transfer --success=true
 
-rosetta-cli --url=http://localhost:8082 --chain=dot search --server-url=http://localhost:8085 --type=Transfer --success=true
+rosetta-cli --url=http://localhost:8082 --chain=dot search --indexer-url=http://localhost:8085 --type=Transfer --success=true
 ```
 
 ### Block Explorer

@@ -175,7 +175,7 @@ async fn main() -> Result<()> {
             println!("{:#?}", res);
         }
         Command::Search(opts) => {
-            let server_client = Client::new(&opts.server_url)?;
+            let indexer_client = Client::new(&opts.indexer_url)?;
 
             let operator = match opts.operator {
                 Some(OperatorEnum::And) => Some(Operator::And),
@@ -198,7 +198,7 @@ async fn main() -> Result<()> {
                 address: opts.address,
                 status: opts.status,
             };
-            let res = server_client.search_transactions(&req).await?;
+            let res = indexer_client.search_transactions(&req).await?;
             println!("{:#?}", res);
         }
     }
