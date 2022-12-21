@@ -55,7 +55,7 @@ jobs:
     - name: cargo clippy
       run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
 
-  dioxus-wallet:
+  dioxus-wallet-android:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
@@ -68,11 +68,30 @@ jobs:
       uses: hecrj/setup-rust-action@v1
 
     - name: Install xbuild
-      run: cargo install xbuild --git https://github.com/cloudpeers/xbuild
+      uses: rust-mobile/setup-xbuild-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build android
       run: x build --platform android --arch arm64
       working-directory: dioxus-wallet
+
+  dioxus-wallet-ios:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Install llvm
+      run: sudo apt-get update && sudo apt-get install llvm
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+
+    - name: Install xbuild
+      uses: rust-mobile/setup-xbuild-action@v1
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build ios
       run: x build --platform ios --arch arm64
