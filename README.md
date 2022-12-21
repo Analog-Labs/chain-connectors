@@ -49,9 +49,11 @@ rosetta-wallet --chain dot --keyfile /tmp/bob balance
 
 ### Indexer example
 ```
-rosetta-cli search --chain=btc --server=http://localhost:8083
-rosetta-cli search --chain=btc --server=http://localhost:8083
-rosetta-cli search --chain=btc --server=http://localhost:8083
+rosetta-cli --url=http://localhost:8080 --chain=btc search --server-url=http://localhost:8083 --type=Transfer --success=true
+
+rosetta-cli --url=http://localhost:8081 --chain=eth search --server-url=http://localhost:8084 --type=Transfer --success=true
+
+rosetta-cli --url=http://localhost:8082 --chain=dot search --server-url=http://localhost:8085 --type=Transfer --success=true
 ```
 
 ### Block Explorer
