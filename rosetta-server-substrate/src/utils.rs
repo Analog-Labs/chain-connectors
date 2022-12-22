@@ -14,6 +14,7 @@ use serde_json::json;
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use std::borrow::Borrow;
+use std::fmt::format;
 use subxt::events::EventDetails;
 use subxt::events::Events;
 use subxt::events::Phase;
@@ -27,7 +28,9 @@ use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
 use subxt::metadata::DecodeStaticType;
+use subxt::rpc::RpcParams;
 use subxt::rpc::{BlockNumber, ChainBlockExtrinsic, ChainBlockResponse};
+use subxt::rpc_params;
 use subxt::storage::address;
 use subxt::storage::address::StorageHasher;
 use subxt::storage::address::StorageMapKey;
@@ -643,6 +646,31 @@ pub async fn faucet_substrate(
     };
 
     Ok(status.extrinsic_hash())
+}
+
+pub async fn make_runtime_call(
+    api: &OnlineClient<GenericConfig>,
+    call_name: String,
+    params: Value,
+) -> Result<Vec<u8>, Error> {
+    println!("params {:?}", params);
+    let mut params_vec = RpcParams::new();
+    match params {
+        Value::Array(e) => {
+            for value in e {
+                match params_vec.push(value) {
+                    Ok(_) => {}
+                    Err(_) => {}
+                };
+            }
+        }
+        _ => {}
+    }
+    // let abc: _ = api.rpc().request(&call_name, params_vec).await;
+
+    let abc = api.metadata();
+    let data = format!("{:?}", abc);
+    Ok(Vec::new())
 }
 
 pub fn get_runtime_error(error: SubxtError) -> String {
