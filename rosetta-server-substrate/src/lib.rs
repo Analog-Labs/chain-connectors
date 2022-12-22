@@ -9,8 +9,8 @@ use rosetta_types::{
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
-    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, RuntimeCallRequest,
+    SignatureType, SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::str::FromStr;
 use std::time::Duration;
@@ -25,7 +25,7 @@ use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
     get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    resolve_block, string_to_err_response, Error, UnsignedTransactionData,
+    resolve_block, string_to_err_response, Error, UnsignedTransactionData, make_runtime_call,
 };
 
 mod utils;
@@ -114,6 +114,7 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     app.at("/search/transactions").post(search_transactions);
     app.at("/mempool").post(mempool);
     app.at("/mempool/transaction").post(mempool_transaction);
+    app.at("runtime/call").post(runtime_call);
 
     Ok(app)
 }
@@ -803,5 +804,16 @@ async fn mempool(_req: Request<State>) -> tide::Result {
 }
 
 async fn mempool_transaction(_req: Request<State>) -> tide::Result {
+    Error::NotImplemented.to_response()
+}
+
+async fn runtime_call(mut req: Request<State>) -> tide::Result {
+    let request: RuntimeCallRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    let abc = make_runtime_call(&req.state().client, request.call_name, request.params);
+
     Error::NotImplemented.to_response()
 }
