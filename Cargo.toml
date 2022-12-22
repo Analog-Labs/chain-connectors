@@ -12,9 +12,6 @@ members = [
 ]
 resolver = "2"
 
-[profile.release]
-debug = true
-
 [patch.crates-io]
 dioxus = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
 dioxus-desktop = { git = "https://github.com/dioxuslabs/dioxus", rev = "1e99e35" }
