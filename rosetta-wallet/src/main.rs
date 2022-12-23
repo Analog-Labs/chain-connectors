@@ -23,6 +23,7 @@ pub enum Command {
     Balance,
     Transfer(TransferOpts),
     Faucet(FaucetOpts),
+    Transactions(TransactionsOpts),
 }
 
 #[derive(Parser)]
@@ -34,6 +35,11 @@ pub struct TransferOpts {
 #[derive(Parser)]
 pub struct FaucetOpts {
     pub amount: u128,
+}
+
+#[derive(Parser)]
+pub struct TransactionsOpts {
+    pub indexer_url: Option<String>,
 }
 
 #[async_std::main]
@@ -135,6 +141,10 @@ async fn main() -> Result<()> {
                 };
             }
         },
+        Command::Transactions(TransactionsOpts { indexer_url }) => {
+            let transactions = wallet.transactions().await?;
+            println!("{:#?}", transactions);
+        }
     }
     Ok(())
 }
