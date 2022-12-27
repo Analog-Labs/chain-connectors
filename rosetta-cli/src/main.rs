@@ -178,7 +178,11 @@ async fn main() -> Result<()> {
             let url = if let Some(url) = search_opts.indexer_url {
                 url
             } else {
-                "".into()
+                if let Some(chain) = opts.chain {
+                    chain.indexer_url().into()
+                } else {
+                    anyhow::bail!("No indexer url provided");
+                }
             };
             let indexer_client = Client::new(&url)?;
 
