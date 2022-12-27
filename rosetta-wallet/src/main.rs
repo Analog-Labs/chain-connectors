@@ -21,9 +21,9 @@ pub enum Command {
     Pubkey,
     Account,
     Balance,
-    Transfer(TransferOpts),
     Faucet(FaucetOpts),
-    Transactions(TransactionsOpts),
+    Transfer(TransferOpts),
+    Transactions(TransactionOpts),
 }
 
 #[derive(Parser)]
@@ -38,7 +38,7 @@ pub struct FaucetOpts {
 }
 
 #[derive(Parser)]
-pub struct TransactionsOpts {
+pub struct TransactionOpts {
     pub indexer_url: Option<String>,
 }
 
@@ -141,8 +141,13 @@ async fn main() -> Result<()> {
                 };
             }
         },
-        Command::Transactions(TransactionsOpts { indexer_url }) => {
-            let transactions = wallet.transactions().await?;
+        Command::Transactions(TransactionOpts { indexer_url }) => {
+            let url = if let Some(url) = indexer_url {
+                url
+            } else {
+                opts.chain.indexer_url().to_string()
+            };
+            let transactions = wallet.transactions(&url).await?;
             println!("{:#?}", transactions);
         }
     }
