@@ -146,6 +146,14 @@ impl Chain {
         }
     }
 
+    pub fn indexer_url(self) -> &'static str {
+        match self {
+            Chain::Btc => "http://rosetta.analog.one:8083",
+            Chain::Eth => "http://rosetta.analog.one:8084",
+            Chain::Dot => "http://rosetta.analog.one:8085",
+        }
+    }
+
     pub fn config(self) -> BlockchainConfig {
         match self {
             Chain::Btc => BlockchainConfig::bitcoin_regtest(),

@@ -236,10 +236,8 @@ impl Wallet {
         Ok(resp.transaction_identifier)
     }
 
-    pub async fn transactions(&self) -> Result<SearchTransactionsResponse> {
-        // let address = &self.account().address;
-        let address = "bcrt1qzuza8w3tx06mcrzu0ycyha6rrxe2v4pc46hqr5";
-        // println!("{}", address);
+    pub async fn transactions(&self, indexer_url: &str) -> Result<SearchTransactionsResponse> {
+        let address = &self.account().address;
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network.clone(),
             operator: None,
@@ -260,7 +258,7 @@ impl Wallet {
             success: None,
         };
 
-        let client = Client::new("http://localhost:8083")?;
+        let client = Client::new(indexer_url)?;
         let request = client.search_transactions(&req).await?;
         Ok(request)
     }

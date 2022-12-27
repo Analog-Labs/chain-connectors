@@ -95,7 +95,11 @@ pub fn filter_tx(
                     }
                 }
 
-                if !match_address(&req.account_identifier, &op.account) {
+                if !match_acc_identifier(&req.account_identifier, &op.account) {
+                    continue;
+                };
+
+                if !match_address(&req.address, &op.account) {
                     continue;
                 };
 
@@ -164,7 +168,7 @@ pub fn match_operation_type(op_type: &Option<String>, received_type: &str) -> bo
     }
 }
 
-pub fn match_address(
+pub fn match_acc_identifier(
     received_acc_identifier: &Option<AccountIdentifier>,
     op_acc_identifier: &Option<AccountIdentifier>,
 ) -> bool {
@@ -173,7 +177,11 @@ pub fn match_address(
         if let Some(op_identifier) = op_acc_identifier.clone() {
             let address_match =
                 if filter_address.eq(&op_identifier.address.trim_start_matches("0x").to_string()) {
-                    true
+                    if acc_identifier.sub_account.is_some() {
+                        acc_identifier.sub_account == op_identifier.sub_account
+                    } else {
+                        true
+                    }
                 } else {
                     match op_identifier.sub_account.as_ref() {
                         Some(sub_address) => filter_address
@@ -182,6 +190,34 @@ pub fn match_address(
                     }
                 };
             address_match
+        } else {
+            false
+        }
+    } else {
+        true
+    }
+}
+
+pub fn match_address(
+    received_address: &Option<String>,
+    op_acc_identifier: &Option<AccountIdentifier>,
+) -> bool {
+    if let Some(address) = received_address {
+        let address_without_prefix = address.trim_start_matches("0x");
+        if let Some(op_identifier) = op_acc_identifier.clone() {
+            let found_address = if address_without_prefix
+                .eq(&op_identifier.address.trim_start_matches("0x").to_string())
+            {
+                true
+            } else {
+                match op_identifier.sub_account.as_ref() {
+                    Some(sub_address) => address_without_prefix
+                        .eq(&sub_address.address.trim_start_matches("0x").to_string()),
+                    None => false,
+                }
+            };
+
+            found_address
         } else {
             false
         }

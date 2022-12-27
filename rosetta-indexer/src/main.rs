@@ -5,7 +5,7 @@ use rosetta_indexer::server;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt::init();
+    femme::start();
 
     let opts = IndexerArgs::parse();
 

@@ -113,7 +113,7 @@ pub enum OperatorEnum {
 #[derive(Parser)]
 pub struct SearchOpts {
     #[clap(long)]
-    pub indexer_url: String,
+    pub indexer_url: Option<String>,
     #[clap(flatten)]
     pub network: NetworkIdentifierOpts,
     #[clap(long, value_enum)]
