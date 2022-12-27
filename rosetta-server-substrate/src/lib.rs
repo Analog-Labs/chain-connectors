@@ -24,8 +24,9 @@ use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    resolve_block, string_to_err_response, Error, UnsignedTransactionData, make_runtime_call,
+    get_runtime_error, get_storage_hash, get_transaction_detail, get_transfer_payload,
+    get_unix_timestamp, make_runtime_call, resolve_block, string_to_err_response, Error,
+    UnsignedTransactionData,
 };
 
 mod utils;
@@ -813,7 +814,24 @@ async fn runtime_call(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let abc = make_runtime_call(&req.state().client, request.call_name, request.params);
+    /// Step: 1 getting storage hash
+    // let storage_hash = match get_storage_hash(
+    //     &req.state().client,
+    //     &request.pallet_name,
+    //     &request.call_name,
+    // ) {
+    //     Ok(hash) => hash,
+    //     Err(error) => {
+    //         return string_to_err_response(error);
+    //     }
+    // };
+    let abc = make_runtime_call(
+        &req.state().client,
+        &request.pallet_name,
+        &request.call_name,
+        &request.params,
+    )
+    .await;
 
     Error::NotImplemented.to_response()
 }
