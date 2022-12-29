@@ -161,7 +161,7 @@ async fn main() -> Result<()> {
                         println!("from        | {}", metadata["from"]);
                         println!("to          | {}", metadata["to"]);
                         println!("amount      | {}", metadata["amount"]);
-                    }else {
+                    } else {
                         println!("No transaction metadata found");
                     }
                 }
