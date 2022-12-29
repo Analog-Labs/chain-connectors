@@ -152,10 +152,7 @@ async fn main() -> Result<()> {
                 println!("No transactions found");
                 return Ok(());
             } else {
-                println!(
-                    "{: <10} | {: <20} | {: <50}",
-                    "Block", "Amount", "Account"
-                );
+                println!("{: <10} | {: <20} | {: <50}", "Block", "Amount", "Account");
                 for tx in transactions.transactions.iter() {
                     if let Some(metadata) = tx.transaction.metadata.clone() {
                         let (account, amount) =
