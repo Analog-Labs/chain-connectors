@@ -8,7 +8,7 @@ android:
   - 'androidx.camera:camera-view:1.1.0'
   - 'com.google.mlkit:barcode-scanning:17.0.2'
   manifest:
-    package: one.analog.wallet
+    #package: one.analog.wallet
     application:
       activities:
       - name: .MainActivity
