@@ -152,15 +152,30 @@ async fn main() -> Result<()> {
                 println!("No transactions found");
                 return Ok(());
             } else {
+                println!(
+                    "{: <10} | {: <20} | {: <50}",
+                    "Block", "Amount", "Account"
+                );
                 for tx in transactions.transactions.iter() {
                     if let Some(metadata) = tx.transaction.metadata.clone() {
+                        let (account, amount) =
+                            if metadata["from"].to_string().trim_start_matches("0x")
+                                == wallet.account().address.trim_start_matches("0x")
+                            {
+                                (
+                                    format!("{}", metadata["to"]),
+                                    format!("-{}", metadata["amount"]),
+                                )
+                            } else {
+                                (
+                                    format!("{}", metadata["from"]),
+                                    format!("{}", metadata["amount"]),
+                                )
+                            };
                         println!(
-                            "+----------------------------------------------------------------+"
+                            "{: <10} | {: <20} | {: <50}",
+                            tx.block_identifier.index, amount, account
                         );
-                        println!("block_index | {}", tx.block_identifier.index);
-                        println!("from        | {}", metadata["from"]);
-                        println!("to          | {}", metadata["to"]);
-                        println!("amount      | {}", metadata["amount"]);
                     }
                 }
             }
