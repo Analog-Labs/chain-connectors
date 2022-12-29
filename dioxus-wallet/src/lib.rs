@@ -16,15 +16,18 @@ mod worker;
 #[cfg(target_os = "android")]
 #[no_mangle]
 pub extern "C" fn start_app() {
-    use wry::android_binding;
-
     android_logger::init_once(
         android_logger::Config::default()
             .with_min_level(log::Level::Trace)
             .with_tag("dioxus_wallet"),
     );
 
-    android_binding!(com_example, dioxus_1wallet, _start_app);
+    dioxus_desktop::wry::android_binding!(
+        com_example,
+        dioxus_1wallet,
+        _start_app,
+        dioxus_desktop::wry
+    );
 }
 
 #[cfg(target_os = "android")]

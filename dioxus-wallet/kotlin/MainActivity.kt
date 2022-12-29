@@ -1,4 +1,4 @@
-package one.analog.wallet
+package com.example.dioxus_wallet
 
 import android.app.Activity
 import android.content.Intent
