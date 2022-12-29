@@ -148,14 +148,23 @@ async fn main() -> Result<()> {
                 opts.chain.indexer_url().to_string()
             };
             let transactions = wallet.transactions(&url).await?;
-
-            for tx in transactions.transactions.iter() {
-                let metadata = tx.transaction.metadata.clone().unwrap();
-                println!("+----------------------------------------------------------------+");
-                println!("block_index | {}", tx.block_identifier.index);
-                println!("from        | {}", metadata["from"]);
-                println!("to          | {}", metadata["to"]);
-                println!("amount      | {}", metadata["amount"]);
+            if transactions.transactions.is_empty() {
+                println!("No transactions found");
+                return Ok(());
+            } else {
+                for tx in transactions.transactions.iter() {
+                    if let Some(metadata) = tx.transaction.metadata.clone() {
+                        println!(
+                            "+----------------------------------------------------------------+"
+                        );
+                        println!("block_index | {}", tx.block_identifier.index);
+                        println!("from        | {}", metadata["from"]);
+                        println!("to          | {}", metadata["to"]);
+                        println!("amount      | {}", metadata["amount"]);
+                    }else {
+                        println!("No transaction metadata found");
+                    }
+                }
             }
         }
     }
