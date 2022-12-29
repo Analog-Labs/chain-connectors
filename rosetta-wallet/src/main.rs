@@ -148,7 +148,15 @@ async fn main() -> Result<()> {
                 opts.chain.indexer_url().to_string()
             };
             let transactions = wallet.transactions(&url).await?;
-            println!("{:#?}", transactions);
+
+            for tx in transactions.transactions.iter() {
+                let metadata = tx.transaction.metadata.clone().unwrap();
+                println!("+----------------------------------------------------------------+");
+                println!("block_index | {}", tx.block_identifier.index);
+                println!("from        | {}", metadata["from"]);
+                println!("to          | {}", metadata["to"]);
+                println!("amount      | {}", metadata["amount"]);
+            }
         }
     }
     Ok(())

@@ -237,7 +237,6 @@ impl Wallet {
     }
 
     pub async fn transactions(&self, indexer_url: &str) -> Result<SearchTransactionsResponse> {
-        let address = &self.account().address;
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network.clone(),
             operator: None,
@@ -245,11 +244,7 @@ impl Wallet {
             offset: None,
             limit: None,
             transaction_identifier: None,
-            account_identifier: Some(AccountIdentifier {
-                address: address.to_string(),
-                sub_account: None,
-                metadata: None,
-            }),
+            account_identifier: Some(self.account.clone()),
             coin_identifier: None,
             currency: None,
             status: None,
