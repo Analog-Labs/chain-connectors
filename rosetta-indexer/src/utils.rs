@@ -118,10 +118,16 @@ pub fn filter_tx(
                     transaction_identifier: tx.transaction_identifier,
                     operations: vec_of_operations,
                     related_transactions: None,
-                    metadata: Some(json!({"Success": !tx_failed})),
+                    metadata: None,
                 };
-                let metadata = json!({"from": basic_tx_details.sender, "to": basic_tx_details.receiver, "amount": basic_tx_details.amount,"Success": !tx_failed});
-                transaction.metadata = Some(metadata);
+
+                if !basic_tx_details.sender.is_empty()
+                    && !basic_tx_details.receiver.is_empty()
+                    && !basic_tx_details.amount.is_empty()
+                {
+                    let metadata = json!({"from": basic_tx_details.sender, "to": basic_tx_details.receiver, "amount": basic_tx_details.amount,"Success": !tx_failed});
+                    transaction.metadata = Some(metadata);
+                }
 
                 vec_of_extrinsics.push(transaction);
             }
@@ -344,20 +350,21 @@ fn get_basic_details_from_event(tx: &Transaction) -> TransferStruct {
                 .iter()
                 .find(|op| op.r#type.to_lowercase().contains("input"));
             if let Some(op) = transfer_operation {
-                sender = op.account.clone().unwrap_or_default().address;
-            }
-
-            let transfer_operation = tx
-                .operations
-                .iter()
-                .filter(|op| op.r#type.to_lowercase().contains("output"))
-                .collect::<Vec<&Operation>>();
-            if transfer_operation.len() == 2 {
-                for tx in transfer_operation {
-                    let temp_receiver = tx.account.clone().unwrap_or_default().address;
-                    if temp_receiver != sender {
-                        receiver = temp_receiver;
-                        amount = tx.amount.clone().unwrap_or_default().value;
+                if let Some(tx_sender) = op.account.clone() {
+                    sender = tx_sender.address;
+                    let transfer_operation = tx
+                        .operations
+                        .iter()
+                        .filter(|op| op.r#type.to_lowercase().contains("output"))
+                        .collect::<Vec<&Operation>>();
+                    if transfer_operation.len() == 2 {
+                        for tx in transfer_operation {
+                            let temp_receiver = tx.account.clone().unwrap_or_default().address;
+                            if temp_receiver != sender {
+                                receiver = temp_receiver;
+                                amount = tx.amount.clone().unwrap_or_default().value;
+                            }
+                        }
                     }
                 }
             }
