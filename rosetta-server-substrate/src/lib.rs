@@ -24,9 +24,8 @@ use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_runtime_error, get_storage_hash, get_transaction_detail, get_transfer_payload,
-    get_unix_timestamp, make_runtime_call, resolve_block, string_to_err_response, Error,
-    UnsignedTransactionData,
+    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    make_runtime_call, resolve_block, string_to_err_response, Error, UnsignedTransactionData,
 };
 
 mod utils;
@@ -808,23 +807,32 @@ async fn mempool_transaction(_req: Request<State>) -> tide::Result {
     Error::NotImplemented.to_response()
 }
 
+async fn runtime_data(mut req: Request<State>) -> tide::Result {
+    let request: RuntimeCallRequest = req.body_json().await?;
+
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+
+    let abc = make_runtime_call(
+        &req.state().client,
+        &request.pallet_name,
+        &request.call_name,
+        &request.params,
+    )
+    .await;
+    // let value = subxt::dynamic::Value::;
+    let tx = subxt::dynamic::tx(&request.pallet_name, &request.call_name, fields);
+
+    Error::NotImplemented.to_response()
+}
+
 async fn runtime_call(mut req: Request<State>) -> tide::Result {
     let request: RuntimeCallRequest = req.body_json().await?;
     if request.network_identifier != req.state().network {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    /// Step: 1 getting storage hash
-    // let storage_hash = match get_storage_hash(
-    //     &req.state().client,
-    //     &request.pallet_name,
-    //     &request.call_name,
-    // ) {
-    //     Ok(hash) => hash,
-    //     Err(error) => {
-    //         return string_to_err_response(error);
-    //     }
-    // };
     let abc = make_runtime_call(
         &req.state().client,
         &request.pallet_name,

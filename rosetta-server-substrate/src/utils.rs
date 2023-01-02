@@ -648,6 +648,12 @@ pub async fn faucet_substrate(
     Ok(status.extrinsic_hash())
 }
 
+pub async fn make_runtime_call_data(api: &OnlineClient<GenericConfig>, pallet_name: &str, call_name: &str) {
+
+    let metadata = api.metadata();
+
+}
+
 pub async fn make_runtime_call(
     api: &OnlineClient<GenericConfig>,
     pallet_name: &str,
@@ -671,49 +677,16 @@ pub async fn make_runtime_call(
     let pallet = metadata.pallet(pallet_name).unwrap();
     let pallet_index = pallet.index();
     let call_index = pallet.call_index(call_name).unwrap();
-    let event_metadata = match metadata.event(pallet_index, call_index){
+    let event_metadata = match metadata.event(pallet_index, call_index) {
         Ok(event_metadata) => event_metadata,
-        Err(_) => return Err(Error::InvalidMetadata)
+        Err(_) => return Err(Error::InvalidMetadata),
     };
 
     println!("event_metadaa {:?}", event_metadata);
 
-    // let runtime_metadata = metadata.runtime_metadata();
-    // let pallet = runtime_metadata
-    //     .pallets
-    //     .iter()
-    //     .find(|data| data.name.eq(pallet_name))
-    //     .unwrap();
-
-    // let abcd = pallet.event.clone().unwrap().ty;
-    // println!("{:?}", abcd);
-
-
-    
-
-    // let call_data = pallet.calls.iter().find(|data| data.eq(call_name)).unwrap();
-
-    // let types = abc.types();
-    // let data = format!("{:?}", abc);
+    let types = metadata.types();
     let _tmp_breakpoint = "tmp";
     Ok(Vec::new())
-}
-
-pub fn get_storage_hash<T>(
-    client: &OnlineClient<T>,
-    call_name: &str,
-    pallet_name: &str,
-) -> Result<[u8; 32], String>
-where
-    T: Config,
-{
-    let metadata = client.metadata();
-    let storage_hash = match metadata.call_hash(call_name, pallet_name) {
-        Ok(storage_hash) => storage_hash,
-        Err(e) => return Err(e.to_string()),
-    };
-
-    Ok(storage_hash)
 }
 
 pub fn get_runtime_error(error: SubxtError) -> String {
