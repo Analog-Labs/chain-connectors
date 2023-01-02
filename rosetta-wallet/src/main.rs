@@ -21,8 +21,9 @@ pub enum Command {
     Pubkey,
     Account,
     Balance,
-    Transfer(TransferOpts),
     Faucet(FaucetOpts),
+    Transfer(TransferOpts),
+    Transactions(TransactionOpts),
 }
 
 #[derive(Parser)]
@@ -34,6 +35,11 @@ pub struct TransferOpts {
 #[derive(Parser)]
 pub struct FaucetOpts {
     pub amount: u128,
+}
+
+#[derive(Parser)]
+pub struct TransactionOpts {
+    pub indexer_url: Option<String>,
 }
 
 #[async_std::main]
@@ -135,6 +141,42 @@ async fn main() -> Result<()> {
                 };
             }
         },
+        Command::Transactions(TransactionOpts { indexer_url }) => {
+            let url = if let Some(url) = indexer_url {
+                url
+            } else {
+                opts.chain.indexer_url().to_string()
+            };
+            let transactions = wallet.transactions(&url).await?;
+            if transactions.transactions.is_empty() {
+                println!("No transactions found");
+                return Ok(());
+            } else {
+                println!("{: <10} | {: <20} | {: <50}", "Block", "Amount", "Account");
+                for tx in transactions.transactions.iter() {
+                    if let Some(metadata) = tx.transaction.metadata.clone() {
+                        let (account, amount) =
+                            if metadata["from"].to_string().trim_start_matches("0x")
+                                == wallet.account().address.trim_start_matches("0x")
+                            {
+                                (
+                                    format!("{}", metadata["to"]),
+                                    format!("-{}", metadata["amount"]),
+                                )
+                            } else {
+                                (
+                                    format!("{}", metadata["from"]),
+                                    format!("{}", metadata["amount"]),
+                                )
+                            };
+                        println!(
+                            "{: <10} | {: <20} | {: <50}",
+                            tx.block_identifier.index, amount, account
+                        );
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }

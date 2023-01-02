@@ -6,6 +6,7 @@ use rosetta_types::{
     Currency, NetworkIdentifier, Operation, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
+use serde_json::json;
 use surf::Body;
 use tide::Response;
 
@@ -65,6 +66,7 @@ pub fn filter_tx(
     if let Some(block) = block_response.block.clone() {
         for tx in block.transactions {
             let mut vec_of_operations = vec![];
+            let basic_tx_details = get_basic_details_from_event(&tx);
 
             if !match_tx_id(&req.transaction_identifier, &tx.transaction_identifier.hash) {
                 continue;
@@ -75,7 +77,8 @@ pub fn filter_tx(
                 None => continue,
             };
 
-            if !match_success(&last_event.r#type, req.success) {
+            let tx_failed = last_event.r#type.to_lowercase().contains("fail");
+            if !match_success(tx_failed, req.success) {
                 continue;
             }
 
@@ -95,7 +98,11 @@ pub fn filter_tx(
                     }
                 }
 
-                if !match_address(&req.account_identifier, &op.account) {
+                if !match_acc_identifier(&req.account_identifier, &op.account) {
+                    continue;
+                };
+
+                if !match_address(&req.address, &op.account) {
                     continue;
                 };
 
@@ -107,12 +114,21 @@ pub fn filter_tx(
             }
 
             if !vec_of_operations.is_empty() {
-                let transaction = Transaction {
+                let mut transaction = Transaction {
                     transaction_identifier: tx.transaction_identifier,
                     operations: vec_of_operations,
                     related_transactions: None,
                     metadata: None,
                 };
+
+                if !basic_tx_details.sender.is_empty()
+                    && !basic_tx_details.receiver.is_empty()
+                    && !basic_tx_details.amount.is_empty()
+                {
+                    let metadata = json!({"from": basic_tx_details.sender, "to": basic_tx_details.receiver, "amount": basic_tx_details.amount,"Success": !tx_failed});
+                    transaction.metadata = Some(metadata);
+                }
+
                 vec_of_extrinsics.push(transaction);
             }
         }
@@ -141,8 +157,7 @@ pub fn match_tx_id(tx_identifier: &Option<TransactionIdentifier>, received_tx: &
     }
 }
 
-pub fn match_success(tx_success: &str, received_success: Option<bool>) -> bool {
-    let tx_success_status = tx_success.to_lowercase().contains("fail");
+pub fn match_success(tx_success_status: bool, received_success: Option<bool>) -> bool {
     if let Some(success) = received_success {
         if success {
             !tx_success_status
@@ -164,7 +179,7 @@ pub fn match_operation_type(op_type: &Option<String>, received_type: &str) -> bo
     }
 }
 
-pub fn match_address(
+pub fn match_acc_identifier(
     received_acc_identifier: &Option<AccountIdentifier>,
     op_acc_identifier: &Option<AccountIdentifier>,
 ) -> bool {
@@ -173,7 +188,11 @@ pub fn match_address(
         if let Some(op_identifier) = op_acc_identifier.clone() {
             let address_match =
                 if filter_address.eq(&op_identifier.address.trim_start_matches("0x").to_string()) {
-                    true
+                    if acc_identifier.sub_account.is_some() {
+                        acc_identifier.sub_account == op_identifier.sub_account
+                    } else {
+                        true
+                    }
                 } else {
                     match op_identifier.sub_account.as_ref() {
                         Some(sub_address) => filter_address
@@ -182,6 +201,34 @@ pub fn match_address(
                     }
                 };
             address_match
+        } else {
+            false
+        }
+    } else {
+        true
+    }
+}
+
+pub fn match_address(
+    received_address: &Option<String>,
+    op_acc_identifier: &Option<AccountIdentifier>,
+) -> bool {
+    if let Some(address) = received_address {
+        let address_without_prefix = address.trim_start_matches("0x");
+        if let Some(op_identifier) = op_acc_identifier.clone() {
+            let found_address = if address_without_prefix
+                .eq(&op_identifier.address.trim_start_matches("0x").to_string())
+            {
+                true
+            } else {
+                match op_identifier.sub_account.as_ref() {
+                    Some(sub_address) => address_without_prefix
+                        .eq(&sub_address.address.trim_start_matches("0x").to_string()),
+                    None => false,
+                }
+            };
+
+            found_address
         } else {
             false
         }
@@ -260,4 +307,78 @@ fn find_utxo_transfer_operation(operations: Vec<Operation>) -> bool {
     }
 
     (input_amount > 0 && output_amount > 0) && (input_amount - output_amount).abs() < 1000
+}
+
+fn get_basic_details_from_event(tx: &Transaction) -> TransferStruct {
+    let mut sender: String = "".into();
+    let mut receiver: String = "".into();
+    let mut amount = "".into();
+
+    let transfer_operation = tx
+        .operations
+        .iter()
+        .find(|op| op.r#type.to_lowercase().contains("transfer"));
+    if let Some(op) = transfer_operation {
+        if let Some(value) = op.amount.clone() {
+            amount = value.value;
+        }
+        if let Some(tx_sender) = op.account.clone() {
+            sender = tx_sender.address;
+            receiver = tx_sender.sub_account.unwrap_or_default().address;
+        }
+    } else {
+        let transfer_operation: Vec<&Operation> = tx
+            .operations
+            .iter()
+            .filter(|op| op.r#type.to_lowercase().contains("call"))
+            .collect::<_>();
+
+        if transfer_operation.len() == 2 {
+            for tx in transfer_operation.iter() {
+                if let Some(value) = tx.amount.clone() {
+                    if !value.value.contains('-') {
+                        amount = value.value;
+                        receiver = tx.account.clone().unwrap_or_default().address;
+                    } else {
+                        sender = tx.account.clone().unwrap_or_default().address;
+                    }
+                }
+            }
+        } else {
+            let transfer_operation = tx
+                .operations
+                .iter()
+                .find(|op| op.r#type.to_lowercase().contains("input"));
+            if let Some(op) = transfer_operation {
+                if let Some(tx_sender) = op.account.clone() {
+                    sender = tx_sender.address;
+                    let transfer_operation = tx
+                        .operations
+                        .iter()
+                        .filter(|op| op.r#type.to_lowercase().contains("output"))
+                        .collect::<Vec<&Operation>>();
+                    if transfer_operation.len() == 2 {
+                        for tx in transfer_operation {
+                            let temp_receiver = tx.account.clone().unwrap_or_default().address;
+                            if temp_receiver != sender {
+                                receiver = temp_receiver;
+                                amount = tx.amount.clone().unwrap_or_default().value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    TransferStruct {
+        sender,
+        receiver,
+        amount,
+    }
+}
+
+pub struct TransferStruct {
+    pub sender: String,
+    pub receiver: String,
+    pub amount: String,
 }

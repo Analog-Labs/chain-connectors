@@ -174,29 +174,36 @@ async fn main() -> Result<()> {
             let res = client.events_blocks(&req).await?;
             println!("{:#?}", res);
         }
-        Command::Search(opts) => {
-            let indexer_client = Client::new(&opts.indexer_url)?;
+        Command::Search(search_opts) => {
+            let url = if let Some(url) = search_opts.indexer_url {
+                url
+            } else if let Some(chain) = opts.chain {
+                chain.indexer_url().into()
+            } else {
+                anyhow::bail!("No indexer url provided");
+            };
+            let indexer_client = Client::new(&url)?;
 
-            let operator = match opts.operator {
+            let operator = match search_opts.operator {
                 Some(OperatorEnum::And) => Some(Operator::And),
                 Some(OperatorEnum::Or) => Some(Operator::Or),
                 None => None,
             };
 
             let req = SearchTransactionsRequest {
-                network_identifier: network_identifier(&client, &opts.network).await?,
-                max_block: opts.max_block,
-                offset: opts.offset,
-                limit: opts.limit,
-                transaction_identifier: opts.transaction.transaction_identifier(),
-                account_identifier: opts.account.account_identifier(),
-                r#type: opts.r#type,
-                success: opts.success,
+                network_identifier: network_identifier(&client, &search_opts.network).await?,
+                max_block: search_opts.max_block,
+                offset: search_opts.offset,
+                limit: search_opts.limit,
+                transaction_identifier: search_opts.transaction.transaction_identifier(),
+                account_identifier: search_opts.account.account_identifier(),
+                r#type: search_opts.r#type,
+                success: search_opts.success,
                 operator,
-                coin_identifier: opts.coin.coin_identifier(),
-                currency: opts.currency.currency_identifier(),
-                address: opts.address,
-                status: opts.status,
+                coin_identifier: search_opts.coin.coin_identifier(),
+                currency: search_opts.currency.currency_identifier(),
+                address: search_opts.address,
+                status: search_opts.status,
             };
             let res = indexer_client.search_transactions(&req).await?;
             println!("{:#?}", res);

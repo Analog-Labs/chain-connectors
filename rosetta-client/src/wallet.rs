@@ -11,7 +11,7 @@ use crate::types::{
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
-use rosetta_types::AccountFaucetRequest;
+use rosetta_types::{AccountFaucetRequest, SearchTransactionsRequest, SearchTransactionsResponse};
 use serde_json::Value;
 
 pub struct Wallet {
@@ -234,5 +234,27 @@ impl Wallet {
 
         let resp = self.client.account_faucet(&req).await?;
         Ok(resp.transaction_identifier)
+    }
+
+    pub async fn transactions(&self, indexer_url: &str) -> Result<SearchTransactionsResponse> {
+        let req = SearchTransactionsRequest {
+            network_identifier: self.config().network.clone(),
+            operator: None,
+            max_block: None,
+            offset: None,
+            limit: None,
+            transaction_identifier: None,
+            account_identifier: Some(self.account.clone()),
+            coin_identifier: None,
+            currency: None,
+            status: None,
+            r#type: None,
+            address: None,
+            success: None,
+        };
+
+        let client = Client::new(indexer_url)?;
+        let request = client.search_transactions(&req).await?;
+        Ok(request)
     }
 }
