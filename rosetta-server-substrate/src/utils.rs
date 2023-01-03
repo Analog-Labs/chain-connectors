@@ -14,7 +14,7 @@ use serde_json::json;
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use std::borrow::Borrow;
-use std::fmt::format;
+use subxt::dynamic::Value as SubxtValue;
 use subxt::events::EventDetails;
 use subxt::events::Events;
 use subxt::events::Phase;
@@ -35,6 +35,7 @@ use subxt::storage::address;
 use subxt::storage::address::StorageHasher;
 use subxt::storage::address::StorageMapKey;
 use subxt::storage::StaticStorageAddress;
+use subxt::tx::DynamicTxPayload;
 use subxt::tx::PairSigner;
 use subxt::tx::StaticTxPayload;
 use subxt::tx::{ExtrinsicParams, TxPayload};
@@ -648,10 +649,39 @@ pub async fn faucet_substrate(
     Ok(status.extrinsic_hash())
 }
 
-pub async fn make_runtime_call_data(api: &OnlineClient<GenericConfig>, pallet_name: &str, call_name: &str) {
+pub fn get_runtime_call_data<'a>(
+    pallet_name: &'a str,
+    call_name: &'a str,
+    params: Value,
+) -> Result<DynamicTxPayload<'a>, Error> {
+    let mut params_vec: Vec<SubxtValue> = vec![];
+    update_params_list(params, &mut params_vec)?;
+    let tx = subxt::dynamic::tx(pallet_name, call_name, params_vec);
+    Ok(tx)
+}
 
-    let metadata = api.metadata();
+fn update_params_list(val: Value, params_list: &mut Vec<SubxtValue>) -> Result<(), Error> {
+    match val {
+        Value::Array(e) => {
+            for value in e {
+                update_params_list(value, params_list)?;
+            }
+        }
+        Value::Null => {}
+        Value::Bool(val) => params_list.push(SubxtValue::bool(val)),
+        Value::Number(val) => {
+            let number_string = val.to_string();
+            let number_i128 = match number_string.parse::<u128>() {
+                Ok(val) => val,
+                Err(_) => return Err(Error::InvalidParams),
+            };
+            params_list.push(SubxtValue::u128(number_i128))
+        }
+        Value::String(val) => params_list.push(SubxtValue::string(val)),
+        Value::Object(val) => {}
+    }
 
+    Ok(())
 }
 
 pub async fn make_runtime_call(
