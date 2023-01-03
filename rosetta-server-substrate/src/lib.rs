@@ -24,8 +24,9 @@ use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
-    make_runtime_call, resolve_block, string_to_err_response, Error, UnsignedTransactionData,
+    get_runtime_call_data, get_runtime_error, get_transaction_detail, get_transfer_payload,
+    get_unix_timestamp, make_runtime_call, resolve_block, string_to_err_response, Error,
+    UnsignedTransactionData,
 };
 
 mod utils;
@@ -114,6 +115,7 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     app.at("/search/transactions").post(search_transactions);
     app.at("/mempool").post(mempool);
     app.at("/mempool/transaction").post(mempool_transaction);
+    app.at("runtime/data").post(runtime_data);
     app.at("runtime/call").post(runtime_call);
 
     Ok(app)
@@ -814,17 +816,26 @@ async fn runtime_data(mut req: Request<State>) -> tide::Result {
         return Error::UnsupportedNetwork.to_response();
     }
 
-    let abc = make_runtime_call(
-        &req.state().client,
-        &request.pallet_name,
-        &request.call_name,
-        &request.params,
-    )
-    .await;
-    // let value = subxt::dynamic::Value::;
-    let tx = subxt::dynamic::tx(&request.pallet_name, &request.call_name, fields);
+    let dynamic_tx_payload =
+        match get_runtime_call_data(&request.pallet_name, &request.call_name, request.params) {
+            Ok(dynamic_tx_payload) => dynamic_tx_payload,
+            Err(error) => {
+                return error.to_response();
+            }
+        };
 
-    Error::NotImplemented.to_response()
+    // dynamic_tx_payload.
+    let response_value = dynamic_tx_payload.into_value();
+    let response_hex = response_value.as_str();
+    let abc = 1;
+    // let response = TransactionIdentifierResponse {
+    //     transaction_identifier: TransactionIdentifier { hash: tx_hash },
+    //     metadata: None,
+    // };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&"")?)
+        .build())
 }
 
 async fn runtime_call(mut req: Request<State>) -> tide::Result {
