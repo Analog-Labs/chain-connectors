@@ -6,10 +6,10 @@ use dioxus_router::use_router;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Recv(cx: Scope) -> Element {
-    let chain = use_chain_from_route(&cx);
+    let chain = use_chain_from_route(cx);
     let info = chain.info();
-    let state = chain.use_state(&cx).read();
-    let router = use_router(&cx);
+    let state = chain.use_state(cx).read();
+    let router = use_router(cx);
     cx.render(rsx! {
         div {
             class: "main-container",

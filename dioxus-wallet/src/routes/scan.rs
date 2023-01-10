@@ -16,11 +16,11 @@ pub fn ScanCode<'a>(cx: Scope<'a, ScanCodeProps<'a>>) -> Element {
     use crate::helpers::slice_string;
     use crate::qrcode::scan_qrcode;
     #[cfg(target_os = "ios")]
-    dioxus_desktop::use_window(&cx).pop_view();
-    let chain = use_chain_from_route(&cx).info().chain;
-    let alerts = use_atom_ref(&cx, ALERTS);
-    let router = use_router(&cx);
-    let fut = use_future(&cx, (), move |_| scan_qrcode(&cx));
+    dioxus_desktop::use_window(cx).pop_view();
+    let chain = use_chain_from_route(cx).info().chain;
+    let alerts = use_atom_ref(cx, ALERTS);
+    let router = use_router(cx);
+    let fut = use_future(cx, (), move |_| scan_qrcode(&cx));
     match fut.value() {
         Some(Ok(address)) => {
             cx.props.on_scan_result.call(slice_string(address, ":"));
@@ -37,11 +37,11 @@ pub fn ScanCode<'a>(cx: Scope<'a, ScanCodeProps<'a>>) -> Element {
 
 #[allow(non_snake_case)]
 pub fn Scan(cx: Scope) -> Element {
-    let chain = use_chain_from_route(&cx).info().chain;
-    let router = use_router(&cx);
-    let address = use_state(&cx, String::new);
-    let alerts = use_atom_ref(&cx, ALERTS);
-    let show_qr_code_scanner = use_state(&cx, || false);
+    let chain = use_chain_from_route(cx).info().chain;
+    let router = use_router(cx);
+    let address = use_state(cx, String::new);
+    let alerts = use_atom_ref(cx, ALERTS);
+    let show_qr_code_scanner = use_state(cx, || false);
     let is_mobile_device = cfg!(any(target_os = "android", target_os = "ios"));
     cx.render(rsx! {
         div {

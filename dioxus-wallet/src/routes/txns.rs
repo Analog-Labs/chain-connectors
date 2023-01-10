@@ -12,13 +12,13 @@ use fermi::*;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Txns(cx: Scope) -> Element {
-    let chain = use_chain_from_route(&cx);
+    let chain = use_chain_from_route(cx);
     let info = chain.info();
     let icon = info.icon.to_str().unwrap();
-    let state = chain.use_state(&cx).read();
-    let alerts = use_atom_ref(&cx, ALERTS);
-    let router = use_router(&cx);
-    let loader_state = use_set(&cx, LOADER).clone();
+    let state = chain.use_state(cx).read();
+    let alerts = use_atom_ref(cx, ALERTS);
+    let router = use_router(cx);
+    let loader_state = use_set(cx, LOADER).clone();
     cx.render(rsx! {
         div {
             class: "main-container",

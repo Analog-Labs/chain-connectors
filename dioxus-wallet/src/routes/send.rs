@@ -16,14 +16,14 @@ use std::rc::Rc;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Send(cx: Scope) -> Element {
-    let chain = use_chain_from_route(&cx);
+    let chain = use_chain_from_route(cx);
     let info = chain.info();
-    let amount = use_state(&cx, || BigDecimal::from(0));
-    let alerts = use_atom_ref(&cx, ALERTS).clone();
-    let router = use_router(&cx);
-    let address = use_route(&cx).segment("address").unwrap().to_string();
+    let amount = use_state(cx, || BigDecimal::from(0));
+    let alerts = use_atom_ref(cx, ALERTS).clone();
+    let router = use_router(cx);
+    let address = use_route(cx).segment("address").unwrap().to_string();
     let address = Address::new(info.config.address_format, address);
-    let loader_state = use_set(&cx, LOADER).clone();
+    let loader_state = use_set(cx, LOADER).clone();
     cx.render(rsx! {
         div {
             class: "main-container",

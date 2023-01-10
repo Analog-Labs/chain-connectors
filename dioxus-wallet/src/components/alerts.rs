@@ -27,7 +27,7 @@ pub static ALERTS: AtomRef<Vec<Alert>> = |_| vec![];
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Alerts(cx: Scope) -> Element {
-    let alerts = use_atom_ref(&cx, ALERTS);
+    let alerts = use_atom_ref(cx, ALERTS);
     cx.render(rsx! {
         div {
            class:"alert-container",

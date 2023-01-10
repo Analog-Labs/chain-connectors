@@ -5,7 +5,7 @@ use dioxus_router::use_router;
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Tokens(cx: Scope) -> Element {
-    let router = use_router(&cx);
+    let router = use_router(cx);
     cx.render(rsx! {
         div {
             class: "main-container",
