@@ -1,3 +1,4 @@
+use crate::type_helper::get_params;
 use crate::State;
 use anyhow::Result;
 use parity_scale_codec::{Decode, Encode};
@@ -25,12 +26,14 @@ use subxt::ext::scale_value::ValueDef;
 use subxt::ext::sp_core;
 use subxt::ext::sp_core::blake2_256;
 use subxt::ext::sp_core::H256;
+use subxt::ext::sp_runtime::scale_info::form::PortableForm;
+use subxt::ext::sp_runtime::scale_info::Field;
+use subxt::ext::sp_runtime::scale_info::PortableRegistry;
+use subxt::ext::sp_runtime::scale_info::TypeDef::Variant;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
 use subxt::metadata::DecodeStaticType;
-use subxt::rpc::RpcParams;
 use subxt::rpc::{BlockNumber, ChainBlockExtrinsic, ChainBlockResponse};
-use subxt::rpc_params;
 use subxt::storage::address;
 use subxt::storage::address::StorageHasher;
 use subxt::storage::address::StorageMapKey;
@@ -74,6 +77,11 @@ pub enum Error {
     EventDetailParse,
     NoBlockEvents,
     FailedTimestamp,
+    InvalidVariantID,
+    MakingCallParams,
+    InvalidPalletName,
+    ParamsLengthNotMatch,
+    InvalidCallName,
 }
 
 impl std::fmt::Display for Error {
@@ -106,6 +114,11 @@ impl std::fmt::Display for Error {
             Self::EventDetailParse => write!(f, "Event detail parse error"),
             Self::NoBlockEvents => write!(f, "No block events found"),
             Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
+            Self::InvalidVariantID => write!(f, "Invalid variant id"),
+            Self::MakingCallParams => write!(f, "Error Making call params error"),
+            Self::InvalidPalletName => write!(f, "Invalid pallet name"),
+            Self::ParamsLengthNotMatch => write!(f, "Params length does not match"),
+            Self::InvalidCallName => write!(f, "Invalid call name"),
         }
     }
 }
@@ -490,8 +503,8 @@ where
     T: Config,
 {
     let metadata = subxt.metadata();
-    let bytes = call
-        .encode_call_data(&metadata)
+    let mut bytes: Vec<u8> = vec![];
+    call.encode_call_data_to(&metadata, &mut bytes)
         .map_err(|_| Error::CouldNotSerialize)?;
 
     subxt
@@ -650,73 +663,66 @@ pub async fn faucet_substrate(
 }
 
 pub fn get_runtime_call_data<'a>(
+    subxt: &OnlineClient<GenericConfig>,
     pallet_name: &'a str,
     call_name: &'a str,
     params: Value,
 ) -> Result<DynamicTxPayload<'a>, Error> {
-    let mut params_vec: Vec<SubxtValue> = vec![];
-    update_params_list(params, &mut params_vec)?;
+    let params_vec = get_call_params(subxt, pallet_name, call_name, params)?;
     let tx = subxt::dynamic::tx(pallet_name, call_name, params_vec);
     Ok(tx)
 }
 
-fn update_params_list(val: Value, params_list: &mut Vec<SubxtValue>) -> Result<(), Error> {
-    match val {
-        Value::Array(e) => {
-            for value in e {
-                update_params_list(value, params_list)?;
-            }
-        }
-        Value::Null => {}
-        Value::Bool(val) => params_list.push(SubxtValue::bool(val)),
-        Value::Number(val) => {
-            let number_string = val.to_string();
-            let number_i128 = match number_string.parse::<u128>() {
-                Ok(val) => val,
-                Err(_) => return Err(Error::InvalidParams),
-            };
-            params_list.push(SubxtValue::u128(number_i128))
-        }
-        Value::String(val) => params_list.push(SubxtValue::string(val)),
-        Value::Object(val) => {}
-    }
-
-    Ok(())
-}
-
-pub async fn make_runtime_call(
-    api: &OnlineClient<GenericConfig>,
+fn get_call_params(
+    subxt: &OnlineClient<GenericConfig>,
     pallet_name: &str,
     call_name: &str,
-    params: &Value,
-) -> Result<Vec<u8>, Error> {
-    println!("params {:?}", params);
-    let mut params_vec = RpcParams::new();
-    match params {
-        Value::Array(e) => {
-            for value in e {
-                match params_vec.push(value) {
-                    Ok(_) => {}
-                    Err(_) => {}
-                };
-            }
-        }
-        _ => {}
-    }
-    let metadata = api.metadata();
-    let pallet = metadata.pallet(pallet_name).unwrap();
-    let pallet_index = pallet.index();
-    let call_index = pallet.call_index(call_name).unwrap();
-    let event_metadata = match metadata.event(pallet_index, call_index) {
-        Ok(event_metadata) => event_metadata,
-        Err(_) => return Err(Error::InvalidMetadata),
+    val: Value,
+) -> Result<Vec<SubxtValue>, Error> {
+    let value_vec = if let Value::Array(val_vec) = val {
+        val_vec
+    } else {
+        return Err(Error::InvalidParams);
     };
 
-    println!("event_metadaa {:?}", event_metadata);
-
+    let metadata = subxt.metadata();
     let types = metadata.types();
-    let _tmp_breakpoint = "tmp";
-    Ok(Vec::new())
+    let pallet = metadata
+        .pallet(pallet_name)
+        .map_err(|_| Error::InvalidPalletName)?;
+
+    let call_id = pallet.call_ty_id().ok_or(Error::InvalidMetadata)?;
+    let pallet_call_types = get_type(call_id, call_name, types)?;
+
+    if pallet_call_types.len() != value_vec.len() {
+        return Err(Error::ParamsLengthNotMatch);
+    }
+
+    get_params(value_vec, pallet_call_types, types)
+}
+
+fn get_type(
+    id: u32,
+    call_name: &str,
+    types: &PortableRegistry,
+) -> Result<Vec<Field<PortableForm>>, Error> {
+    let mut types_details = vec![];
+    let ty = types.resolve(id).ok_or(Error::InvalidParams)?;
+    let type_def = ty.type_def();
+
+    //fetches all the types required for this call
+    if let Variant(inner) = type_def {
+        let variant = inner
+            .variants()
+            .iter()
+            .find(|v| v.name() == call_name)
+            .ok_or(Error::InvalidCallName)?;
+        let fields = variant.fields();
+        for field in fields {
+            types_details.push(field.clone());
+        }
+    }
+    Ok(types_details)
 }
 
 pub fn get_runtime_error(error: SubxtError) -> String {
@@ -794,4 +800,11 @@ pub struct FilteredIndexData {
 pub struct EventDetailsData {
     pub op_index: usize,
     pub event_detail: EventDetails,
+}
+
+#[derive(Clone, Debug)]
+pub struct ParamsTypeDetails {
+    pub type_name: String,
+    pub param_type: Option<String>,
+    pub field_type_name: String,
 }

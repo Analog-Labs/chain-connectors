@@ -9,8 +9,8 @@ use rosetta_types::{
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, RuntimeCallRequest,
-    SignatureType, SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
+    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::str::FromStr;
 use std::time::Duration;
@@ -25,10 +25,10 @@ use tide::{Body, Request, Response};
 use utils::{
     faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
     get_runtime_call_data, get_runtime_error, get_transaction_detail, get_transfer_payload,
-    get_unix_timestamp, make_runtime_call, resolve_block, string_to_err_response, Error,
-    UnsignedTransactionData,
+    get_unix_timestamp, resolve_block, string_to_err_response, Error, UnsignedTransactionData,
 };
 
+mod type_helper;
 mod utils;
 
 pub use rosetta_crypto::address::Ss58AddressFormatRegistry;
@@ -115,8 +115,6 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     app.at("/search/transactions").post(search_transactions);
     app.at("/mempool").post(mempool);
     app.at("/mempool/transaction").post(mempool_transaction);
-    app.at("runtime/data").post(runtime_data);
-    app.at("runtime/call").post(runtime_call);
 
     Ok(app)
 }
@@ -562,74 +560,107 @@ async fn construction_payloads(mut req: Request<State>) -> tide::Result {
 
     let operations = request.operations;
 
-    if operations.len() != 2 {
-        return Error::InvalidOperationsLength.to_response();
-    }
-
-    let sender_operations = operations
-        .iter()
-        .filter(|op| {
-            op.amount
-                .as_ref()
-                .map(|amount| amount.value.parse::<i128>().unwrap_or_default() < 0)
-                .unwrap_or_default()
-        })
-        .collect::<Vec<&Operation>>();
-
-    let receiver_operations = operations
-        .iter()
-        .filter(|op| {
-            op.amount
-                .as_ref()
-                .map(|amount| amount.value.parse::<i128>().unwrap_or_default() > 0)
-                .unwrap_or_default()
-        })
-        .collect::<Vec<&Operation>>();
-
-    if sender_operations.len() != 1 || receiver_operations.len() != 1 {
-        return Error::InvalidOperationsLength.to_response();
-    }
-
-    let sender_address = match sender_operations[0].account.clone() {
-        Some(account) => account.address,
-        None => return Error::SenderNotFound.to_response(),
-    };
-
-    let receiver_address = match receiver_operations[0].account.clone() {
-        Some(account) => account.address,
-        None => return Error::ReceiverNotFound.to_response(),
-    };
-
-    let amount = receiver_operations[0]
-        .amount
-        .as_ref()
-        .map(|amount| amount.value.parse::<u128>().unwrap_or_default())
-        .unwrap_or_default();
-
-    if amount == 0 {
-        return Error::InvalidAmount.to_response();
-    }
-    let receiver_account: Result<AccountId32, Error> =
-        receiver_address.parse().map_err(|_| Error::InvalidAddress);
-    let receiver_account = match receiver_account {
-        Ok(account) => account,
-        Err(error) => {
-            return error.to_response();
+    let (payload_data, sender_address) = if !operations.is_empty() {
+        if operations.len() != 2 {
+            return Error::InvalidOperationsLength.to_response();
         }
-    };
 
-    let payload = match get_transfer_payload(
-        &req.state().client,
-        MultiAddress::Id(receiver_account),
-        amount,
-    ) {
-        Ok(payload) => payload,
-        Err(e) => return e.to_response(),
-    };
+        let sender_operations = operations
+            .iter()
+            .filter(|op| {
+                op.amount
+                    .as_ref()
+                    .map(|amount| amount.value.parse::<i128>().unwrap_or_default() < 0)
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<&Operation>>();
 
-    let payload_data = match get_call_data(&payload, &req.state().client, nonce as u32) {
-        Ok(payload_data) => payload_data,
-        Err(_) => return Error::CouldNotCreateCallData.to_response(),
+        let receiver_operations = operations
+            .iter()
+            .filter(|op| {
+                op.amount
+                    .as_ref()
+                    .map(|amount| amount.value.parse::<i128>().unwrap_or_default() > 0)
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<&Operation>>();
+
+        if sender_operations.len() != 1 || receiver_operations.len() != 1 {
+            return Error::InvalidOperationsLength.to_response();
+        }
+
+        let sender_address = match sender_operations[0].account.clone() {
+            Some(account) => account.address,
+            None => return Error::SenderNotFound.to_response(),
+        };
+
+        let receiver_address = match receiver_operations[0].account.clone() {
+            Some(account) => account.address,
+            None => return Error::ReceiverNotFound.to_response(),
+        };
+
+        let amount = receiver_operations[0]
+            .amount
+            .as_ref()
+            .map(|amount| amount.value.parse::<u128>().unwrap_or_default())
+            .unwrap_or_default();
+
+        if amount == 0 {
+            return Error::InvalidAmount.to_response();
+        }
+        let receiver_account: Result<AccountId32, Error> =
+            receiver_address.parse().map_err(|_| Error::InvalidAddress);
+        let receiver_account = match receiver_account {
+            Ok(account) => account,
+            Err(error) => {
+                return error.to_response();
+            }
+        };
+
+        let payload = match get_transfer_payload(
+            &req.state().client,
+            MultiAddress::Id(receiver_account),
+            amount,
+        ) {
+            Ok(payload) => payload,
+            Err(e) => return e.to_response(),
+        };
+
+        let payload_data = match get_call_data(&payload, &req.state().client, nonce as u32) {
+            Ok(payload_data) => payload_data,
+            Err(_) => return Error::CouldNotCreateCallData.to_response(),
+        };
+
+        (payload_data, sender_address)
+    } else {
+        let pallet_name = match metadata["pallet_name"].as_str() {
+            Some(pallet_name) => pallet_name,
+            None => return Error::InvalidParams.to_response(),
+        };
+        let call_name = match metadata["call_name"].as_str() {
+            Some(call_name) => call_name,
+            None => return Error::InvalidParams.to_response(),
+        };
+        let params = metadata["params"].clone();
+        let sender_address = match metadata["sender_address"].as_str() {
+            Some(sender_address) => sender_address,
+            None => return Error::InvalidParams.to_response(),
+        };
+        let dynamic_tx_payload =
+            match get_runtime_call_data(&req.state().client, pallet_name, call_name, params) {
+                Ok(dynamic_tx_payload) => dynamic_tx_payload,
+                Err(error) => {
+                    return error.to_response();
+                }
+            };
+
+        let payload_data =
+            match get_call_data(&dynamic_tx_payload, &req.state().client, nonce as u32) {
+                Ok(payload_data) => payload_data,
+                Err(e) => return e.to_response(),
+            };
+
+        (payload_data, sender_address.to_string())
     };
 
     let tx_hex = hex::encode(&payload_data.payload);
@@ -806,51 +837,5 @@ async fn mempool(_req: Request<State>) -> tide::Result {
 }
 
 async fn mempool_transaction(_req: Request<State>) -> tide::Result {
-    Error::NotImplemented.to_response()
-}
-
-async fn runtime_data(mut req: Request<State>) -> tide::Result {
-    let request: RuntimeCallRequest = req.body_json().await?;
-
-    if request.network_identifier != req.state().network {
-        return Error::UnsupportedNetwork.to_response();
-    }
-
-    let dynamic_tx_payload =
-        match get_runtime_call_data(&request.pallet_name, &request.call_name, request.params) {
-            Ok(dynamic_tx_payload) => dynamic_tx_payload,
-            Err(error) => {
-                return error.to_response();
-            }
-        };
-
-    // dynamic_tx_payload.
-    let response_value = dynamic_tx_payload.into_value();
-    let response_hex = response_value.as_str();
-    let abc = 1;
-    // let response = TransactionIdentifierResponse {
-    //     transaction_identifier: TransactionIdentifier { hash: tx_hash },
-    //     metadata: None,
-    // };
-
-    Ok(Response::builder(200)
-        .body(Body::from_json(&"")?)
-        .build())
-}
-
-async fn runtime_call(mut req: Request<State>) -> tide::Result {
-    let request: RuntimeCallRequest = req.body_json().await?;
-    if request.network_identifier != req.state().network {
-        return Error::UnsupportedNetwork.to_response();
-    }
-
-    let abc = make_runtime_call(
-        &req.state().client,
-        &request.pallet_name,
-        &request.call_name,
-        &request.params,
-    )
-    .await;
-
     Error::NotImplemented.to_response()
 }
