@@ -21,7 +21,7 @@ pub fn Txns(cx: Scope) -> Element {
     let alerts = use_atom_ref(&cx, ALERTS);
     let router = use_router(&cx);
     let loader_state = use_set(&cx, LOADER).clone();
-    let transactions_state: &UseRef<Vec<BlockTransaction>> = use_ref(&cx, || vec![]);
+    let transactions_state: &UseRef<Vec<BlockTransaction>> = use_ref(&cx, Vec::new);
     cx.use_hook(|| {
         let alerts = alerts.clone();
         let transactions_state = transactions_state.clone();
@@ -81,7 +81,7 @@ pub fn Txns(cx: Scope) -> Element {
                     uri: img!("send.png")
                 }
             }
-            div{
+            div {
                 class:"transaction-container",
                         TransactionList {
                             chain_state:state.clone(),
