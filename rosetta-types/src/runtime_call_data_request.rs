@@ -13,6 +13,10 @@ pub struct RuntimeCallDataRequest {
     pub call_name: String,
     #[serde(rename = "params")]
     pub params: Value,
+    #[serde(rename = "nonce")]
+    pub nonce: u64,
+    #[serde(rename = "sender_address")]
+    pub sender_address: String,
 }
 
 impl RuntimeCallDataRequest {
@@ -22,12 +26,16 @@ impl RuntimeCallDataRequest {
         pallet_name: String,
         call_name: String,
         params: Value,
+        nonce: u64,
+        sender_address: String,
     ) -> RuntimeCallDataRequest {
         RuntimeCallDataRequest {
             network_identifier,
             pallet_name,
             call_name,
             params,
+            nonce,
+            sender_address,
         }
     }
 }
