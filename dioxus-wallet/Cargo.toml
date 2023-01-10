@@ -9,22 +9,22 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.68"
 async-std = "1.12.0"
-dioxus = "0.2.4"
-dioxus-router = "0.2.3"
-fermi = "0.2.1"
+dioxus = "0.3.1"
+dioxus-router = "0.3.0"
+fermi = "0.3.0"
 futures = "0.3.25"
-fraction = { version = "0.12.2", default-features = false, features = ["with-bigint", "with-decimal"] }
+fraction = { version = "0.13.0", default-features = false, features = ["with-bigint", "with-decimal"] }
 include_dir = "0.7.3"
 lazy_static = "1.4.0"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
 rosetta-client = { path = "../rosetta-client" }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-dioxus-desktop = "0.2.3"
+dioxus-desktop = "0.3.0"
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = "=0.11.1"
+android_logger = "0.11.3"
 jni = "0.20.0"
 log = "0.4.17"
 ndk-context = "0.1.1"
@@ -41,7 +41,7 @@ image = { version = "0.23", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 console_error_panic_hook = "0.1.7"
-dioxus-web = "0.2.1"
+dioxus-web = "0.3.0"
 surf = { version = "2.3.2", default-features = false, features = ["wasm-client"] }
 wasm-logger = "0.2.0"
 

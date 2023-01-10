@@ -19,7 +19,7 @@ rust-bip39 = "1.0.0"
 schnorrkel = "0.10.2"
 sha2 = "0.10.6"
 sha3 = "0.10.6"
-ss58-registry = "1.36.0"
+ss58-registry = "1.37.0"
 substrate-bip39 = "0.4.4"
 
 [dev-dependencies]

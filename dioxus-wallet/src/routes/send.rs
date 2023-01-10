@@ -11,6 +11,7 @@ use fermi::*;
 use fraction::BigDecimal;
 use rosetta_client::crypto::address::Address;
 use rosetta_client::signer::RosettaAccount;
+use std::rc::Rc;
 
 #[allow(non_snake_case)]
 #[inline_props]
@@ -86,7 +87,7 @@ pub fn Send(cx: Scope) -> Element {
 }
 
 async fn transfer(
-    router: RouterService,
+    router: Rc<RouterService>,
     alerts: UseAtomRef<Vec<Alert>>,
     chain: Chain,
     address: Address,
