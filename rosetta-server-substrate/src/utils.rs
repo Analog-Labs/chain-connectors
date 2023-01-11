@@ -728,6 +728,8 @@ fn get_type(
 pub fn get_runtime_error(error: SubxtError) -> String {
     if let SubxtError::Runtime(subxt::error::DispatchError::Module(msg)) = error {
         msg.error
+    } else if let SubxtError::Rpc(subxt::error::RpcError::ClientError(err)) = error {
+        err.to_string()
     } else {
         format!("{}", Error::InvalidExtrinsic)
     }
