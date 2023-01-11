@@ -55,6 +55,7 @@ pub fn main() {
 }
 
 fn app(cx: Scope) -> Element {
+    fermi::use_init_atom_root(cx);
     // TODO: don't unwrap
     worker::use_chain_workers(&cx).unwrap();
     cx.render(rsx! {
