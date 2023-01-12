@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rosetta_client::Client;
 use rosetta_types::{
     AccountIdentifier, Amount, BlockIdentifier, BlockRequest, BlockResponse, BlockTransaction,
@@ -7,8 +5,7 @@ use rosetta_types::{
     TransactionIdentifier,
 };
 use serde_json::json;
-use surf::Body;
-use tide::Response;
+use std::collections::HashMap;
 
 pub struct TxIndexerProps {
     pub max_block: i64,
@@ -39,7 +36,6 @@ pub async fn get_indexed_transactions(
             let filtered_data = filter_tx(&data, &req)?;
 
             let block_hash = data.block.map(|e| e.block_identifier.hash);
-
             for tx in filtered_data {
                 let block_transaction = BlockTransaction {
                     block_identifier: BlockIdentifier {
@@ -134,19 +130,6 @@ pub fn filter_tx(
         }
     }
     Ok(vec_of_extrinsics)
-}
-
-pub fn string_to_err_response(err: String) -> tide::Result {
-    let error = rosetta_types::Error {
-        code: 500,
-        message: err,
-        description: None,
-        retriable: false,
-        details: None,
-    };
-    Ok(Response::builder(500)
-        .body(Body::from_json(&error)?)
-        .build())
 }
 
 pub fn match_tx_id(tx_identifier: &Option<TransactionIdentifier>, received_tx: &String) -> bool {
