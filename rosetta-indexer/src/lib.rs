@@ -8,7 +8,6 @@ use surf::Body;
 use tide::{Request, Response};
 use utils::{get_indexed_transactions, string_to_err_response, TxIndexerProps};
 
-pub mod args;
 mod utils;
 
 #[derive(Clone)]
