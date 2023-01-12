@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
 use rosetta_client::{Chain, Client};
 use rosetta_types::{
-    AccountIdentifier, Block, BlockIdentifier, BlockRequest, NetworkIdentifier, NetworkRequest,
-    Operator, PartialBlockIdentifier, SearchTransactionsRequest, SearchTransactionsResponse,
-    Transaction, TransactionIdentifier,
+    AccountIdentifier, Block, BlockIdentifier, BlockRequest, BlockTransaction, CoinIdentifier,
+    Currency, NetworkIdentifier, NetworkRequest, Operator, PartialBlockIdentifier,
+    SearchTransactionsRequest, SearchTransactionsResponse, Transaction, TransactionIdentifier,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -63,6 +63,13 @@ impl TransactionTable {
         Ok(())
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = Result<TransactionRef>> {
+        self.tree
+            .iter()
+            .values()
+            .map(|res| Ok(TransactionRef::from_bytes(&res?)))
+    }
+
     pub fn get(&self, tx: &TransactionIdentifier) -> Result<Option<TransactionRef>> {
         Ok(
             if let Some(value) = self.tree.get(hex::decode(&tx.hash)?)? {
@@ -79,6 +86,7 @@ impl TransactionTable {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn remove(&self, tx: &TransactionIdentifier) -> Result<()> {
         self.tree.remove(hex::decode(&tx.hash)?)?;
         Ok(())
@@ -95,19 +103,12 @@ impl AccountTable {
         Self { tree }
     }
 
-    pub fn get(
-        &self,
-        account: &AccountIdentifier,
-    ) -> impl Iterator<Item = Result<TransactionIdentifier>> {
+    pub fn get(&self, account: &AccountIdentifier) -> impl Iterator<Item = Result<TransactionRef>> {
         let address_len = account.address.as_bytes().len();
         self.tree
             .scan_prefix(account.address.as_bytes())
             .keys()
-            .map(move |key| {
-                Ok(TransactionIdentifier {
-                    hash: hex::encode(&key?[address_len..]),
-                })
-            })
+            .map(move |key| Ok(TransactionRef::from_bytes(&key?[address_len..])))
     }
 
     pub fn insert(&self, account: &AccountIdentifier, tx: &TransactionRef) -> Result<()> {
@@ -115,6 +116,7 @@ impl AccountTable {
         Ok(())
     }
 
+    #[allow(unused)]
     pub fn remove(&self, account: &AccountIdentifier, tx: &TransactionRef) -> Result<()> {
         self.tree.remove(account_table_key(account, tx))?;
         Ok(())
@@ -182,21 +184,33 @@ impl Indexer {
             .context("missing block")
     }
 
-    async fn get(&self, tx: &TransactionRef) -> Result<Transaction> {
+    async fn get(&self, tx: &TransactionRef) -> Result<Option<BlockTransaction>> {
         let block = self.block(tx.block_index).await?;
-        block
-            .transactions
-            .get(tx.transaction_index as usize)
-            .context("invalid transaction ref")
-            .cloned()
+        Ok(
+            if let Some(transaction) = block
+                .transactions
+                .get(tx.transaction_index as usize)
+                .cloned()
+            {
+                Some(BlockTransaction {
+                    block_identifier: block.block_identifier.clone(),
+                    transaction,
+                })
+            } else {
+                None
+            },
+        )
     }
 
-    pub async fn transaction(&self, tx: &TransactionIdentifier) -> Result<Transaction> {
-        let tx = self
-            .transaction_table
-            .get(tx)?
-            .context("missing transaction")?;
-        self.get(&tx).await
+    pub async fn transaction(
+        &self,
+        tx: &TransactionIdentifier,
+    ) -> Result<Option<BlockTransaction>> {
+        if let Some(tx) = self.transaction_table.get(tx)? {
+            self.get(&tx).await
+        } else {
+            Ok(None)
+        }
     }
 
     async fn status(&self) -> Result<BlockIdentifier> {
@@ -225,6 +239,7 @@ impl Indexer {
                     }
                 }
             }
+            self.transaction_table.set_height(block_index)?;
         }
         Ok(())
     }
@@ -234,15 +249,182 @@ impl Indexer {
         req: &SearchTransactionsRequest,
     ) -> Result<SearchTransactionsResponse> {
         anyhow::ensure!(req.network_identifier == self.network_identifier);
-        anyhow::ensure!(req.operator == Some(Operator::And));
 
-        let offset = req.offset.unwrap_or(0);
-        let limit = std::cmp::max(req.limit.unwrap_or(100), 1000);
+        let height = self.transaction_table.height()?;
+        let max_block = req.max_block.unwrap_or(height as _) as u64;
+        let mut offset = req.offset.unwrap_or(0);
+        let limit = std::cmp::max(req.limit.unwrap_or(100), 1000) as usize;
+        let account = if let Some(account) = &req.account_identifier {
+            Some(account.clone())
+        } else if let Some(address) = &req.address {
+            Some(AccountIdentifier {
+                address: address.clone(),
+                sub_account: None,
+                metadata: None,
+            })
+        } else {
+            None
+        };
+        let matcher = Matcher {
+            op: req.operator.unwrap_or(Operator::And),
+            status: req.status.as_deref(),
+            r#type: req.r#type.as_deref(),
+            success: req.success,
+            currency: req.currency.as_ref(),
+            coin: req.coin_identifier.as_ref(),
+        };
 
+        let mut transactions = Vec::with_capacity(limit as _);
+        let next_offset = if let Some(tx) = req.transaction_identifier.as_ref() {
+            if let Some(tx) = self.transaction(&tx).await? {
+                if matcher.matches(&tx.transaction) {
+                    transactions.push(tx);
+                }
+            };
+            None
+        } else if let Some(account) = account.as_ref() {
+            let mut block: Option<Block> = None;
+            for tx in self.account_table.get(account).skip(offset as usize) {
+                let tx = tx?;
+                let cached = block
+                    .as_ref()
+                    .map(|block| block.block_identifier.index == tx.block_index)
+                    .unwrap_or_default();
+                if !cached {
+                    if tx.block_index > max_block {
+                        break;
+                    }
+                    block = Some(self.block(tx.block_index).await?);
+                }
+                let block = block.as_ref().unwrap();
+                if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
+                    if matcher.matches(tx) {
+                        transactions.push(BlockTransaction {
+                            block_identifier: block.block_identifier.clone(),
+                            transaction: tx.clone(),
+                        });
+                        if transactions.len() >= limit {
+                            break;
+                        }
+                    }
+                }
+                offset += 1;
+            }
+            Some(offset)
+        } else {
+            let mut block: Option<Block> = None;
+            for tx in self.transaction_table.iter().skip(offset as usize) {
+                let tx = tx?;
+                let cached = block
+                    .as_ref()
+                    .map(|block| block.block_identifier.index == tx.block_index)
+                    .unwrap_or_default();
+                if !cached {
+                    if tx.block_index > max_block {
+                        break;
+                    }
+                    block = Some(self.block(tx.block_index).await?);
+                }
+                let block = block.as_ref().unwrap();
+                if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
+                    if matcher.matches(tx) {
+                        transactions.push(BlockTransaction {
+                            block_identifier: block.block_identifier.clone(),
+                            transaction: tx.clone(),
+                        });
+                        if transactions.len() >= limit {
+                            break;
+                        }
+                    }
+                }
+                offset += 1;
+            }
+            Some(offset)
+        };
+        let total_count = transactions.len() as _;
         Ok(SearchTransactionsResponse {
-            transactions: vec![],
-            total_count: 0,
-            next_offset: Some(0),
+            transactions,
+            total_count,
+            next_offset,
         })
+    }
+}
+
+struct Matcher<'a> {
+    op: Operator,
+    r#type: Option<&'a str>,
+    status: Option<&'a str>,
+    currency: Option<&'a Currency>,
+    coin: Option<&'a CoinIdentifier>,
+    success: Option<bool>,
+}
+
+impl<'a> Matcher<'a> {
+    fn matches(&self, tx: &Transaction) -> bool {
+        let mut matches_success = false;
+        if let Some(success) = self.success {
+            matches_success = success == is_success(tx);
+        }
+        let mut matches_type = false;
+        let mut matches_status = false;
+        let mut matches_currency = false;
+        let mut matches_coin = false;
+        for op in &tx.operations {
+            if let Some(ty) = self.r#type {
+                if ty == op.r#type {
+                    matches_type = true;
+                }
+            }
+            if let Some(status) = self.status {
+                if let Some(op_status) = op.status.as_deref() {
+                    if status == op_status {
+                        matches_status = true;
+                    }
+                }
+            }
+            if let Some(currency) = self.currency {
+                if let Some(amount) = op.amount.as_ref() {
+                    if currency == &amount.currency {
+                        matches_currency = true;
+                    }
+                }
+            }
+            if let Some(coin) = self.coin {
+                if let Some(coin_change) = op.coin_change.as_ref() {
+                    if coin == &coin_change.coin_identifier {
+                        matches_coin = true;
+                    }
+                }
+            }
+        }
+        match self.op {
+            Operator::And => {
+                (matches_success || self.success.is_none())
+                    && (matches_type || self.r#type.is_none())
+                    && (matches_status || self.status.is_none())
+                    && (matches_currency || self.currency.is_none())
+                    && (matches_coin || self.coin.is_none())
+            }
+            Operator::Or => {
+                matches_success
+                    || matches_type
+                    || matches_status
+                    || matches_currency
+                    || matches_coin
+            }
+        }
+    }
+}
+
+// TODO: is this really correct?
+fn is_success(tx: &Transaction) -> bool {
+    if let Some(op) = tx.operations.last() {
+        if op.r#type.to_lowercase().contains("fail") {
+            false
+        } else {
+            true
+        }
+    } else {
+        false
     }
 }
