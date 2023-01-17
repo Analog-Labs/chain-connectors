@@ -1,6 +1,9 @@
 use crate::utils::Error;
 use serde_json::Value;
+use serde_json::{Map, Value as SerdeValue};
 use subxt::dynamic::Value as SubxtValue;
+use subxt::ext::scale_value::scale::TypeId;
+use subxt::ext::scale_value::{self, ValueDef};
 use subxt::ext::sp_runtime::scale_info::{
     form::PortableForm, TypeDef, TypeDefArray, TypeDefBitSequence, TypeDefCompact,
     TypeDefComposite, TypeDefPrimitive, TypeDefSequence, TypeDefTuple, TypeDefVariant,
@@ -17,7 +20,9 @@ pub fn get_params(
         let ty_id = field.ty().id();
         let type_from_pallet = get_type_def(ty_id, types)?;
         if let Ok(converted_type) = type_distributor(param.clone(), type_from_pallet, types) {
-            vec_of_value.push(converted_type);
+            for v in converted_type {
+                vec_of_value.push(v);
+            }
         };
     }
     Ok(vec_of_value)
@@ -32,16 +37,25 @@ pub fn type_distributor(
     json_value: Value,
     type_from_pallet: &TypeDef<PortableForm>,
     types: &PortableRegistry,
-) -> Result<SubxtValue, Error> {
-    match type_from_pallet {
-        TypeDef::Variant(inner_val) => make_variant(json_value, inner_val, types),
-        TypeDef::Composite(inner_val) => make_composite(json_value, inner_val, types),
-        TypeDef::Sequence(inner_val) => make_sequence(json_value, inner_val),
-        TypeDef::Array(inner_val) => make_array(json_value, inner_val),
-        TypeDef::Tuple(inner_val) => make_tuple(json_value, inner_val),
-        TypeDef::Primitive(inner_val) => make_primitive(json_value, inner_val),
-        TypeDef::Compact(inner_val) => make_compact(json_value, inner_val),
-        TypeDef::BitSequence(inner_val) => make_bit_sequence(json_value, inner_val),
+) -> Result<Vec<SubxtValue>, Error> {
+    let mut value_vec = vec![];
+    if let TypeDef::Tuple(inner_val) = type_from_pallet {
+        Ok(make_tuple(json_value, inner_val, types).unwrap())
+    } else {
+        let val = match type_from_pallet {
+            TypeDef::Variant(inner_val) => make_variant(json_value, inner_val, types),
+            TypeDef::Composite(inner_val) => make_composite(json_value, inner_val, types),
+            TypeDef::Sequence(inner_val) => make_sequence(json_value, inner_val),
+            TypeDef::Array(inner_val) => make_array(json_value, inner_val),
+            TypeDef::Primitive(inner_val) => make_primitive(json_value, inner_val),
+            TypeDef::Compact(inner_val) => make_compact(json_value, inner_val),
+            TypeDef::BitSequence(inner_val) => make_bit_sequence(json_value, inner_val),
+            _ => {
+                return Err(Error::InvalidParams);
+            }
+        }?;
+        value_vec.push(val);
+        Ok(value_vec)
     }
 }
 
@@ -70,15 +84,17 @@ fn make_variant(
     for field in fields {
         let ty_id = field.ty().id();
         let type_def = get_type_def(ty_id, types)?;
-        let obtained_type = type_distributor(json_value.clone(), type_def, types);
-        if let Ok(obtained_type) = obtained_type {
-            if is_named {
-                vec_of_named_data.push((
-                    field.name().ok_or(Error::InvalidMetadata)?.to_string(),
-                    obtained_type,
-                ));
-            } else {
-                vec_of_unnamed_data.push(obtained_type);
+        let obtained_result = type_distributor(json_value.clone(), type_def, types);
+        if let Ok(obtained_types) = obtained_result {
+            if let Some(obtained_type) = obtained_types.into_iter().next() {
+                if is_named {
+                    vec_of_named_data.push((
+                        field.name().ok_or(Error::InvalidMetadata)?.to_string(),
+                        obtained_type,
+                    ));
+                } else {
+                    vec_of_unnamed_data.push(obtained_type);
+                }
             }
         }
     }
@@ -104,15 +120,17 @@ fn make_composite(
     for field in fields {
         let ty_id = field.ty().id();
         let type_def = get_type_def(ty_id, types)?;
-        let obtained_type = type_distributor(json_value.clone(), type_def, types);
-        if let Ok(obtained_type) = obtained_type {
-            if is_named {
-                vec_of_named_data.push((
-                    field.name().ok_or(Error::InvalidMetadata)?.to_string(),
-                    obtained_type,
-                ));
-            } else {
-                vec_of_unnamed_data.push(obtained_type);
+        let obtained_result = type_distributor(json_value.clone(), type_def, types);
+        if let Ok(obtained_types) = obtained_result {
+            if let Some(obtained_type) = obtained_types.into_iter().next() {
+                if is_named {
+                    vec_of_named_data.push((
+                        field.name().ok_or(Error::InvalidMetadata)?.to_string(),
+                        obtained_type,
+                    ));
+                } else {
+                    vec_of_unnamed_data.push(obtained_type);
+                }
             }
         }
     }
@@ -150,10 +168,24 @@ fn make_array(
 }
 
 fn make_tuple(
-    _json_value: Value,
-    _type_from_pallet: &TypeDefTuple<PortableForm>,
-) -> Result<SubxtValue, Error> {
-    Err(Error::MakingCallParams)
+    json_value: Value,
+    type_from_pallet: &TypeDefTuple<PortableForm>,
+    types: &PortableRegistry,
+) -> Result<Vec<SubxtValue>, Error> {
+    let mut values_vec = vec![];
+    let fields = type_from_pallet.fields();
+    if let Value::Array(val) = json_value {
+        for (value, field) in val.iter().zip(fields) {
+            let ty_id = field.id();
+            let type_def = get_type_def(ty_id, types)?;
+            let converted_vals = type_distributor(value.clone(), type_def, types).unwrap();
+            for converted_val in converted_vals {
+                values_vec.push(converted_val);
+            }
+        }
+    }
+    println!("values_vec: {:?}", values_vec);
+    Ok(values_vec)
 }
 
 fn make_primitive(
@@ -195,4 +227,47 @@ fn make_bit_sequence(
     _type_from_pallet: &TypeDefBitSequence<PortableForm>,
 ) -> Result<SubxtValue, Error> {
     Err(Error::MakingCallParams)
+}
+
+pub fn scale_to_serde_json(data: ValueDef<TypeId>) -> SerdeValue {
+    match data {
+        scale_value::ValueDef::Composite(val) => match val {
+            scale_value::Composite::Named(named_composite) => {
+                let mut map = Map::new();
+                for (key, value) in named_composite {
+                    map.insert(key, scale_to_serde_json(value.value));
+                }
+                SerdeValue::Object(map)
+            }
+            scale_value::Composite::Unnamed(val) => {
+                let mut vec_of_array = vec![];
+                for value in val {
+                    vec_of_array.push(scale_to_serde_json(value.value));
+                }
+                SerdeValue::Array(vec_of_array)
+            }
+        },
+        scale_value::ValueDef::Variant(val) => {
+            if val.values.is_empty() {
+                SerdeValue::String(val.name)
+            } else {
+                let mut map = Map::new();
+                map.insert(val.name, scale_to_serde_json(val.values.into()));
+                SerdeValue::Object(map)
+            }
+        }
+        scale_value::ValueDef::BitSequence(val) => {
+            let mut vec_of_array = vec![];
+            for i in val {
+                vec_of_array.push(SerdeValue::Bool(i));
+            }
+            SerdeValue::Array(vec_of_array)
+        }
+        scale_value::ValueDef::Primitive(val) => match val {
+            scale_value::Primitive::Bool(val) => SerdeValue::Bool(val),
+            scale_value::Primitive::Char(val) => SerdeValue::String(val.to_string()),
+            scale_value::Primitive::String(val) => SerdeValue::String(val),
+            _ => serde_json::to_value(val.clone()).unwrap(),
+        },
+    }
 }

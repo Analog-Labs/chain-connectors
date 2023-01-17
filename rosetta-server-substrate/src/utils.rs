@@ -1,4 +1,6 @@
 use crate::type_helper::get_params;
+use crate::type_helper::scale_to_serde_json;
+use crate::type_helper::type_distributor;
 use crate::State;
 use anyhow::Result;
 use parity_scale_codec::{Decode, Encode};
@@ -19,6 +21,7 @@ use subxt::dynamic::Value as SubxtValue;
 use subxt::events::EventDetails;
 use subxt::events::Events;
 use subxt::events::Phase;
+use subxt::ext::frame_metadata::StorageEntryType;
 use subxt::ext::scale_value::scale::TypeId;
 use subxt::ext::scale_value::Composite;
 use subxt::ext::scale_value::Primitive;
@@ -79,9 +82,11 @@ pub enum Error {
     FailedTimestamp,
     InvalidVariantID,
     MakingCallParams,
-    InvalidPalletName,
     ParamsLengthNotMatch,
+    InvalidPalletName,
     InvalidCallName,
+    InvalidStorageName,
+    InvalidValueConversion,
 }
 
 impl std::fmt::Display for Error {
@@ -116,9 +121,11 @@ impl std::fmt::Display for Error {
             Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
             Self::InvalidVariantID => write!(f, "Invalid variant id"),
             Self::MakingCallParams => write!(f, "Error Making call params error"),
-            Self::InvalidPalletName => write!(f, "Invalid pallet name"),
+            Self::InvalidPalletName => write!(f, "Pallet not found"),
             Self::ParamsLengthNotMatch => write!(f, "Params length does not match"),
-            Self::InvalidCallName => write!(f, "Invalid call name"),
+            Self::InvalidCallName => write!(f, "Call not found"),
+            Self::InvalidStorageName => write!(f, "Storage not found"),
+            Self::InvalidValueConversion => write!(f, "Failed to convert data into response"),
         }
     }
 }
@@ -723,6 +730,64 @@ fn get_type(
         }
     }
     Ok(types_details)
+}
+
+pub fn dynamic_constant_req(
+    subxt: &OnlineClient<GenericConfig>,
+    pallet_name: &str,
+    constant_name: &str,
+) -> Result<Value, Error> {
+    let constant_address = subxt::dynamic::constant(pallet_name, constant_name);
+    let data = subxt
+        .constants()
+        .at(&constant_address)
+        .map_err(|_| Error::InvalidParams)?
+        .to_value()
+        .map_err(|_| Error::InvalidValueConversion)?;
+
+    let serde_val = scale_to_serde_json(data.value);
+    Ok(serde_val)
+}
+pub async fn dynamic_storage_req(
+    subxt: &OnlineClient<GenericConfig>,
+    pallet_name: &str,
+    storage_name: &str,
+    params: Value,
+) -> Result<Value, Error> {
+    let metadata = subxt.metadata();
+    let types = metadata.types();
+    let pallet = metadata
+        .pallet(pallet_name)
+        .map_err(|_| Error::InvalidPalletName)?;
+
+    let storage_metadata = pallet
+        .storage(storage_name)
+        .map_err(|_| Error::InvalidStorageName)?;
+
+    let storage_type = storage_metadata.ty.clone();
+    let type_id = match storage_type {
+        StorageEntryType::Map { key, .. } => Some(key.id()),
+        _ => None,
+    };
+    let params = if let Some(id) = type_id {
+        let ty = types.resolve(id).ok_or(Error::InvalidParams)?;
+        type_distributor(params, ty.type_def(), types)?
+    } else {
+        vec![]
+    };
+
+    let storage_address = subxt::dynamic::storage(pallet_name, storage_name, params);
+
+    let data = subxt
+        .storage()
+        .fetch_or_default(&storage_address, None)
+        .await
+        .map_err(|_| Error::InvalidParams)?
+        .to_value()
+        .map_err(|_| Error::InvalidValueConversion)?;
+
+    let serde_val = scale_to_serde_json(data.value);
+    Ok(serde_val)
 }
 
 pub fn get_runtime_error(error: SubxtError) -> String {
