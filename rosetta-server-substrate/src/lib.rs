@@ -2,15 +2,15 @@ use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Amount,
-    Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
-    ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
-    ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
-    ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
-    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
-    Currency, CurveType, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation, SignatureType,
-    SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
+    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Allow,
+    Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
+    CallRequest, CallResponse, ConstructionCombineRequest, ConstructionCombineResponse,
+    ConstructionDeriveRequest, ConstructionDeriveResponse, ConstructionHashRequest,
+    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionPayloadsRequest,
+    ConstructionPayloadsResponse, ConstructionPreprocessRequest, ConstructionPreprocessResponse,
+    ConstructionSubmitRequest, Currency, CurveType, MetadataRequest, NetworkIdentifier,
+    NetworkListResponse, NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Operation,
+    SignatureType, SigningPayload, TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::str::FromStr;
 use std::time::Duration;
@@ -23,9 +23,10 @@ use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
 use tide::prelude::json;
 use tide::{Body, Request, Response};
 use utils::{
-    faucet_substrate, get_account_storage, get_block_events, get_block_transactions, get_call_data,
-    get_runtime_call_data, get_runtime_error, get_transaction_detail, get_transfer_payload,
-    get_unix_timestamp, resolve_block, string_to_err_response, Error, UnsignedTransactionData,
+    dynamic_constant_req, dynamic_storage_req, faucet_substrate, get_account_storage,
+    get_block_events, get_block_transactions, get_call_data, get_runtime_call_data,
+    get_runtime_error, get_transaction_detail, get_transfer_payload, get_unix_timestamp,
+    resolve_block, string_to_err_response, Error, UnsignedTransactionData,
 };
 
 mod type_helper;
@@ -102,6 +103,7 @@ pub async fn server(config: &Config) -> Result<tide::Server<State>> {
     }
     app.at("/block").post(block);
     app.at("/block/transaction").post(block_transaction);
+    app.at("/call").post(call);
     app.at("/construction/combine").post(construction_combine);
     app.at("/construction/derive").post(construction_derive);
     app.at("/construction/hash").post(construction_hash);
@@ -385,6 +387,55 @@ async fn block_transaction(mut req: Request<State>) -> tide::Result {
 
     Ok(Response::builder(200)
         .body(Body::from_json(&transaction)?)
+        .build())
+}
+
+async fn call(mut req: Request<State>) -> tide::Result {
+    let request: CallRequest = req.body_json().await?;
+    if request.network_identifier != req.state().network {
+        return Error::UnsupportedNetwork.to_response();
+    }
+    let method_name = request.method;
+
+    let call_details = method_name.split(',').collect::<Vec<&str>>();
+    if call_details.len() != 3 {
+        return Error::InvalidParams.to_response();
+    }
+
+    let pallet_name = call_details[0];
+    let call_name = call_details[1];
+    let query_type = call_details[2];
+
+    let val = match query_type.to_lowercase().as_str() {
+        "constant" => match dynamic_constant_req(&req.state().client, pallet_name, call_name) {
+            Ok(ok) => ok,
+            Err(e) => return e.to_response(),
+        },
+        "storage" => {
+            match dynamic_storage_req(
+                &req.state().client,
+                pallet_name,
+                call_name,
+                request.parameters,
+            )
+            .await
+            {
+                Ok(ok) => ok,
+                Err(e) => return e.to_response(),
+            }
+        }
+        _ => {
+            return Error::InvalidParams.to_response();
+        }
+    };
+
+    let call_response = CallResponse {
+        result: val,
+        idempotent: false,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&call_response)?)
         .build())
 }
 
