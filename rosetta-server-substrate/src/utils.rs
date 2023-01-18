@@ -32,6 +32,7 @@ use subxt::ext::sp_core::H256;
 use subxt::ext::sp_runtime::scale_info::form::PortableForm;
 use subxt::ext::sp_runtime::scale_info::Field;
 use subxt::ext::sp_runtime::scale_info::PortableRegistry;
+use subxt::ext::sp_runtime::scale_info::TypeDef;
 use subxt::ext::sp_runtime::scale_info::TypeDef::Variant;
 use subxt::ext::sp_runtime::AccountId32;
 use subxt::ext::sp_runtime::MultiAddress;
@@ -701,6 +702,8 @@ fn get_call_params(
     let call_id = pallet.call_ty_id().ok_or(Error::InvalidMetadata)?;
     let pallet_call_types = get_type(call_id, call_name, types)?;
 
+    println!("{:?}", pallet_call_types);
+
     if pallet_call_types.len() != value_vec.len() {
         return Err(Error::ParamsLengthNotMatch);
     }
@@ -745,7 +748,7 @@ pub fn dynamic_constant_req(
         .to_value()
         .map_err(|_| Error::InvalidValueConversion)?;
 
-    let serde_val = scale_to_serde_json(data.value);
+    let serde_val = scale_to_serde_json(data.value)?;
     Ok(serde_val)
 }
 pub async fn dynamic_storage_req(
@@ -771,7 +774,18 @@ pub async fn dynamic_storage_req(
     };
     let params = if let Some(id) = type_id {
         let ty = types.resolve(id).ok_or(Error::InvalidParams)?;
-        type_distributor(params, ty.type_def(), types)?
+        match ty.type_def() {
+            TypeDef::Tuple(_) => type_distributor(params, ty.type_def(), types)?,
+            _ => {
+                let json_params = params.as_array().ok_or(Error::InvalidParams)?;
+                let params = json_params
+                    .iter()
+                    .next()
+                    .ok_or(Error::InvalidParams)?
+                    .clone();
+                type_distributor(params, ty.type_def(), types)?
+            }
+        }
     } else {
         vec![]
     };
@@ -786,7 +800,8 @@ pub async fn dynamic_storage_req(
         .to_value()
         .map_err(|_| Error::InvalidValueConversion)?;
 
-    let serde_val = scale_to_serde_json(data.value);
+    println!("data {}", data);
+    let serde_val = scale_to_serde_json(data.value)?;
     Ok(serde_val)
 }
 
