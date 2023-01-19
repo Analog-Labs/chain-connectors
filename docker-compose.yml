@@ -1,53 +1,48 @@
 version: "3.9"
+
+volumes:
+  bitcoin-volume:
+  ethereum-volume:
+  polkadot-volume:
+
 services:
-  rosetta-bitcoin:
-    image: "analoglabs/rosetta-bitcoin"
-    environment:
-    - NETWORK=REGTEST
-    - MODE=ONLINE
-    - PORT=8080
-    ports:
-    - "8080:8080"
-    - "18333:18333"
-    - "18443:18443"
+  bitcoin:
+    image: "ruimarinho/bitcoin-core"
+    command: "-regtest=1 -rpcbind=0.0.0.0 -rpcport=18443 -rpcallowip=0.0.0.0/0 -rpcuser=rosetta -rpcpassword=rosetta"
+    expose:
+    - "18443"
     ulimits:
       nofile:
         soft: 10000
         hard: 10000
+    deploy:
+      resources:
+        reservations:
+          memory: 1g
     volumes:
-    - "bitcoin-volume:/data"
-  rosetta-ethereum:
-    image: "analoglabs/rosetta-ethereum"
-    environment:
-    - NETWORK=TESTNET
-    - MODE=ONLINE
-    - PORT=8081
-    ports:
-    - "8081:8081"
-    #- "30303:30303"
-    - "8545:8545"
+    - "bitcoin-volume:/home/bitcoin/.bitcoin"
+
+  ethereum:
+    image: "ethereum/client-go"
+    command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool"
+    expose:
+    - "8545"
     ulimits:
       nofile:
         soft: 10000
         hard: 10000
+    deploy:
+      resources:
+        reservations:
+          memory: 1g
     volumes:
-    - "ethereum-volume:/data"
-  rosetta-polkadot:
-    image: "analoglabs/rosetta-polkadot"
-    command: "--network dev --url http://0.0.0.0:8082 --rpc-url ws://polkadot:9944"
-    restart: always
-    build:
-      context: "."
-      dockerfile: "./rosetta-server-polkadot/Dockerfile"
-    ports:
-    - "8082:8082"
-    depends_on:
-    - polkadot
+    - "ethereum-volume:/root"
+
   polkadot:
-    image: "parity/polkadot:v0.9.32"
-    command: "--chain dev --ws-external --rpc-cors=all --alice --tmp"
-    ports:
-    - "9944:9944"
+    image: "parity/polkadot"
+    command: "--chain dev --ws-external --alice --tmp"
+    expose:
+    - "9944"
     ulimits:
       nofile:
         soft: 10000
@@ -58,8 +53,47 @@ services:
           memory: 1g
     volumes:
     - "polkadot-volume:/polkadot"
-  rosetta-bitcoin-indexer:
-    image: "analoglabs/rosetta-bitcoin-indexer"
+
+
+  connector-bitcoin:
+    image: "analoglabs/rosetta-bitcoin"
+    environment:
+    - NETWORK=REGTEST
+    - MODE=ONLINE
+    - PORT=8080
+    - "BITCOIND=http://bitcoin:18443"
+    ports:
+    - "8080:8080"
+    depends_on:
+    - bitcoin
+
+  connector-ethereum:
+    image: "analoglabs/rosetta-ethereum"
+    environment:
+    - NETWORK=TESTNET
+    - MODE=ONLINE
+    - PORT=8081
+    - "GETH=http://ethereum:8545"
+    ports:
+    - "8081:8081"
+    depends_on:
+    - ethereum
+
+  connector-polkadot:
+    image: "analoglabs/rosetta-polkadot"
+    command: "--network dev --url http://0.0.0.0:8082 --rpc-url ws://polkadot:9944"
+    restart: always
+    build:
+      context: "."
+      dockerfile: "./rosetta-server-polkadot/Dockerfile"
+    ports:
+    - "8082:8082"
+    depends_on:
+    - polkadot
+
+
+  indexer-bitcoin:
+    image: "analoglabs/rosetta-indexer"
     command: "--chain=btc --server=http://rosetta-bitcoin:8080 --url=http://0.0.0.0:8083"
     restart: always
     build:
@@ -68,9 +102,10 @@ services:
     ports:
     - "8083:8083"
     depends_on:
-    - rosetta-bitcoin
-  rosetta-ethereum-indexer:
-    image: "analoglabs/rosetta-ethereum-indexer"
+    - connector-bitcoin
+
+  indexer-ethereum:
+    image: "analoglabs/rosetta-indexer"
     command: "--chain=eth --server=http://rosetta-ethereum:8081 --url=http://0.0.0.0:8084"
     restart: always
     build:
@@ -79,9 +114,10 @@ services:
     ports:
     - "8084:8084"
     depends_on:
-    - rosetta-ethereum
-  rosetta-polkadot-indexer:
-    image: "analoglabs/rosetta-polkadot-indexer"
+    - connector-ethereum
+
+  indexer-polkadot:
+    image: "analoglabs/rosetta-indexer"
     command: "--chain=dot --server=http://rosetta-polkadot:8082 --url=http://0.0.0.0:8085"
     restart: always
     build:
@@ -90,16 +126,14 @@ services:
     ports:
     - "8085:8085"
     depends_on:
-    - rosetta-polkadot
+    - connector-polkadot
+
+
   explorer:
     image: "analoglabs/rosetta-explorer"
     ports:
     - "3000:3000"
     depends_on:
-    - rosetta-bitcoin
-    - rosetta-ethereum
-    - rosetta-polkadot
-volumes:
-  bitcoin-volume:
-  ethereum-volume:
-  polkadot-volume:
+    - indexer-bitcoin
+    - indexer-ethereum
+    - indexer-polkadot
