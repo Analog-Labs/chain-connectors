@@ -121,7 +121,7 @@ impl std::fmt::Display for Error {
             Self::NoBlockEvents => write!(f, "No block events found"),
             Self::FailedTimestamp => write!(f, "Failed to get timestamp"),
             Self::InvalidVariantID => write!(f, "Invalid variant id"),
-            Self::MakingCallParams => write!(f, "Error Making call params error"),
+            Self::MakingCallParams => write!(f, "Error Making call params"),
             Self::InvalidPalletName => write!(f, "Pallet not found"),
             Self::ParamsLengthNotMatch => write!(f, "Params length does not match"),
             Self::InvalidCallName => write!(f, "Call not found"),
@@ -790,19 +790,45 @@ pub async fn dynamic_storage_req(
         vec![]
     };
 
+    println!("before converting params {:?}", params);
+    //format params according to storage
+    let params = set_params_acc_to_storage(params);
+
     let storage_address = subxt::dynamic::storage(pallet_name, storage_name, params);
 
     let data = subxt
         .storage()
         .fetch_or_default(&storage_address, None)
         .await
-        .map_err(|_| Error::InvalidParams)?
-        .to_value()
-        .map_err(|_| Error::InvalidValueConversion)?;
+        .map_err(|_| Error::InvalidParams)?;
 
-    println!("data {}", data);
-    let serde_val = scale_to_serde_json(data.value)?;
+    let serde_val = if data.encoded() == [0] {
+        Value::Null
+    } else {
+        let abc = data.to_value().map_err(|_| Error::InvalidValueConversion)?;
+
+        println!("data {}", abc);
+        scale_to_serde_json(abc.value)?
+    };
+
     Ok(serde_val)
+}
+
+fn set_params_acc_to_storage(values: Vec<SubxtValue>) -> Vec<SubxtValue> {
+    let mut modified_value = vec![];
+    for value in values.clone() {
+        if let ValueDef::Composite(inner_val) = value.value.clone() {
+            println!("inner_val {:?}", inner_val);
+            let inner_values = inner_val.into_values();
+            for inner_val in inner_values {
+                println!("inner_val_inner {:?}", inner_val);
+                modified_value.push(inner_val);
+            }
+        } else {
+            return values;
+        }
+    }
+    modified_value
 }
 
 pub fn get_runtime_error(error: SubxtError) -> String {
