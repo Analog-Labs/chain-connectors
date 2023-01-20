@@ -5,6 +5,7 @@ members = [
     "rosetta-client",
     "rosetta-crypto",
     "rosetta-indexer",
+    "rosetta-server",
     "rosetta-server-polkadot",
     "rosetta-server-substrate",
     "rosetta-types",

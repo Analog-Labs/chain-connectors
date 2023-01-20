@@ -15,12 +15,12 @@ pub struct NetworkOptionsResponse {
     #[serde(rename = "version")]
     pub version: crate::Version,
     #[serde(rename = "allow")]
-    pub allow: crate::Allow,
+    pub allow: Option<crate::Allow>,
 }
 
 impl NetworkOptionsResponse {
     /// NetworkOptionsResponse contains information about the versioning of the node and the allowed operation statuses, operation types, and errors.
-    pub fn new(version: crate::Version, allow: crate::Allow) -> NetworkOptionsResponse {
-        NetworkOptionsResponse { version, allow }
+    pub fn new(version: crate::Version) -> NetworkOptionsResponse {
+        NetworkOptionsResponse { version, allow: None }
     }
 }
