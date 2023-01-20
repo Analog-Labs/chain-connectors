@@ -13,6 +13,6 @@ rosetta-types = { path = "../rosetta-types" }
 serde = "1.0.151"
 serde_json = { version = "1.0.91", features = ["arbitrary_precision"] }
 sp-keyring = "7.0.0"
-subxt = { path = "../../subxt/subxt" }
+subxt = "0.25.0"
 syn = "1.0.107"
 tide = "0.16.0"

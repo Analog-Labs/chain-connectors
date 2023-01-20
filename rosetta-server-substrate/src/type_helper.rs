@@ -3,7 +3,7 @@ use serde_json::Value;
 use serde_json::{Map, Value as SerdeValue};
 use subxt::dynamic::Value as SubxtValue;
 use subxt::ext::scale_value::scale::TypeId;
-use subxt::ext::scale_value::{self, ValueDef};
+use subxt::ext::scale_value::{self, ValueDef, BitSequence};
 use subxt::ext::sp_runtime::scale_info::{
     form::PortableForm, TypeDef, TypeDefArray, TypeDefBitSequence, TypeDefCompact,
     TypeDefComposite, TypeDefPrimitive, TypeDefSequence, TypeDefTuple, TypeDefVariant,
@@ -252,10 +252,23 @@ fn make_compact(
 }
 
 fn make_bit_sequence(
-    _json_value: Value,
+    json_value: Value,
     _type_from_pallet: &TypeDefBitSequence<PortableForm>,
 ) -> Result<SubxtValue, Error> {
-    Err(Error::MakingCallParams)
+    let mut bits_array = BitSequence::new();
+    if let Value::Array(values) = json_value {
+        for value in values{
+            match value{
+                Value::Bool(val) => bits_array.push(val),
+                Value::Number(val) => {
+                    let number = val.as_u64().ok_or(Error::InvalidParams)?;
+                    bits_array.push(number != 0);
+                }
+                _ => return Err(Error::MakingCallParams),
+            }
+        }
+    }
+    Ok(SubxtValue::bit_sequence(bits_array))
 }
 
 pub fn scale_to_serde_json(data: ValueDef<TypeId>) -> Result<SerdeValue, Error> {
