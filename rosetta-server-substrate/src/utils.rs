@@ -702,8 +702,6 @@ fn get_call_params(
     let call_id = pallet.call_ty_id().ok_or(Error::InvalidMetadata)?;
     let pallet_call_types = get_type(call_id, call_name, types)?;
 
-    println!("{:?}", pallet_call_types);
-
     if pallet_call_types.len() != value_vec.len() {
         return Err(Error::ParamsLengthNotMatch);
     }
@@ -789,9 +787,7 @@ pub async fn dynamic_storage_req(
     } else {
         vec![]
     };
-
-    println!("before converting params {:?}", params);
-    //format params according to storage
+    
     let params = set_params_acc_to_storage(params);
 
     let storage_address = subxt::dynamic::storage(pallet_name, storage_name, params);
@@ -806,8 +802,6 @@ pub async fn dynamic_storage_req(
         Value::Null
     } else {
         let abc = data.to_value().map_err(|_| Error::InvalidValueConversion)?;
-
-        println!("data {}", abc);
         scale_to_serde_json(abc.value)?
     };
 
@@ -818,10 +812,8 @@ fn set_params_acc_to_storage(values: Vec<SubxtValue>) -> Vec<SubxtValue> {
     let mut modified_value = vec![];
     for value in values.clone() {
         if let ValueDef::Composite(inner_val) = value.value.clone() {
-            println!("inner_val {:?}", inner_val);
             let inner_values = inner_val.into_values();
             for inner_val in inner_values {
-                println!("inner_val_inner {:?}", inner_val);
                 modified_value.push(inner_val);
             }
         } else {
