@@ -39,7 +39,6 @@ pub fn type_distributor(
     types: &PortableRegistry,
 ) -> Result<Vec<SubxtValue>, Error> {
     let mut value_vec = vec![];
-    println!("type_distributor_type {:?} ", type_from_pallet);
     let val = match type_from_pallet {
         TypeDef::Variant(inner_val) => make_variant(json_value, inner_val, types),
         TypeDef::Composite(inner_val) => make_composite(json_value, inner_val, types),
@@ -112,21 +111,47 @@ fn make_composite(
 
     let is_named = fields.iter().any(|f| f.name().is_some());
 
-    for field in fields {
-        let ty_id = field.ty().id();
-        let type_def = get_type_def(ty_id, types)?;
-        let obtained_result = type_distributor(json_value.clone(), type_def, types);
-        if let Ok(obtained_types) = obtained_result {
-            if let Some(obtained_type) = obtained_types.into_iter().next() {
-                if is_named {
-                    vec_of_named_data.push((
-                        field.name().ok_or(Error::InvalidMetadata)?.to_string(),
-                        obtained_type,
-                    ));
-                } else {
-                    vec_of_unnamed_data.push(obtained_type);
+    match fields.len().cmp(&1) {
+        std::cmp::Ordering::Equal => {
+            let field = fields[0].clone();
+            let ty_id = field.ty().id();
+            let type_def = get_type_def(ty_id, types)?;
+            let obtained_result = type_distributor(json_value, type_def, types);
+            if let Ok(obtained_types) = obtained_result {
+                if let Some(obtained_type) = obtained_types.into_iter().next() {
+                    if is_named {
+                        vec_of_named_data.push((
+                            field.name().ok_or(Error::InvalidMetadata)?.to_string(),
+                            obtained_type,
+                        ));
+                    } else {
+                        vec_of_unnamed_data.push(obtained_type);
+                    }
                 }
             }
+        }
+        std::cmp::Ordering::Greater => {
+            let json_value = json_value.as_array().ok_or(Error::InvalidParams)?;
+            for (value_received, field) in json_value.iter().zip(fields) {
+                let ty_id = field.ty().id();
+                let type_def = get_type_def(ty_id, types)?;
+                let obtained_result = type_distributor(value_received.clone(), type_def, types);
+                if let Ok(obtained_types) = obtained_result {
+                    if let Some(obtained_type) = obtained_types.into_iter().next() {
+                        if is_named {
+                            vec_of_named_data.push((
+                                field.name().ok_or(Error::InvalidMetadata)?.to_string(),
+                                obtained_type,
+                            ));
+                        } else {
+                            vec_of_unnamed_data.push(obtained_type);
+                        }
+                    }
+                }
+            }
+        }
+        std::cmp::Ordering::Less => {
+            //keep the vector empty
         }
     }
 
