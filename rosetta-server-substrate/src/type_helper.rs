@@ -39,6 +39,7 @@ pub fn type_distributor(
     types: &PortableRegistry,
 ) -> Result<Vec<SubxtValue>, Error> {
     let mut value_vec = vec![];
+    println!("type_distributor_type {:?} ", type_from_pallet);
     let val = match type_from_pallet {
         TypeDef::Variant(inner_val) => make_variant(json_value, inner_val, types),
         TypeDef::Composite(inner_val) => make_composite(json_value, inner_val, types),
@@ -51,7 +52,6 @@ pub fn type_distributor(
     }?;
     value_vec.push(val);
     Ok(value_vec)
-    // }
 }
 
 fn make_variant(
