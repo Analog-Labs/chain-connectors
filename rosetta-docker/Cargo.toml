@@ -1,0 +1,14 @@
+[package]
+name = "rosetta-docker"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.68"
+docker-api = "0.12.2"
+futures = "0.3.25"
+surf = { version = "2.3.2", default-features = false, features = ["h1-client-no-tls"] }
+tokio = "1.24.2"
+
+[dev-dependencies]
+tokio = { version = "1.24.2", features = ["macros"] }
