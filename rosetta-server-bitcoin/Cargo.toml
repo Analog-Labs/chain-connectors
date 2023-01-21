@@ -1,0 +1,14 @@
+[package]
+name = "rosetta-server-bitcoin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.68"
+async-std = { version = "1.12.0", features = ["tokio1"] }
+async-trait = "0.1.62"
+bitcoincore-rpc-async = "3.0.1"
+hex = "0.4.3"
+rosetta-docker = { version = "0.1.0", path = "../rosetta-docker" }
+rosetta-server = { version = "0.1.0", path = "../rosetta-server" }
+tokio = { version = "1.24.2", features = ["rt-multi-thread", "macros"] }
