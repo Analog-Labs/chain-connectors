@@ -2,7 +2,7 @@ use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Allow,
+    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier,
     Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
     ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
     ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
@@ -140,18 +140,7 @@ async fn network_options(mut req: Request<State>) -> tide::Result {
             middleware_version: Some("1.0".into()),
             metadata: None,
         },
-        allow: Allow {
-            operation_statuses: vec![],
-            operation_types: vec![],
-            errors: vec![],
-            historical_balance_lookup: true,
-            timestamp_start_index: Some(0),
-            call_methods: Some(vec![]),
-            balance_exemptions: None,
-            mempool_coins: false,
-            block_hash_case: None,
-            transaction_hash_case: None,
-        },
+        allow: None,
     };
     Ok(Response::builder(200)
         .body(Body::from_json(&response)?)

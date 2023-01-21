@@ -21,6 +21,9 @@ pub struct NetworkOptionsResponse {
 impl NetworkOptionsResponse {
     /// NetworkOptionsResponse contains information about the versioning of the node and the allowed operation statuses, operation types, and errors.
     pub fn new(version: crate::Version) -> NetworkOptionsResponse {
-        NetworkOptionsResponse { version, allow: None }
+        NetworkOptionsResponse {
+            version,
+            allow: None,
+        }
     }
 }
