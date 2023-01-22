@@ -3,6 +3,7 @@ members = [
     "dioxus-wallet",
     "rosetta-cli",
     "rosetta-client",
+    "rosetta-core",
     "rosetta-crypto",
     "rosetta-docker",
     "rosetta-indexer",
