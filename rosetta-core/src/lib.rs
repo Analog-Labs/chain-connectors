@@ -1,6 +1,6 @@
-use crate::crypto::Algorithm;
 use crate::crypto::address::AddressFormat;
-use crate::types::{BlockIdentifier, NetworkIdentifier};
+use crate::crypto::Algorithm;
+use crate::types::{BlockIdentifier, Currency, NetworkIdentifier};
 use anyhow::Result;
 
 pub use rosetta_crypto as crypto;
@@ -20,22 +20,34 @@ pub struct BlockchainConfig {
     pub currency_decimals: u32,
     pub node_port: u16,
     pub node_image: &'static str,
+    pub node_command: Vec<String>,
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
+}
+
+impl BlockchainConfig {
+    pub fn network(&self) -> NetworkIdentifier {
+        NetworkIdentifier {
+            blockchain: self.blockchain.into(),
+            network: self.network.into(),
+            sub_network_identifier: None,
+        }
+    }
+
+    pub fn currency(&self) -> Currency {
+        Currency {
+            symbol: self.currency_symbol.into(),
+            decimals: self.currency_decimals,
+            metadata: None,
+        }
+    }
 }
 
 #[async_trait::async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn new(network: &str, addr: &str) -> Result<Self>;
-    fn network(&self) -> &NetworkIdentifier;
+    fn config(&self) -> &BlockchainConfig;
     fn node_version(&self) -> &str;
     fn genesis_block(&self) -> &BlockIdentifier;
     async fn current_block(&self) -> Result<BlockIdentifier>;
-}
-
-pub trait Blockchain: Sized {
-    type Client: BlockchainClient;
-    fn new(network: &str) -> Self;
-    fn config(&self) -> &BlockchainConfig;
-    fn node_command(&self) -> Vec<String>;
 }

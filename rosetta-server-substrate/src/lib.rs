@@ -2,8 +2,8 @@ use anyhow::Result;
 use parity_scale_codec::{Compact, Encode};
 use rosetta_crypto::address::{Address, AddressFormat};
 use rosetta_types::{
-    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier,
-    Amount, Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
+    AccountBalanceRequest, AccountBalanceResponse, AccountFaucetRequest, AccountIdentifier, Amount,
+    Block, BlockIdentifier, BlockRequest, BlockResponse, BlockTransactionRequest,
     ConstructionCombineRequest, ConstructionCombineResponse, ConstructionDeriveRequest,
     ConstructionDeriveResponse, ConstructionHashRequest, ConstructionMetadataRequest,
     ConstructionMetadataResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
