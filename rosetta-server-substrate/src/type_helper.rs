@@ -3,7 +3,7 @@ use serde_json::Value;
 use serde_json::{Map, Value as SerdeValue};
 use subxt::dynamic::Value as SubxtValue;
 use subxt::ext::scale_value::scale::TypeId;
-use subxt::ext::scale_value::{self, ValueDef, BitSequence};
+use subxt::ext::scale_value::{self, BitSequence, ValueDef};
 use subxt::ext::sp_runtime::scale_info::{
     form::PortableForm, TypeDef, TypeDefArray, TypeDefBitSequence, TypeDefCompact,
     TypeDefComposite, TypeDefPrimitive, TypeDefSequence, TypeDefTuple, TypeDefVariant,
@@ -257,8 +257,8 @@ fn make_bit_sequence(
 ) -> Result<SubxtValue, Error> {
     let mut bits_array = BitSequence::new();
     if let Value::Array(values) = json_value {
-        for value in values{
-            match value{
+        for value in values {
+            match value {
                 Value::Bool(val) => bits_array.push(val),
                 Value::Number(val) => {
                     let number = val.as_u64().ok_or(Error::InvalidParams)?;
