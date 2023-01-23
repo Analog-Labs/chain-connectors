@@ -93,58 +93,55 @@ impl BlockchainClient for BitcoinClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rosetta_docker::Docker;
+    use rosetta_docker::Env;
 
     #[tokio::test]
     async fn test_network_list() -> Result<()> {
-        env_logger::try_init().ok();
-        let docker = Docker::new("network-list")?;
         let config = config("regtest")?;
+        let env = Env::new("network-list", config.clone()).await?;
 
-        let client = docker.connector(&config).await?;
+        let client = env.connector()?;
         let networks = client.network_list().await?;
         assert_eq!(networks.len(), 1);
         assert_eq!(networks[0].blockchain, config.blockchain);
         assert_eq!(networks[0].network, config.network);
         assert!(networks[0].sub_network_identifier.is_none());
 
-        docker.shutdown().await?;
+        env.shutdown().await?;
         Ok(())
     }
 
     #[tokio::test]
     async fn test_network_options() -> Result<()> {
-        env_logger::try_init().ok();
-        let docker = Docker::new("network-options")?;
         let config = config("regtest")?;
+        let env = Env::new("network-options", config.clone()).await?;
 
-        let client = docker.node::<BitcoinClient>(&config).await?;
+        let client = env.node::<BitcoinClient>().await?;
         let version = client.node_version();
 
-        let client = docker.connector(&config).await?;
+        let client = env.connector()?;
         let options = client.network_options(config.network()).await?;
         assert_eq!(options.version.node_version, version);
 
-        docker.shutdown().await?;
+        env.shutdown().await?;
         Ok(())
     }
 
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
-        env_logger::try_init().ok();
-        let docker = Docker::new("network-status")?;
         let config = config("regtest")?;
+        let env = Env::new("network-status", config.clone()).await?;
 
-        let client = docker.node::<BitcoinClient>(&config).await?;
+        let client = env.node::<BitcoinClient>().await?;
         let genesis = client.genesis_block().clone();
         let current = client.current_block().await?;
 
-        let client = docker.connector(&config).await?;
+        let client = env.connector()?;
         let status = client.network_status(config.network()).await?;
         assert_eq!(status.genesis_block_identifier, Some(genesis));
         assert_eq!(status.current_block_identifier, current);
 
-        docker.shutdown().await?;
+        env.shutdown().await?;
         Ok(())
     }
 }
