@@ -13,6 +13,7 @@ use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Docker {
+    prefix: &'static str,
     docker: docker_api::Docker,
     networks: Arc<Mutex<Vec<Network>>>,
     containers: Arc<Mutex<Vec<Container>>>,
@@ -20,21 +21,24 @@ pub struct Docker {
 
 impl Docker {
     #[cfg(unix)]
-    pub fn new() -> Result<Self> {
-        Ok(Self::inner_new(docker_api::Docker::unix(
-            "/var/run/docker.sock",
-        )))
+    pub fn new(prefix: &'static str) -> Result<Self> {
+        Ok(Self::inner_new(
+            prefix,
+            docker_api::Docker::unix("/var/run/docker.sock"),
+        ))
     }
 
     #[cfg(not(unix))]
-    pub fn new() -> Result<Self> {
-        Ok(Self::inner_new(docker_api::Docker::new(
-            "tcp://127.0.0.1:8080",
-        )?))
+    pub fn new(prefix: &'static str) -> Result<Self> {
+        Ok(Self::inner_new(
+            prefix,
+            docker_api::Docker::new("tcp://127.0.0.1:8080")?,
+        ))
     }
 
-    fn inner_new(docker: docker_api::Docker) -> Self {
+    fn inner_new(prefix: &'static str, docker: docker_api::Docker) -> Self {
         Self {
+            prefix,
             docker,
             networks: Default::default(),
             containers: Default::default(),
@@ -54,7 +58,8 @@ impl Docker {
     }
 
     async fn create_network(&self) -> Result<Network> {
-        let opts = NetworkCreateOpts::builder("rosetta-docker").build();
+        let name = format!("{}-rosetta-docker", self.prefix);
+        let opts = NetworkCreateOpts::builder(name).build();
         let network = self.docker.networks().create(&opts).await?;
         let id = network.id().clone();
         self.networks.lock().unwrap().push(network);
@@ -123,7 +128,10 @@ impl Docker {
     }
 
     async fn run_node(&self, config: &BlockchainConfig, network: Option<&Network>) -> Result<Id> {
-        let name = format!("node-{}-{}", config.blockchain, config.network);
+        let name = format!(
+            "{}-node-{}-{}",
+            self.prefix, config.blockchain, config.network
+        );
         let mut opts = ContainerCreateOpts::builder()
             .name(&name)
             .image(config.node_image)
@@ -158,8 +166,14 @@ impl Docker {
         config: &BlockchainConfig,
         network: Option<&Network>,
     ) -> Result<Id> {
-        let name = format!("connector-{}-{}", config.blockchain, config.network);
-        let link = format!("node-{}-{}", config.blockchain, config.network);
+        let name = format!(
+            "{}-connector-{}-{}",
+            self.prefix, config.blockchain, config.network
+        );
+        let link = format!(
+            "{}-node-{}-{}",
+            self.prefix, config.blockchain, config.network
+        );
         let opts = ContainerCreateOpts::builder()
             .name(&name)
             .image(format!("connector-{}", config.blockchain))

@@ -8,9 +8,9 @@ use rosetta_types::{
     ConstructionParseResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     EventsBlocksRequest, EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest,
-    MempoolTransactionResponse, MetadataRequest, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
-    TransactionIdentifierResponse,
+    MempoolTransactionResponse, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest,
+    SearchTransactionsResponse, TransactionIdentifierResponse,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -52,21 +52,34 @@ impl Client {
     }
 
     /// Make a call to the /network/list endpoint.
-    pub async fn network_list(&self, request: &MetadataRequest) -> Result<NetworkListResponse> {
-        self.post("/network/list", request).await
+    pub async fn network_list(&self) -> Result<Vec<NetworkIdentifier>> {
+        let request = MetadataRequest { metadata: None };
+        let response: NetworkListResponse = self.post("/network/list", &request).await?;
+        Ok(response.network_identifiers)
     }
 
     /// Make a call to the /network/options endpoint.
     pub async fn network_options(
         &self,
-        request: &NetworkRequest,
+        network_identifier: NetworkIdentifier,
     ) -> Result<NetworkOptionsResponse> {
-        self.post("/network/options", request).await
+        let request = NetworkRequest {
+            network_identifier,
+            metadata: None,
+        };
+        self.post("/network/options", &request).await
     }
 
     /// Make a call to the /network/status endpoint.
-    pub async fn network_status(&self, request: &NetworkRequest) -> Result<NetworkStatusResponse> {
-        self.post("/network/status", request).await
+    pub async fn network_status(
+        &self,
+        network_identifier: NetworkIdentifier,
+    ) -> Result<NetworkStatusResponse> {
+        let request = NetworkRequest {
+            network_identifier,
+            metadata: None,
+        };
+        self.post("/network/status", &request).await
     }
 
     /// Make a call to the /account/balance endpoint.

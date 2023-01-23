@@ -6,8 +6,8 @@ use crate::types::{
     ConstructionCombineRequest, ConstructionHashRequest, ConstructionMetadataRequest,
     ConstructionMetadataResponse, ConstructionParseRequest, ConstructionParseResponse,
     ConstructionPayloadsRequest, ConstructionPayloadsResponse, ConstructionPreprocessRequest,
-    ConstructionPreprocessResponse, ConstructionSubmitRequest, NetworkRequest, Operation,
-    PublicKey, Signature, TransactionIdentifier,
+    ConstructionPreprocessResponse, ConstructionSubmitRequest, Operation, PublicKey, Signature,
+    TransactionIdentifier,
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
@@ -60,13 +60,7 @@ impl Wallet {
     }
 
     pub async fn status(&self) -> Result<BlockIdentifier> {
-        let status = self
-            .client
-            .network_status(&NetworkRequest {
-                network_identifier: self.config.network(),
-                metadata: None,
-            })
-            .await?;
+        let status = self.client.network_status(self.config.network()).await?;
         Ok(status.current_block_identifier)
     }
 
