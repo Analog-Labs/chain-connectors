@@ -18,52 +18,50 @@ This server implements following endpoints:
 * `/construction/submit`
 
 
-## `/network/list`:
+### `/network/list`:
     This endpoint returns the list of available networks to query. Any NetworkIdentifier returned by /network/list should be accessible through subsequent calls to /network/options, /network/status, and /block.
  
-## `/network/options`:
+### `/network/options`:
     This endpoint returns the version information and allowed network-specific types for a NetworkIdentifier. 
 
-## `/network/status`:
+### `/network/status`:
     This endpoint returns the current status of the network requested.
  
-## `/account/balance`:
+### `/account/balance`:
     This endpoint returns the balance of a single account.
  
-## `/account/faucet`:
+### `/account/faucet`:
     This endpoint adds testnet balance to specific account.
  
-## `/block`:
+### `/block`:
     This endpoint returns the operations and transactions included in the specified block.
  
-## `/block/transaction`:
+### `/block/transaction`:
     This endpoint returns the specific transaction and operations included in specified block.
  
-## `/call`:
+### `/call`:
     This endpoint returns storage or constant value of a Substrate chain.
  
-## `/construction/combine`:
+### `/construction/combine`:
     This endpoint takes payload and make a submitable transaction.
-
  
-## `/construction/derive`:
+### `/construction/derive`:
     This endpoint converts the public key of sender to address supported by substrate chain.
  
-## `/construction/hash`:
+### `/construction/hash`:
     This endpoint converts tx hex into substrate supported hash.
  
-## `/construction/metadata`:
+### `/construction/metadata`:
     This endpoint returns nonce of account.
  
-## `/construction/payloads`:
+### `/construction/payloads`:
     This endpoint returns signable payload which can later be used to sign the transaction and sent to `contrustion/combine` endpoint to make a submitable transaction.
  
-## `/construction/preprocess`:
+### `/construction/preprocess`:
     This endpoint takes out sender address and required_signatures from operations.
  
-## `/construction/submit`:
+### `/construction/submit`:
     This endpoint submits a pre-signed transaction to the network. The transaction should be in hex format.
-
 
 
 ## __Arbitary Call__
