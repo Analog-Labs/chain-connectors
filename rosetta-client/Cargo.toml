@@ -10,6 +10,7 @@ fraction = { version = "0.12.2", default-features = false, features = ["with-big
 getrandom = "0.2.8"
 hex = "0.4.3"
 log = "0.4.17"
+rosetta-core = { path = "../rosetta-core" }
 rosetta-crypto = { path = "../rosetta-crypto" }
 rosetta-types = { path = "../rosetta-types" }
 serde = "1.0.151"

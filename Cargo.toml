@@ -1,6 +1,8 @@
 [workspace]
 members = [
+    "bitcoin",
     "dioxus-wallet",
+    "rosetta",
     "rosetta-cli",
     "rosetta-client",
     "rosetta-core",
@@ -8,7 +10,6 @@ members = [
     "rosetta-docker",
     "rosetta-indexer",
     "rosetta-server",
-    "rosetta-server-bitcoin",
     "rosetta-server-polkadot",
     "rosetta-server-substrate",
     "rosetta-types",

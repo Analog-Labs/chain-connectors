@@ -23,7 +23,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    pub fn new(url: &str, config: BlockchainConfig, signer: &Signer) -> Result<Self> {
+    pub fn new(config: BlockchainConfig, signer: &Signer, client: Client) -> Result<Self> {
         let secret_key = if config.bip44 {
             signer
                 .bip44_account(config.algorithm, config.coin, 0)?
@@ -34,7 +34,6 @@ impl Wallet {
         let public_key = secret_key.public_key();
         let account = public_key.to_address(config.address_format).to_rosetta();
         let public_key = public_key.to_rosetta();
-        let client = Client::new(url)?;
         Ok(Self {
             config,
             client,
@@ -64,7 +63,7 @@ impl Wallet {
         let status = self
             .client
             .network_status(&NetworkRequest {
-                network_identifier: self.config.network.clone(),
+                network_identifier: self.config.network(),
                 metadata: None,
             })
             .await?;
@@ -75,10 +74,10 @@ impl Wallet {
         let balance = self
             .client
             .account_balance(&AccountBalanceRequest {
-                network_identifier: self.config.network.clone(),
+                network_identifier: self.config.network(),
                 account_identifier: self.account.clone(),
                 block_identifier: None,
-                currencies: Some(vec![self.config.currency.clone()]),
+                currencies: Some(vec![self.config.currency()]),
             })
             .await?;
         Ok(balance.balances[0].clone())
@@ -88,10 +87,10 @@ impl Wallet {
         let coins = self
             .client
             .account_coins(&AccountCoinsRequest {
-                network_identifier: self.config.network.clone(),
+                network_identifier: self.config.network(),
                 account_identifier: self.account.clone(),
                 include_mempool: false,
-                currencies: Some(vec![self.config.currency.clone()]),
+                currencies: Some(vec![self.config.currency()]),
             })
             .await?;
         Ok(coins.coins)
@@ -102,7 +101,7 @@ impl Wallet {
         operations: &[Operation],
     ) -> Result<ConstructionPreprocessResponse> {
         let req = ConstructionPreprocessRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             operations: operations.to_vec(),
             metadata: None,
         };
@@ -111,7 +110,7 @@ impl Wallet {
 
     pub async fn metadata(&self, options: &Option<Value>) -> Result<ConstructionMetadataResponse> {
         let req = ConstructionMetadataRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             options: options.clone(),
         };
         self.client.construction_metadata(&req).await
@@ -123,7 +122,7 @@ impl Wallet {
         metadata: &Value,
     ) -> Result<ConstructionPayloadsResponse> {
         let req = ConstructionPayloadsRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             operations: operations.to_vec(),
             public_keys: None,
             metadata: Some(metadata.clone()),
@@ -137,7 +136,7 @@ impl Wallet {
         signatures: Vec<Signature>,
     ) -> Result<String> {
         let req = ConstructionCombineRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             signatures,
             unsigned_transaction: unsigned_transaction.to_string(),
         };
@@ -147,7 +146,7 @@ impl Wallet {
 
     pub async fn parse(&self, tx: &str) -> Result<ConstructionParseResponse> {
         let req = ConstructionParseRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             signed: true,
             transaction: tx.to_string(),
         };
@@ -156,7 +155,7 @@ impl Wallet {
 
     pub async fn hash(&self, tx: &str) -> Result<TransactionIdentifier> {
         let req = ConstructionHashRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             signed_transaction: tx.to_string(),
         };
         let hash = self.client.construction_hash(&req).await?;
@@ -165,7 +164,7 @@ impl Wallet {
 
     pub async fn submit(&self, tx: &str) -> Result<TransactionIdentifier> {
         let req = ConstructionSubmitRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             signed_transaction: tx.to_string(),
         };
         let submit = self.client.construction_submit(&req).await?;
@@ -186,16 +185,16 @@ impl Wallet {
                 }
                 tx.input(&self.account, coin)?;
             }
-            tx.output(account, amount, &self.config.currency);
-            tx.output(self.account(), 0, &self.config.currency);
+            tx.output(account, amount, &self.config.currency());
+            tx.output(self.account(), 0, &self.config.currency());
         } else {
-            tx.transfer(&self.account, account, amount, &self.config.currency);
+            tx.transfer(&self.account, account, amount, &self.config.currency());
         }
 
         let preprocess = self.preprocess(tx.operations()).await?;
         let metadata = self.metadata(&preprocess.options).await?;
         let fee: u128 = if let Some(suggested_fee) = &metadata.suggested_fee {
-            anyhow::ensure!(suggested_fee[0].currency == self.config.currency);
+            anyhow::ensure!(suggested_fee[0].currency == self.config.currency());
             suggested_fee[0].value.parse()?
         } else {
             0
@@ -209,7 +208,7 @@ impl Wallet {
                 .checked_sub(fee)
                 .ok_or_else(|| anyhow::anyhow!("overflowed"))?;
             tx.pop();
-            tx.output(&self.account, change_amount, &self.config.currency);
+            tx.output(&self.account, change_amount, &self.config.currency());
         }
 
         let payloads = self.payloads(tx.operations(), &metadata.metadata).await?;
@@ -227,7 +226,7 @@ impl Wallet {
 
     pub async fn faucet_dev(&self, faucet_parameter: u128) -> Result<TransactionIdentifier> {
         let req = AccountFaucetRequest {
-            network_identifier: self.config.network.clone(),
+            network_identifier: self.config.network(),
             account_identifier: self.account.clone(),
             faucet_parameter,
         };
@@ -238,7 +237,7 @@ impl Wallet {
 
     pub async fn transactions(&self, indexer_url: &str) -> Result<SearchTransactionsResponse> {
         let req = SearchTransactionsRequest {
-            network_identifier: self.config().network.clone(),
+            network_identifier: self.config().network(),
             operator: None,
             max_block: None,
             offset: None,

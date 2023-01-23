@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
-use rosetta_types::{
-    BlockIdentifier, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, Version,
+use rosetta_core::types::{
+    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
+    NetworkRequest, NetworkStatusResponse, Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -10,16 +10,7 @@ use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 use tide::{Body, Request, Response};
 
-pub use rosetta_types as types;
-
-#[async_trait::async_trait]
-pub trait BlockchainClient: Sized + Send + Sync + 'static {
-    async fn new(network: &str, addr: &str) -> Result<Self>;
-    fn network(&self) -> &NetworkIdentifier;
-    fn node_version(&self) -> &str;
-    fn genesis_block(&self) -> &BlockIdentifier;
-    async fn current_block(&self) -> Result<BlockIdentifier>;
-}
+pub use rosetta_core::*;
 
 #[derive(Parser)]
 struct Opts {
@@ -28,15 +19,15 @@ struct Opts {
     #[clap(long)]
     addr: SocketAddr,
     #[clap(long)]
-    rpc_addr: String,
+    node_addr: String,
 }
 
 pub async fn main<T: BlockchainClient>() -> Result<()> {
     femme::start();
     let opts = Opts::parse();
 
-    log::info!("connecting to {}", opts.rpc_addr);
-    let client = T::new(&opts.network, &opts.rpc_addr).await?;
+    log::info!("connecting to {}", &opts.node_addr);
+    let client = T::new(&opts.network, &opts.node_addr).await?;
 
     let cors = CorsMiddleware::new()
         .allow_methods("POST".parse::<HeaderValue>().unwrap())
@@ -88,18 +79,29 @@ fn ok<T: serde::Serialize>(t: &T) -> tide::Result {
     Ok(r)
 }
 
+fn is_network_supported(network_identifier: &NetworkIdentifier, config: &BlockchainConfig) -> bool {
+    network_identifier.blockchain == config.blockchain
+        && network_identifier.network == config.network
+        && network_identifier.sub_network_identifier.is_none()
+}
+
 async fn network_list<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let _request: MetadataRequest = req.body_json().await?;
-    let network = req.state().network();
+    let config = req.state().config();
     let response = NetworkListResponse {
-        network_identifiers: vec![network.clone()],
+        network_identifiers: vec![NetworkIdentifier {
+            blockchain: config.blockchain.into(),
+            network: config.network.into(),
+            sub_network_identifier: None,
+        }],
     };
     ok(&response)
 }
 
 async fn network_options<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: NetworkRequest = req.body_json().await?;
-    if &request.network_identifier != req.state().network() {
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
     let response = NetworkOptionsResponse {
@@ -116,7 +118,8 @@ async fn network_options<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide:
 
 async fn network_status<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: NetworkRequest = req.body_json().await?;
-    if &request.network_identifier != req.state().network() {
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
     let current_block_identifier = req.state().current_block().await?;
@@ -173,7 +176,7 @@ impl Error {
     }
 
     pub fn to_response(&self) -> Response {
-        let error = rosetta_types::Error {
+        let error = rosetta_core::types::Error {
             code: 500,
             message: self.to_string(),
             description: self.description(),
@@ -187,16 +190,5 @@ impl Error {
 
     pub fn to_result(&self) -> tide::Result {
         Ok(self.to_response())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
     }
 }

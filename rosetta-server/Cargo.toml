@@ -9,6 +9,6 @@ async-trait = "0.1.62"
 clap = { version = "4.1.1", features = ["derive"] }
 femme = "2.2.1"
 log = "0.4.17"
-rosetta-types = { version = "0.1.0", path = "../rosetta-types" }
+rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 serde = "1.0.152"
 tide = { version = "0.16.0", default-features = false, features = ["h1-server", "logger"] }

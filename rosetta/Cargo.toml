@@ -1,0 +1,9 @@
+[package]
+name = "rosetta"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rosetta-client = { version = "0.1.0", path = "../rosetta-client" }
+rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
+rosetta-server = { version = "0.1.0", path = "../rosetta-server" }

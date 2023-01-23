@@ -2,7 +2,7 @@ FROM rust:1.66 as builder
 
 # build rosetta
 COPY . src
-RUN cd src && cargo install --path rosetta-server-bitcoin --root /app
+RUN cd src && cargo install --path bitcoin --root /app
 
 # final image
 FROM ubuntu:20.04

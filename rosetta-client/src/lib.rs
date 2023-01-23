@@ -6,18 +6,16 @@ use fraction::{BigDecimal, BigUint};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 pub use crate::client::Client;
-pub use crate::config::BlockchainConfig;
 pub use crate::signer::Signer;
 pub use crate::tx::TransactionBuilder;
 pub use crate::wallet::Wallet;
+pub use rosetta_core::BlockchainConfig;
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
 
 mod client;
-mod config;
 pub mod signer;
 mod tx;
 mod wallet;
@@ -103,81 +101,10 @@ pub fn get_or_set_mnemonic() -> Result<Mnemonic> {
     Ok(mnemonic)
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum Chain {
-    Btc,
-    Eth,
-    Dot,
-}
-
-impl FromStr for Chain {
-    type Err = anyhow::Error;
-
-    fn from_str(chain: &str) -> Result<Self> {
-        Ok(match chain {
-            "btc" => Chain::Btc,
-            "eth" => Chain::Eth,
-            "dot" => Chain::Dot,
-            _ => anyhow::bail!("unsupported chain {}", chain),
-        })
-    }
-}
-
-impl std::fmt::Display for Chain {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.id())
-    }
-}
-
-impl Chain {
-    pub fn id(self) -> &'static str {
-        match self {
-            Chain::Btc => "btc",
-            Chain::Eth => "eth",
-            Chain::Dot => "dot",
-        }
-    }
-
-    pub fn url(self) -> &'static str {
-        match self {
-            Chain::Btc => "http://rosetta.analog.one:8080",
-            Chain::Eth => "http://rosetta.analog.one:8081",
-            Chain::Dot => "http://rosetta.analog.one:8082",
-        }
-    }
-
-    pub fn indexer_url(self) -> &'static str {
-        match self {
-            Chain::Btc => "http://rosetta.analog.one:8083",
-            Chain::Eth => "http://rosetta.analog.one:8084",
-            Chain::Dot => "http://rosetta.analog.one:8085",
-        }
-    }
-
-    pub fn config(self) -> BlockchainConfig {
-        match self {
-            Chain::Btc => BlockchainConfig::bitcoin_regtest(),
-            Chain::Eth => BlockchainConfig::ethereum_dev(),
-            Chain::Dot => BlockchainConfig::polkadot_dev(),
-        }
-    }
-}
-
 pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
     #[cfg(not(target_family = "wasm"))]
     let mnemonic = open_or_create_keyfile(_keyfile)?;
     #[cfg(target_family = "wasm")]
     let mnemonic = get_or_set_mnemonic()?;
     Signer::new(&mnemonic, "")
-}
-
-pub fn create_wallet(chain: Chain, url: Option<&str>, keyfile: Option<&Path>) -> Result<Wallet> {
-    let url = if let Some(url) = url {
-        url
-    } else {
-        chain.url()
-    };
-    let signer = create_signer(keyfile)?;
-    let wallet = Wallet::new(url, chain.config(), &signer)?;
-    Ok(wallet)
 }
