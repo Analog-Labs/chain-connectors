@@ -1,10 +1,78 @@
+# __Rosetta Server for Substrate Chains__
+
+This server implements following endpoints:
+* `/network/list`
+* `/network/options`
+* `/network/status`
+* `/account/balance`
+* `/account/faucet`
+* `/block`
+* `/block/transaction`
+* `/call`
+* `/construction/combine`
+* `/construction/derive`
+* `/construction/hash`
+* `/construction/metadata`
+* `/construction/payloads`
+* `/construction/preprocess`
+* `/construction/submit`
+
+
+## `/network/list`:
+    This endpoint returns the list of available networks to query. Any NetworkIdentifier returned by /network/list should be accessible through subsequent calls to /network/options, /network/status, and /block.
+ 
+## `/network/options`:
+    This endpoint returns the version information and allowed network-specific types for a NetworkIdentifier. 
+
+## `/network/status`:
+    This endpoint returns the current status of the network requested.
+ 
+## `/account/balance`:
+    This endpoint returns the balance of a single account.
+ 
+## `/account/faucet`:
+    This endpoint adds testnet balance to specific account.
+ 
+## `/block`:
+    This endpoint returns the operations and transactions included in the specified block.
+ 
+## `/block/transaction`:
+    This endpoint returns the specific transaction and operations included in specified block.
+ 
+## `/call`:
+    This endpoint returns storage or constant value of a Substrate chain.
+ 
+## `/construction/combine`:
+    This endpoint takes payload and make a submitable transaction.
+
+ 
+## `/construction/derive`:
+    This endpoint converts the public key of sender to address supported by substrate chain.
+ 
+## `/construction/hash`:
+    This endpoint converts tx hex into substrate supported hash.
+ 
+## `/construction/metadata`:
+    This endpoint returns nonce of account.
+ 
+## `/construction/payloads`:
+    This endpoint returns signable payload which can later be used to sign the transaction and sent to `contrustion/combine` endpoint to make a submitable transaction.
+ 
+## `/construction/preprocess`:
+    This endpoint takes out sender address and required_signatures from operations.
+ 
+## `/construction/submit`:
+    This endpoint submits a pre-signed transaction to the network. The transaction should be in hex format.
+
+
+
 ## __Arbitary Call__
 
 ### __Making extrinsic calls__
 
-To make signed extrinsic calls we have combine rosetta-endpoints and construct a pipeline to execute extrinsic.\
+To make signed extrinsic calls we have to combine endpoints and construct a pipeline to execute extrinsic.\
 `1.` We need to get nonce of user for which we call `contrusction_metadata`.\
-`2.` Then we call `construction_payload` endpoint by giving it the `metadata` with following keys.
+`2.` Then we call `construction_payload` endpoint by giving it the `metadata` json object with following keys.
 * `pallet_name`
 * `call_name`
 * `params`
@@ -16,7 +84,7 @@ To make signed extrinsic calls we have combine rosetta-endpoints and construct a
 
 ### __Fetching Storage or Constant__
 
-To fetch Storage or any Constant from a Substrate chain, you can use the `Call` method of rosetta. This method takes a `CallRequest` as input and returns a `CallResponse` as output. The `CallRequest` contains the following fields:
+To fetch Storage or any Constant from a Substrate chain, you can use the `Call` endpoint. This method takes a `CallRequest` as input and returns a `CallResponse` as output. The `CallRequest` contains the following fields:
 * `NetworkIdentifier` - The network to make the call on.
 * `Method` - A string contains the name of pallet, function of pallet and type of query e.g. `Storage`, `Constant`. 
 * `Params` - A Array containing the parameters required for that pallet function.
