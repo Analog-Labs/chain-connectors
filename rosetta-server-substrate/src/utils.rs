@@ -787,7 +787,7 @@ pub async fn dynamic_storage_req(
     } else {
         vec![]
     };
-    
+
     let params = set_params_acc_to_storage(params);
 
     let storage_address = subxt::dynamic::storage(pallet_name, storage_name, params);
