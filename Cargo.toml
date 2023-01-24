@@ -1,19 +1,18 @@
 [workspace]
 members = [
-    "bitcoin/config",
-    "bitcoin/server",
-    "dioxus-wallet",
-    "rosetta-cli",
+    "chains/bitcoin/config",
+    "chains/bitcoin/server",
+    "chains/polkadot/config",
+    "chains/polkadot/server",
+    #"dioxus-wallet",
+    #"rosetta-cli",
     "rosetta-client",
     "rosetta-core",
     "rosetta-crypto",
     "rosetta-docker",
-    "rosetta-indexer",
     "rosetta-server",
-    "rosetta-server-polkadot",
-    "rosetta-server-substrate",
     "rosetta-types",
-    "rosetta-wallet",
+    #"rosetta-wallet",
 ]
 resolver = "2"
 

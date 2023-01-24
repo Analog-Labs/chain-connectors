@@ -21,7 +21,7 @@ pub struct BlockchainConfig {
     pub currency_decimals: u32,
     pub node_port: u16,
     pub node_image: &'static str,
-    pub node_command: Arc<dyn Fn(u16) -> Vec<String> + Send + Sync + 'static>,
+    pub node_command: Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>,
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
 }
