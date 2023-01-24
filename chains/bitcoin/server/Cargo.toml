@@ -10,8 +10,8 @@ async-trait = "0.1.62"
 bitcoincore-rpc-async = "3.0.1"
 hex = "0.4.3"
 rosetta-config-bitcoin = { version = "0.1.0", path = "../config" }
-rosetta-server = { version = "0.1.0", path = "../../rosetta-server" }
+rosetta-server = { version = "0.1.0", path = "../../../rosetta-server" }
 tokio = { version = "1.24.2", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-rosetta-server = { version = "0.1.0", path = "../../rosetta-server", features = ["tests"] }
+rosetta-server = { version = "0.1.0", path = "../../../rosetta-server", features = ["tests"] }

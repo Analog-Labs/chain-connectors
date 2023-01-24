@@ -165,11 +165,11 @@ impl EnvBuilder {
                 match chunk {
                     Ok(TtyChunk::StdOut(stdout)) => {
                         let stdout = std::str::from_utf8(&stdout).unwrap_or_default();
-                        log::info!("{}: {}", name, stdout);
+                        log::info!("{}: stdout: {}", name, stdout);
                     }
                     Ok(TtyChunk::StdErr(stderr)) => {
                         let stderr = std::str::from_utf8(&stderr).unwrap_or_default();
-                        log::error!("{}: {}", name, stderr);
+                        log::info!("{}: stderr: {}", name, stderr);
                     }
                     Err(err) => {
                         log::error!("{}", err);
@@ -199,7 +199,7 @@ impl EnvBuilder {
         let mut opts = ContainerCreateOpts::builder()
             .name(&name)
             .image(config.node_image)
-            .command((config.node_command)(config.node_port))
+            .command((config.node_command)(config.network, config.node_port))
             .auto_remove(true)
             .attach_stdout(true)
             .attach_stderr(true)
@@ -213,7 +213,8 @@ impl EnvBuilder {
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build(), network).await?;
-        wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
+        //wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
+        tokio::time::sleep(Duration::from_secs(10)).await;
         Ok(container)
     }
 

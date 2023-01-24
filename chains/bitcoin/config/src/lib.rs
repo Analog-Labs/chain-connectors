@@ -16,7 +16,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         utxo: true,
         currency_unit: "satoshi",
         currency_symbol: "tBTC",
-        currency_decimals: 10,
+        currency_decimals: 8,
         node_port: 18443,
         node_image: "ruimarinho/bitcoin-core",
         node_command: Arc::new(|port| {
