@@ -226,7 +226,7 @@ impl EnvBuilder {
         let link = self.node_name(config);
         let opts = ContainerCreateOpts::builder()
             .name(&name)
-            .image(format!("connector-{}", config.blockchain))
+            .image(format!("analoglabs/connector-{}", config.blockchain))
             .command(vec![
                 format!("--network={}", config.network),
                 format!("--addr=0.0.0.0:{}", config.connector_port),
