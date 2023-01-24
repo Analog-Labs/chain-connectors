@@ -123,8 +123,7 @@ impl EnvBuilder {
                 .as_ref()
                 .unwrap()
                 .iter()
-                .find(|n| n.as_str().ends_with(name))
-                .is_some()
+                .any(|n| n.as_str().ends_with(name))
             {
                 let container = Container::new(self.docker.clone(), container.id.unwrap());
                 log::info!("stopping {}", name);
@@ -143,7 +142,7 @@ impl EnvBuilder {
         network: &Network,
     ) -> Result<Container> {
         log::info!("creating {}", name);
-        let id = self.docker.containers().create(&opts).await?.id().clone();
+        let id = self.docker.containers().create(opts).await?.id().clone();
         let container = Container::new(self.docker.clone(), id.clone());
 
         let opts = ContainerConnectionOpts::builder(&id).build();
@@ -275,7 +274,7 @@ async fn health(container: &Container) -> Result<Option<Health>> {
 
 async fn wait_for_http(url: &str) -> Result<()> {
     loop {
-        match surf::get(&url).await {
+        match surf::get(url).await {
             Ok(_) => {
                 break;
             }

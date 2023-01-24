@@ -7,6 +7,8 @@ use std::sync::Arc;
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
 
+type NodeCommand = Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>;
+
 #[derive(Clone)]
 pub struct BlockchainConfig {
     pub blockchain: &'static str,
@@ -21,7 +23,7 @@ pub struct BlockchainConfig {
     pub currency_decimals: u32,
     pub node_port: u16,
     pub node_image: &'static str,
-    pub node_command: Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>,
+    pub node_command: NodeCommand,
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
 }

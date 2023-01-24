@@ -56,77 +56,37 @@ services:
 
 
   connector-bitcoin:
-    image: "analoglabs/rosetta-bitcoin"
-    environment:
-    - NETWORK=REGTEST
-    - MODE=ONLINE
-    - PORT=8080
-    - "BITCOIND=http://bitcoin:18443"
+    image: "analoglabs/connector-bitcoin"
+    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443"
+    build:
+      context: "."
+      dockerfile: "./chains/bitcoin/Dockerfile"
     ports:
     - "8080:8080"
     depends_on:
     - bitcoin
 
   connector-ethereum:
-    image: "analoglabs/rosetta-ethereum"
-    environment:
-    - NETWORK=TESTNET
-    - MODE=ONLINE
-    - PORT=8081
-    - "GETH=http://ethereum:8545"
+    image: "analoglabs/connector-ethereum"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545"
+    build:
+      context: "."
+      dockerfile: "./chains/ethereum/Dockerfile"
     ports:
     - "8081:8081"
     depends_on:
     - ethereum
 
   connector-polkadot:
-    image: "analoglabs/rosetta-polkadot"
-    command: "--network dev --url http://0.0.0.0:8082 --rpc-url ws://polkadot:9944"
-    restart: always
+    image: "analoglabs/connector-polkadot"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944"
     build:
       context: "."
-      dockerfile: "./rosetta-server-polkadot/Dockerfile"
+      dockerfile: "./chains/polkadot/Dockerfile"
     ports:
     - "8082:8082"
     depends_on:
     - polkadot
-
-
-  indexer-bitcoin:
-    image: "analoglabs/rosetta-indexer"
-    command: "--chain=btc --server=http://rosetta-bitcoin:8080 --url=http://0.0.0.0:8083"
-    restart: always
-    build:
-      context: "."
-      dockerfile: "./rosetta-indexer/Dockerfile"
-    ports:
-    - "8083:8083"
-    depends_on:
-    - connector-bitcoin
-
-  indexer-ethereum:
-    image: "analoglabs/rosetta-indexer"
-    command: "--chain=eth --server=http://rosetta-ethereum:8081 --url=http://0.0.0.0:8084"
-    restart: always
-    build:
-      context: "."
-      dockerfile: "./rosetta-indexer/Dockerfile"
-    ports:
-    - "8084:8084"
-    depends_on:
-    - connector-ethereum
-
-  indexer-polkadot:
-    image: "analoglabs/rosetta-indexer"
-    command: "--chain=dot --server=http://rosetta-polkadot:8082 --url=http://0.0.0.0:8085"
-    restart: always
-    build:
-      context: "."
-      dockerfile: "./rosetta-indexer/Dockerfile"
-    ports:
-    - "8085:8085"
-    depends_on:
-    - connector-polkadot
 
 
   explorer:
@@ -134,6 +94,6 @@ services:
     ports:
     - "3000:3000"
     depends_on:
-    - indexer-bitcoin
-    - indexer-ethereum
-    - indexer-polkadot
+    - connector-bitcoin
+    - connector-ethereum
+    - connector-polkadot
