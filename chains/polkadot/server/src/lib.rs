@@ -42,7 +42,12 @@ impl BlockchainClient for PolkadotClient {
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
-        let block = self.client.rpc().block(None).await?.context("no current block")?;
+        let block = self
+            .client
+            .rpc()
+            .block(None)
+            .await?
+            .context("no current block")?;
         let index = block.block.header.number as _;
         let hash = block.block.header.hash();
         Ok(BlockIdentifier {

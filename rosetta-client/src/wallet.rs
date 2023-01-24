@@ -2,16 +2,16 @@ use crate::crypto::bip32::DerivedSecretKey;
 use crate::crypto::bip44::ChildNumber;
 use crate::signer::{RosettaAccount, RosettaPublicKey, RosettaSecretKey, Signer};
 use crate::types::{
-    AccountBalanceRequest, AccountCoinsRequest, AccountIdentifier, Amount, BlockIdentifier, Coin,
-    ConstructionCombineRequest, ConstructionHashRequest, ConstructionMetadataRequest,
-    ConstructionMetadataResponse, ConstructionParseRequest, ConstructionParseResponse,
-    ConstructionPayloadsRequest, ConstructionPayloadsResponse, ConstructionPreprocessRequest,
-    ConstructionPreprocessResponse, ConstructionSubmitRequest, Operation, PublicKey, Signature,
+    AccountBalanceRequest, AccountCoinsRequest, AccountFaucetRequest, AccountIdentifier, Amount,
+    BlockIdentifier, Coin, ConstructionCombineRequest, ConstructionHashRequest,
+    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionParseRequest,
+    ConstructionParseResponse, ConstructionPayloadsRequest, ConstructionPayloadsResponse,
+    ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
+    Operation, PublicKey, SearchTransactionsRequest, SearchTransactionsResponse, Signature,
     TransactionIdentifier,
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
-use rosetta_types::{AccountFaucetRequest, SearchTransactionsRequest, SearchTransactionsResponse};
 use serde_json::Value;
 
 pub struct Wallet {
@@ -229,7 +229,7 @@ impl Wallet {
         Ok(resp.transaction_identifier)
     }
 
-    pub async fn transactions(&self, indexer_url: &str) -> Result<SearchTransactionsResponse> {
+    pub async fn transactions(&self) -> Result<SearchTransactionsResponse> {
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network(),
             operator: None,
@@ -245,9 +245,6 @@ impl Wallet {
             address: None,
             success: None,
         };
-
-        let client = Client::new(indexer_url)?;
-        let request = client.search_transactions(&req).await?;
-        Ok(request)
+        self.client.search_transactions(&req).await
     }
 }

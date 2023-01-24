@@ -11,9 +11,7 @@ pub use crate::client::Client;
 pub use crate::signer::Signer;
 pub use crate::tx::TransactionBuilder;
 pub use crate::wallet::Wallet;
-pub use rosetta_core::BlockchainConfig;
-pub use rosetta_crypto as crypto;
-pub use rosetta_types as types;
+pub use rosetta_core::{crypto, types, BlockchainConfig};
 
 mod client;
 pub mod signer;
@@ -107,4 +105,43 @@ pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
     #[cfg(target_family = "wasm")]
     let mnemonic = get_or_set_mnemonic()?;
     Signer::new(&mnemonic, "")
+}
+
+pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig> {
+    match blockchain {
+        "bitcoin" => rosetta_config_bitcoin::config(network),
+        "ethereum" => rosetta_config_ethereum::config(network),
+        "polkadot" => rosetta_config_polkadot::config(network),
+        _ => anyhow::bail!("unsupported blockchain"),
+    }
+}
+
+pub async fn create_client(
+    blockchain: Option<String>,
+    network: Option<String>,
+    url: Option<String>,
+) -> Result<(BlockchainConfig, Client)> {
+    let (blockchain, network) = if let (Some(blockchain), Some(network)) = (blockchain, network) {
+        (blockchain, network)
+    } else if let Some(url) = url.as_ref() {
+        let network = Client::new(url)?.network_list().await?[0].clone();
+        (network.blockchain, network.network)
+    } else {
+        anyhow::bail!("requires url or blockchain argument");
+    };
+    let config = create_config(&blockchain, &network)?;
+    let url = url.unwrap_or_else(|| config.connector_url());
+    let client = Client::new(&url)?;
+    Ok((config, client))
+}
+
+pub async fn create_wallet(
+    blockchain: Option<String>,
+    network: Option<String>,
+    url: Option<String>,
+    keyfile: Option<&Path>,
+) -> Result<Wallet> {
+    let (config, client) = create_client(blockchain, network, url).await?;
+    let signer = create_signer(keyfile)?;
+    Wallet::new(config, &signer, client)
 }

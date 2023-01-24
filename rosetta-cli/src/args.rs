@@ -1,6 +1,6 @@
 use crate::identifiers::{
     AccountIdentifierOpts, BlockIdentifierOpts, CoinIdentifierOpts, CurrencyIdentifierOpts,
-    NetworkIdentifierOpts, TransactionIdentifierOpts,
+    TransactionIdentifierOpts,
 };
 use clap::{Parser, ValueEnum};
 
@@ -8,10 +8,10 @@ use clap::{Parser, ValueEnum};
 pub struct Opts {
     #[clap(long)]
     pub url: Option<String>,
-    #[clap(long)]
-    pub blockchain: String,
-    #[clap(long)]
-    pub network: String,
+    #[clap(long, requires = "network")]
+    pub blockchain: Option<String>,
+    #[clap(long, requires = "blockchain")]
+    pub network: Option<String>,
     #[clap(subcommand)]
     pub cmd: Command,
 }
@@ -35,14 +35,8 @@ pub struct NetworkOpts {
 #[derive(Parser)]
 pub enum NetworkCommand {
     List,
-    Options(NetworkCommandOpts),
-    Status(NetworkCommandOpts),
-}
-
-#[derive(Parser)]
-pub struct NetworkCommandOpts {
-    #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
+    Options,
+    Status,
 }
 
 #[derive(Parser)]
@@ -60,8 +54,6 @@ pub enum AccountCommand {
 #[derive(Parser)]
 pub struct AccountBalanceCommandOpts {
     #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
-    #[clap(flatten)]
     pub account: AccountIdentifierOpts,
     #[clap(flatten)]
     pub block: BlockIdentifierOpts,
@@ -69,8 +61,6 @@ pub struct AccountBalanceCommandOpts {
 
 #[derive(Parser)]
 pub struct AccountCoinsCommandOpts {
-    #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
     #[clap(flatten)]
     pub account: AccountIdentifierOpts,
     #[clap(long)]
@@ -80,8 +70,6 @@ pub struct AccountCoinsCommandOpts {
 #[derive(Parser)]
 pub struct BlockOpts {
     #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
-    #[clap(flatten)]
     pub block: BlockIdentifierOpts,
     #[clap(flatten)]
     pub transaction: TransactionIdentifierOpts,
@@ -90,15 +78,11 @@ pub struct BlockOpts {
 #[derive(Parser)]
 pub struct MempoolOpts {
     #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
-    #[clap(flatten)]
     pub transaction: TransactionIdentifierOpts,
 }
 
 #[derive(Parser)]
 pub struct EventsOpts {
-    #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
     #[clap(long)]
     pub offset: Option<u64>,
     #[clap(long)]
@@ -113,10 +97,6 @@ pub enum OperatorEnum {
 
 #[derive(Parser)]
 pub struct SearchOpts {
-    #[clap(long)]
-    pub indexer_url: Option<String>,
-    #[clap(flatten)]
-    pub network: NetworkIdentifierOpts,
     #[clap(long, value_enum)]
     pub operator: Option<OperatorEnum>,
     #[clap(long)]

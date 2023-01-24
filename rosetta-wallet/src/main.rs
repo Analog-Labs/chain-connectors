@@ -1,7 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
 use rosetta_client::types::AccountIdentifier;
-use rosetta_client::Chain;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -11,7 +10,9 @@ pub struct Opts {
     #[clap(long)]
     pub url: Option<String>,
     #[clap(long)]
-    pub chain: Chain,
+    pub blockchain: Option<String>,
+    #[clap(long)]
+    pub network: Option<String>,
     #[clap(subcommand)]
     pub cmd: Command,
 }
@@ -23,7 +24,7 @@ pub enum Command {
     Balance,
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
-    Transactions(TransactionOpts),
+    Transactions,
 }
 
 #[derive(Parser)]
@@ -37,18 +38,17 @@ pub struct FaucetOpts {
     pub amount: u128,
 }
 
-#[derive(Parser)]
-pub struct TransactionOpts {
-    pub indexer_url: Option<String>,
-}
-
 #[async_std::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let opts = Opts::parse();
-    let wallet =
-        rosetta_client::create_wallet(opts.chain, opts.url.as_deref(), opts.keyfile.as_deref())?;
-
+    let wallet = rosetta_client::create_wallet(
+        opts.blockchain,
+        opts.network,
+        opts.url,
+        opts.keyfile.as_deref(),
+    )
+    .await?;
     match opts.cmd {
         Command::Pubkey => {
             println!("0x{}", wallet.public_key().hex_bytes);
@@ -69,9 +69,9 @@ async fn main() -> Result<()> {
             let txid = wallet.transfer(&account, amount).await?;
             println!("{}", txid.hash);
         }
-        Command::Faucet(FaucetOpts { amount }) => match opts.chain {
-            Chain::Btc => {
-                let url_str = opts.url.unwrap_or_else(|| opts.chain.url().into());
+        Command::Faucet(FaucetOpts { amount }) => match wallet.config().blockchain {
+            "bitcoin" => {
+                let url_str = wallet.config().node_url();
                 let url_obj = match surf::Url::parse(&url_str) {
                     Ok(url) => url,
                     Err(e) => {
@@ -99,8 +99,8 @@ async fn main() -> Result<()> {
                     anyhow::bail!("cmd failed");
                 }
             }
-            Chain::Eth => {
-                let url_str = opts.url.unwrap_or_else(|| opts.chain.url().into());
+            "ethereum" => {
+                let url_str = wallet.config().node_url();
                 let url_obj = match surf::Url::parse(&url_str) {
                     Ok(url) => url,
                     Err(e) => {
@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
                     anyhow::bail!("cmd failed");
                 }
             }
-            Chain::Dot => {
+            "polkadot" => {
                 match wallet.faucet_dev(amount).await {
                     Ok(data) => {
                         println!("success: {}", data.hash);
@@ -140,14 +140,10 @@ async fn main() -> Result<()> {
                     }
                 };
             }
+            _ => anyhow::bail!("unsupported chain"),
         },
-        Command::Transactions(TransactionOpts { indexer_url }) => {
-            let url = if let Some(url) = indexer_url {
-                url
-            } else {
-                opts.chain.indexer_url().to_string()
-            };
-            let transactions = wallet.transactions(&url).await?;
+        Command::Transactions => {
+            let transactions = wallet.transactions().await?;
             if transactions.transactions.is_empty() {
                 println!("No transactions found");
                 return Ok(());

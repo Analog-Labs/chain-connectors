@@ -2,17 +2,19 @@
 members = [
     "chains/bitcoin/config",
     "chains/bitcoin/server",
+    "chains/ethereum/config",
+    "chains/ethereum/server",
     "chains/polkadot/config",
     "chains/polkadot/server",
     #"dioxus-wallet",
-    #"rosetta-cli",
+    "rosetta-cli",
     "rosetta-client",
     "rosetta-core",
     "rosetta-crypto",
     "rosetta-docker",
     "rosetta-server",
     "rosetta-types",
-    #"rosetta-wallet",
+    "rosetta-wallet",
 ]
 resolver = "2"
 
