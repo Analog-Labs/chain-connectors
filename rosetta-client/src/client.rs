@@ -8,7 +8,7 @@ use crate::types::{
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     EventsBlocksRequest, EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest,
     MempoolTransactionResponse, MetadataRequest, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, RuntimeCallRequest, SearchTransactionsRequest,
+    NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest,
     SearchTransactionsResponse, TransactionIdentifierResponse,
 };
 use anyhow::Result;
@@ -216,11 +216,4 @@ impl Client {
         self.post("/search/transactions", &request).await
     }
 
-    /// Make a call to the /runtime/call endpoint.
-    pub async fn runtime_call(
-        &self,
-        request: &RuntimeCallRequest,
-    ) -> Result<SearchTransactionsResponse> {
-        self.post("/runtime/call", &request).await
-    }
 }
