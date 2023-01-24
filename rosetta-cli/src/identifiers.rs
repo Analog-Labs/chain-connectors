@@ -1,33 +1,8 @@
 use clap::Parser;
 use rosetta_client::types::{
-    AccountIdentifier, BlockIdentifier, CoinIdentifier, Currency, NetworkIdentifier,
-    PartialBlockIdentifier, SubAccountIdentifier, SubNetworkIdentifier, TransactionIdentifier,
+    AccountIdentifier, BlockIdentifier, CoinIdentifier, Currency, PartialBlockIdentifier,
+    SubAccountIdentifier, TransactionIdentifier,
 };
-
-#[derive(Parser)]
-pub struct NetworkIdentifierOpts {
-    #[clap(long)]
-    blockchain: Option<String>,
-    #[clap(long)]
-    network: Option<String>,
-    #[clap(long)]
-    subnetwork: Option<String>,
-}
-
-impl NetworkIdentifierOpts {
-    pub fn network_identifier(&self) -> Option<NetworkIdentifier> {
-        Some(NetworkIdentifier {
-            blockchain: self.blockchain.as_ref()?.into(),
-            network: self.network.as_ref()?.into(),
-            sub_network_identifier: self.subnetwork.as_ref().map(|subnetwork| {
-                SubNetworkIdentifier {
-                    network: subnetwork.clone(),
-                    metadata: None,
-                }
-            }),
-        })
-    }
-}
 
 #[derive(Parser)]
 pub struct AccountIdentifierOpts {

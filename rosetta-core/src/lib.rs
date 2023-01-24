@@ -42,6 +42,14 @@ impl BlockchainConfig {
             metadata: None,
         }
     }
+
+    pub fn node_url(&self) -> String {
+        format!("http://rosetta.analog.one:{}", self.node_port)
+    }
+
+    pub fn connector_url(&self) -> String {
+        format!("http://rosetta.analog.one:{}", self.connector_port)
+    }
 }
 
 #[async_trait::async_trait]

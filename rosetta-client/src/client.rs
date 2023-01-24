@@ -1,5 +1,4 @@
-use anyhow::Result;
-use rosetta_types::{
+use crate::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
     AccountFaucetRequest, BlockRequest, BlockResponse, BlockTransactionRequest,
     BlockTransactionResponse, ConstructionCombineRequest, ConstructionCombineResponse,
@@ -12,6 +11,7 @@ use rosetta_types::{
     NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest,
     SearchTransactionsResponse, TransactionIdentifierResponse,
 };
+use anyhow::Result;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// The client struct to interface with a rosetta endpoint.
@@ -42,7 +42,7 @@ impl Client {
             200 => Ok(res.body_json().await.map_err(|e| e.into_inner())?),
             404 => anyhow::bail!("unsupported endpoint {}", path),
             500 => {
-                let error: rosetta_types::Error =
+                let error: crate::types::Error =
                     res.body_json().await.map_err(|e| e.into_inner())?;
                 log::error!("{:#?}", error);
                 Err(error.into())
@@ -120,7 +120,11 @@ impl Client {
     }
 
     /// Make a call to the /mempool endpoint.
-    pub async fn mempool(&self, request: &NetworkRequest) -> Result<MempoolResponse> {
+    pub async fn mempool(&self, network_identifier: NetworkIdentifier) -> Result<MempoolResponse> {
+        let request = NetworkRequest {
+            network_identifier,
+            metadata: None,
+        };
         self.post("/mempool", &request).await
     }
 

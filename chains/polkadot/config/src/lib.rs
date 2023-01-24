@@ -15,11 +15,14 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         blockchain: "polkadot",
         network,
         algorithm: Algorithm::Sr25519,
-        address_format: AddressFormat::Ss58(if kusama {
-            Ss58AddressFormatRegistry::PolkadotAccount
-        } else {
-            Ss58AddressFormatRegistry::KusamaAccount
-        }.into()),
+        address_format: AddressFormat::Ss58(
+            if kusama {
+                Ss58AddressFormatRegistry::PolkadotAccount
+            } else {
+                Ss58AddressFormatRegistry::KusamaAccount
+            }
+            .into(),
+        ),
         coin: 1,
         bip44: false,
         utxo: false,

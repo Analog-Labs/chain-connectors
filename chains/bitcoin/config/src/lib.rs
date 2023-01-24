@@ -19,7 +19,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_decimals: 8,
         node_port: 18443,
         node_image: "ruimarinho/bitcoin-core",
-        node_command: Arc::new(|port| {
+        node_command: Arc::new(|_network, port| {
             vec![
                 "-regtest=1".into(),
                 "-rpcbind=0.0.0.0".into(),
