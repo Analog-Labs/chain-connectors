@@ -8,8 +8,8 @@ use crate::types::{
     ConstructionPreprocessRequest, ConstructionPreprocessResponse, ConstructionSubmitRequest,
     EventsBlocksRequest, EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest,
     MempoolTransactionResponse, MetadataRequest, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest,
-    SearchTransactionsResponse, TransactionIdentifierResponse,
+    NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
+    TransactionIdentifierResponse,
 };
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Serialize};
@@ -215,5 +215,4 @@ impl Client {
     ) -> Result<SearchTransactionsResponse> {
         self.post("/search/transactions", &request).await
     }
-
 }
