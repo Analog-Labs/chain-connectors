@@ -24,7 +24,7 @@ services:
 
   ethereum:
     image: "ethereum/client-go"
-    command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool"
+    command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"
     ulimits:
@@ -40,7 +40,7 @@ services:
 
   polkadot:
     image: "parity/polkadot"
-    command: "--chain dev --ws-external --alice --tmp"
+    command: "--chain dev --rpc-cors all --ws-external --alice --tmp"
     expose:
     - "9944"
     ulimits:
@@ -87,6 +87,8 @@ services:
     - "8082:8082"
     depends_on:
     - polkadot
+    # TODO: need to do a proper health check
+    restart: always
 
 
   explorer:
