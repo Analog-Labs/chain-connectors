@@ -25,7 +25,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
                 "--ipcdisable".into(),
                 "--http".into(),
                 "--http.addr=0.0.0.0".into(),
-                format!("--http.port={}", port.to_string()),
+                format!("--http.port={}", port),
                 "--http.vhosts=*".into(),
                 "--http.api=eth,debug,admin,txpool,web3".into(),
             ]
