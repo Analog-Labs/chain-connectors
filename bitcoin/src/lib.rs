@@ -4,6 +4,7 @@ use rosetta::crypto::address::AddressFormat;
 use rosetta::crypto::Algorithm;
 use rosetta::types::BlockIdentifier;
 use rosetta::{BlockchainClient, BlockchainConfig};
+use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     anyhow::ensure!(network == "regtest");
@@ -20,14 +21,16 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_decimals: 10,
         node_port: 18443,
         node_image: "ruimarinho/bitcoin-core",
-        node_command: vec![
-            "-regtest=1".into(),
-            "-rpcbind=0.0.0.0".into(),
-            "-rpcport=18443".into(),
-            "-rpcallowip=0.0.0.0/0".into(),
-            "-rpcuser=rosetta".into(),
-            "-rpcpassword=rosetta".into(),
-        ],
+        node_command: Arc::new(|port| {
+            vec![
+                "-regtest=1".into(),
+                "-rpcbind=0.0.0.0".into(),
+                format!("-rpcport={}", port),
+                "-rpcallowip=0.0.0.0/0".into(),
+                "-rpcuser=rosetta".into(),
+                "-rpcpassword=rosetta".into(),
+            ]
+        }),
         node_additional_ports: &[],
         connector_port: 8080,
     })
