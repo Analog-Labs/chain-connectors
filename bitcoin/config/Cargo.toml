@@ -1,0 +1,8 @@
+[package]
+name = "rosetta-config-bitcoin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.68"
+rosetta-core = { path = "../../rosetta-core" }

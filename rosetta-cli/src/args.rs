@@ -3,14 +3,15 @@ use crate::identifiers::{
     NetworkIdentifierOpts, TransactionIdentifierOpts,
 };
 use clap::{Parser, ValueEnum};
-use rosetta_client::Chain;
 
 #[derive(Parser)]
 pub struct Opts {
     #[clap(long)]
     pub url: Option<String>,
     #[clap(long)]
-    pub chain: Option<Chain>,
+    pub blockchain: String,
+    #[clap(long)]
+    pub network: String,
     #[clap(subcommand)]
     pub cmd: Command,
 }

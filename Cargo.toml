@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "bitcoin",
+    "bitcoin/config",
+    "bitcoin/server",
     "dioxus-wallet",
-    "rosetta",
     "rosetta-cli",
     "rosetta-client",
     "rosetta-core",

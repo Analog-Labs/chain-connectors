@@ -10,7 +10,8 @@ env_logger = "0.10.0"
 futures = "0.3.25"
 getrandom = "0.2.8"
 log = "0.4.17"
-rosetta = { version = "0.1.0", path = "../rosetta" }
+rosetta-client = { version = "0.1.0", path = "../rosetta-client" }
+rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-no-tls"] }
 tokio = "1.24.2"
 

@@ -192,3 +192,53 @@ impl Error {
         Ok(self.to_response())
     }
 }
+
+#[cfg(feature = "tests")]
+pub mod tests {
+    use super::*;
+    use rosetta_docker::Env;
+
+    pub async fn network_list(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("network-list", config.clone()).await?;
+
+        let client = env.connector()?;
+        let networks = client.network_list().await?;
+        assert_eq!(networks.len(), 1);
+        assert_eq!(networks[0].blockchain, config.blockchain);
+        assert_eq!(networks[0].network, config.network);
+        assert!(networks[0].sub_network_identifier.is_none());
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn network_options<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("network-options", config.clone()).await?;
+
+        let client = env.node::<T>().await?;
+        let version = client.node_version();
+
+        let client = env.connector()?;
+        let options = client.network_options(config.network()).await?;
+        assert_eq!(options.version.node_version, version);
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn network_status<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("network-status", config.clone()).await?;
+
+        let client = env.node::<T>().await?;
+        let genesis = client.genesis_block().clone();
+        let current = client.current_block().await?;
+
+        let client = env.connector()?;
+        let status = client.network_status(config.network()).await?;
+        assert_eq!(status.genesis_block_identifier, Some(genesis));
+        assert_eq!(status.current_block_identifier, current);
+
+        env.shutdown().await?;
+        Ok(())
+    }
+}
