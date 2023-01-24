@@ -2,11 +2,12 @@ use crate::crypto::address::AddressFormat;
 use crate::crypto::Algorithm;
 use crate::types::{BlockIdentifier, Currency, NetworkIdentifier};
 use anyhow::Result;
+use std::sync::Arc;
 
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone)]
 pub struct BlockchainConfig {
     pub blockchain: &'static str,
     pub network: &'static str,
@@ -20,7 +21,7 @@ pub struct BlockchainConfig {
     pub currency_decimals: u32,
     pub node_port: u16,
     pub node_image: &'static str,
-    pub node_command: Vec<String>,
+    pub node_command: Arc<dyn Fn(u16) -> Vec<String> + Send + Sync + 'static>,
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
 }
