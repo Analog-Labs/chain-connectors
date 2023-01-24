@@ -6,8 +6,8 @@ use docker_api::opts::{
 };
 use docker_api::{Container, Docker, Network};
 use futures::stream::StreamExt;
-use rosetta::client::Client;
-use rosetta::{BlockchainClient, BlockchainConfig};
+use rosetta_client::Client;
+use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::time::Duration;
 
 pub struct Env {

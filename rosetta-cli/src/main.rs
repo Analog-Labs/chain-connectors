@@ -21,11 +21,7 @@ async fn network_identifier(
     Ok(if let Some(network) = opts.network_identifier() {
         network
     } else {
-        client
-            .network_list(&MetadataRequest::new())
-            .await?
-            .network_identifiers[0]
-            .clone()
+        client.network_list().await?[0].clone()
     })
 }
 
@@ -45,7 +41,7 @@ async fn main() -> Result<()> {
     match opts.cmd {
         Command::Network(NetworkOpts { cmd }) => match cmd {
             NetworkCommand::List => {
-                let list = client.network_list(&MetadataRequest::new()).await?;
+                let list = client.network_list().await?;
                 for network in &list.network_identifiers {
                     print!("{} {}", network.blockchain, network.network);
                     if let Some(subnetwork) = network.sub_network_identifier.as_ref() {
@@ -56,14 +52,12 @@ async fn main() -> Result<()> {
             }
             NetworkCommand::Options(opts) => {
                 let network = network_identifier(&client, &opts.network).await?;
-                let options = client
-                    .network_options(&NetworkRequest::new(network))
-                    .await?;
+                let options = client.network_options(&network).await?;
                 println!("{:#?}", options);
             }
             NetworkCommand::Status(opts) => {
                 let network = network_identifier(&client, &opts.network).await?;
-                let status = client.network_status(&NetworkRequest::new(network)).await?;
+                let status = client.network_status(&network).await?;
                 println!("{:#?}", status);
             }
         },
