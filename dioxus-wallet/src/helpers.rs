@@ -33,3 +33,23 @@ pub async fn display_loader(loader: Rc<dyn Fn(bool)>, future: impl Future<Output
     future.await;
     loader(false);
 }
+#[cfg(not(target_family = "wasm"))]
+pub fn copy_to_clipboard(the_string: String) -> Result<()> {
+    let mut clipboard =   dioxus_desktop::tao::clipboard::Clipboard::new();
+    clipboard.write_text(the_string);
+    Ok(())
+}
+
+#[cfg(target_family = "wasm")]
+pub fn copy_to_clipboard(the_string: String) -> Result<()> {
+    use wasm_bindgen::{JsCast, UnwrapThrowExt};
+    let window = web_sys::window().expect("window not available");
+    let navigator = window.navigator();
+    #[cfg(web_sys_unstable_apis)]
+    let clip = navigator.clipboard().expect("Clipboard not available");
+    let promise = clip.write_text(&the_string);
+    wasm_bindgen_futures::spawn_local(async {
+        wasm_bindgen_futures::JsFuture::from(promise).await;
+    });
+    Ok(())
+}

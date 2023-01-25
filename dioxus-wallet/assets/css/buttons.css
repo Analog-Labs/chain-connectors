@@ -39,4 +39,6 @@
     background-color: var(--button-background-color) ;
     color: var(--button-font-color);
     font-weight: bold;
+    font-size: 0.8rem;
+
 }
