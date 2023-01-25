@@ -18,7 +18,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: "tBTC",
         currency_decimals: 8,
         node_port: 18443,
-        node_image: "ruimarinho/bitcoin-core",
+        node_image: "ruimarinho/bitcoin-core:23",
         node_command: Arc::new(|_network, port| {
             vec![
                 "-regtest=1".into(),

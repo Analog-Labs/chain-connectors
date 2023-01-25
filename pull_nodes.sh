@@ -1,3 +1,3 @@
-docker image pull ruimarinho/bitcoin-core
-docker image pull ethereum/client-go
-docker image pull parity/polkadot
+docker image pull ruimarinho/bitcoin-core:23
+docker image pull ethereum/client-go:v1.10.26
+docker image pull parity/polkadot:v0.9.37

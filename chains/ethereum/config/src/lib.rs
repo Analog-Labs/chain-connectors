@@ -18,7 +18,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: "ETH",
         currency_decimals: 18,
         node_port: 8545,
-        node_image: "ethereum/client-go",
+        node_image: "ethereum/client-go:v1.10.26",
         node_command: Arc::new(|_network, port| {
             vec![
                 "--dev".into(),
