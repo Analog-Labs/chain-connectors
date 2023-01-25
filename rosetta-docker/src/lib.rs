@@ -213,7 +213,7 @@ impl EnvBuilder {
         }
         let container = self.run_container(name, &opts.build(), network).await?;
         //wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
-        tokio::time::sleep(Duration::from_secs(10)).await;
+        tokio::time::sleep(Duration::from_secs(30)).await;
         Ok(container)
     }
 
