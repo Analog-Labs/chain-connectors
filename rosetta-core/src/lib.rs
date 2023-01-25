@@ -1,6 +1,6 @@
-use crate::crypto::address::AddressFormat;
+use crate::crypto::address::{Address, AddressFormat};
 use crate::crypto::Algorithm;
-use crate::types::{BlockIdentifier, Currency, NetworkIdentifier};
+use crate::types::{BlockIdentifier, Coin, Currency, NetworkIdentifier};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -58,7 +58,10 @@ impl BlockchainConfig {
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn new(network: &str, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
-    fn node_version(&self) -> &str;
     fn genesis_block(&self) -> &BlockIdentifier;
+    async fn node_version(&self) -> Result<String>;
     async fn current_block(&self) -> Result<BlockIdentifier>;
+    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128>;
+    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
+    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
 }
