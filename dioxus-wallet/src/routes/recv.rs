@@ -15,7 +15,7 @@ pub fn Recv(cx: Scope) -> Element {
             class: "main-container",
             Header {
                 title: "receive",
-                onbackclick: move |_| router.navigate_to(&format!("/txns/{}", info.chain)),
+                onbackclick: move |_| router.navigate_to(&format!("/txns/{}/{}", info.chain.blockchain, info.chain.network)),
             }
             div {
                 class: "title",
@@ -44,7 +44,7 @@ pub fn Recv(cx: Scope) -> Element {
             div {
                 class: "label",
                 style: "font-size: 13px;",
-                "i.e Receive on {info.config.network.blockchain} network.
+                "i.e Receive on {info.config.blockchain} network.
                  Otherwise it may cause lost of funds."
             }
         }

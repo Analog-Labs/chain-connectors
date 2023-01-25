@@ -1,6 +1,7 @@
-use crate::{helpers::convert_to_highest_unit, state::ChainState};
+use crate::helpers::convert_to_highest_unit;
+use crate::state::{Chain, ChainState};
 use dioxus::prelude::*;
-use rosetta_client::{types::BlockTransaction, Chain};
+use rosetta_client::types::BlockTransaction;
 
 #[allow(non_snake_case)]
 #[inline_props]

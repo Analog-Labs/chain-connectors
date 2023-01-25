@@ -34,7 +34,7 @@ pub fn Txns(cx: Scope) -> Element {
             class: "main-container",
             Header {
                 onbackclick:|_| router.replace_route("/", None, None),
-                title: "{info.config.network.blockchain}"
+                title: "{info.config.blockchain}"
             }
             div {
                 class: "token-icon-container",
@@ -55,14 +55,14 @@ pub fn Txns(cx: Scope) -> Element {
                 LinkButton {
                     title: "Send".to_string(),
                     onclick: move |_| {
-                        router.navigate_to(&format!("/scan/{}", info.chain));
+                        router.navigate_to(&format!("/scan/{}/{}", info.chain.blockchain, info.chain.network));
                     },
                     uri: img!("send.png")
                 }
                 LinkButton {
                     title: "Receive".to_string(),
                     onclick: move |_| {
-                        router.navigate_to(&format!("/recv/{}", info.chain));
+                        router.navigate_to(&format!("/recv/{}/{}", info.chain.blockchain, info.chain.network));
                     },
                     uri: img!("receive.png")
                 }
@@ -118,14 +118,14 @@ async fn fetch_transactions(
 }
 
 async fn fallible_faucet(chain: Chain, amount: u128) -> Result<()> {
-    let wallet = rosetta_client::create_wallet(chain, None, None)?;
+    let wallet = crate::worker::create_wallet(chain)?;
     wallet.faucet_dev(amount).await?;
     Ok(())
 }
 
 async fn fallible_transactions(chain: Chain) -> Result<Vec<BlockTransaction>> {
-    let wallet = rosetta_client::create_wallet(chain, None, None)?;
-    let transactions_response = wallet.transactions(chain.indexer_url()).await?;
+    let wallet = crate::worker::create_wallet(chain)?;
+    let transactions_response = wallet.transactions().await?;
     let transaction = transactions_response.transactions;
     Ok(transaction)
 }
