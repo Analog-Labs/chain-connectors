@@ -4,17 +4,24 @@ use anyhow::{Error, Result};
 use dioxus::prelude::*;
 use fermi::*;
 use futures::channel::mpsc::UnboundedReceiver;
-use rosetta_client::Wallet;
+use rosetta_client::{Client, Wallet};
 use std::time::Duration;
 
 pub fn use_chain_workers(cx: &Scope) -> Result<()> {
-    let signer = rosetta_client::create_signer(None)?;
     for (chain, _) in CHAINS.iter() {
         let state = State::new(cx, *chain);
-        let wallet = Wallet::new(chain.url(), chain.config(), &signer)?;
+        let wallet = create_wallet(*chain)?;
         use_coroutine(cx, |_: UnboundedReceiver<()>| chain_worker(state, wallet));
     }
     Ok(())
+}
+
+pub fn create_wallet(chain: Chain) -> Result<Wallet> {
+    let signer = rosetta_client::create_signer(None)?;
+    let config = chain.config();
+    let url = config.connector_url();
+    let client = Client::new(&url)?;
+    Wallet::new(config, &signer, client)
 }
 
 #[derive(Clone)]

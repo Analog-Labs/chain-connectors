@@ -28,7 +28,7 @@ pub fn ScanCode<'a>(cx: Scope<'a, ScanCodeProps<'a>>) -> Element {
         Some(Err(error)) => {
             let alert = Alert::error(error.to_string());
             alerts.write().push(alert);
-            router.navigate_to(&format!("/txns/{}", chain));
+            router.navigate_to(&format!("/txns/{}/{}", chain.blockchain, chain.network));
         }
         None => {}
     }
@@ -47,7 +47,7 @@ pub fn Scan(cx: Scope) -> Element {
         div {
             class: "main-container",
             Header {
-                onbackclick: move |_| router.navigate_to(&format!("/txns/{}", chain)),
+                onbackclick: move |_| router.navigate_to(&format!("/txns/{}/{}", chain.blockchain, chain.network)),
                 title: "SEND"
             },
             div {
@@ -86,7 +86,7 @@ pub fn Scan(cx: Scope) -> Element {
                                 alerts.write().push(alert);
                         }
                         else {
-                            router.navigate_to(&format!("/send/{}/{}", chain, address));
+                            router.navigate_to(&format!("/send/{}/{}/{}", chain.blockchain, chain.network, address));
                         }
                     }
                     title:"Next",

@@ -1,4 +1,5 @@
 use crate::components::token_list::TokenList;
+use crate::state::Chain;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
 
@@ -21,7 +22,7 @@ pub fn Tokens(cx: Scope) -> Element {
                 div {
                     class: "list",
                     TokenList {
-                        onclick: |chain| router.navigate_to(&format!("/txns/{}", chain)),
+                        onclick: |chain: Chain| router.navigate_to(&format!("/txns/{}/{}", chain.blockchain, chain.network)),
                     },
                 }
             }

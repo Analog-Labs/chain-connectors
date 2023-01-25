@@ -2,7 +2,7 @@ use crate::state::{Chain, CHAINS};
 use dioxus::prelude::*;
 use fermi::*;
 
-pub static TOKENS: AtomRef<Vec<Chain>> = |_| vec![Chain::Btc, Chain::Eth, Chain::Dot];
+pub static TOKENS: AtomRef<Vec<Chain>> = |_| Chain::CHAINS.to_vec();
 
 #[allow(non_snake_case)]
 #[inline_props]
@@ -44,7 +44,7 @@ fn TokenListItem<'a>(cx: Scope<'a>, chain: Chain, onclick: EventHandler<'a, Chai
                     class: "list-item-title-container",
                     div {
                         class: "list-item-title",
-                        "{info.config.network.blockchain}",
+                        "{info.config.blockchain}",
                     }
                 }
             }

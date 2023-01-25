@@ -1,21 +1,21 @@
+use crate::state::Chain;
 use anyhow::Result;
 use fraction::BigDecimal;
 use fraction::BigUint;
 use fraction::ToPrimitive;
 use futures::Future;
-use rosetta_client::Chain;
 use std::rc::Rc;
 
 pub fn convert_to_lowest_unit(amount: BigDecimal, chain: Chain) -> u128 {
     let base: u128 = 10;
-    BigDecimal::to_u128(&(amount * base.pow(chain.config().currency.decimals).into())).unwrap()
+    BigDecimal::to_u128(&(amount * base.pow(chain.config().currency_decimals).into())).unwrap()
 }
 pub fn convert_to_highest_unit(amount: String, chain: Chain) -> Result<String> {
     let value = BigUint::parse_bytes(amount.as_bytes(), 10)
         .ok_or_else(|| anyhow::anyhow!("invalid amount {:?}", amount))?;
-    let decimals = BigUint::pow(&10u32.into(), chain.config().currency.decimals);
+    let decimals = BigUint::pow(&10u32.into(), chain.config().currency_decimals);
     let value = BigDecimal::from(value) / BigDecimal::from(decimals);
-    Ok(format!("{:.256} {}", value, chain.config().currency.symbol))
+    Ok(format!("{:.256} {}", value, chain.config().currency_symbol))
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]

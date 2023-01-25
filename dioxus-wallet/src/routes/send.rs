@@ -27,16 +27,16 @@ pub fn Send(cx: Scope) -> Element {
         div {
             class: "main-container",
             Header{
-                title:"send {info.config.network.blockchain}",
+                title:"send {info.config.blockchain}",
                 onbackclick: move  |_| {
-                    router.navigate_to(&format!("/txns/{}", info.chain));
+                    router.navigate_to(&format!("/txns/{}/{}", info.chain.blockchain, info.chain.network));
                 }
             }
             div {
                 class:"container",
                 div {
                     class: "title",
-                    "Unit: {info.config.currency.symbol.to_lowercase()}",
+                    "Unit: {info.config.currency_symbol.to_lowercase()}",
                 }
                 div {
                     class: "label",
@@ -97,7 +97,7 @@ async fn transfer(
             alerts
                 .write()
                 .push(Alert::info("transfer successful".into()));
-            router.navigate_to(&format!("/txns/{}", chain));
+            router.navigate_to(&format!("/txns/{}/{}", chain.blockchain, chain.network));
         }
         Err(error) => {
             alerts.write().push(Alert::error(error.to_string()));
@@ -106,7 +106,7 @@ async fn transfer(
 }
 
 async fn fallible_transfer(chain: Chain, address: Address, amount: u128) -> Result<()> {
-    let wallet = rosetta_client::create_wallet(chain, None, None)?;
+    let wallet = crate::worker::create_wallet(chain)?;
     wallet.transfer(&address.to_rosetta(), amount).await?;
     Ok(())
 }
