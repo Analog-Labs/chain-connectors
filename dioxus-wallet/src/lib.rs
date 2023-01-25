@@ -3,6 +3,7 @@ use crate::components::{alerts::Alerts, loader::Loader};
 use crate::routes::*;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
+use rosetta_client::is_keyfile_exists;
 
 #[macro_use]
 mod assets;
@@ -55,20 +56,26 @@ pub fn main() {
 }
 
 fn app(cx: Scope) -> Element {
-    // TODO: don't unwrap
-    worker::use_chain_workers(&cx).unwrap();
+    let styles = rsx!(
+        css!("buttons")
+        css!("bootstrap-alert")
+        css!("common")
+        css!("listings")
+        css!("inputs")
+        css!("signup")
+    );
+
     cx.render(rsx! {
         Alerts {},
         Loader{},
         Router {
-            style {
-                css!("buttons")
-                css!("bootstrap-alert")
-                css!("common")
-                css!("listings")
-                css!("inputs")
+            style { styles }
+            if is_keyfile_exists() {
+               worker::use_chain_workers(&cx).unwrap();
+               rsx!(Route { to: "/", Tokens{}})
+            } else {
+                rsx!(Route { to: "/", Signup{}})
             }
-            Route { to: "/", Tokens {} }
             Route { to: "/txns/:chain", Txns {} }
             Route { to: "/send/:chain/:address", Send {} }
             Route { to: "/recv/:chain", Recv {} }

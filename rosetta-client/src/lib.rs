@@ -1,16 +1,16 @@
 //! Rosetta client.
+pub use crate::client::Client;
 use crate::crypto::bip39::{Language, Mnemonic};
+pub use crate::signer::Signer;
+pub use crate::tx::TransactionBuilder;
 use crate::types::Amount;
+pub use crate::wallet::Wallet;
 use anyhow::Result;
 use fraction::{BigDecimal, BigUint};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub use crate::client::Client;
-pub use crate::signer::Signer;
-pub use crate::tx::TransactionBuilder;
-pub use crate::wallet::Wallet;
 pub use rosetta_core::{crypto, types, BlockchainConfig};
 
 mod client;
@@ -51,12 +51,6 @@ pub fn create_keyfile(path: &Path, mnemonic: &Mnemonic) -> Result<()> {
     let mut f = opts.open(path)?;
     f.write_all(mnemonic.to_string().as_bytes())?;
     Ok(())
-}
-
-pub fn open_keyfile(path: &Path) -> Result<Mnemonic> {
-    let mnemonic = std::fs::read_to_string(path)?;
-    let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
-    Ok(mnemonic)
 }
 
 pub fn open_or_create_keyfile(path: Option<&Path>) -> Result<Mnemonic> {
@@ -144,4 +138,83 @@ pub async fn create_wallet(
     let (config, client) = create_client(blockchain, network, url).await?;
     let signer = create_signer(keyfile)?;
     Wallet::new(config, &signer, client)
+}
+#[cfg(target_family = "wasm")]
+use web_sys::Storage;
+#[cfg(target_family = "wasm")]
+pub fn get_local_storage() -> Storage {
+    use wasm_bindgen::{throw_str, JsCast, UnwrapThrowExt};
+    use web_sys::Storage;
+    let storage = web_sys::window()
+        .expect_throw("no window")
+        .local_storage()
+        .expect_throw("failed to get local_storage");
+    match storage {
+        Some(storage) => storage,
+        None => throw_str("error while "),
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub fn is_keyfile_exists() -> bool {
+    match dirs_next::config_dir() {
+        Some(path) => path.join("rosetta-wallet").join("mnemonic").exists(),
+        None => false,
+    }
+}
+
+#[cfg(target_family = "wasm")]
+pub fn is_keyfile_exists() -> bool {
+    let local_storage = get_local_storage();
+    match local_storage.get_item("mnemonic") {
+        Ok(Some(v)) => true,
+        Err(e) => false,
+        Ok(None) => false,
+    }
+}
+
+pub fn open_keyfile(path: &Path) -> Result<Mnemonic> {
+    let mnemonic = std::fs::read_to_string(path)?;
+    let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
+    Ok(mnemonic)
+}
+
+pub fn open_mnemonic_file() -> Result<Mnemonic> {
+    let path = default_keyfile()?;
+    open_keyfile(&path)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn get_mnemonic() -> Result<Mnemonic> {
+    let local_storage = get_local_storage();
+    let mnemonic = local_storage.get_item("mnemonic").unwrap();
+    Ok(Mnemonic::parse_in(Language::English, mnemonic.unwrap())?)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn set_mnemonic(mnemonic: Mnemonic) -> Result<()> {
+    let local_storage = get_local_storage();
+    local_storage
+        .set_item("mnemonic", &mnemonic.to_string())
+        .unwrap();
+    Ok(())
+}
+
+pub fn create_signer_ui() -> Result<Signer> {
+    #[cfg(not(target_family = "wasm"))]
+    let mnemonic = open_mnemonic_file()?;
+    #[cfg(target_family = "wasm")]
+    let mnemonic = get_mnemonic()?;
+    Signer::new(&mnemonic, "")
+}
+
+pub fn create_keys(mnemonic: Mnemonic) -> Result<()> {
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let path = default_keyfile()?;
+        create_keyfile(&path, &mnemonic)?;
+    }
+    #[cfg(target_family = "wasm")]
+    set_mnemonic(mnemonic);
+    Ok(())
 }
