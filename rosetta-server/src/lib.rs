@@ -1,8 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
+use rosetta_core::crypto::address::Address;
 use rosetta_core::types::{
-    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, Version,
+    AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
+    AccountFaucetRequest, Amount, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
+    TransactionIdentifierResponse, Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -47,13 +50,13 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
 
 fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     let mut app = tide::with_state(Arc::new(client));
+    app.at("/account/balance").post(account_balance);
+    app.at("/account/coins").post(account_coins);
+    app.at("/account/faucet").post(account_faucet);
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
     app.at("/network/status").post(network_status);
     // unimplemented
-    app.at("/account/balance").post(unimplemented);
-    app.at("/account/coins").post(unimplemented);
-    app.at("/account/faucet").post(unimplemented);
     app.at("/block").post(unimplemented);
     app.at("/block/transaction").post(unimplemented);
     app.at("/construction/metadata").post(unimplemented);
@@ -104,10 +107,11 @@ async fn network_options<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide:
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
+    let node_version = req.state().node_version().await?;
     let response = NetworkOptionsResponse {
         version: Version {
             rosetta_version: "1.4.13".into(),
-            node_version: req.state().node_version().to_string(),
+            node_version,
             middleware_version: None,
             metadata: None,
         },
@@ -130,6 +134,64 @@ async fn network_status<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::
         peers: None,
         oldest_block_identifier: None,
         sync_status: None,
+    };
+    ok(&response)
+}
+
+async fn account_balance<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: AccountBalanceRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    let block_identifier = req.state().current_block().await?;
+    let address = Address::new(config.address_format, request.account_identifier.address);
+    let value = req.state().balance(&address, &block_identifier).await?;
+    let response = AccountBalanceResponse {
+        balances: vec![Amount {
+            value: value.to_string(),
+            currency: config.currency(),
+            metadata: None,
+        }],
+        block_identifier,
+        metadata: None,
+    };
+    ok(&response)
+}
+
+async fn account_coins<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: AccountCoinsRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    let block_identifier = req.state().current_block().await?;
+    let address = Address::new(config.address_format, request.account_identifier.address);
+    let coins = req.state().coins(&address, &block_identifier).await?;
+    let response = AccountCoinsResponse {
+        coins,
+        block_identifier,
+        metadata: None,
+    };
+    ok(&response)
+}
+
+async fn account_faucet<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: AccountFaucetRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    let address = Address::new(config.address_format, request.account_identifier.address);
+    let hash = req
+        .state()
+        .faucet(&address, request.faucet_parameter)
+        .await?;
+    let response = TransactionIdentifierResponse {
+        transaction_identifier: TransactionIdentifier {
+            hash: hex::encode(&hash),
+        },
+        metadata: None,
     };
     ok(&response)
 }

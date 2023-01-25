@@ -8,8 +8,12 @@ anyhow = "1.0.68"
 async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1.62"
 hex = "0.4.3"
+parity-scale-codec = "3.2.2"
 rosetta-config-polkadot = { version = "0.1.0", path = "../config" }
 rosetta-server = { version = "0.1.0", path = "../../../rosetta-server" }
+sp-core = "7.0.0"
+sp-keyring = "7.0.0"
+sp-runtime = "7.0.0"
 subxt = "0.25.0"
 tokio = { version = "1.24.2", features = ["rt-multi-thread", "macros"] }
 
