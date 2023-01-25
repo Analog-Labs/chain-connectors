@@ -35,7 +35,7 @@ pub async fn display_loader(loader: Rc<dyn Fn(bool)>, future: impl Future<Output
 }
 #[cfg(not(target_family = "wasm"))]
 pub fn copy_to_clipboard(the_string: String) -> Result<()> {
-    let mut clipboard =   dioxus_desktop::tao::clipboard::Clipboard::new();
+    let mut clipboard = dioxus_desktop::tao::clipboard::Clipboard::new();
     clipboard.write_text(the_string);
     Ok(())
 }
