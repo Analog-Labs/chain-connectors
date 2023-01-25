@@ -9,7 +9,7 @@ use crate::types::{
     EventsBlocksRequest, EventsBlocksResponse, MempoolResponse, MempoolTransactionRequest,
     MempoolTransactionResponse, MetadataRequest, NetworkListResponse, NetworkOptionsResponse,
     NetworkRequest, NetworkStatusResponse, SearchTransactionsRequest, SearchTransactionsResponse,
-    TransactionIdentifierResponse,
+    TransactionIdentifierResponse, NetworkIdentifier,
 };
 use anyhow::Result;
 use serde::{de::DeserializeOwned, Serialize};
