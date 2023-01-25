@@ -7,7 +7,7 @@ volumes:
 
 services:
   bitcoin:
-    image: "ruimarinho/bitcoin-core"
+    image: "ruimarinho/bitcoin-core:23"
     command: "-regtest=1 -rpcbind=0.0.0.0 -rpcport=18443 -rpcallowip=0.0.0.0/0 -rpcuser=rosetta -rpcpassword=rosetta"
     expose:
     - "18443"
@@ -23,7 +23,7 @@ services:
     - "bitcoin-volume:/home/bitcoin/.bitcoin"
 
   ethereum:
-    image: "ethereum/client-go"
+    image: "ethereum/client-go:v1.10.26"
     command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"
@@ -39,7 +39,7 @@ services:
     - "ethereum-volume:/root"
 
   polkadot:
-    image: "parity/polkadot"
+    image: "parity/polkadot:v0.9.37"
     command: "--chain dev --rpc-cors all --ws-external --alice --tmp"
     expose:
     - "9944"
