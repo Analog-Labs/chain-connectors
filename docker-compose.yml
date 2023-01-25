@@ -58,9 +58,6 @@ services:
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
     command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443"
-    build:
-      context: "."
-      dockerfile: "./chains/bitcoin/Dockerfile"
     ports:
     - "8080:8080"
     depends_on:
@@ -69,9 +66,6 @@ services:
   connector-ethereum:
     image: "analoglabs/connector-ethereum"
     command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545"
-    build:
-      context: "."
-      dockerfile: "./chains/ethereum/Dockerfile"
     ports:
     - "8081:8081"
     depends_on:
@@ -80,9 +74,6 @@ services:
   connector-polkadot:
     image: "analoglabs/connector-polkadot"
     command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944"
-    build:
-      context: "."
-      dockerfile: "./chains/polkadot/Dockerfile"
     ports:
     - "8082:8082"
     depends_on:
