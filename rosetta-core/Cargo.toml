@@ -8,3 +8,4 @@ anyhow = "1.0.68"
 async-trait = "0.1.62"
 rosetta-crypto = { version = "0.1.0", path = "../rosetta-crypto" }
 rosetta-types = { version = "0.1.0", path = "../rosetta-types" }
+serde = "1.0.152"
