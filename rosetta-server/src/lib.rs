@@ -1,9 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
 use rosetta_core::crypto::address::Address;
+use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    AccountFaucetRequest, Amount, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    AccountFaucetRequest, Amount, ConstructionMetadataRequest, ConstructionMetadataResponse,
+    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
     NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
     TransactionIdentifierResponse, Version,
 };
@@ -53,14 +55,14 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     app.at("/account/balance").post(account_balance);
     app.at("/account/coins").post(account_coins);
     app.at("/account/faucet").post(account_faucet);
+    app.at("/construction/metadata").post(construction_metadata);
+    app.at("/construction/submit").post(construction_submit);
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
     app.at("/network/status").post(network_status);
     // unimplemented
     app.at("/block").post(unimplemented);
     app.at("/block/transaction").post(unimplemented);
-    app.at("/construction/metadata").post(unimplemented);
-    app.at("/construction/submit").post(unimplemented);
     app.at("/search/transactions").post(unimplemented);
     // unsupported
     app.at("/mempool").post(unsupported);
@@ -196,6 +198,49 @@ async fn account_faucet<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::
     ok(&response)
 }
 
+async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: ConstructionMetadataRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    if request.options.is_some() {
+        return Error::UnsupportedOption.to_result();
+    }
+    if request.public_keys.len() != 1 {
+        return Error::MissingPublicKey.to_result();
+    }
+    let public_key = &request.public_keys[0];
+    if public_key.curve_type != config.algorithm.to_curve_type() {
+        return Error::UnsupportedCurveType.to_result();
+    }
+    let public_key_bytes = hex::decode(&public_key.hex_bytes)?;
+    let public_key = PublicKey::from_bytes(config.algorithm, &public_key_bytes)?;
+    let metadata = req.state().metadata(&public_key).await?;
+    let response = ConstructionMetadataResponse {
+        metadata: serde_json::to_value(&metadata)?,
+        suggested_fee: None,
+    };
+    ok(&response)
+}
+
+async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: ConstructionSubmitRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    let transaction = hex::decode(&request.signed_transaction)?;
+    let hash = req.state().submit(&transaction).await?;
+    let response = TransactionIdentifierResponse {
+        transaction_identifier: TransactionIdentifier {
+            hash: hex::encode(&hash),
+        },
+        metadata: None,
+    };
+    ok(&response)
+}
+
 async fn unimplemented<T>(_: Request<T>) -> tide::Result {
     Error::Unimplemented.to_result()
 }
@@ -209,6 +254,9 @@ pub enum Error {
     Unimplemented,
     Unsupported,
     UnsupportedNetwork,
+    UnsupportedOption,
+    MissingPublicKey,
+    UnsupportedCurveType,
     RpcError(anyhow::Error),
 }
 
@@ -218,6 +266,9 @@ impl std::fmt::Display for Error {
             Self::Unimplemented => "unimplemented",
             Self::Unsupported => "unsupported",
             Self::UnsupportedNetwork => "unsupported network",
+            Self::UnsupportedOption => "unsupported option",
+            Self::MissingPublicKey => "missing public key",
+            Self::UnsupportedCurveType => "unsupported curve type",
             Self::RpcError(_) => "rpc error",
         };
         f.write_str(msg)
@@ -278,7 +329,7 @@ pub mod tests {
         let env = Env::new("network-options", config.clone()).await?;
 
         let client = env.node::<T>().await?;
-        let version = client.node_version();
+        let version = client.node_version().await?;
 
         let client = env.connector()?;
         let options = client.network_options(config.network()).await?;

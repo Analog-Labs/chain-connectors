@@ -1,7 +1,8 @@
 use crate::crypto::address::{Address, AddressFormat};
-use crate::crypto::Algorithm;
-use crate::types::{BlockIdentifier, Coin, Currency, NetworkIdentifier};
+use crate::crypto::{Algorithm, PublicKey};
+use crate::types::{BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier, SignatureType};
 use anyhow::Result;
+use serde::Serialize;
 use std::sync::Arc;
 
 pub use rosetta_crypto as crypto;
@@ -56,6 +57,7 @@ impl BlockchainConfig {
 
 #[async_trait::async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
+    type Metadata: Serialize;
     async fn new(network: &str, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
@@ -64,4 +66,33 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128>;
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
+    async fn metadata(&self, public_key: &PublicKey) -> Result<Self::Metadata>;
+    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
+}
+
+pub trait RosettaAlgorithm {
+    fn to_signature_type(self) -> SignatureType;
+    fn to_curve_type(self) -> CurveType;
+}
+
+impl RosettaAlgorithm for Algorithm {
+    fn to_signature_type(self) -> SignatureType {
+        match self {
+            Algorithm::EcdsaSecp256k1 => SignatureType::Ecdsa,
+            Algorithm::EcdsaRecoverableSecp256k1 => SignatureType::EcdsaRecovery,
+            Algorithm::EcdsaSecp256r1 => SignatureType::Ecdsa,
+            Algorithm::Ed25519 => SignatureType::Ed25519,
+            Algorithm::Sr25519 => SignatureType::Sr25519,
+        }
+    }
+
+    fn to_curve_type(self) -> CurveType {
+        match self {
+            Algorithm::EcdsaSecp256k1 => CurveType::Secp256k1,
+            Algorithm::EcdsaRecoverableSecp256k1 => CurveType::Secp256k1,
+            Algorithm::EcdsaSecp256r1 => CurveType::Secp256r1,
+            Algorithm::Ed25519 => CurveType::Edwards25519,
+            Algorithm::Sr25519 => CurveType::Schnorrkel,
+        }
+    }
 }

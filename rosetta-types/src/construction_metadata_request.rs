@@ -17,6 +17,9 @@ pub struct ConstructionMetadataRequest {
     /// Some blockchains require different metadata for different types of transaction construction (ex: delegation versus a transfer). Instead of requiring a blockchain node to return all possible types of metadata for construction (which may require multiple node fetches), the client can populate an options object to limit the metadata returned to only the subset required.
     #[serde(rename = "options", skip_serializing_if = "Option::is_none")]
     pub options: Option<serde_json::Value>,
+
+    #[serde(rename = "public_keys", skip_serializing_if = "Vec::is_empty")]
+    pub public_keys: Vec<crate::PublicKey>,
 }
 
 impl ConstructionMetadataRequest {
@@ -25,6 +28,7 @@ impl ConstructionMetadataRequest {
         ConstructionMetadataRequest {
             network_identifier,
             options: None,
+            public_keys: vec![],
         }
     }
 }
