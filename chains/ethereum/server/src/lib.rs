@@ -1,10 +1,25 @@
+use std::str::FromStr;
+
 use anyhow::{Context, Result};
 use ethers::prelude::*;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{BlockIdentifier, Coin};
+use rosetta_server::types::{
+    self as rosetta_types, AccountIdentifier, Amount, Currency, Operation, OperationIdentifier,
+    TransactionIdentifier,
+};
+use rosetta_server::types::{BlockIdentifier, CallRequest};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
+use serde_json::{json, Value};
+
+use crate::utils::{
+    get_block_traces, GethLoggerConfig, LoadedTransaction, ResultGethExecTrace,
+    ResultGethExecTraces, get_fee_operations, get_traces_operations,
+};
+
+mod utils;
 
 pub struct EthereumClient {
     config: BlockchainConfig,
@@ -134,6 +149,133 @@ impl BlockchainClient for EthereumClient {
             .0
             .to_vec())
     }
+    async fn block(&self, block_req: &rosetta_types::BlockRequest, config: &BlockchainConfig) {
+        let mut transaction_vec = vec![];
+        let bl_identifier = block_req.block_identifier.clone();
+
+        let bl_id = if let Some(hash) = bl_identifier.hash {
+            //convert it to H256 hash
+            let h256 = H256::from_str(&hash).unwrap();
+            BlockId::Hash(h256)
+        } else if let Some(index) = bl_identifier.index {
+            let ehters_u64 = U64::from(index);
+            let bl_number = BlockNumber::Number(ehters_u64);
+            BlockId::Number(bl_number)
+        } else {
+            return;
+        };
+
+        let block_eth = self
+            .client
+            .get_block_with_txs(bl_id)
+            .await
+            .unwrap()
+            .unwrap();
+
+        println!("block_eth: {:#?}", block_eth);
+        println!("============================");
+
+        let block_transactions = block_eth.transactions;
+
+        let traces_block_number = match bl_id {
+            BlockId::Number(n) => n,
+            _ => {
+                let block_number = block_eth.number.unwrap();
+                let number = BlockNumber::Number(block_number);
+                number
+            }
+        };
+
+        let traces = get_block_traces(&block_eth.hash.unwrap(), &self.client).await;
+
+        println!("traces {:#?}", traces);
+
+        for (transaction, trace) in block_transactions.iter().zip(traces.0) {
+
+            let tx_data = transaction;
+            println!("tx_data: {:#?}", tx_data);
+
+            let tx_receipt = self
+                .client
+                .get_transaction_receipt(tx_data.hash)
+                .await
+                .unwrap()
+                .unwrap();
+            println!("tx_receipt: {:#?}", tx_receipt);
+
+            let (fee_amount, fee_burned) =
+                estimatate_gas(&tx_data, &tx_receipt, block_eth.base_fee_per_gas);
+
+            let loaded_tx = LoadedTransaction {
+                transaction: tx_data.clone(),
+                from: tx_data.from,
+                block_number: block_eth.number.unwrap(),
+                block_hash: block_eth.hash.unwrap(),
+                fee_amount,
+                fee_burned: fee_burned,
+                miner: block_eth.author.unwrap(),
+                receipt: tx_receipt,
+            };
+
+            let fee_operations = get_fee_operations(&loaded_tx, config);
+            let traces_ops = get_traces_operations(&loaded_tx, &trace, config);
+        }
+
+        let block_index = block_eth.number.unwrap().as_u64();
+        let block_hash = block_eth.hash.unwrap().to_string();
+        let parent_hash = block_eth.parent_hash.to_string();
+        let timestamp = block_eth.timestamp.to_string().parse::<i64>().unwrap();
+        let block = rosetta_types::Block {
+            block_identifier: BlockIdentifier {
+                index: block_index,
+                hash: block_hash,
+            },
+            parent_block_identifier: BlockIdentifier {
+                index: block_index.saturating_sub(1),
+                hash: parent_hash,
+            },
+            timestamp: timestamp,
+            transactions: transaction_vec,
+            metadata: None,
+        };
+
+        let response = rosetta_types::BlockResponse {
+            block: Some(block),
+            other_transactions: None,
+        };
+    }
+
+    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {}
+
+    async fn call(&self, req: &CallRequest) {}
+}
+
+fn estimatate_gas(
+    tx: &Transaction,
+    receipt: &TransactionReceipt,
+    base_fee: Option<U256>,
+) -> (U256, Option<U256>) {
+    let gas_used = receipt.gas_used.unwrap();
+    let gas_price = effective_gas_price(tx, base_fee);
+
+    let fee_amount = gas_used * gas_price;
+
+    let fee_burned = if let Some(fee) = base_fee {
+        Some(gas_used * fee)
+    } else {
+        None
+    };
+
+    (fee_amount, fee_burned)
+}
+
+fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> U256 {
+    if tx.transaction_type.unwrap().as_u64() != 2 {
+        return tx.gas_price.unwrap();
+    }
+
+    let total_fee = base_fee.unwrap() + tx.max_priority_fee_per_gas.unwrap();
+    total_fee
 }
 
 #[cfg(test)]

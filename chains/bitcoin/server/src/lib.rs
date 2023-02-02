@@ -4,6 +4,7 @@ use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
+use rosetta_server::types as rosetta_types;
 
 pub struct BitcoinClient {
     config: BlockchainConfig,
@@ -83,6 +84,13 @@ impl BlockchainClient for BitcoinClient {
 
     async fn submit(&self, _transaction: &[u8]) -> Result<Vec<u8>> {
         todo!()
+    async fn block(&self, block_req: &rosetta_types::BlockRequest) {
+    }
+
+    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {
+    }
+
+    async fn call(&self, req: &rosetta_types::CallRequest) {
     }
 }
 

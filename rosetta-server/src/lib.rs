@@ -4,10 +4,11 @@ use rosetta_core::crypto::address::Address;
 use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    AccountFaucetRequest, Amount, ConstructionMetadataRequest, ConstructionMetadataResponse,
-    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
-    TransactionIdentifierResponse, Version,
+    AccountFaucetRequest, Amount, BlockRequest, BlockTransactionRequest, CallRequest,
+    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionSubmitRequest,
+    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
+    NetworkRequest, NetworkStatusResponse, TransactionIdentifier, TransactionIdentifierResponse,
+    Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -68,8 +69,8 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     app.at("/network/options").post(network_options);
     app.at("/network/status").post(network_status);
     // unimplemented
-    app.at("/block").post(unimplemented);
-    app.at("/block/transaction").post(unimplemented);
+    app.at("/block").post(block);
+    app.at("/block/transaction").post(block_transaction);
     app.at("/search/transactions").post(unimplemented);
     // unsupported
     app.at("/mempool").post(unsupported);
@@ -249,6 +250,42 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
         suggested_fee: None,
     };
     ok(&response)
+}
+
+async fn block<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: BlockRequest = req.body_json().await?;
+
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+
+    // call interface block method
+    let response = req.state().block(&request, config).await;
+    println!("tsting");
+    Error::Unimplemented.to_result()
+}
+
+async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: BlockTransactionRequest = req.body_json().await?;
+    // call interface block_transaction method
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    req.state().block_transaction(&request).await;
+    Error::Unimplemented.to_result()
+}
+
+async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: CallRequest = req.body_json().await?;
+    //call interface call method
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+
+    Error::Unimplemented.to_result()
 }
 
 async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
