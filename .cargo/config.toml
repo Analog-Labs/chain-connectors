@@ -1,2 +1,5 @@
 [build]
 rustflags = ["--cfg=web_sys_unstable_apis"]
+
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"

@@ -3,6 +3,7 @@ use parity_scale_codec::{Decode, Encode};
 use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
+use rosetta_server::types as rosetta_types;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use sp_core::H256;
@@ -171,6 +172,11 @@ impl BlockchainClient for PolkadotClient {
             .extrinsic_hash();
         Ok(hash.0.to_vec())
     }
+    async fn block(&self, block_req: &rosetta_types::BlockRequest) {}
+
+    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {}
+
+    async fn call(&self, req: &rosetta_types::CallRequest) {}
 }
 
 #[derive(Decode, Encode, Debug)]
