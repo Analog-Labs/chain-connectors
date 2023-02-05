@@ -1,3 +1,5 @@
+Rosetta Wallet is a mobile-focused wallet built from the Rosetta API library. It supports Bitcoin, Ethereum, and Polkadot blockchains. You will find details about the Rosetta SDK, getting started with Rosetta Wallet, and Block Explorer. 
+
 # Rosetta SDK
 
 ## Repository structure
