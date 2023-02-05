@@ -1,3 +1,5 @@
+The Rosetta Server package implements the Rosetta API for Substrate-based chains. This repo provides instructions on how the server connects to a node of the chain developed with Substrate SDK. For full about Rosetta API specifications, read here. 
+
 # __Rosetta Server for Substrate Chains__
 
 This server implements following endpoints:
