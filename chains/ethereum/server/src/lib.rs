@@ -13,6 +13,7 @@ pub struct EthereumClient {
 
 #[async_trait::async_trait]
 impl BlockchainClient for EthereumClient {
+    type MetadataParams = ();
     type Metadata = ();
     type Payload = ();
 
@@ -87,7 +88,11 @@ impl BlockchainClient for EthereumClient {
         todo!()
     }
 
-    async fn metadata(&self, _public_key: &PublicKey) -> Result<Self::Metadata> {
+    async fn metadata(
+        &self,
+        _public_key: &PublicKey,
+        _options: &Self::MetadataParams,
+    ) -> Result<Self::Metadata> {
         todo!()
     }
 

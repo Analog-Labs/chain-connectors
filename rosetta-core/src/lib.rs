@@ -59,6 +59,7 @@ impl BlockchainConfig {
 
 #[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
+    type MetadataParams: DeserializeOwned + Send + Sync + 'static;
     type Metadata: Serialize;
     type Payload: DeserializeOwned + Send + Sync + 'static;
     async fn new(network: &str, addr: &str) -> Result<Self>;
@@ -69,7 +70,11 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128>;
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
-    async fn metadata(&self, public_key: &PublicKey) -> Result<Self::Metadata>;
+    async fn metadata(
+        &self,
+        public_key: &PublicKey,
+        params: &Self::MetadataParams,
+    ) -> Result<Self::Metadata>;
     async fn combine(&self, payload: &Self::Payload, signature: &Signature) -> Result<Vec<u8>>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
 }
@@ -101,12 +106,18 @@ impl RosettaAlgorithm for Algorithm {
     }
 }
 
-pub trait TransactionBuilder {
+pub trait TransactionBuilder: Sized {
+    type MetadataParams: Serialize;
+    type Metadata: DeserializeOwned + Sized + Send + Sync + 'static;
+
+    fn transfer_params(&self) -> Self::MetadataParams;
+
     fn transfer(
         &self,
         address: &Address,
         amount: u128,
-        metadata: &serde_json::Value,
+        metadata: &Self::Metadata,
     ) -> Result<Vec<u8>>;
+
     fn sign(&self, secret_key: &SecretKey, transaction: &[u8]) -> Signature;
 }

@@ -205,9 +205,11 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    if request.options.is_some() {
+    let options: T::MetadataParams = if let Some(options) = request.options {
+        serde_json::from_value(options)?
+    } else {
         return Error::UnsupportedOption.to_result();
-    }
+    };
     if request.public_keys.len() != 1 {
         return Error::MissingPublicKey.to_result();
     }
@@ -217,7 +219,7 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
     }
     let public_key_bytes = hex::decode(&public_key.hex_bytes)?;
     let public_key = PublicKey::from_bytes(config.algorithm, &public_key_bytes)?;
-    let metadata = req.state().metadata(&public_key).await?;
+    let metadata = req.state().metadata(&public_key, &options).await?;
     let response = ConstructionMetadataResponse {
         metadata: serde_json::to_value(&metadata)?,
         suggested_fee: None,
