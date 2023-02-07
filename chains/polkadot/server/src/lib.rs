@@ -80,7 +80,7 @@ impl BlockchainClient for PolkadotClient {
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_polkadot::config(network)?;
         let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{}", addr)).await?;
-        let genesis = client.rpc().genesis_hash().await?;
+        let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier {
             index: 0,
             hash: hex::encode(genesis.as_ref()),

@@ -130,7 +130,7 @@ async fn main() -> Result<()> {
                 }
             }
             "polkadot" => {
-                match wallet.faucet_dev(amount).await {
+                match wallet.faucet(amount).await {
                     Ok(data) => {
                         println!("success: {}", data.hash);
                     }

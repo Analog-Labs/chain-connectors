@@ -119,7 +119,7 @@ async fn fetch_transactions(
 
 async fn fallible_faucet(chain: Chain, amount: u128) -> Result<()> {
     let wallet = crate::worker::create_wallet(chain)?;
-    wallet.faucet_dev(amount).await?;
+    wallet.faucet(amount).await?;
     Ok(())
 }
 
