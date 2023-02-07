@@ -5,9 +5,7 @@ use crate::crypto::{
     bip44::ChildNumber,
     Algorithm,
 };
-use crate::types::{
-    AccountIdentifier, CurveType, PublicKey, Signature, SignatureType, SigningPayload,
-};
+use crate::types::{AccountIdentifier, CurveType, PublicKey};
 use anyhow::Result;
 
 pub struct Signer {
@@ -35,6 +33,11 @@ impl Signer {
         })
     }
 
+    pub fn generate() -> Result<Self> {
+        let mnemonic = crate::generate_mnemonic()?;
+        Self::new(&mnemonic, "")
+    }
+
     pub fn master_key(&self, algorithm: Algorithm) -> Result<&DerivedSecretKey> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => &self.secp256k1,
@@ -58,50 +61,8 @@ impl Signer {
     }
 }
 
-pub trait RosettaSecretKey {
-    fn sign(&self, payload: SigningPayload) -> Result<Signature>;
-}
-
 pub trait RosettaPublicKey {
     fn to_rosetta(&self) -> PublicKey;
-}
-
-impl RosettaSecretKey for DerivedSecretKey {
-    fn sign(&self, payload: SigningPayload) -> Result<Signature> {
-        let payload_bytes = hex::decode(&payload.hex_bytes)?;
-        let secret_key = self.secret_key();
-        let (signature, signature_type) = match secret_key.algorithm() {
-            Algorithm::EcdsaSecp256k1 => (
-                secret_key.sign_prehashed(&payload_bytes)?,
-                SignatureType::Ecdsa,
-            ),
-            Algorithm::EcdsaRecoverableSecp256k1 => (
-                secret_key.sign_prehashed(&payload_bytes)?,
-                SignatureType::EcdsaRecovery,
-            ),
-            Algorithm::EcdsaSecp256r1 => (
-                secret_key.sign_prehashed(&payload_bytes)?,
-                SignatureType::Ecdsa,
-            ),
-            Algorithm::Ed25519 => (
-                secret_key.sign_prehashed(&payload_bytes)?,
-                SignatureType::Ed25519,
-            ),
-            Algorithm::Sr25519 => {
-                let context = "substrate";
-                (
-                    secret_key.sign(&payload_bytes, context),
-                    SignatureType::Sr25519,
-                )
-            }
-        };
-        Ok(Signature {
-            signing_payload: payload,
-            public_key: self.public_key().to_rosetta(),
-            signature_type,
-            hex_bytes: hex::encode(signature.to_bytes()),
-        })
-    }
 }
 
 impl RosettaPublicKey for DerivedPublicKey {

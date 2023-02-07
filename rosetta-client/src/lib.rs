@@ -11,11 +11,13 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-pub use rosetta_core::{crypto, types, BlockchainConfig};
+pub use crate::client::Client;
+pub use crate::signer::Signer;
+pub use crate::wallet::Wallet;
+pub use rosetta_core::{crypto, types, BlockchainConfig, RosettaAlgorithm, TransactionBuilder};
 
 mod client;
-pub mod signer;
-mod tx;
+mod signer;
 mod wallet;
 
 pub fn amount_to_string(amount: &Amount) -> Result<String> {

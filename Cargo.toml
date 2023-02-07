@@ -6,6 +6,7 @@ members = [
     "chains/ethereum/server",
     "chains/polkadot/config",
     "chains/polkadot/server",
+    "chains/polkadot/tx",
     "dioxus-wallet",
     "rosetta-cli",
     "rosetta-client",

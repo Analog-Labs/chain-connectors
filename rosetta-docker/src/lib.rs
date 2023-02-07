@@ -6,7 +6,7 @@ use docker_api::opts::{
 };
 use docker_api::{Container, Docker, Network};
 use futures::stream::StreamExt;
-use rosetta_client::Client;
+use rosetta_client::{Client, Signer, Wallet};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::time::Duration;
 
@@ -49,6 +49,12 @@ impl Env {
     pub fn connector(&self) -> Result<Client> {
         let url = format!("http://127.0.0.1:{}", self.config.connector_port);
         Client::new(&url)
+    }
+
+    pub fn ephemeral_wallet(&self) -> Result<Wallet> {
+        let client = self.connector()?;
+        let signer = Signer::generate()?;
+        Wallet::new(self.config.clone(), &signer, client)
     }
 
     pub async fn shutdown(&self) -> Result<()> {

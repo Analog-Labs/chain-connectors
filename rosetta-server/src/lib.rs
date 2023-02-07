@@ -1,13 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
 use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::PublicKey;
+use rosetta_core::crypto::{PublicKey, Signature};
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    AccountFaucetRequest, Amount, ConstructionMetadataRequest, ConstructionMetadataResponse,
-    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
-    TransactionIdentifierResponse, Version,
+    AccountFaucetRequest, Amount, ConstructionCombineRequest, ConstructionCombineResponse,
+    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionSubmitRequest,
+    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
+    NetworkRequest, NetworkStatusResponse, TransactionIdentifier, TransactionIdentifierResponse,
+    Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -55,6 +56,7 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     app.at("/account/balance").post(account_balance);
     app.at("/account/coins").post(account_coins);
     app.at("/account/faucet").post(account_faucet);
+    app.at("/construction/combine").post(construction_combine);
     app.at("/construction/metadata").post(construction_metadata);
     app.at("/construction/submit").post(construction_submit);
     app.at("/network/list").post(network_list);
@@ -67,7 +69,6 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     // unsupported
     app.at("/mempool").post(unsupported);
     app.at("/mempool/transaction").post(unsupported);
-    app.at("/construction/combine").post(unsupported);
     app.at("/construction/derive").post(unsupported);
     app.at("/construction/hash").post(unsupported);
     app.at("/construction/parse").post(unsupported);
@@ -191,7 +192,7 @@ async fn account_faucet<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::
         .await?;
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(&hash),
+            hash: hex::encode(hash),
         },
         metadata: None,
     };
@@ -224,6 +225,29 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
     ok(&response)
 }
 
+async fn construction_combine<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+    let request: ConstructionCombineRequest = req.body_json().await?;
+    let config = req.state().config();
+    if !is_network_supported(&request.network_identifier, config) {
+        return Error::UnsupportedNetwork.to_result();
+    }
+    if request.signatures.len() != 1 {
+        return Error::MoreThanOneSignature.to_result();
+    }
+    let signature = &request.signatures[0];
+    if signature.signature_type != config.algorithm.to_signature_type() {
+        return Error::InvalidSignatureType.to_result();
+    }
+    let signature = hex::decode(&signature.hex_bytes)?;
+    let signature = Signature::from_bytes(config.algorithm, &signature)?;
+    let payload = serde_json::from_str(&request.unsigned_transaction)?;
+    let transaction = req.state().combine(&payload, &signature).await?;
+    let response = ConstructionCombineResponse {
+        signed_transaction: hex::encode(transaction),
+    };
+    ok(&response)
+}
+
 async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: ConstructionSubmitRequest = req.body_json().await?;
     let config = req.state().config();
@@ -234,7 +258,7 @@ async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> t
     let hash = req.state().submit(&transaction).await?;
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(&hash),
+            hash: hex::encode(hash),
         },
         metadata: None,
     };
@@ -257,6 +281,8 @@ pub enum Error {
     UnsupportedOption,
     MissingPublicKey,
     UnsupportedCurveType,
+    MoreThanOneSignature,
+    InvalidSignatureType,
     RpcError(anyhow::Error),
 }
 
@@ -269,6 +295,8 @@ impl std::fmt::Display for Error {
             Self::UnsupportedOption => "unsupported option",
             Self::MissingPublicKey => "missing public key",
             Self::UnsupportedCurveType => "unsupported curve type",
+            Self::MoreThanOneSignature => "expected one signature",
+            Self::InvalidSignatureType => "invalid signature type",
             Self::RpcError(_) => "rpc error",
         };
         f.write_str(msg)
@@ -350,6 +378,37 @@ pub mod tests {
         let status = client.network_status(config.network()).await?;
         assert_eq!(status.genesis_block_identifier, Some(genesis));
         assert_eq!(status.current_block_identifier, current);
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn account(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("account", config.clone()).await?;
+
+        let value = 100_000_000_000;
+        let wallet = env.ephemeral_wallet()?;
+        wallet.faucet(value).await?;
+        let amount = wallet.balance().await?;
+        assert_eq!(amount.value, value.to_string());
+        assert_eq!(amount.currency, config.currency());
+        assert!(amount.metadata.is_none());
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn construction(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("construction", config.clone()).await?;
+
+        let value = 100_000_000_000;
+        let alice = env.ephemeral_wallet()?;
+        alice.faucet(value).await?;
+
+        let bob = env.ephemeral_wallet()?;
+        alice.transfer(bob.account(), value).await?;
+        let amount = bob.balance().await?;
+        assert_eq!(amount.value, value.to_string());
 
         env.shutdown().await?;
         Ok(())

@@ -1,7 +1,9 @@
 use crate::crypto::address::{Address, AddressFormat};
-use crate::crypto::{Algorithm, PublicKey};
+use crate::crypto::{Algorithm, PublicKey, SecretKey, Signature};
 use crate::types::{BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier, SignatureType};
 use anyhow::Result;
+use async_trait::async_trait;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -55,9 +57,10 @@ impl BlockchainConfig {
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Metadata: Serialize;
+    type Payload: DeserializeOwned + Send + Sync + 'static;
     async fn new(network: &str, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
@@ -67,6 +70,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
     async fn metadata(&self, public_key: &PublicKey) -> Result<Self::Metadata>;
+    async fn combine(&self, payload: &Self::Payload, signature: &Signature) -> Result<Vec<u8>>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
 }
 
@@ -95,4 +99,14 @@ impl RosettaAlgorithm for Algorithm {
             Algorithm::Sr25519 => CurveType::Schnorrkel,
         }
     }
+}
+
+pub trait TransactionBuilder {
+    fn transfer(
+        &self,
+        address: &Address,
+        amount: u128,
+        metadata: &serde_json::Value,
+    ) -> Result<Vec<u8>>;
+    fn sign(&self, secret_key: &SecretKey, transaction: &[u8]) -> Signature;
 }
