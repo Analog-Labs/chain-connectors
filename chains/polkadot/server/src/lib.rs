@@ -1,10 +1,10 @@
 use anyhow::{Context, Result};
 use parity_scale_codec::{Compact, Decode, Encode};
+use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams, PolkadotPayload};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::{PublicKey, Signature};
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
-use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{AccountId32, MultiAddress, MultiSignature};
@@ -13,18 +13,6 @@ use subxt::storage::address::{StorageHasher, StorageMapKey, Yes};
 use subxt::storage::StaticStorageAddress;
 use subxt::tx::{PairSigner, StaticTxPayload, SubmittableExtrinsic};
 use subxt::{OnlineClient, PolkadotConfig};
-
-#[derive(Deserialize, Serialize)]
-pub struct PolkadotMetadata {
-    pub nonce: u32,
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct PolkadotPayload {
-    pub account: AccountId32,
-    pub call_data: Vec<u8>,
-    pub additional_params: Vec<u8>,
-}
 
 pub struct PolkadotClient {
     config: BlockchainConfig,
@@ -74,6 +62,7 @@ impl PolkadotClient {
 
 #[async_trait::async_trait]
 impl BlockchainClient for PolkadotClient {
+    type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
     type Payload = PolkadotPayload;
 
@@ -149,11 +138,28 @@ impl BlockchainClient for PolkadotClient {
         Ok(hash.0.to_vec())
     }
 
-    async fn metadata(&self, public_key: &PublicKey) -> Result<Self::Metadata> {
+    async fn metadata(
+        &self,
+        public_key: &PublicKey,
+        params: &Self::MetadataParams,
+    ) -> Result<Self::Metadata> {
         let address = public_key.to_address(self.config().address_format);
         let account_info = self.account_info(&address, None).await?;
+        let runtime = self.client.runtime_version();
+        let metadata = self.client.metadata();
+        let pallet = metadata.pallet(&params.pallet_name)?;
+        let pallet_index = pallet.index();
+        let call_index = pallet.call_index(&params.call_name)?;
+        let call_hash = metadata.call_hash(&params.pallet_name, &params.call_name)?;
+        let genesis_hash = self.client.genesis_hash().0;
         Ok(PolkadotMetadata {
             nonce: account_info.nonce,
+            spec_version: runtime.spec_version,
+            transaction_version: runtime.transaction_version,
+            genesis_hash,
+            pallet_index,
+            call_index,
+            call_hash,
         })
     }
 
@@ -162,7 +168,12 @@ impl BlockchainClient for PolkadotClient {
             .expect("valid signature");
         let signature = MultiSignature::Sr25519(signature);
 
-        let account: MultiAddress<AccountId32, u32> = MultiAddress::Id(payload.account.clone());
+        let address: AccountId32 = payload
+            .account
+            .parse()
+            .map_err(|err| anyhow::anyhow!("{}", err))
+            .context("invalid address")?;
+        let account: MultiAddress<AccountId32, u32> = MultiAddress::Id(address);
 
         let mut encoded = vec![];
         // "is signed" + transaction protocol version (4)

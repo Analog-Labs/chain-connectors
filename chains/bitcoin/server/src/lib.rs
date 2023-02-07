@@ -13,6 +13,7 @@ pub struct BitcoinClient {
 
 #[async_trait::async_trait]
 impl BlockchainClient for BitcoinClient {
+    type MetadataParams = ();
     type Metadata = ();
     type Payload = ();
 
@@ -73,7 +74,11 @@ impl BlockchainClient for BitcoinClient {
         todo!()
     }
 
-    async fn metadata(&self, _public_key: &PublicKey) -> Result<Self::Metadata> {
+    async fn metadata(
+        &self,
+        _public_key: &PublicKey,
+        _options: &Self::MetadataParams,
+    ) -> Result<Self::Metadata> {
         todo!()
     }
 

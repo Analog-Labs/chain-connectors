@@ -87,10 +87,10 @@ impl Wallet {
         Ok(coins.coins)
     }
 
-    pub async fn metadata(&self) -> Result<serde_json::Value> {
+    pub async fn metadata(&self, options: serde_json::Value) -> Result<serde_json::Value> {
         let req = ConstructionMetadataRequest {
             network_identifier: self.config.network(),
-            options: None,
+            options: Some(options),
             public_keys: vec![self.public_key.clone()],
         };
         let response = self.client.construction_metadata(&req).await?;
@@ -116,24 +116,16 @@ impl Wallet {
         Ok(submit.transaction_identifier)
     }
 
-    pub async fn transaction_builder(&self) -> Result<Box<dyn TransactionBuilder>> {
-        Ok(match self.config.blockchain {
-            "polkadot" => {
-                let addr = self.config.node_url();
-                let tx = rosetta_tx_polkadot::PolkadotTransactionBuilder::new(&addr).await?;
-                Box::new(tx)
-            }
-            _ => anyhow::bail!("unsupported blockchain"),
-        })
-    }
-
     pub async fn transfer(
         &self,
         account: &AccountIdentifier,
         amount: u128,
     ) -> Result<TransactionIdentifier> {
-        let tx = self.transaction_builder().await?;
-        let metadata = self.metadata().await?;
+        anyhow::ensure!(self.config.blockchain == "polkadot");
+        let tx = rosetta_tx_polkadot::PolkadotTransactionBuilder;
+        let options = serde_json::to_value(tx.transfer_params())?;
+        let metadata = self.metadata(options).await?;
+        let metadata = serde_json::from_value(metadata)?;
         let address = Address::new(self.config.address_format, account.address.clone());
         let transaction = tx.transfer(&address, amount, &metadata)?;
         let signature = tx.sign(self.secret_key.secret_key(), &transaction);
