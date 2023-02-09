@@ -1,26 +1,251 @@
-use std::fs;
+use ethers::prelude::*;
+use std::collections::HashMap;
+use std::str::FromStr;
 
 use ethers::{
-    providers::{Http, Provider},
-    types::{Transaction, TransactionReceipt, H160, H256, U256, U64},
+    providers::{Http, Middleware, Provider},
+    types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
 };
-use rosetta_server::{
-    types::{AccountIdentifier, Amount, Operation, OperationIdentifier},
-    BlockchainConfig,
+use rosetta_server::types::{
+    AccountIdentifier, Amount, BlockIdentifier, Currency, Operation, OperationIdentifier,
+    TransactionIdentifier,
 };
+
+use rosetta_server::types as rosetta_types;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+
+use crate::eth_types::{
+    FlattenTrace, ResultGethExecTraces, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE,
+    CONSTANTINOPLE_BLOCK_REWARD, CREATE2_OP_TYPE, CREATE_OP_TYPE, DESTRUCT_OP_TYPE, FAILURE_STATUS,
+    FEE_OP_TYPE, FRONTIER_BLOCK_REWARD, GENESIS_BLOCK_INDEX, MAX_UNCLE_DEPTH,
+    MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE, SUCCESS_STATUS, TESTNET_CHAIN_CONFIG,
+    UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
+};
 
 pub fn serialize<T: serde::Serialize>(t: &T) -> serde_json::Value {
     serde_json::to_value(t).expect("Types never fail to serialize.")
 }
 
+pub async fn get_block(
+    block_req: &rosetta_types::BlockRequest,
+    client: &Provider<Http>,
+) -> Result<(Block<Transaction>, Vec<LoadedTransaction>, Vec<Block<H256>>), String> {
+    let bl_identifier = block_req.block_identifier.clone();
+
+    let bl_id = if let Some(hash) = bl_identifier.hash {
+        //convert it to H256 hash
+        let h256 = H256::from_str(&hash).unwrap();
+        BlockId::Hash(h256)
+    } else if let Some(index) = bl_identifier.index {
+        let ehters_u64 = U64::from(index);
+        let bl_number = BlockNumber::Number(ehters_u64);
+        BlockId::Number(bl_number)
+    } else {
+        return Err("error".into());
+    };
+
+    let block_eth = client.get_block_with_txs(bl_id).await.unwrap().unwrap();
+
+    let block_number = block_eth.number.unwrap().as_u64();
+    let block_transactions = block_eth.transactions.clone();
+
+    //getting block uncles
+    let uncles = get_uncles(block_number, &block_eth.uncles, client).await;
+
+    //skipping block receipt will do it in tx steps
+    let receipts = get_block_receipts(block_eth.hash.unwrap(), &block_transactions, client).await;
+
+    let mut traces = vec![];
+    let mut add_traces = false;
+    if block_number != GENESIS_BLOCK_INDEX {
+        add_traces = true;
+        let block_traces = get_block_traces(&block_eth.hash.unwrap(), client).await;
+        traces.extend(block_traces.0);
+    }
+
+    let mut loaded_transaction_vec = vec![];
+    for (idx, transaction) in block_transactions.iter().enumerate() {
+        let tx_receipt = &receipts[idx];
+
+        let (fee_amount, fee_burned) =
+            estimatate_gas(transaction, tx_receipt, block_eth.base_fee_per_gas);
+
+        let mut loaded_tx = LoadedTransaction {
+            transaction: transaction.clone(),
+            from: transaction.from,
+            block_number: block_eth.number.unwrap(),
+            block_hash: block_eth.hash.unwrap(),
+            fee_amount,
+            fee_burned,
+            miner: block_eth.author.unwrap(),
+            receipt: receipts[idx].clone(),
+            trace: None,
+        };
+
+        if !add_traces {
+            loaded_transaction_vec.push(loaded_tx);
+            continue;
+        }
+
+        loaded_tx.trace = Some(traces[idx].result.clone());
+        loaded_transaction_vec.push(loaded_tx);
+    }
+
+    Ok((block_eth, loaded_transaction_vec, uncles))
+}
+
+pub async fn get_transaction(
+    block_identifier: &BlockIdentifier,
+    hash: String,
+    client: &Provider<Http>,
+    currency: &Currency,
+) -> rosetta_types::Transaction {
+    let tx_hash = H256::from_str(&hash).unwrap();
+    let transaction = client.get_transaction(tx_hash).await.unwrap().unwrap();
+
+    let ehters_u64 = U64::from(block_identifier.index);
+    let bl_number = BlockNumber::Number(ehters_u64);
+    let block_num = BlockId::Number(bl_number);
+
+    let block = client.get_block(block_num).await.unwrap().unwrap();
+
+    let tx_receipt = client
+        .get_transaction_receipt(tx_hash)
+        .await
+        .unwrap()
+        .unwrap();
+
+    if tx_receipt.block_hash.unwrap() != block.hash.unwrap() {
+        //throw error
+    }
+
+    let mut add_traces = false;
+    let mut traces = vec![];
+    if block.number.unwrap() != U64::from(0) {
+        add_traces = true;
+
+        let tx_traces = get_transaction_trace(&tx_hash, client).await;
+        traces.push(tx_traces);
+    }
+
+    let (fee_amount, fee_burned) =
+        estimatate_gas(&transaction, &tx_receipt, block.base_fee_per_gas);
+
+    let mut loaded_transaction = LoadedTransaction {
+        transaction: transaction.clone(),
+        from: transaction.from,
+        block_number: block.number.unwrap(),
+        block_hash: block.hash.unwrap(),
+        fee_amount,
+        fee_burned,
+        miner: block.author.unwrap(),
+        receipt: tx_receipt,
+        trace: None,
+    };
+
+    if add_traces {
+        loaded_transaction.trace = Some(traces[0].clone());
+    }
+
+    let tx = populate_transaction(loaded_transaction, currency).await;
+    tx
+}
+
+pub async fn populate_transactions(
+    block_identifier: &BlockIdentifier,
+    block: &Block<Transaction>,
+    uncles: Vec<Block<H256>>,
+    loaded_transactions: Vec<LoadedTransaction>,
+    currency: &Currency,
+) -> Vec<rosetta_types::Transaction> {
+    let mut transactions = vec![];
+    let miner = block.author.unwrap();
+    let block_reward_transaction = get_mining_rewards(block_identifier, &miner, &uncles, currency);
+    transactions.push(block_reward_transaction);
+
+    for tx in loaded_transactions {
+        let transaction = populate_transaction(tx, currency).await;
+        transactions.push(transaction);
+    }
+
+    transactions
+}
+
+pub async fn populate_transaction(
+    tx: LoadedTransaction,
+    currency: &Currency,
+) -> rosetta_types::Transaction {
+    let mut operations = vec![];
+
+    let fee_ops = get_fee_operations(&tx, currency);
+    operations.extend(fee_ops);
+
+    let traces = flatten_traces(tx.trace.unwrap());
+
+    let traces_ops = get_traces_operations(traces, operations.len() as i64, currency);
+    operations.extend(traces_ops);
+
+    let transaction = rosetta_types::Transaction {
+        transaction_identifier: TransactionIdentifier {
+            hash: format!("{:?}", tx.transaction.hash),
+        },
+        operations,
+        related_transactions: None,
+        metadata: Some(json!({
+            "gas_limit" : "",
+            "gas_price": "",
+            "receipt": "",
+            "trace": "",
+        })),
+    };
+    transaction
+}
+
+pub async fn get_uncles(
+    block_index: u64,
+    uncles: &[H256],
+    client: &Provider<Http>,
+) -> Vec<Block<H256>> {
+    let mut uncles_vec = vec![];
+    for (idx, _) in uncles.iter().enumerate() {
+        let index = U64::from(idx);
+        let uncle_response = client.get_uncle(block_index, index).await.unwrap().unwrap();
+        uncles_vec.push(uncle_response);
+    }
+    uncles_vec
+}
+
+pub async fn get_block_receipts(
+    block_hash: H256,
+    transactions: &Vec<Transaction>,
+    client: &Provider<Http>,
+) -> Vec<TransactionReceipt> {
+    let mut receipts = vec![];
+    for tx in transactions {
+        let tx_hash = tx.hash;
+        let receipt = client
+            .get_transaction_receipt(tx_hash)
+            .await
+            .unwrap()
+            .unwrap();
+
+        if receipt.block_hash.unwrap() != block_hash {
+            //throw error
+        }
+
+        receipts.push(receipt);
+    }
+    receipts
+}
+
 pub async fn get_block_traces(hash: &H256, client: &Provider<Http>) -> ResultGethExecTraces {
     let hash_serialize = serialize(hash);
-    let cfg = json!({ "tracer": "callTracer" });
-
-    // let file = fs::read_to_string("chains/ethereum/server/src/call_tracer.js").unwrap();
-    // let cfg = json!({"tracer": file});
+    let cfg = json!(
+        {
+            "tracer": "callTracer"
+        }
+    );
 
     let traces: ResultGethExecTraces = client
         .request("debug_traceBlockByHash", [hash_serialize, cfg])
@@ -30,8 +255,24 @@ pub async fn get_block_traces(hash: &H256, client: &Provider<Http>) -> ResultGet
     traces
 }
 
-pub fn get_fee_operations(tx: &LoadedTransaction, config: &BlockchainConfig) -> Vec<Operation> {
-    let minerEarnedReward = if let Some(fee_burned) = tx.fee_burned {
+async fn get_transaction_trace(hash: &H256, client: &Provider<Http>) -> Trace {
+    let hash_serialize = serialize(hash);
+    let cfg = json!(
+        {
+            "tracer": "callTracer"
+        }
+    );
+
+    let traces: Trace = client
+        .request("debug_traceTransaction", [hash_serialize, cfg])
+        .await
+        .unwrap();
+
+    traces
+}
+
+pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Vec<Operation> {
+    let miner_earned_reward = if let Some(fee_burned) = tx.fee_burned {
         tx.fee_amount - fee_burned
     } else {
         tx.fee_amount
@@ -44,17 +285,17 @@ pub fn get_fee_operations(tx: &LoadedTransaction, config: &BlockchainConfig) -> 
             index: 0,
             network_index: None,
         },
-        related_operations: Some(vec![]),
-        r#type: "FEE".into(),
-        status: Some("SUCCESS".into()),
+        related_operations: None,
+        r#type: FEE_OP_TYPE.into(),
+        status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: tx.from.to_string(),
+            address: format!("{:?}", tx.from),
             sub_account: None,
             metadata: None,
         }),
         amount: Some(Amount {
-            value: format!("-{}", minerEarnedReward),
-            currency: config.currency(),
+            value: format!("-{miner_earned_reward}"),
+            currency: currency.clone(),
             metadata: None,
         }),
         coin_change: None,
@@ -70,16 +311,16 @@ pub fn get_fee_operations(tx: &LoadedTransaction, config: &BlockchainConfig) -> 
             index: 0,
             network_index: None,
         }]),
-        r#type: "FEE".into(),
-        status: Some("SUCCESS".into()),
+        r#type: FEE_OP_TYPE.into(),
+        status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: tx.miner.to_string(),
+            address: format!("{:?}", tx.miner),
             sub_account: None,
             metadata: None,
         }),
         amount: Some(Amount {
-            value: format!("{}", minerEarnedReward),
-            currency: config.currency(),
+            value: format!("{miner_earned_reward}"),
+            currency: currency.clone(),
             metadata: None,
         }),
         coin_change: None,
@@ -95,17 +336,17 @@ pub fn get_fee_operations(tx: &LoadedTransaction, config: &BlockchainConfig) -> 
                 index: 2,
                 network_index: None,
             },
-            related_operations: Some(vec![]),
-            r#type: "FEE".into(),
-            status: Some("SUCCESS".into()),
+            related_operations: None,
+            r#type: FEE_OP_TYPE.into(),
+            status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: tx.from.to_string(),
+                address: format!("{:?}", tx.from),
                 sub_account: None,
                 metadata: None,
             }),
             amount: Some(Amount {
-                value: format!("-{}", fee_burned),
-                currency: config.currency(),
+                value: format!("-{fee_burned}"),
+                currency: currency.clone(),
                 metadata: None,
             }),
             coin_change: None,
@@ -115,20 +356,329 @@ pub fn get_fee_operations(tx: &LoadedTransaction, config: &BlockchainConfig) -> 
         operations_vec.push(burned_operation);
         operations_vec
     } else {
-        return operations_vec;
+        operations_vec
     }
 }
 
 pub fn get_traces_operations(
-    tx: &LoadedTransaction,
-    traces: &ResultGethExecTrace,
-    config: &BlockchainConfig,
+    traces: Vec<FlattenTrace>,
+    op_len: i64,
+    currency: &Currency,
 ) -> Vec<Operation> {
     let mut operations: Vec<Operation> = vec![];
+    let mut destroyed_accs: HashMap<String, u64> = HashMap::new();
 
+    if traces.is_empty() {
+        return operations;
+    }
 
+    for trace in traces {
+        let mut metadata: HashMap<String, String> = HashMap::new();
+        let mut operation_status = SUCCESS_STATUS;
+        if trace.revert {
+            operation_status = FAILURE_STATUS;
+            metadata.insert("error".into(), trace.error_message);
+        }
+
+        let mut zero_value = false;
+        if trace.value == U256::from(0) {
+            zero_value = true;
+        }
+
+        let mut should_add = true;
+        if zero_value && trace.trace_type == CALL_OP_TYPE {
+            should_add = false;
+        }
+
+        let from = format!("{:?}", trace.from);
+        let to = format!("{:?}", trace.to);
+
+        if should_add {
+            let mut from_operation = Operation {
+                operation_identifier: OperationIdentifier {
+                    index: op_len + operations.len() as i64,
+                    network_index: None,
+                },
+                related_operations: None,
+                r#type: trace.trace_type.clone(),
+                status: Some(operation_status.into()),
+                account: Some(AccountIdentifier {
+                    address: from.clone(),
+                    sub_account: None,
+                    metadata: None,
+                }),
+                amount: Some(Amount {
+                    value: format!("-{}", trace.value),
+                    currency: currency.clone(),
+                    metadata: None,
+                }),
+                coin_change: None,
+                metadata: None,
+            };
+
+            if zero_value {
+                from_operation.amount = None;
+            } else if let Some(d_from) = destroyed_accs.get(&from) {
+                if operation_status == SUCCESS_STATUS {
+                    let amount = d_from - trace.value.as_u64();
+                    destroyed_accs.insert(from.clone(), amount);
+                }
+            }
+
+            operations.push(from_operation);
+        }
+
+        if trace.trace_type == SELF_DESTRUCT_OP_TYPE {
+            //assigning destroyed from to an empty number
+            if from == to {
+                continue;
+            }
+        }
+
+        if to.is_empty() {
+            continue;
+        }
+
+        // If the account is resurrected, we remove it from
+        // the destroyed accounts map.
+        if trace.trace_type == CREATE_OP_TYPE || trace.trace_type == CREATE2_OP_TYPE {
+            destroyed_accs.remove(&to);
+        }
+
+        if should_add {
+            let last_op_index = operations[operations.len() - 1].operation_identifier.index;
+            let mut to_op = Operation {
+                operation_identifier: OperationIdentifier {
+                    index: last_op_index + 1,
+                    network_index: None,
+                },
+                related_operations: Some(vec![OperationIdentifier {
+                    index: last_op_index,
+                    network_index: None,
+                }]),
+                r#type: trace.trace_type,
+                status: Some(operation_status.into()),
+                account: Some(AccountIdentifier {
+                    address: to.clone(),
+                    sub_account: None,
+                    metadata: None,
+                }),
+                amount: Some(Amount {
+                    value: format!("{}", trace.value),
+                    currency: currency.clone(),
+                    metadata: None,
+                }),
+                coin_change: None,
+                metadata: None,
+            };
+
+            if zero_value {
+                to_op.amount = None;
+            } else if let Some(d_to) = destroyed_accs.get(&to) {
+                if operation_status == SUCCESS_STATUS {
+                    let amount = d_to + trace.value.as_u64();
+                    destroyed_accs.insert(to.clone(), amount);
+                }
+            }
+
+            operations.push(to_op);
+        }
+
+        for (k, v) in &destroyed_accs {
+            if v == &0 {
+                continue;
+            }
+
+            if v < &0 {
+                //throw some error
+            }
+
+            let operation = Operation {
+                operation_identifier: OperationIdentifier {
+                    index: operations[operations.len() - 1].operation_identifier.index + 1,
+                    network_index: None,
+                },
+                related_operations: None,
+                r#type: DESTRUCT_OP_TYPE.into(),
+                status: Some(SUCCESS_STATUS.into()),
+                account: Some(AccountIdentifier {
+                    address: k.clone(),
+                    sub_account: None,
+                    metadata: None,
+                }),
+                amount: Some(Amount {
+                    value: format!("-{v}"),
+                    currency: currency.clone(),
+                    metadata: None,
+                }),
+                coin_change: None,
+                metadata: None,
+            };
+
+            operations.push(operation);
+        }
+    }
 
     operations
+}
+
+fn flatten_traces(data: Trace) -> Vec<FlattenTrace> {
+    let mut traces = vec![];
+
+    let flatten_trace = data.flatten();
+    traces.push(flatten_trace);
+
+    for mut child in data.calls {
+        if data.revert {
+            child.revert = true;
+
+            if child.error_message.is_empty() {
+                child.error_message = data.error_message.clone();
+            }
+        }
+
+        let children = flatten_traces(child);
+        traces.extend(children);
+    }
+
+    traces
+}
+
+pub fn get_mining_rewards(
+    block_identifier: &BlockIdentifier,
+    miner: &H160,
+    uncles: &Vec<Block<H256>>,
+    currency: &Currency,
+) -> rosetta_types::Transaction {
+    let mut operations: Vec<Operation> = vec![];
+    let mut mining_reward = mining_reward(block_identifier.index);
+
+    if !uncles.is_empty() {
+        let uncle_reward = (mining_reward / UNCLE_REWARD_MULTIPLIER) as f64;
+        let reward_float = uncle_reward * mining_reward as f64;
+        let reward_int = reward_float as u64;
+        mining_reward += reward_int;
+    }
+
+    let mining_reward_operation = Operation {
+        operation_identifier: OperationIdentifier {
+            index: 0,
+            network_index: None,
+        },
+        related_operations: None,
+        r#type: MINING_REWARD_OP_TYPE.into(),
+        status: Some(SUCCESS_STATUS.into()),
+        account: Some(AccountIdentifier {
+            address: format!("{miner:?}"),
+            sub_account: None,
+            metadata: None,
+        }),
+        amount: Some(Amount {
+            value: mining_reward.to_string(),
+            currency: currency.clone(),
+            metadata: None,
+        }),
+        coin_change: None,
+        metadata: None,
+    };
+
+    operations.push(mining_reward_operation);
+
+    for block in uncles {
+        let uncle_miner = block.author.unwrap();
+        let block_number = block.number.unwrap();
+        let uncle_block_reward = (block_number + MAX_UNCLE_DEPTH - block_identifier.index)
+            * (mining_reward / MAX_UNCLE_DEPTH);
+
+        let operation = Operation {
+            operation_identifier: OperationIdentifier {
+                index: operations.len() as i64,
+                network_index: None,
+            },
+            related_operations: None,
+            r#type: UNCLE_REWARD_OP_TYPE.into(),
+            status: Some(SUCCESS_STATUS.into()),
+            account: Some(AccountIdentifier {
+                address: format!("{uncle_miner:?}"),
+                sub_account: None,
+                metadata: None,
+            }),
+            amount: Some(Amount {
+                value: uncle_block_reward.to_string(),
+                currency: currency.clone(),
+                metadata: None,
+            }),
+            coin_change: None,
+            metadata: None,
+        };
+
+        operations.push(operation);
+    }
+
+    rosetta_types::Transaction {
+        transaction_identifier: TransactionIdentifier {
+            hash: block_identifier.hash.clone(),
+        },
+        related_transactions: None,
+        operations,
+        metadata: None,
+    }
+}
+
+fn mining_reward(block_index: u64) -> u64 {
+    let mut block_reward = FRONTIER_BLOCK_REWARD;
+    if is_byzantium(block_index) {
+        block_reward = BYZANTIUM_BLOCK_REWARD;
+    };
+    if is_constantinopl(block_index) {
+        block_reward = CONSTANTINOPLE_BLOCK_REWARD;
+    };
+    block_reward
+}
+
+fn is_byzantium(block_index: u64) -> bool {
+    let testnet_config = TESTNET_CHAIN_CONFIG;
+    is_block_forked(Some(testnet_config.byzantium_block), Some(block_index))
+}
+
+fn is_constantinopl(block_index: u64) -> bool {
+    let testnet_config = TESTNET_CHAIN_CONFIG;
+    is_block_forked(Some(testnet_config.constantinople_block), Some(block_index))
+}
+
+fn is_block_forked(block_val: Option<u64>, head: Option<u64>) -> bool {
+    if let Some(bl_val) = block_val {
+        if let Some(head_val) = head {
+            bl_val <= head_val
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+pub fn estimatate_gas(
+    tx: &Transaction,
+    receipt: &TransactionReceipt,
+    base_fee: Option<U256>,
+) -> (U256, Option<U256>) {
+    let gas_used = receipt.gas_used.unwrap();
+    let gas_price = effective_gas_price(tx, base_fee);
+
+    let fee_amount = gas_used * gas_price;
+
+    let fee_burned = base_fee.map(|fee| gas_used * fee);
+
+    (fee_amount, fee_burned)
+}
+
+fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> U256 {
+    if tx.transaction_type.unwrap().as_u64() != 2 {
+        return tx.gas_price.unwrap();
+    }
+
+    base_fee.unwrap() + tx.max_priority_fee_per_gas.unwrap()
 }
 
 #[derive(Serialize)]
@@ -159,30 +709,6 @@ impl Default for GethLoggerConfig {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-#[doc(hidden)]
-pub struct ResultGethExecTraces(pub Vec<ResultGethExecTrace>);
-
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-#[doc(hidden)]
-pub struct ResultGethExecTrace {
-    pub result: Trace,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
-pub struct Trace {
-    pub from: H160,
-    pub gas: U64,
-    #[serde(rename = "gasUsed")]
-    pub gas_used: U64,
-    pub input: String,
-    pub output: String,
-    pub to: H160,
-    #[serde(rename = "type")]
-    pub trace_type: String,
-    pub value: U256,
-}
-
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct GethExecTrace {
     /// Used gas
@@ -209,4 +735,5 @@ pub struct LoadedTransaction {
     pub fee_burned: Option<U256>,
     pub miner: H160,
     pub receipt: TransactionReceipt,
+    pub trace: Option<Trace>,
 }

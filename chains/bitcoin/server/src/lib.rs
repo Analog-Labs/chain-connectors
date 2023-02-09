@@ -84,14 +84,13 @@ impl BlockchainClient for BitcoinClient {
 
     async fn submit(&self, _transaction: &[u8]) -> Result<Vec<u8>> {
         todo!()
+    }
     async fn block(&self, block_req: &rosetta_types::BlockRequest) {
     }
 
-    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {
-    }
+    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {}
 
-    async fn call(&self, req: &rosetta_types::CallRequest) {
-    }
+    async fn call(&self, req: &rosetta_types::CallRequest) {}
 }
 
 #[cfg(test)]
