@@ -4,11 +4,11 @@ use rosetta_core::crypto::address::Address;
 use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    AccountFaucetRequest, Amount, BlockRequest, BlockTransactionRequest, CallRequest,
-    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionSubmitRequest,
-    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, TransactionIdentifier, TransactionIdentifierResponse,
-    Version,
+    AccountFaucetRequest, Amount, BlockRequest, BlockResponse, BlockTransactionRequest,
+    CallRequest, ConstructionMetadataRequest, ConstructionMetadataResponse,
+    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
+    TransactionIdentifierResponse, Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -260,10 +260,15 @@ async fn block<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
         return Error::UnsupportedNetwork.to_result();
     }
 
-    // call interface block method
-    let response = req.state().block(&request, config).await;
-    println!("tsting");
-    Error::Unimplemented.to_result()
+    let block = req.state().block(&request, config).await;
+    let response = BlockResponse {
+        block: Some(block),
+        other_transactions: None,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
@@ -273,11 +278,14 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tid
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    req.state().block_transaction(&request).await;
-    Error::Unimplemented.to_result()
+    let transaction = req.state().block_transaction(&request, config).await;
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&transaction)?)
+        .build())
 }
 
-async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+async fn _call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: CallRequest = req.body_json().await?;
     //call interface call method
     let config = req.state().config();
