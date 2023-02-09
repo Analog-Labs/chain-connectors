@@ -60,9 +60,10 @@ impl BlockchainClient for EthereumClient {
         let block = hex::decode(&block.hash)?
             .try_into()
             .map_err(|_| anyhow::anyhow!("invalid block hash"))?;
+        let address: H160 = address.address().parse()?;
         Ok(self
             .client
-            .get_balance(address.address(), Some(BlockId::Hash(H256(block))))
+            .get_balance(address, Some(BlockId::Hash(H256(block))))
             .await?
             .as_u128())
     }
@@ -71,20 +72,23 @@ impl BlockchainClient for EthereumClient {
         anyhow::bail!("not a utxo chain");
     }
 
-    async fn faucet(&self, _address: &Address, _param: u128) -> Result<Vec<u8>> {
-        // from: eth.coinbase to: address value: param
-        /*let tx = todo!();
+    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+        // first account will be the coinbase account on a dev net
+        let coinbase = self.client.get_accounts().await?[0];
+        let address: H160 = address.address().parse()?;
+        let tx = TransactionRequest::new()
+            .to(address)
+            .value(param)
+            .from(coinbase);
         Ok(self
             .client
             .send_transaction(tx, None)
             .await?
             .await?
             .unwrap()
-            .block_hash
-            .unwrap()
+            .transaction_hash
             .0
-            .to_vec())*/
-        todo!()
+            .to_vec())
     }
 
     async fn metadata(
@@ -92,11 +96,20 @@ impl BlockchainClient for EthereumClient {
         _public_key: &PublicKey,
         _options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        todo!()
+        Ok(())
     }
 
-    async fn submit(&self, _transaction: &[u8]) -> Result<Vec<u8>> {
-        todo!()
+    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+        let tx = transaction.to_vec().into();
+        Ok(self
+            .client
+            .send_raw_transaction(Bytes(tx))
+            .await?
+            .await?
+            .unwrap()
+            .transaction_hash
+            .0
+            .to_vec())
     }
 }
 

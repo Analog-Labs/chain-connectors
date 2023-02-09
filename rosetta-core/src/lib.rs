@@ -29,6 +29,7 @@ pub struct BlockchainConfig {
     pub node_command: NodeCommand,
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
+    pub testnet: bool,
 }
 
 impl BlockchainConfig {

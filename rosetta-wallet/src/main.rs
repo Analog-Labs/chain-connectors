@@ -99,37 +99,7 @@ async fn main() -> Result<()> {
                     anyhow::bail!("cmd failed");
                 }
             }
-            "ethereum" => {
-                let url_str = wallet.config().node_url();
-                let url_obj = match surf::Url::parse(&url_str) {
-                    Ok(url) => url,
-                    Err(e) => {
-                        anyhow::bail!("Url parse error: {}", e);
-                    }
-                };
-                let url = match url_obj.host() {
-                    Some(url) => format!("{}{}{}{}", url_obj.scheme(), "://", url, ":8545"),
-                    None => {
-                        anyhow::bail!("Invalid Url");
-                    }
-                };
-
-                use std::process::Command;
-                let status = Command::new("geth")
-                    .arg("attach")
-                    .arg("--exec")
-                    .arg(format!(
-                        "eth.sendTransaction({{from: eth.coinbase, to: '{}', value: {}}})",
-                        &wallet.account().address,
-                        amount,
-                    ))
-                    .arg(&url)
-                    .status()?;
-                if !status.success() {
-                    anyhow::bail!("cmd failed");
-                }
-            }
-            "polkadot" => {
+            _ => {
                 match wallet.faucet(amount).await {
                     Ok(data) => {
                         println!("success: {}", data.hash);

@@ -32,5 +32,6 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         }),
         node_additional_ports: &[],
         connector_port: 8081,
+        testnet: network == "dev",
     })
 }
