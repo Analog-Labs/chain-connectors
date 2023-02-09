@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::sync::Arc;
-use types::{BlockRequest, BlockTransactionRequest, CallRequest};
+use types::{Block, BlockRequest, BlockTransactionRequest, CallRequest, Transaction};
 
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
@@ -77,8 +77,12 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
-    async fn block(&self, block_req: &BlockRequest, config: &BlockchainConfig);
-    async fn block_transaction(&self, req: &BlockTransactionRequest);
+    async fn block(&self, block_req: &BlockRequest, config: &BlockchainConfig) -> Block;
+    async fn block_transaction(
+        &self,
+        req: &BlockTransactionRequest,
+        config: &BlockchainConfig,
+    ) -> Transaction;
     async fn call(&self, req: &CallRequest);
 }
 
