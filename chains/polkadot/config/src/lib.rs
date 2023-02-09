@@ -47,10 +47,11 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
     })
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct PolkadotMetadataParams {
     pub pallet_name: String,
     pub call_name: String,
+    pub call_args: Vec<u8>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -62,11 +63,4 @@ pub struct PolkadotMetadata {
     pub pallet_index: u8,
     pub call_index: u8,
     pub call_hash: [u8; 32],
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct PolkadotPayload {
-    pub account: String,
-    pub call_data: Vec<u8>,
-    pub additional_params: Vec<u8>,
 }
