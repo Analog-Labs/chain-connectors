@@ -34,7 +34,7 @@ impl Signer {
     }
 
     pub fn generate() -> Result<Self> {
-        let mnemonic = crate::generate_mnemonic()?;
+        let mnemonic = crate::mnemonic::generate_mnemonic()?;
         Self::new(&mnemonic, "")
     }
 

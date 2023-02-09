@@ -4,9 +4,8 @@ use crate::components::common::Header;
 use crate::helpers::copy_to_clipboard;
 use dioxus::prelude::*;
 use fermi::use_atom_ref;
-use rosetta_client::create_keys;
 use rosetta_client::crypto::bip39::Mnemonic;
-use rosetta_client::generate_mnemonic;
+use rosetta_client::{generate_mnemonic, MnemonicStore};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum Signup {
@@ -66,7 +65,7 @@ pub fn Intro(cx: Scope, step_state: UseState<Signup>) -> Element {
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Create(cx: Scope, step_state: UseState<Signup>) -> Element {
-    let mnemonic = cx.use_hook(create_mnemonic);
+    let mnemonic = cx.use_hook(|| generate_mnemonic().unwrap());
     let mnemonic_string = mnemonic.to_string();
     let alerts = use_atom_ref(&cx, ALERTS);
     cx.render(rsx! {
@@ -95,7 +94,7 @@ pub fn Create(cx: Scope, step_state: UseState<Signup>) -> Element {
                 title: "CREATE WALLET",
                 onclick: move |_| {
                     let mnemonic = mnemonic.clone();
-                    match create_keys(mnemonic) {
+                    match MnemonicStore::new(None).unwrap().set(&mnemonic) {
                         Ok(_) => cx.needs_update_any(ScopeId(0)),
                         Err(e) => {
                             let alert = Alert::error(e.to_string());
@@ -159,7 +158,7 @@ pub fn Recover(cx: Scope, step_state: UseState<Signup>) -> Element {
                     let mnemonic_string = mnemonic_string.clone();
                       match Mnemonic::parse_normalized(mnemonic_string.get().as_str()){
                         Ok(mnemonic) => {
-                            match create_keys(mnemonic) {
+                            match MnemonicStore::new(None).unwrap().set(&mnemonic) {
                                 Ok(_) => {cx.needs_update_any(ScopeId(0))},
                                 Err(error) => {
                                 let alert = Alert::error(error.to_string());
@@ -177,8 +176,4 @@ pub fn Recover(cx: Scope, step_state: UseState<Signup>) -> Element {
         }
     }
         })
-}
-
-pub fn create_mnemonic() -> Mnemonic {
-    generate_mnemonic().unwrap()
 }

@@ -3,7 +3,7 @@ use crate::components::{alerts::Alerts, loader::Loader};
 use crate::routes::*;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
-use rosetta_client::is_keyfile_exists;
+use rosetta_client::MnemonicStore;
 
 #[macro_use]
 mod assets;
@@ -70,7 +70,7 @@ fn app(cx: Scope) -> Element {
         Loader{},
         Router {
             style { styles }
-            if is_keyfile_exists() {
+            if MnemonicStore::new(None).unwrap().exists() {
                worker::use_chain_workers(&cx).unwrap();
                rsx!(Route { to: "/", Tokens{}})
             } else {

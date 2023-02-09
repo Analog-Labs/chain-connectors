@@ -17,7 +17,7 @@ pub fn use_chain_workers(cx: &Scope) -> Result<()> {
 }
 
 pub fn create_wallet(chain: Chain) -> Result<Wallet> {
-    let signer = rosetta_client::create_signer_ui()?;
+    let signer = rosetta_client::create_signer(None)?;
     let config = chain.config();
     let url = config.connector_url();
     let client = Client::new(&url)?;

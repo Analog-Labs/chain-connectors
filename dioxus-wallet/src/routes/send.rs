@@ -10,7 +10,7 @@ use dioxus_router::{use_route, use_router, RouterService};
 use fermi::*;
 use fraction::BigDecimal;
 use rosetta_client::crypto::address::Address;
-use rosetta_client::signer::RosettaAccount;
+use rosetta_client::RosettaAccount;
 
 #[allow(non_snake_case)]
 #[inline_props]
