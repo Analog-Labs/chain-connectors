@@ -51,10 +51,17 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
 }
 
 fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
+    let config = client.config();
+    let utxo = config.utxo;
+    let testnet = config.testnet;
     let mut app = tide::with_state(Arc::new(client));
     app.at("/account/balance").post(account_balance);
-    app.at("/account/coins").post(account_coins);
-    app.at("/account/faucet").post(account_faucet);
+    if utxo {
+        app.at("/account/coins").post(account_coins);
+    }
+    if testnet {
+        app.at("/account/faucet").post(account_faucet);
+    }
     app.at("/construction/metadata").post(construction_metadata);
     app.at("/construction/submit").post(construction_submit);
     app.at("/network/list").post(network_list);
@@ -109,7 +116,10 @@ async fn network_options<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide:
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let node_version = req.state().node_version().await?;
+    let node_version = match req.state().node_version().await {
+        Ok(node_version) => node_version,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = NetworkOptionsResponse {
         version: Version {
             rosetta_version: "1.4.13".into(),
@@ -128,7 +138,10 @@ async fn network_status<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let current_block_identifier = req.state().current_block().await?;
+    let current_block_identifier = match req.state().current_block().await {
+        Ok(current_block_identifier) => current_block_identifier,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = NetworkStatusResponse {
         current_block_identifier,
         current_block_timestamp: 0,
@@ -146,9 +159,15 @@ async fn account_balance<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide:
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let block_identifier = req.state().current_block().await?;
+    let block_identifier = match req.state().current_block().await {
+        Ok(block_identifier) => block_identifier,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let address = Address::new(config.address_format, request.account_identifier.address);
-    let value = req.state().balance(&address, &block_identifier).await?;
+    let value = match req.state().balance(&address, &block_identifier).await {
+        Ok(value) => value,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = AccountBalanceResponse {
         balances: vec![Amount {
             value: value.to_string(),
@@ -169,7 +188,10 @@ async fn account_coins<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::R
     }
     let block_identifier = req.state().current_block().await?;
     let address = Address::new(config.address_format, request.account_identifier.address);
-    let coins = req.state().coins(&address, &block_identifier).await?;
+    let coins = match req.state().coins(&address, &block_identifier).await {
+        Ok(coins) => coins,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = AccountCoinsResponse {
         coins,
         block_identifier,
@@ -185,10 +207,10 @@ async fn account_faucet<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::
         return Error::UnsupportedNetwork.to_result();
     }
     let address = Address::new(config.address_format, request.account_identifier.address);
-    let hash = req
-        .state()
-        .faucet(&address, request.faucet_parameter)
-        .await?;
+    let hash = match req.state().faucet(&address, request.faucet_parameter).await {
+        Ok(hash) => hash,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
             hash: hex::encode(hash),
@@ -218,7 +240,10 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
     }
     let public_key_bytes = hex::decode(&public_key.hex_bytes)?;
     let public_key = PublicKey::from_bytes(config.algorithm, &public_key_bytes)?;
-    let metadata = req.state().metadata(&public_key, &options).await?;
+    let metadata = match req.state().metadata(&public_key, &options).await {
+        Ok(metadata) => metadata,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = ConstructionMetadataResponse {
         metadata: serde_json::to_value(&metadata)?,
         suggested_fee: None,
