@@ -77,12 +77,12 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
-    async fn block(&self, block_req: &BlockRequest, config: &BlockchainConfig) -> Block;
+    async fn block(&self, block_req: &BlockRequest, config: &BlockchainConfig) -> Result<Block>;
     async fn block_transaction(
         &self,
         req: &BlockTransactionRequest,
         config: &BlockchainConfig,
-    ) -> Transaction;
+    ) -> Result<Transaction>;
     async fn call(&self, req: &CallRequest);
 }
 

@@ -260,7 +260,7 @@ async fn block<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
         return Error::UnsupportedNetwork.to_result();
     }
 
-    let block = req.state().block(&request, config).await;
+    let block = req.state().block(&request, config).await?;
     let response = BlockResponse {
         block: Some(block),
         other_transactions: None,
@@ -278,7 +278,7 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tid
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let transaction = req.state().block_transaction(&request, config).await;
+    let transaction = req.state().block_transaction(&request, config).await?;
 
     Ok(Response::builder(200)
         .body(Body::from_json(&transaction)?)

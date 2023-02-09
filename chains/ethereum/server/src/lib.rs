@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use eth_types::GENESIS_BLOCK_INDEX;
 use ethers::prelude::*;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
@@ -150,12 +150,16 @@ impl BlockchainClient for EthereumClient {
         &self,
         block_req: &rosetta_types::BlockRequest,
         config: &BlockchainConfig,
-    ) -> rosetta_types::Block {
-        let (block, loaded_tx, uncles) = get_block(block_req, &self.client).await.unwrap();
+    ) -> Result<rosetta_types::Block> {
+        let (block, loaded_tx, uncles) = get_block(block_req, &self.client).await?;
 
+        let block_number = block
+            .number
+            .ok_or(anyhow!("Unable to fetch block number"))?;
+        let block_hash = block.hash.ok_or(anyhow!("Unable to fetch block hash"))?;
         let block_identifier = BlockIdentifier {
-            index: block.number.unwrap().as_u64(),
-            hash: hex::encode(block.hash.unwrap()),
+            index: block_number.as_u64(),
+            hash: hex::encode(block_hash),
         };
 
         let mut parent_identifier = block_identifier.clone();
@@ -171,26 +175,26 @@ impl BlockchainClient for EthereumClient {
             loaded_tx,
             &config.currency(),
         )
-        .await;
+        .await?;
 
-        rosetta_types::Block {
+        Ok(rosetta_types::Block {
             block_identifier,
             parent_block_identifier: parent_identifier,
             timestamp: block.timestamp.as_u64() as i64,
             transactions,
             metadata: None,
-        }
+        })
     }
 
     async fn block_transaction(
         &self,
         req: &rosetta_types::BlockTransactionRequest,
         config: &BlockchainConfig,
-    ) -> rosetta_types::Transaction {
+    ) -> Result<rosetta_types::Transaction> {
         let block_identifier = req.block_identifier.clone();
         let transaction_identifier = req.transaction_identifier.clone();
         if transaction_identifier.hash.is_empty() {
-            //return error
+            bail!("Transaction hash is empty");
         }
 
         let transaction = get_transaction(
@@ -199,9 +203,9 @@ impl BlockchainClient for EthereumClient {
             &self.client,
             &config.currency(),
         )
-        .await;
+        .await?;
 
-        transaction
+        Ok(transaction)
     }
 
     async fn call(&self, _req: &CallRequest) {}
