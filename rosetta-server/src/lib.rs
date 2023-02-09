@@ -233,7 +233,10 @@ async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> t
         return Error::UnsupportedNetwork.to_result();
     }
     let transaction = hex::decode(&request.signed_transaction)?;
-    let hash = req.state().submit(&transaction).await?;
+    let hash = match req.state().submit(&transaction).await {
+        Ok(hash) => hash,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = TransactionIdentifierResponse {
         transaction_identifier: TransactionIdentifier {
             hash: hex::encode(hash),
@@ -275,7 +278,7 @@ impl std::fmt::Display for Error {
             Self::UnsupportedCurveType => "unsupported curve type",
             Self::MoreThanOneSignature => "expected one signature",
             Self::InvalidSignatureType => "invalid signature type",
-            Self::RpcError(_) => "rpc error",
+            Self::RpcError(error) => return write!(f, "rpc error: {}", error),
         };
         f.write_str(msg)
     }
@@ -379,9 +382,10 @@ pub mod tests {
     pub async fn construction(config: BlockchainConfig) -> Result<()> {
         let env = Env::new("construction", config.clone()).await?;
 
-        let value = 100_000_000_000;
+        let faucet = 100_000_000_000;
+        let value = 10_000_000_000;
         let alice = env.ephemeral_wallet()?;
-        alice.faucet(value).await?;
+        alice.faucet(faucet).await?;
 
         let bob = env.ephemeral_wallet()?;
         alice.transfer(bob.account(), value).await?;
