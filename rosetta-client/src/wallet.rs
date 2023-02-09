@@ -4,12 +4,13 @@ use crate::crypto::bip44::ChildNumber;
 use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 use crate::types::{
     AccountBalanceRequest, AccountCoinsRequest, AccountFaucetRequest, AccountIdentifier, Amount,
-    BlockIdentifier, Coin, ConstructionCombineRequest, ConstructionMetadataRequest,
-    ConstructionSubmitRequest, PublicKey, SearchTransactionsRequest, SearchTransactionsResponse,
-    Signature, SigningPayload, TransactionIdentifier,
+    BlockIdentifier, Coin, ConstructionMetadataRequest, ConstructionSubmitRequest, PublicKey,
+    SearchTransactionsRequest, SearchTransactionsResponse, TransactionIdentifier,
 };
-use crate::{BlockchainConfig, Client, RosettaAlgorithm, TransactionBuilder};
+use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 
 pub struct Wallet {
     config: BlockchainConfig,
@@ -87,24 +88,18 @@ impl Wallet {
         Ok(coins.coins)
     }
 
-    pub async fn metadata(&self, options: serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn metadata<I, O>(&self, metadata_params: I) -> Result<O>
+    where
+        I: Serialize,
+        O: DeserializeOwned + Send + Sync + 'static,
+    {
         let req = ConstructionMetadataRequest {
             network_identifier: self.config.network(),
-            options: Some(options),
+            options: Some(serde_json::to_value(metadata_params)?),
             public_keys: vec![self.public_key.clone()],
         };
         let response = self.client.construction_metadata(&req).await?;
-        Ok(response.metadata)
-    }
-
-    pub async fn combine(&self, transaction: &[u8], signature: Signature) -> Result<Vec<u8>> {
-        let req = ConstructionCombineRequest {
-            network_identifier: self.config.network(),
-            unsigned_transaction: hex::encode(transaction),
-            signatures: vec![signature],
-        };
-        let response = self.client.construction_combine(&req).await?;
-        Ok(hex::decode(response.signed_transaction)?)
+        Ok(serde_json::from_value(response.metadata)?)
     }
 
     pub async fn submit(&self, transaction: &[u8]) -> Result<TransactionIdentifier> {
@@ -123,24 +118,15 @@ impl Wallet {
     ) -> Result<TransactionIdentifier> {
         anyhow::ensure!(self.config.blockchain == "polkadot");
         let tx = rosetta_tx_polkadot::PolkadotTransactionBuilder;
-        let options = serde_json::to_value(tx.transfer_params())?;
-        let metadata = self.metadata(options).await?;
-        let metadata = serde_json::from_value(metadata)?;
         let address = Address::new(self.config.address_format, account.address.clone());
-        let transaction = tx.transfer(&address, amount, &metadata)?;
-        let signature = tx.sign(self.secret_key.secret_key(), &transaction);
-        let signature = Signature {
-            signature_type: self.config.algorithm.to_signature_type(),
-            signing_payload: SigningPayload {
-                address: None,
-                account_identifier: None,
-                signature_type: None,
-                hex_bytes: hex::encode(&transaction),
-            },
-            public_key: self.public_key.clone(),
-            hex_bytes: hex::encode(signature.to_bytes()),
-        };
-        self.combine(&transaction, signature).await?;
+        let metadata_params = tx.transfer(&address, amount)?;
+        let metadata = self.metadata(metadata_params.clone()).await?;
+        let transaction = tx.create_and_sign(
+            &self.config,
+            &metadata_params,
+            &metadata,
+            self.secret_key.secret_key(),
+        );
         self.submit(&transaction).await
     }
 

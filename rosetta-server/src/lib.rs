@@ -1,14 +1,13 @@
 use anyhow::Result;
 use clap::Parser;
 use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::{PublicKey, Signature};
+use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
-    AccountFaucetRequest, Amount, ConstructionCombineRequest, ConstructionCombineResponse,
-    ConstructionMetadataRequest, ConstructionMetadataResponse, ConstructionSubmitRequest,
-    MetadataRequest, NetworkIdentifier, NetworkListResponse, NetworkOptionsResponse,
-    NetworkRequest, NetworkStatusResponse, TransactionIdentifier, TransactionIdentifierResponse,
-    Version,
+    AccountFaucetRequest, Amount, ConstructionMetadataRequest, ConstructionMetadataResponse,
+    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
+    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
+    TransactionIdentifierResponse, Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -56,7 +55,6 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     app.at("/account/balance").post(account_balance);
     app.at("/account/coins").post(account_coins);
     app.at("/account/faucet").post(account_faucet);
-    app.at("/construction/combine").post(construction_combine);
     app.at("/construction/metadata").post(construction_metadata);
     app.at("/construction/submit").post(construction_submit);
     app.at("/network/list").post(network_list);
@@ -69,6 +67,7 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     // unsupported
     app.at("/mempool").post(unsupported);
     app.at("/mempool/transaction").post(unsupported);
+    app.at("/construction/combine").post(unsupported);
     app.at("/construction/derive").post(unsupported);
     app.at("/construction/hash").post(unsupported);
     app.at("/construction/parse").post(unsupported);
@@ -223,29 +222,6 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
     let response = ConstructionMetadataResponse {
         metadata: serde_json::to_value(&metadata)?,
         suggested_fee: None,
-    };
-    ok(&response)
-}
-
-async fn construction_combine<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
-    let request: ConstructionCombineRequest = req.body_json().await?;
-    let config = req.state().config();
-    if !is_network_supported(&request.network_identifier, config) {
-        return Error::UnsupportedNetwork.to_result();
-    }
-    if request.signatures.len() != 1 {
-        return Error::MoreThanOneSignature.to_result();
-    }
-    let signature = &request.signatures[0];
-    if signature.signature_type != config.algorithm.to_signature_type() {
-        return Error::InvalidSignatureType.to_result();
-    }
-    let signature = hex::decode(&signature.hex_bytes)?;
-    let signature = Signature::from_bytes(config.algorithm, &signature)?;
-    let payload = serde_json::from_str(&request.unsigned_transaction)?;
-    let transaction = req.state().combine(&payload, &signature).await?;
-    let response = ConstructionCombineResponse {
-        signed_transaction: hex::encode(transaction),
     };
     ok(&response)
 }

@@ -1,13 +1,13 @@
 use anyhow::{Context, Result};
-use parity_scale_codec::{Compact, Decode, Encode};
-use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams, PolkadotPayload};
+use parity_scale_codec::{Decode, Encode};
+use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_server::crypto::address::Address;
-use rosetta_server::crypto::{PublicKey, Signature};
+use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
-use sp_runtime::{AccountId32, MultiAddress, MultiSignature};
+use sp_runtime::{AccountId32, MultiAddress};
 use subxt::metadata::DecodeStaticType;
 use subxt::storage::address::{StorageHasher, StorageMapKey, Yes};
 use subxt::storage::StaticStorageAddress;
@@ -64,7 +64,6 @@ impl PolkadotClient {
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
-    type Payload = PolkadotPayload;
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_polkadot::config(network)?;
@@ -161,38 +160,6 @@ impl BlockchainClient for PolkadotClient {
             call_index,
             call_hash,
         })
-    }
-
-    async fn combine(&self, payload: &Self::Payload, signature: &Signature) -> Result<Vec<u8>> {
-        let signature = sp_core::sr25519::Signature::try_from(signature.to_bytes().as_slice())
-            .expect("valid signature");
-        let signature = MultiSignature::Sr25519(signature);
-
-        let address: AccountId32 = payload
-            .account
-            .parse()
-            .map_err(|err| anyhow::anyhow!("{}", err))
-            .context("invalid address")?;
-        let account: MultiAddress<AccountId32, u32> = MultiAddress::Id(address);
-
-        let mut encoded = vec![];
-        // "is signed" + transaction protocol version (4)
-        (0b10000000 + 4u8).encode_to(&mut encoded);
-        // from address for signature
-        account.encode_to(&mut encoded);
-        // signature encode pending to vector
-        signature.encode_to(&mut encoded);
-        // attach custom extra params
-        encoded.extend(&payload.additional_params);
-        // and now, call data
-        encoded.extend(&payload.call_data);
-
-        // now, prefix byte length:
-        let len = Compact(encoded.len() as u32);
-        let mut transaction = vec![];
-        len.encode_to(&mut transaction);
-        transaction.extend(encoded);
-        Ok(transaction)
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {

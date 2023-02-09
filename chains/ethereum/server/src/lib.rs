@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use ethers::prelude::*;
 use rosetta_server::crypto::address::Address;
-use rosetta_server::crypto::{PublicKey, Signature};
+use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 
@@ -15,7 +15,6 @@ pub struct EthereumClient {
 impl BlockchainClient for EthereumClient {
     type MetadataParams = ();
     type Metadata = ();
-    type Payload = ();
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
@@ -96,10 +95,6 @@ impl BlockchainClient for EthereumClient {
         todo!()
     }
 
-    async fn combine(&self, _payload: &Self::Payload, _signature: &Signature) -> Result<Vec<u8>> {
-        todo!()
-    }
-
     async fn submit(&self, _transaction: &[u8]) -> Result<Vec<u8>> {
         todo!()
     }
@@ -125,5 +120,17 @@ mod tests {
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_server::tests::network_status::<EthereumClient>(config).await
+    }
+
+    #[tokio::test]
+    async fn test_account() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+        rosetta_server::tests::account(config).await
+    }
+
+    #[tokio::test]
+    async fn test_construction() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+        rosetta_server::tests::construction(config).await
     }
 }

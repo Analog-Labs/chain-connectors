@@ -1,5 +1,5 @@
 use crate::crypto::address::{Address, AddressFormat};
-use crate::crypto::{Algorithm, PublicKey, SecretKey, Signature};
+use crate::crypto::{Algorithm, PublicKey, SecretKey};
 use crate::types::{BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier, SignatureType};
 use anyhow::Result;
 use async_trait::async_trait;
@@ -61,7 +61,6 @@ impl BlockchainConfig {
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Send + Sync + 'static;
     type Metadata: Serialize;
-    type Payload: DeserializeOwned + Send + Sync + 'static;
     async fn new(network: &str, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
@@ -75,7 +74,6 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         public_key: &PublicKey,
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
-    async fn combine(&self, payload: &Self::Payload, signature: &Signature) -> Result<Vec<u8>>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
 }
 
@@ -107,17 +105,16 @@ impl RosettaAlgorithm for Algorithm {
 }
 
 pub trait TransactionBuilder: Sized {
-    type MetadataParams: Serialize;
+    type MetadataParams: Serialize + Clone;
     type Metadata: DeserializeOwned + Sized + Send + Sync + 'static;
 
-    fn transfer_params(&self) -> Self::MetadataParams;
+    fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams>;
 
-    fn transfer(
+    fn create_and_sign(
         &self,
-        address: &Address,
-        amount: u128,
-        metadata: &Self::Metadata,
-    ) -> Result<Vec<u8>>;
-
-    fn sign(&self, secret_key: &SecretKey, transaction: &[u8]) -> Signature;
+        config: &BlockchainConfig,
+        metadata_params: &Self::MetadataParams,
+        metdata: &Self::Metadata,
+        secret_key: &SecretKey,
+    ) -> Vec<u8>;
 }
