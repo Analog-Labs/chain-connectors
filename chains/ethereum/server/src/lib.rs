@@ -7,12 +7,7 @@ use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types as rosetta_types;
-use rosetta_server::types::{
-    self as rosetta_types, AccountIdentifier, Amount, Currency, Operation, OperationIdentifier,
-    TransactionIdentifier,
-};
-use rosetta_server::types::{BlockIdentifier, CallRequest};
-use rosetta_server::types::{BlockIdentifier, Coin};
+use rosetta_server::types::{BlockIdentifier, CallRequest, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use utils::{get_block, get_transaction, populate_transactions};
 
@@ -33,7 +28,6 @@ impl BlockchainClient for EthereumClient {
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
         let client = Provider::<Http>::try_from(format!("http://{addr}"))?;
-        let node_version = client.client_version().await?;
         let genesis = client.get_block(0).await?.unwrap();
         let genesis_block = BlockIdentifier {
             index: 0,

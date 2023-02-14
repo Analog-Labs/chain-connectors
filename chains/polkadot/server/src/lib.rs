@@ -172,11 +172,23 @@ impl BlockchainClient for PolkadotClient {
             .extrinsic_hash();
         Ok(hash.0.to_vec())
     }
-    async fn block(&self, block_req: &rosetta_types::BlockRequest) {}
+    async fn block(
+        &self,
+        _block_req: &rosetta_types::BlockRequest,
+        _config: &BlockchainConfig,
+    ) -> Result<rosetta_types::Block> {
+        anyhow::bail!("not implemented")
+    }
 
-    async fn block_transaction(&self, req: &rosetta_types::BlockTransactionRequest) {}
+    async fn block_transaction(
+        &self,
+        _req: &rosetta_types::BlockTransactionRequest,
+        _config: &BlockchainConfig,
+    ) -> Result<rosetta_types::Transaction> {
+        anyhow::bail!("not implemented")
+    }
 
-    async fn call(&self, req: &rosetta_types::CallRequest) {}
+    async fn call(&self, _req: &rosetta_types::CallRequest) {}
 }
 
 #[derive(Decode, Encode, Debug)]
