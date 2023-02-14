@@ -1,5 +1,6 @@
 use crate::state::Chain;
 use anyhow::Result;
+use argon2::{self, Config};
 use fraction::BigDecimal;
 use fraction::BigUint;
 use fraction::ToPrimitive;
@@ -52,4 +53,39 @@ pub fn copy_to_clipboard(the_string: String) -> Result<()> {
         wasm_bindgen_futures::JsFuture::from(promise).await;
     });
     Ok(())
+}
+
+pub fn salted_hash(s: String) -> Result<String> {
+    let salt = b"analogSaltKeyRandomized";
+    let config = Config::default();
+    let hash = argon2::hash_encoded(s.as_bytes(), salt, &config).unwrap();
+    Ok(hash)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn save_hash(hash: String) -> Result<()> {
+    let local_storage = rosetta_client::get_local_storage();
+    local_storage.set_item("hash", &hash).unwrap();
+    Ok(())
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub fn save_hash(hash: String) -> Result<(), anyhow::Error> {
+    use rosetta_client::{create_keyfile, default_keyfile};
+    let path = default_keyfile()?.join("hash");
+    create_keyfile(&path, hash)
+}
+
+#[cfg(target_family = "wasm")]
+pub fn get_hash() -> String {
+    let local_storage = rosetta_client::get_local_storage();
+    let hash = local_storage.get_item("hash").unwrap();
+    hash.unwrap()
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub fn get_hash() -> String {
+    use rosetta_client::default_keyfile;
+    let path = default_keyfile().unwrap().join("hash");
+    std::fs::read_to_string(path).unwrap()
 }

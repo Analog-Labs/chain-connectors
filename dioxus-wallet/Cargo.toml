@@ -18,6 +18,7 @@ include_dir = "0.7.3"
 lazy_static = "1.4.0"
 qrcode = { git = "https://github.com/qm3ster/qrcode-rust" }
 rosetta-client = { path = "../rosetta-client" }
+rust-argon2 = "1.0.0"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 dioxus-desktop = "0.2.3"

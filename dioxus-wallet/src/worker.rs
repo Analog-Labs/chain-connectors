@@ -1,4 +1,5 @@
 use crate::components::alerts::{Alert, ALERTS};
+use crate::helpers::get_hash;
 use crate::state::{Chain, ChainState, CHAINS};
 use anyhow::{Error, Result};
 use dioxus::prelude::*;
@@ -17,7 +18,8 @@ pub fn use_chain_workers(cx: &Scope) -> Result<()> {
 }
 
 pub fn create_wallet(chain: Chain) -> Result<Wallet> {
-    let signer = rosetta_client::create_signer_ui()?;
+    let password = get_hash();
+    let signer = rosetta_client::create_signer_ui(password)?;
     let config = chain.config();
     let url = config.connector_url();
     let client = Client::new(&url)?;

@@ -29,8 +29,7 @@ pub fn amount_to_string(amount: &Amount) -> Result<String> {
 pub fn default_keyfile() -> Result<PathBuf> {
     Ok(dirs_next::config_dir()
         .ok_or_else(|| anyhow::anyhow!("no config dir found"))?
-        .join("rosetta-wallet")
-        .join("mnemonic"))
+        .join("rosetta-wallet"))
 }
 
 pub fn generate_mnemonic() -> Result<Mnemonic> {
@@ -40,7 +39,7 @@ pub fn generate_mnemonic() -> Result<Mnemonic> {
     Ok(mnemonic)
 }
 
-pub fn create_keyfile(path: &Path, mnemonic: &Mnemonic) -> Result<()> {
+pub fn create_keyfile(path: &Path, _string: String) -> Result<()> {
     std::fs::create_dir_all(path.parent().unwrap())?;
     #[cfg(unix)]
     use std::os::unix::fs::OpenOptionsExt;
@@ -49,7 +48,7 @@ pub fn create_keyfile(path: &Path, mnemonic: &Mnemonic) -> Result<()> {
     #[cfg(unix)]
     opts.mode(0o600);
     let mut f = opts.open(path)?;
-    f.write_all(mnemonic.to_string().as_bytes())?;
+    f.write_all(_string.as_bytes())?;
     Ok(())
 }
 
@@ -61,7 +60,7 @@ pub fn open_or_create_keyfile(path: Option<&Path>) -> Result<Mnemonic> {
     };
     if !path.exists() {
         let mnemonic = generate_mnemonic()?;
-        create_keyfile(&path, &mnemonic)?;
+        create_keyfile(&path.join("mnemonic"), mnemonic.to_string())?;
     }
     open_keyfile(&path)
 }
@@ -158,7 +157,10 @@ pub fn get_local_storage() -> Storage {
 #[cfg(not(target_family = "wasm"))]
 pub fn is_keyfile_exists() -> bool {
     match dirs_next::config_dir() {
-        Some(path) => path.join("rosetta-wallet").join("mnemonic").exists(),
+        Some(path) => {
+            path.join("rosetta-wallet/mnemonic").exists()
+                && path.join("rosetta-wallet/hash").exists()
+        }
         None => false,
     }
 }
@@ -166,10 +168,13 @@ pub fn is_keyfile_exists() -> bool {
 #[cfg(target_family = "wasm")]
 pub fn is_keyfile_exists() -> bool {
     let local_storage = get_local_storage();
-    match local_storage.get_item("mnemonic") {
-        Ok(Some(v)) => true,
-        Err(e) => false,
-        Ok(None) => false,
+    match (
+        local_storage.get_item("mnemonic"),
+        local_storage.get_item("hash"),
+    ) {
+        (Ok(Some(mnmonic)), Ok(Some(hash))) => true,
+        (Ok(None), Err(_)) | (Ok(Some(_)), Err(_)) | (Err(_), Ok(_)) => false,
+        (Ok(None), Ok(_)) | (Ok(Some(_)), Ok(None)) | (Err(_), Err(_)) => false,
     }
 }
 
@@ -181,7 +186,7 @@ pub fn open_keyfile(path: &Path) -> Result<Mnemonic> {
 
 pub fn open_mnemonic_file() -> Result<Mnemonic> {
     let path = default_keyfile()?;
-    open_keyfile(&path)
+    open_keyfile(&path.join("mnemonic"))
 }
 
 #[cfg(target_family = "wasm")]
@@ -200,19 +205,19 @@ pub fn set_mnemonic(mnemonic: Mnemonic) -> Result<()> {
     Ok(())
 }
 
-pub fn create_signer_ui() -> Result<Signer> {
+pub fn create_signer_ui(password: String) -> Result<Signer> {
     #[cfg(not(target_family = "wasm"))]
     let mnemonic = open_mnemonic_file()?;
     #[cfg(target_family = "wasm")]
     let mnemonic = get_mnemonic()?;
-    Signer::new(&mnemonic, "")
+    Signer::new(&mnemonic, password.as_str())
 }
 
 pub fn create_keys(mnemonic: Mnemonic) -> Result<()> {
     #[cfg(not(target_family = "wasm"))]
     {
         let path = default_keyfile()?;
-        create_keyfile(&path, &mnemonic)?;
+        create_keyfile(&path.join("mnemonic"), mnemonic.to_string())?;
     }
     #[cfg(target_family = "wasm")]
     set_mnemonic(mnemonic);
