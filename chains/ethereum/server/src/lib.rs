@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use ethers::prelude::*;
+use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{BlockIdentifier, Coin};
@@ -13,8 +14,8 @@ pub struct EthereumClient {
 
 #[async_trait::async_trait]
 impl BlockchainClient for EthereumClient {
-    type MetadataParams = ();
-    type Metadata = ();
+    type MetadataParams = EthereumMetadataParams;
+    type Metadata = EthereumMetadata;
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
@@ -93,10 +94,32 @@ impl BlockchainClient for EthereumClient {
 
     async fn metadata(
         &self,
-        _public_key: &PublicKey,
-        _options: &Self::MetadataParams,
+        public_key: &PublicKey,
+        options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        Ok(())
+        let from: H160 = public_key
+            .to_address(self.config().address_format)
+            .address()
+            .parse()
+            .unwrap();
+        let to = H160::from_slice(&options.destination);
+        let chain_id = self.client.get_chainid().await?;
+        let nonce = self.client.get_transaction_count(from, None).await?;
+        let (max_fee_per_gas, max_priority_fee_per_gas) =
+            self.client.estimate_eip1559_fees(None).await?;
+        let tx = Eip1559TransactionRequest::new()
+            .from(from)
+            .to(to)
+            .value(U256(options.amount))
+            .data(options.data.clone());
+        let gas_limit = self.client.estimate_gas(&tx.into(), None).await?;
+        Ok(EthereumMetadata {
+            chain_id: chain_id.as_u64(),
+            nonce: nonce.as_u64(),
+            max_priority_fee_per_gas: max_priority_fee_per_gas.0,
+            max_fee_per_gas: max_fee_per_gas.0,
+            gas_limit: gas_limit.0,
+        })
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {

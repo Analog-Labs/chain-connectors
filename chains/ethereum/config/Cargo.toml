@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 rosetta-core = { path = "../../../rosetta-core" }
+serde = { version = "1.0.152", features = ["derive"] }

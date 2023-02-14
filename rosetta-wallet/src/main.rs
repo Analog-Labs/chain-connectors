@@ -110,7 +110,6 @@ async fn main() -> Result<()> {
                     }
                 };
             }
-            _ => anyhow::bail!("unsupported chain"),
         },
         Command::Transactions => {
             let transactions = wallet.transactions().await?;

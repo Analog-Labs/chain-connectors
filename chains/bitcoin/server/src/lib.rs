@@ -78,7 +78,7 @@ impl BlockchainClient for BitcoinClient {
         _public_key: &PublicKey,
         _options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        todo!()
+        Ok(())
     }
 
     async fn submit(&self, _transaction: &[u8]) -> Result<Vec<u8>> {
