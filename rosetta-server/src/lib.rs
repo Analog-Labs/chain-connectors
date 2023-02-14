@@ -392,7 +392,7 @@ pub mod tests {
     pub async fn account(config: BlockchainConfig) -> Result<()> {
         let env = Env::new("account", config.clone()).await?;
 
-        let value = 100_000_000_000;
+        let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
         wallet.faucet(value).await?;
         let amount = wallet.balance().await?;
@@ -407,8 +407,8 @@ pub mod tests {
     pub async fn construction(config: BlockchainConfig) -> Result<()> {
         let env = Env::new("construction", config.clone()).await?;
 
-        let faucet = 100_000_000_000;
-        let value = 10_000_000_000;
+        let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let value = u128::pow(10, config.currency_decimals);
         let alice = env.ephemeral_wallet()?;
         alice.faucet(faucet).await?;
 

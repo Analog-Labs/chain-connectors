@@ -4,6 +4,7 @@ members = [
     "chains/bitcoin/server",
     "chains/ethereum/config",
     "chains/ethereum/server",
+    "chains/ethereum/tx",
     "chains/polkadot/config",
     "chains/polkadot/server",
     "chains/polkadot/tx",

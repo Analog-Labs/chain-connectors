@@ -13,6 +13,7 @@ log = "0.4.17"
 rosetta-config-bitcoin = { version = "0.1.0", path = "../chains/bitcoin/config" }
 rosetta-config-ethereum = { version = "0.1.0", path = "../chains/ethereum/config" }
 rosetta-config-polkadot = { version = "0.1.0", path = "../chains/polkadot/config" }
+rosetta-tx-ethereum = { version = "0.1.0", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.1.0", path = "../chains/polkadot/tx" }
 rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 serde = "1.0.151"

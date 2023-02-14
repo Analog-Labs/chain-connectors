@@ -1,6 +1,7 @@
 use crate::crypto::address::Address;
 use crate::crypto::bip32::DerivedSecretKey;
 use crate::crypto::bip44::ChildNumber;
+use crate::crypto::SecretKey;
 use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 use crate::types::{
     AccountBalanceRequest, AccountCoinsRequest, AccountFaucetRequest, AccountIdentifier, Amount,
@@ -9,8 +10,49 @@ use crate::types::{
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+
+pub enum GenericTransactionBuilder {
+    Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+    Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
+}
+
+impl GenericTransactionBuilder {
+    pub fn new(config: &BlockchainConfig) -> Result<Self> {
+        Ok(match config.blockchain {
+            "ethereum" => Self::Ethereum(Default::default()),
+            "polkadot" => Self::Polkadot(Default::default()),
+            _ => anyhow::bail!("unsupported blockchain"),
+        })
+    }
+
+    pub fn transfer(&self, address: &Address, amount: u128) -> Result<serde_json::Value> {
+        Ok(match self {
+            Self::Ethereum(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
+            Self::Polkadot(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
+        })
+    }
+
+    pub fn create_and_sign(
+        &self,
+        config: &BlockchainConfig,
+        metadata_params: serde_json::Value,
+        metadata: serde_json::Value,
+        secret_key: &SecretKey,
+    ) -> Vec<u8> {
+        match self {
+            Self::Ethereum(tx) => {
+                let metadata_params = serde_json::from_value(metadata_params).unwrap();
+                let metadata = serde_json::from_value(metadata).unwrap();
+                tx.create_and_sign(config, &metadata_params, &metadata, secret_key)
+            }
+            Self::Polkadot(tx) => {
+                let metadata_params = serde_json::from_value(metadata_params).unwrap();
+                let metadata = serde_json::from_value(metadata).unwrap();
+                tx.create_and_sign(config, &metadata_params, &metadata, secret_key)
+            }
+        }
+    }
+}
 
 pub struct Wallet {
     config: BlockchainConfig,
@@ -18,10 +60,12 @@ pub struct Wallet {
     account: AccountIdentifier,
     secret_key: DerivedSecretKey,
     public_key: PublicKey,
+    tx: GenericTransactionBuilder,
 }
 
 impl Wallet {
     pub fn new(config: BlockchainConfig, signer: &Signer, client: Client) -> Result<Self> {
+        let tx = GenericTransactionBuilder::new(&config)?;
         let secret_key = if config.bip44 {
             signer
                 .bip44_account(config.algorithm, config.coin, 0)?
@@ -38,6 +82,7 @@ impl Wallet {
             account,
             secret_key,
             public_key,
+            tx,
         })
     }
 
@@ -88,18 +133,14 @@ impl Wallet {
         Ok(coins.coins)
     }
 
-    pub async fn metadata<I, O>(&self, metadata_params: I) -> Result<O>
-    where
-        I: Serialize,
-        O: DeserializeOwned + Send + Sync + 'static,
-    {
+    pub async fn metadata(&self, metadata_params: serde_json::Value) -> Result<serde_json::Value> {
         let req = ConstructionMetadataRequest {
             network_identifier: self.config.network(),
-            options: Some(serde_json::to_value(metadata_params)?),
+            options: Some(metadata_params),
             public_keys: vec![self.public_key.clone()],
         };
         let response = self.client.construction_metadata(&req).await?;
-        Ok(serde_json::from_value(response.metadata)?)
+        Ok(response.metadata)
     }
 
     pub async fn submit(&self, transaction: &[u8]) -> Result<TransactionIdentifier> {
@@ -116,15 +157,13 @@ impl Wallet {
         account: &AccountIdentifier,
         amount: u128,
     ) -> Result<TransactionIdentifier> {
-        anyhow::ensure!(self.config.blockchain == "polkadot");
-        let tx = rosetta_tx_polkadot::PolkadotTransactionBuilder;
         let address = Address::new(self.config.address_format, account.address.clone());
-        let metadata_params = tx.transfer(&address, amount)?;
+        let metadata_params = self.tx.transfer(&address, amount)?;
         let metadata = self.metadata(metadata_params.clone()).await?;
-        let transaction = tx.create_and_sign(
+        let transaction = self.tx.create_and_sign(
             &self.config,
-            &metadata_params,
-            &metadata,
+            metadata_params,
+            metadata,
             self.secret_key.secret_key(),
         );
         self.submit(&transaction).await

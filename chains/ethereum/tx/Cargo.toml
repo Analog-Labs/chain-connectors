@@ -1,0 +1,11 @@
+[package]
+name = "rosetta-tx-ethereum"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.69"
+ethers-core = "1.0.2"
+rosetta-config-ethereum = { version = "0.1.0", path = "../config" }
+rosetta-core = { version = "0.1.0", path = "../../../rosetta-core" }
+sha3 = "0.10.6"

@@ -105,7 +105,7 @@ impl RosettaAlgorithm for Algorithm {
     }
 }
 
-pub trait TransactionBuilder: Sized {
+pub trait TransactionBuilder: Default + Sized {
     type MetadataParams: Serialize + Clone;
     type Metadata: DeserializeOwned + Sized + Send + Sync + 'static;
 

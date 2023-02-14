@@ -2,6 +2,7 @@ use anyhow::Result;
 use rosetta_core::crypto::address::AddressFormat;
 use rosetta_core::crypto::Algorithm;
 use rosetta_core::BlockchainConfig;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
@@ -34,4 +35,20 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         connector_port: 8081,
         testnet: network == "dev",
     })
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct EthereumMetadataParams {
+    pub destination: Vec<u8>,
+    pub amount: [u64; 4],
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct EthereumMetadata {
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: [u64; 4],
+    pub max_fee_per_gas: [u64; 4],
+    pub gas_limit: [u64; 4],
 }

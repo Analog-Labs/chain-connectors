@@ -7,6 +7,7 @@ use rosetta_core::{BlockchainConfig, TransactionBuilder};
 use sp_runtime::generic::Era;
 use sp_runtime::{AccountId32, MultiAddress, MultiSignature};
 
+#[derive(Default)]
 pub struct PolkadotTransactionBuilder;
 
 impl TransactionBuilder for PolkadotTransactionBuilder {
