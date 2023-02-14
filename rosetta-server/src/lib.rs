@@ -75,6 +75,7 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     // unsupported
     app.at("/mempool").post(unsupported);
     app.at("/mempool/transaction").post(unsupported);
+    app.at("/call").post(call);
     app.at("/construction/combine").post(unsupported);
     app.at("/construction/derive").post(unsupported);
     app.at("/construction/hash").post(unsupported);
@@ -285,13 +286,16 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tid
         .build())
 }
 
-async fn _call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
+async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: CallRequest = req.body_json().await?;
     //call interface call method
     let config = req.state().config();
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
+
+    //call interface call method
+    req.state().call(&request).await;
 
     Error::Unimplemented.to_result()
 }

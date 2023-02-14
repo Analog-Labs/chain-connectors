@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use anyhow::{anyhow, bail, Context, Result};
 use eth_types::GENESIS_BLOCK_INDEX;
 use ethers::prelude::*;
@@ -208,7 +210,30 @@ impl BlockchainClient for EthereumClient {
         Ok(transaction)
     }
 
-    async fn call(&self, _req: &CallRequest) {}
+    async fn call(&self, req: &CallRequest) {
+        let _method = req.method.clone();
+        let params = req.parameters.clone();
+
+        let call_type = params["type"].as_str().unwrap().clone();
+
+        match call_type.to_lowercase().as_str() {
+            "contract" => {
+                //process contract call
+                //WIP
+            }
+            "storage" => {
+                //process storage call
+                //need from
+                let from = H160::from_str(params["from"].as_str().unwrap()).unwrap();
+                //location
+                let location = H256::from_str(params["location"].as_str().unwrap()).unwrap();
+                //optional block
+                let storage_check = self.client.get_storage_at(from, location, None).await;
+                println!("storage_check: {:?}", storage_check);
+            }
+            _ => {}
+        }
+    }
 }
 
 #[cfg(test)]
