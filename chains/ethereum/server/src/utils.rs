@@ -1,4 +1,7 @@
-use ethers::prelude::*;
+use ethers::{
+    abi::{Detokenize, InvalidOutputType, Token},
+    prelude::*,
+};
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -789,4 +792,19 @@ pub struct LoadedTransaction {
     pub miner: H160,
     pub receipt: TransactionReceipt,
     pub trace: Option<Trace>,
+}
+
+#[derive(Debug)]
+pub struct EthDetokenizer {
+    pub json: String,
+}
+impl Detokenize for EthDetokenizer {
+    fn from_tokens(tokens: Vec<Token>) -> std::result::Result<Self, InvalidOutputType>
+    where
+        Self: Sized,
+    {
+        let json = serde_json::to_string(&tokens)
+            .map_err(|e| InvalidOutputType(format!("serde json error {e:?}",)))?;
+        Ok(EthDetokenizer { json })
+    }
 }

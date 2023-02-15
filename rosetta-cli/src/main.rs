@@ -32,11 +32,11 @@ async fn main() -> Result<()> {
             }
             NetworkCommand::Options => {
                 let options = client.network_options(config.network()).await?;
-                println!("{:#?}", options);
+                println!("{options:#?}");
             }
             NetworkCommand::Status => {
                 let status = client.network_status(config.network()).await?;
-                println!("{:#?}", status);
+                println!("{status:#?}");
             }
         },
         Command::Account(AccountOpts { cmd }) => match cmd {
@@ -102,7 +102,7 @@ async fn main() -> Result<()> {
                     transaction_identifier,
                 };
                 let res = client.block_transaction(&req).await?;
-                println!("{:#?}", res);
+                println!("{res:#?}");
             } else {
                 let block_identifier = opts
                     .block
@@ -113,7 +113,7 @@ async fn main() -> Result<()> {
                     block_identifier,
                 };
                 let res = client.block(&req).await?;
-                println!("{:#?}", res);
+                println!("{res:#?}");
             }
         }
         Command::Mempool(opts) => {
@@ -143,7 +143,7 @@ async fn main() -> Result<()> {
                 limit: opts.limit,
             };
             let res = client.events_blocks(&req).await?;
-            println!("{:#?}", res);
+            println!("{res:#?}");
         }
         Command::Search(opts) => {
             let network_identifier = config.network();
@@ -168,7 +168,7 @@ async fn main() -> Result<()> {
                 status: opts.status,
             };
             let res = client.search_transactions(&req).await?;
-            println!("{:#?}", res);
+            println!("{res:#?}");
         }
     }
     Ok(())

@@ -6,6 +6,7 @@ use rosetta_server::crypto::PublicKey;
 use rosetta_server::types as rosetta_types;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
+use serde_json::Value;
 use sp_core::H256;
 use sp_keyring::AccountKeyring;
 use sp_runtime::{AccountId32, MultiAddress};
@@ -68,7 +69,7 @@ impl BlockchainClient for PolkadotClient {
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_polkadot::config(network)?;
-        let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{}", addr)).await?;
+        let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{addr}")).await?;
         let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier {
             index: 0,
@@ -188,7 +189,9 @@ impl BlockchainClient for PolkadotClient {
         anyhow::bail!("not implemented")
     }
 
-    async fn call(&self, _req: &rosetta_types::CallRequest) {}
+    async fn call(&self, _req: &rosetta_types::CallRequest) -> Result<Value> {
+        anyhow::bail!("not implemented")
+    }
 }
 
 #[derive(Decode, Encode, Debug)]
