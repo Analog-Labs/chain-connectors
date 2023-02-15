@@ -88,7 +88,7 @@ async fn main() -> Result<()> {
                 use std::process::Command;
                 let status = Command::new("bitcoin-cli")
                     .arg("-regtest")
-                    .arg(format!("-rpcconnect={}", url))
+                    .arg(format!("-rpcconnect={url}"))
                     .arg("-rpcuser=rosetta")
                     .arg("-rpcpassword=rosetta")
                     .arg("generatetoaddress")
@@ -102,10 +102,10 @@ async fn main() -> Result<()> {
             _ => {
                 match wallet.faucet(amount).await {
                     Ok(data) => {
-                        println!("success: {}", data.hash);
+                        println!("success: {0}", data.hash);
                     }
                     Err(e) => {
-                        println!("Error: {}", e);
+                        println!("Error: {e}");
                         return Ok(());
                     }
                 };

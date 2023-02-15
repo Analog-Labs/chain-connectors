@@ -5,6 +5,7 @@ use rosetta_server::crypto::PublicKey;
 use rosetta_server::types as rosetta_types;
 use rosetta_server::types::{BlockIdentifier, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
+use serde_json::Value;
 
 pub struct BitcoinClient {
     config: BlockchainConfig,
@@ -50,7 +51,7 @@ impl BlockchainClient for BitcoinClient {
         let rest = info.version % 10000;
         let minor = rest / 100;
         let patch = rest % 100;
-        Ok(format!("{}.{}.{}", major, minor, patch))
+        Ok(format!("{major}.{minor}.{patch}"))
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
@@ -102,7 +103,9 @@ impl BlockchainClient for BitcoinClient {
         anyhow::bail!("not implemented")
     }
 
-    async fn call(&self, _req: &rosetta_types::CallRequest) {}
+    async fn call(&self, _req: &rosetta_types::CallRequest) -> Result<Value> {
+        anyhow::bail!("not implemented")
+    }
 }
 
 #[cfg(test)]

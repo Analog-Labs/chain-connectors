@@ -5,6 +5,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde_json::Value;
 use std::sync::Arc;
 use types::{Block, BlockRequest, BlockTransactionRequest, CallRequest, Transaction};
 
@@ -83,7 +84,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         req: &BlockTransactionRequest,
         config: &BlockchainConfig,
     ) -> Result<Transaction>;
-    async fn call(&self, req: &CallRequest);
+    async fn call(&self, req: &CallRequest) -> Result<Value>;
 }
 
 pub trait RosettaAlgorithm {

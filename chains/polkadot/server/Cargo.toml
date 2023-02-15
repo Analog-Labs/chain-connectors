@@ -12,6 +12,7 @@ parity-scale-codec = "3.2.2"
 rosetta-config-polkadot = { version = "0.1.0", path = "../config" }
 rosetta-server = { version = "0.1.0", path = "../../../rosetta-server" }
 serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.70"
 sp-core = "7.0.0"
 sp-keyring = "7.0.0"
 sp-runtime = "7.0.0"
