@@ -5,7 +5,7 @@ use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
     AccountFaucetRequest, Amount, BlockRequest, BlockResponse, BlockTransactionRequest,
-    CallRequest, ConstructionMetadataRequest, ConstructionMetadataResponse,
+    CallRequest, CallResponse, ConstructionMetadataRequest, ConstructionMetadataResponse,
     ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
     NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
     TransactionIdentifierResponse, Version,
@@ -294,10 +294,16 @@ async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
         return Error::UnsupportedNetwork.to_result();
     }
 
-    //call interface call method
-    req.state().call(&request).await;
+    let call_result = req.state().call(&request).await?;
 
-    Error::Unimplemented.to_result()
+    let response = CallResponse {
+        result: call_result,
+        idempotent: false,
+    };
+
+    Ok(Response::builder(200)
+        .body(Body::from_json(&response)?)
+        .build())
 }
 
 async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
@@ -352,7 +358,7 @@ impl std::fmt::Display for Error {
             Self::UnsupportedCurveType => "unsupported curve type",
             Self::MoreThanOneSignature => "expected one signature",
             Self::InvalidSignatureType => "invalid signature type",
-            Self::RpcError(error) => return write!(f, "rpc error: {}", error),
+            Self::RpcError(error) => return write!(f, "rpc error: {error}",),
         };
         f.write_str(msg)
     }

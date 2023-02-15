@@ -34,10 +34,10 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         node_image: "parity/polkadot:v0.9.37",
         node_command: Arc::new(|network, port| {
             vec![
-                format!("--chain={}", network),
+                format!("--chain={network}"),
                 "--rpc-cors=all".into(),
                 "--ws-external".into(),
-                format!("--ws-port={}", port),
+                format!("--ws-port={port}"),
                 "--alice".into(),
                 "--tmp".into(),
             ]

@@ -2,6 +2,8 @@ use std::str::FromStr;
 
 use anyhow::{anyhow, bail, Context, Result};
 use eth_types::GENESIS_BLOCK_INDEX;
+use ethers::abi::Abi;
+use ethers::contract as ethers_contract;
 use ethers::prelude::*;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
@@ -9,6 +11,8 @@ use rosetta_server::crypto::PublicKey;
 use rosetta_server::types as rosetta_types;
 use rosetta_server::types::{BlockIdentifier, CallRequest, Coin};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
+use serde_json::Value;
+use utils::EthDetokenizer;
 use utils::{get_block, get_transaction, populate_transactions};
 
 mod eth_types;
@@ -204,28 +208,68 @@ impl BlockchainClient for EthereumClient {
         Ok(transaction)
     }
 
-    async fn call(&self, req: &CallRequest) {
-        let _method = req.method.clone();
+    async fn call(&self, req: &CallRequest) -> Result<Value> {
+        let method = req.method.clone();
         let params = req.parameters.clone();
 
-        let call_type = params["type"].as_str().unwrap().clone();
+        let call_type = params["type"].as_str().ok_or(anyhow!("type not found"))?;
 
         match call_type.to_lowercase().as_str() {
-            "contract" => {
-                //process contract call
-                //WIP
+            "call" => {
+                //process constant call
+                let abi_str = params["abi"].as_str().ok_or(anyhow!("ABI not found"))?;
+
+                let abi: Abi = serde_json::from_str(abi_str).map_err(|err| anyhow!(err))?;
+
+                let contract_address = H160::from_str(
+                    params["contract_address"]
+                        .as_str()
+                        .ok_or(anyhow!("contact address not found"))?,
+                )
+                .map_err(|err| anyhow!(err))?;
+
+                let contract =
+                    ethers_contract::Contract::new(contract_address, abi, self.client.clone());
+
+                let value: EthDetokenizer = contract
+                    .method(&method, ())
+                    .map_err(|err| anyhow!(err))?
+                    .call()
+                    .await
+                    .map_err(|err| anyhow!(err))?;
+
+                let result: Value = serde_json::from_str(&value.json)?;
+                return Ok(result);
             }
             "storage" => {
                 //process storage call
-                //need from
-                let from = H160::from_str(params["from"].as_str().unwrap()).unwrap();
-                //location
-                let location = H256::from_str(params["location"].as_str().unwrap()).unwrap();
-                //optional block
-                let storage_check = self.client.get_storage_at(from, location, None).await;
-                println!("storage_check: {:?}", storage_check);
+                let from = H160::from_str(
+                    params["address"]
+                        .as_str()
+                        .ok_or(anyhow!("address field not found"))?,
+                )
+                .map_err(|err| anyhow!(err))?;
+
+                let location = H256::from_str(
+                    params["position"]
+                        .as_str()
+                        .ok_or(anyhow!("position not found"))?,
+                )
+                .map_err(|err| anyhow!(err))?;
+
+                let block_num = params["block_number"]
+                    .as_u64()
+                    .map(|block_num| BlockId::Number(block_num.into()));
+
+                let storage_check = self
+                    .client
+                    .get_storage_at(from, location, block_num)
+                    .await?;
+                return Ok(Value::String(format!("{storage_check:#?}",)));
             }
-            _ => {}
+            _ => {
+                bail!("request type not supported")
+            }
         }
     }
 }

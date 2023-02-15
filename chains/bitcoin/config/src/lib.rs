@@ -23,7 +23,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             vec![
                 "-regtest=1".into(),
                 "-rpcbind=0.0.0.0".into(),
-                format!("-rpcport={}", port),
+                format!("-rpcport={port}"),
                 "-rpcallowip=0.0.0.0/0".into(),
                 "-rpcuser=rosetta".into(),
                 "-rpcpassword=rosetta".into(),
