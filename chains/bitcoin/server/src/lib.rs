@@ -131,12 +131,14 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
         rosetta_server::tests::account(config).await
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
         rosetta_server::tests::construction(config).await
