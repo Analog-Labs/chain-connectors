@@ -54,12 +54,7 @@ pub fn LockModal(cx: Scope) -> Element {
                 }
             }
         }),
-        false => cx.render(rsx! {
-            div {
-                style:"display:none"
-            }
-
-        }),
+        false => None,
     }
 }
 

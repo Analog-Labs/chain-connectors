@@ -19,26 +19,23 @@ pub enum Signup {
 #[allow(non_snake_case)]
 #[inline_props]
 pub fn Signup(cx: Scope) -> Element {
-    let passphrase = use_state(&cx, || "".to_string());
+    let mnemonic = use_state(&cx, create_mnemonic);
     let step = use_state(&cx, || Signup::Intro);
-    let is_recovery = use_state(&cx, || false);
     let component = match step.get() {
         Signup::Intro => rsx!(Intro {
             step_state: step.clone(),
-            is_recovery: is_recovery.clone(),
         }),
         Signup::Password => rsx!(Password {
             step_state: step.clone()
-            passphrase: passphrase.clone(),
-            is_recovery:is_recovery.clone()
+            mnemonic: mnemonic.get().clone(),
         }),
         Signup::Create => rsx!(Create {
             step_state: step.clone(),
-            passphrase: passphrase.get().clone(),
+            mnemonic: mnemonic.get().clone(),
         }),
         Signup::Recover => rsx!(Recover {
             step_state: step.clone(),
-            passphrase: passphrase.clone(),
+            on_valid_mnemonic: move |valid_mnemonic| { mnemonic.set(valid_mnemonic) }
         }),
     };
     cx.render(rsx! {
@@ -51,7 +48,7 @@ pub fn Signup(cx: Scope) -> Element {
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn Intro(cx: Scope, step_state: UseState<Signup>, is_recovery: UseState<bool>) -> Element {
+pub fn Intro(cx: Scope, step_state: UseState<Signup>) -> Element {
     cx.render(rsx! {
         div {
             class: "content-container",
@@ -65,15 +62,13 @@ pub fn Intro(cx: Scope, step_state: UseState<Signup>, is_recovery: UseState<bool
                     title: "CREATE NEW WALLET",
                     onclick: move |_|
                     {
-                    is_recovery.set(false);
-                    step_state.set(Signup::Password);
+                    step_state.set(Signup::Create);
                     }
                 }
                 Button {
                     title: "ALREADY HAVE ONE (RECOVER)",
                     onclick: move |_| {
-                        is_recovery.set(true);
-                        step_state.set(Signup::Password)}
+                        step_state.set(Signup::Recover)}
                 }
             }
         }
@@ -82,14 +77,11 @@ pub fn Intro(cx: Scope, step_state: UseState<Signup>, is_recovery: UseState<bool
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn Password(
-    cx: Scope,
-    passphrase: UseState<String>,
-    step_state: UseState<Signup>,
-    is_recovery: UseState<bool>,
-) -> Element {
+pub fn Password(cx: Scope, step_state: UseState<Signup>, mnemonic: Mnemonic) -> Element {
     let password = use_state(&cx, || "".to_string());
     let isValid = use_state(&cx, || false);
+    let alerts = use_atom_ref(&cx, ALERTS);
+
     cx.render(rsx! {
         div {
             class:"main-container",
@@ -131,13 +123,23 @@ pub fn Password(
                     title: "CREATE PASSWORD",
                     onclick: move |_| {
                         let password = password.get().clone();
-                        passphrase.set(salted_hash(password).unwrap());
-                        match is_recovery.get() {
-                            false => {step_state.set(Signup::Create)},
-                            true => {step_state.set(Signup::Recover)}
-
+                        let hash = salted_hash(password).unwrap();
+                        let mnemonic = mnemonic.clone();
+                        match save_hash(hash){
+                        Ok(()) => {
+                            match create_keys(mnemonic) {
+                                Ok(_) => cx.needs_update_any(ScopeId(0)),
+                                Err(e) => {
+                                    let alert = Alert::error(e.to_string());
+                                    alerts.write().push(alert);
+                                }
+                            };
                         }
-
+                        Err(e) => {
+                            let alert = Alert::error(e.to_string());
+                            alerts.write().push(alert);
+                        }
+                    }
                 }
             }
             })
@@ -147,8 +149,7 @@ pub fn Password(
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn Create(cx: Scope, step_state: UseState<Signup>, passphrase: String) -> Element {
-    let mnemonic = cx.use_hook(create_mnemonic);
+pub fn Create(cx: Scope, step_state: UseState<Signup>, mnemonic: Mnemonic) -> Element {
     let mnemonic_string = mnemonic.to_string();
     let alerts = use_atom_ref(&cx, ALERTS);
     cx.render(rsx! {
@@ -174,25 +175,9 @@ pub fn Create(cx: Scope, step_state: UseState<Signup>, passphrase: String) -> El
             }  div {
                 class: "signup-buttons-container",
             Button {
-                title: "CREATE WALLET",
+                title: "NEXT",
                 onclick: move |_| {
-                    let mnemonic = mnemonic.clone();
-                    let passphrase = passphrase.clone();
-                    match save_hash(passphrase){
-                        Ok(()) => {
-                            match create_keys(mnemonic) {
-                                Ok(_) => cx.needs_update_any(ScopeId(0)),
-                                Err(e) => {
-                                    let alert = Alert::error(e.to_string());
-                                    alerts.write().push(alert);
-                                }
-                            };
-                        }
-                        Err(e) => {
-                            let alert = Alert::error(e.to_string());
-                            alerts.write().push(alert);
-                        }
-                    }
+                    step_state.set(Signup::Password)
             }
         }
             Button {
@@ -218,7 +203,11 @@ pub fn Create(cx: Scope, step_state: UseState<Signup>, passphrase: String) -> El
 
 #[allow(non_snake_case)]
 #[inline_props]
-pub fn Recover(cx: Scope, step_state: UseState<Signup>, passphrase: UseState<String>) -> Element {
+pub fn Recover<'a>(
+    cx: Scope,
+    step_state: UseState<Signup>,
+    on_valid_mnemonic: EventHandler<'a, Mnemonic>,
+) -> Element {
     let mnemonic_string = use_state(&cx, || "".to_string());
     let alerts = use_atom_ref(&cx, ALERTS);
     cx.render(rsx! {
@@ -250,29 +239,14 @@ pub fn Recover(cx: Scope, step_state: UseState<Signup>, passphrase: UseState<Str
                     let mnemonic_string = mnemonic_string.clone();
                       match Mnemonic::parse_normalized(mnemonic_string.get().as_str()){
                         Ok(mnemonic) => {
-                            let passphrase = passphrase.get().clone();
-                            match save_hash(passphrase) {
-                                Ok(()) => {
-                                    match create_keys(mnemonic) {
-                                        Ok(_) => {cx.needs_update_any(ScopeId(0))},
-                                        Err(error) => {
-                                        let alert = Alert::error(error.to_string());
-                                        alerts.write().push(alert);
-                                        }
-                                       }
-                                }
-                                Err(e) => {
-                                    let alert = Alert::error(e.to_string());
-                                    alerts.write().push(alert);
-                                }
-                            }
-
+                            on_valid_mnemonic.call(mnemonic);
+                            step_state.set(Signup::Password);
                         }
                         Err(error) => {
-                                let alert = Alert::error(error.to_string());
-                                alerts.write().push(alert);
-                        }
-                      }
+                                     let alert = Alert::error(error.to_string());
+                                    alerts.write().push(alert);
+                                    }
+                    }
                 }
             }
         }
