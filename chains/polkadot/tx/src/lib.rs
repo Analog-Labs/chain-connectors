@@ -83,7 +83,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
     type Metadata = PolkadotMetadata;
 
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams> {
-        let address: AccountId32 = parse_address(&address)?;
+        let address: AccountId32 = parse_address(address)?;
         let dest = MultiAddress::Id(address);
         #[derive(Debug, Decode, Encode)]
         struct Transfer {

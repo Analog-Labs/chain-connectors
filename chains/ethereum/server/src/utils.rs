@@ -18,7 +18,7 @@ use rosetta_server::types as rosetta_types;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 
 use crate::eth_types::{
     FlattenTrace, ResultGethExecTraces, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE,
@@ -53,20 +53,20 @@ pub async fn get_block(
         .get_block_with_txs(bl_id)
         .await
         .map_err(|err| anyhow!(err))?
-        .ok_or(anyhow!("Block not found"))?;
+        .context("Block not found")?;
 
     let block_number = block_eth
         .number
-        .ok_or(anyhow!("Block number not found in block result"))?
+        .context("Block number not found in block result")?
         .as_u64();
 
     let block_author = block_eth
         .author
-        .ok_or(anyhow!("Block author not found in block result"))?;
+        .context("Block author not found in block result")?;
 
     let block_hash = block_eth
         .hash
-        .ok_or(anyhow!("Block hash not found in block result"))?;
+        .context("Block hash not found in block result")?;
 
     let block_transactions = block_eth.transactions.clone();
 
@@ -124,7 +124,7 @@ pub async fn get_transaction(
         .get_transaction(tx_hash)
         .await
         .map_err(|err| anyhow!(err))?
-        .ok_or(anyhow!("Unable to get transaction"))?;
+        .context("Unable to get transaction")?;
 
     let ehters_u64 = U64::from(block_identifier.index);
     let bl_number = BlockNumber::Number(ehters_u64);
@@ -134,20 +134,20 @@ pub async fn get_transaction(
         .get_block(block_num)
         .await
         .map_err(|err| anyhow!(err))?
-        .ok_or(anyhow!("Block not found"))?;
+        .context("Block not found")?;
 
-    let block_hash = block.hash.ok_or(anyhow!("Block hash not found"))?;
-    let block_author = block.author.ok_or(anyhow!("Block author not found"))?;
+    let block_hash = block.hash.context("Block hash not found")?;
+    let block_author = block.author.context("Block author not found")?;
 
     let tx_receipt = client
         .get_transaction_receipt(tx_hash)
         .await
         .map_err(|err| anyhow!(err))?
-        .ok_or(anyhow!("Transaction receipt not found"))?;
+        .context("Transaction receipt not found")?;
 
     if tx_receipt
         .block_hash
-        .ok_or(anyhow!("Block hash not found in tx receipt"))?
+        .context("Block hash not found in tx receipt")?
         != block_hash
     {
         bail!("Transaction receipt block hash does not match block hash");
@@ -193,7 +193,7 @@ pub async fn populate_transactions(
     currency: &Currency,
 ) -> Result<Vec<rosetta_types::Transaction>> {
     let mut transactions = vec![];
-    let miner = block.author.ok_or(anyhow!("Block author not found"))?;
+    let miner = block.author.context("Block author not found")?;
     let block_reward_transaction = get_mining_rewards(block_identifier, &miner, &uncles, currency)?;
     transactions.push(block_reward_transaction);
 
@@ -214,7 +214,7 @@ pub async fn populate_transaction(
     let fee_ops = get_fee_operations(&tx, currency)?;
     operations.extend(fee_ops);
 
-    let tx_trace = tx.trace.ok_or(anyhow!("Transaction trace not found"))?;
+    let tx_trace = tx.trace.context("Transaction trace not found")?;
     let traces = flatten_traces(tx_trace.clone())?;
 
     let traces_ops = get_traces_operations(traces, operations.len() as i64, currency)?;
@@ -248,7 +248,7 @@ pub async fn get_uncles(
             .get_uncle(block_index, index)
             .await
             .map_err(|err| anyhow!("{err}"))?
-            .ok_or(anyhow!("Uncle block now found"))?;
+            .context("Uncle block now found")?;
         uncles_vec.push(uncle_response);
     }
     Ok(uncles_vec)
@@ -266,11 +266,11 @@ pub async fn get_block_receipts(
             .get_transaction_receipt(tx_hash)
             .await
             .map_err(|err| anyhow!("{err}"))?
-            .ok_or(anyhow!("Transaction receipt not found"))?;
+            .context("Transaction receipt not found")?;
 
         if receipt
             .block_hash
-            .ok_or(anyhow!("Block hash not found in receipt"))?
+            .context("Block hash not found in receipt")?
             != block_hash
         {
             bail!("Receipt's block hash does not match block hash")
@@ -630,8 +630,8 @@ pub fn get_mining_rewards(
     operations.push(mining_reward_operation);
 
     for block in uncles {
-        let uncle_miner = block.author.ok_or(anyhow!("Uncle block has no author"))?;
-        let block_number = block.number.ok_or(anyhow!("Uncle block has no number"))?;
+        let uncle_miner = block.author.context("Uncle block has no author")?;
+        let block_number = block.number.context("Uncle block has no number")?;
         let uncle_block_reward = (block_number + MAX_UNCLE_DEPTH - block_identifier.index)
             * (mining_reward / MAX_UNCLE_DEPTH);
 
@@ -708,9 +708,7 @@ pub fn estimatate_gas(
     receipt: &TransactionReceipt,
     base_fee: Option<U256>,
 ) -> Result<(U256, Option<U256>)> {
-    let gas_used = receipt
-        .gas_used
-        .ok_or(anyhow!("gas used is not available"))?;
+    let gas_used = receipt.gas_used.context("gas used is not available")?;
     let gas_price = effective_gas_price(tx, base_fee)?;
 
     let fee_amount = gas_used * gas_price;
@@ -721,14 +719,14 @@ pub fn estimatate_gas(
 }
 
 fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> Result<U256> {
-    let base_fee = base_fee.ok_or(anyhow!("base fee is not available"))?;
+    let base_fee = base_fee.context("base fee is not available")?;
     let tx_transaction_type = tx
         .transaction_type
-        .ok_or(anyhow!("transaction type is not available"))?;
-    let tx_gas_price = tx.gas_price.ok_or(anyhow!("gas price is not available"))?;
+        .context("transaction type is not available")?;
+    let tx_gas_price = tx.gas_price.context("gas price is not available")?;
     let tx_max_priority_fee_per_gas = tx
         .max_priority_fee_per_gas
-        .ok_or(anyhow!("max priority fee per gas is not available"))?;
+        .context("max priority fee per gas is not available")?;
 
     if tx_transaction_type.as_u64() != 2 {
         return Ok(tx_gas_price);

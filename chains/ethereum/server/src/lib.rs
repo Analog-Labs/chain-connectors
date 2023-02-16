@@ -153,10 +153,8 @@ impl BlockchainClient for EthereumClient {
     ) -> Result<rosetta_types::Block> {
         let (block, loaded_tx, uncles) = get_block(block_req, &self.client).await?;
 
-        let block_number = block
-            .number
-            .ok_or(anyhow!("Unable to fetch block number"))?;
-        let block_hash = block.hash.ok_or(anyhow!("Unable to fetch block hash"))?;
+        let block_number = block.number.context("Unable to fetch block number")?;
+        let block_hash = block.hash.context("Unable to fetch block hash")?;
         let block_identifier = BlockIdentifier {
             index: block_number.as_u64(),
             hash: hex::encode(block_hash),
@@ -212,19 +210,19 @@ impl BlockchainClient for EthereumClient {
         let method = req.method.clone();
         let params = req.parameters.clone();
 
-        let call_type = params["type"].as_str().ok_or(anyhow!("type not found"))?;
+        let call_type = params["type"].as_str().context("type not found")?;
 
         match call_type.to_lowercase().as_str() {
             "call" => {
                 //process constant call
-                let abi_str = params["abi"].as_str().ok_or(anyhow!("ABI not found"))?;
+                let abi_str = params["abi"].as_str().context("ABI not found")?;
 
                 let abi: Abi = serde_json::from_str(abi_str).map_err(|err| anyhow!(err))?;
 
                 let contract_address = H160::from_str(
                     params["contract_address"]
                         .as_str()
-                        .ok_or(anyhow!("contact address not found"))?,
+                        .context("contact address not found")?,
                 )
                 .map_err(|err| anyhow!(err))?;
 
@@ -246,16 +244,13 @@ impl BlockchainClient for EthereumClient {
                 let from = H160::from_str(
                     params["address"]
                         .as_str()
-                        .ok_or(anyhow!("address field not found"))?,
+                        .context("address field not found")?,
                 )
                 .map_err(|err| anyhow!(err))?;
 
-                let location = H256::from_str(
-                    params["position"]
-                        .as_str()
-                        .ok_or(anyhow!("position not found"))?,
-                )
-                .map_err(|err| anyhow!(err))?;
+                let location =
+                    H256::from_str(params["position"].as_str().context("position not found")?)
+                        .map_err(|err| anyhow!(err))?;
 
                 let block_num = params["block_number"]
                     .as_u64()
