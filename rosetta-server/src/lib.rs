@@ -63,14 +63,14 @@ fn server<T: BlockchainClient>(client: T) -> tide::Server<Arc<T>> {
     if testnet {
         app.at("/account/faucet").post(account_faucet);
     }
+    app.at("/block").post(block);
+    app.at("/block/transaction").post(block_transaction);
     app.at("/construction/metadata").post(construction_metadata);
     app.at("/construction/submit").post(construction_submit);
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
     app.at("/network/status").post(network_status);
     // unimplemented
-    app.at("/block").post(block);
-    app.at("/block/transaction").post(block_transaction);
     app.at("/search/transactions").post(unimplemented);
     // unsupported
     app.at("/mempool").post(unsupported);
@@ -255,55 +255,40 @@ async fn construction_metadata<T: BlockchainClient>(mut req: Request<Arc<T>>) ->
 
 async fn block<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: BlockRequest = req.body_json().await?;
-
     let config = req.state().config();
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-
-    let block = req.state().block(&request, config).await?;
+    let block = req.state().block(&request).await?;
     let response = BlockResponse {
         block: Some(block),
         other_transactions: None,
     };
-
-    Ok(Response::builder(200)
-        .body(Body::from_json(&response)?)
-        .build())
+    ok(&response)
 }
 
 async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: BlockTransactionRequest = req.body_json().await?;
-    // call interface block_transaction method
     let config = req.state().config();
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let transaction = req.state().block_transaction(&request, config).await?;
-
-    Ok(Response::builder(200)
-        .body(Body::from_json(&transaction)?)
-        .build())
+    let transaction = req.state().block_transaction(&request).await?;
+    ok(&transaction)
 }
 
 async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     let request: CallRequest = req.body_json().await?;
-    //call interface call method
     let config = req.state().config();
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-
     let call_result = req.state().call(&request).await?;
-
     let response = CallResponse {
         result: call_result,
         idempotent: false,
     };
-
-    Ok(Response::builder(200)
-        .body(Body::from_json(&response)?)
-        .build())
+    ok(&response)
 }
 
 async fn construction_submit<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {

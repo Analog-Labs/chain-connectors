@@ -3,8 +3,9 @@ use parity_scale_codec::{Decode, Encode};
 use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
-use rosetta_server::types as rosetta_types;
-use rosetta_server::types::{BlockIdentifier, Coin};
+use rosetta_server::types::{
+    Block, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest, Coin, Transaction,
+};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use sp_core::H256;
@@ -173,23 +174,16 @@ impl BlockchainClient for PolkadotClient {
             .extrinsic_hash();
         Ok(hash.0.to_vec())
     }
-    async fn block(
-        &self,
-        _block_req: &rosetta_types::BlockRequest,
-        _config: &BlockchainConfig,
-    ) -> Result<rosetta_types::Block> {
+
+    async fn block(&self, _block_req: &BlockRequest) -> Result<Block> {
         anyhow::bail!("not implemented")
     }
 
-    async fn block_transaction(
-        &self,
-        _req: &rosetta_types::BlockTransactionRequest,
-        _config: &BlockchainConfig,
-    ) -> Result<rosetta_types::Transaction> {
+    async fn block_transaction(&self, _req: &BlockTransactionRequest) -> Result<Transaction> {
         anyhow::bail!("not implemented")
     }
 
-    async fn call(&self, _req: &rosetta_types::CallRequest) -> Result<Value> {
+    async fn call(&self, _req: &CallRequest) -> Result<Value> {
         anyhow::bail!("not implemented")
     }
 }
