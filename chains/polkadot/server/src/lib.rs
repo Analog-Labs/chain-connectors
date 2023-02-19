@@ -4,18 +4,23 @@ use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
-    Block, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest, Coin, Transaction,
+    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+    TransactionIdentifier,
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
-use sp_core::H256;
 use sp_keyring::AccountKeyring;
-use sp_runtime::{AccountId32, MultiAddress};
+use std::time::Duration;
+use subxt::config::{Hasher, Header};
 use subxt::metadata::DecodeStaticType;
+use subxt::rpc::types::BlockNumber;
 use subxt::storage::address::{StorageHasher, StorageMapKey, Yes};
 use subxt::storage::StaticStorageAddress;
 use subxt::tx::{PairSigner, StaticTxPayload, SubmittableExtrinsic};
-use subxt::{OnlineClient, PolkadotConfig};
+use subxt::utils::{AccountId32, MultiAddress, H256};
+use subxt::{Config, OnlineClient, PolkadotConfig};
+
+mod block;
 
 pub struct PolkadotClient {
     config: BlockchainConfig,
@@ -58,7 +63,13 @@ impl PolkadotClient {
         } else {
             None
         };
-        let account_info = self.client.storage().fetch_or_default(&key, block).await?;
+        let account_info = self
+            .client
+            .storage()
+            .at(block)
+            .await?
+            .fetch_or_default(&key)
+            .await?;
         Ok(account_info)
     }
 }
@@ -127,8 +138,8 @@ impl BlockchainClient for PolkadotClient {
             .context("invalid address")?;
         let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
         let dest: MultiAddress<AccountId32, u32> = MultiAddress::Id(address);
-        let hash = self.client.metadata().call_hash("Balances", "transfer")?;
-        let tx = StaticTxPayload::new("Balances", "transfer", Transfer { dest, value }, hash);
+        let tx = StaticTxPayload::new("Balances", "transfer", Transfer { dest, value }, [0; 32])
+            .unvalidated();
         let hash = self
             .client
             .tx()
@@ -175,12 +186,71 @@ impl BlockchainClient for PolkadotClient {
         Ok(hash.0.to_vec())
     }
 
-    async fn block(&self, _block_req: &BlockRequest) -> Result<Block> {
-        anyhow::bail!("not implemented")
+    async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
+        let block_hash = if let Some(hash) = block_identifier.hash.as_ref() {
+            hash.parse()?
+        } else {
+            self.client
+                .rpc()
+                .block_hash(block_identifier.index.map(BlockNumber::from))
+                .await?
+                .context("block not found")?
+        };
+        let block = self.client.blocks().at(Some(block_hash)).await?;
+        let timestamp_now_address =
+            StaticStorageAddress::<DecodeStaticType<u64>, Yes, Yes, ()>::new(
+                "Timestamp",
+                "Now",
+                vec![],
+                [0; 32],
+            )
+            .unvalidated();
+        let timestamp = block
+            .storage()
+            .fetch_or_default(&timestamp_now_address)
+            .await?;
+        let body = block.body().await?;
+        let mut transactions = vec![];
+        for extrinsic in body.extrinsics() {
+            let transaction = crate::block::get_transaction(self.config(), &extrinsic).await?;
+            transactions.push(transaction);
+        }
+        Ok(Block {
+            block_identifier: BlockIdentifier {
+                index: block.number() as _,
+                hash: format!("{:?}", block.hash()),
+            },
+            parent_block_identifier: BlockIdentifier {
+                index: block.number().saturating_sub(1) as _,
+                hash: format!("{:?}", block.header().parent_hash),
+            },
+            timestamp: Duration::from_millis(timestamp).as_nanos() as i64,
+            transactions,
+            metadata: None,
+        })
     }
 
-    async fn block_transaction(&self, _req: &BlockTransactionRequest) -> Result<Transaction> {
-        anyhow::bail!("not implemented")
+    async fn block_transaction(
+        &self,
+        block_identifier: &BlockIdentifier,
+        transaction_identifier: &TransactionIdentifier,
+    ) -> Result<Transaction> {
+        let block_hash = block_identifier.hash.parse()?;
+        let transaction_hash = transaction_identifier.hash.parse()?;
+        let body = self
+            .client
+            .blocks()
+            .at(Some(block_hash))
+            .await?
+            .body()
+            .await?;
+        let extrinsic = body
+            .extrinsics()
+            .find(|extrinsic| {
+                <PolkadotConfig as Config>::Hasher::hash_of(&extrinsic.bytes()) == transaction_hash
+            })
+            .context("transaction not found")?;
+        crate::block::get_transaction(self.config(), &extrinsic).await
     }
 
     async fn call(&self, _req: &CallRequest) -> Result<Value> {

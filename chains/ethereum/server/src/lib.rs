@@ -8,7 +8,8 @@ use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
-    Block, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest, Coin, Transaction,
+    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+    TransactionIdentifier,
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
@@ -146,8 +147,8 @@ impl BlockchainClient for EthereumClient {
             .to_vec())
     }
 
-    async fn block(&self, block_req: &BlockRequest) -> Result<Block> {
-        let (block, loaded_tx, uncles) = get_block(block_req, &self.client).await?;
+    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
+        let (block, loaded_tx, uncles) = get_block(block, &self.client).await?;
 
         let block_number = block.number.context("Unable to fetch block number")?;
         let block_hash = block.hash.context("Unable to fetch block hash")?;
@@ -180,20 +181,13 @@ impl BlockchainClient for EthereumClient {
         })
     }
 
-    async fn block_transaction(&self, req: &BlockTransactionRequest) -> Result<Transaction> {
-        let block_identifier = req.block_identifier.clone();
-        let transaction_identifier = req.transaction_identifier.clone();
-        if transaction_identifier.hash.is_empty() {
-            bail!("Transaction hash is empty");
-        }
-
-        let transaction = get_transaction(
-            &block_identifier,
-            transaction_identifier.hash,
-            &self.client,
-            &self.config.currency(),
-        )
-        .await?;
+    async fn block_transaction(
+        &self,
+        block: &BlockIdentifier,
+        tx: &TransactionIdentifier,
+    ) -> Result<Transaction> {
+        let transaction =
+            get_transaction(block, &tx.hash, &self.client, &self.config.currency()).await?;
 
         Ok(transaction)
     }
