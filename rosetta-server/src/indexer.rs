@@ -1,12 +1,12 @@
-use anyhow::{Context, Result};
-use rosetta_client::{Chain, Client};
-use rosetta_types::{
-    AccountIdentifier, Block, BlockIdentifier, BlockRequest, BlockTransaction, CoinIdentifier,
-    Currency, NetworkIdentifier, NetworkRequest, Operator, PartialBlockIdentifier,
-    SearchTransactionsRequest, SearchTransactionsResponse, Transaction, TransactionIdentifier,
+use crate::types::{
+    AccountIdentifier, Block, BlockTransaction, CoinIdentifier, Currency, Operator,
+    PartialBlockIdentifier, SearchTransactionsRequest, SearchTransactionsResponse, Transaction,
+    TransactionIdentifier,
 };
+use crate::BlockchainClient;
+use anyhow::Result;
+use std::ops::Deref;
 use std::path::Path;
-use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct TransactionRef {
@@ -132,60 +132,43 @@ fn account_table_key(account: &AccountIdentifier, tx: &TransactionRef) -> Vec<u8
 }
 
 #[derive(Clone)]
-pub struct Indexer {
+pub struct Indexer<C: BlockchainClient> {
     transaction_table: TransactionTable,
     account_table: AccountTable,
-    client: Client,
-    network_identifier: NetworkIdentifier,
+    client: C,
 }
 
-impl Indexer {
-    pub fn new(db: &Path, url: Option<&str>, chain: Chain) -> Result<Self> {
+impl<C: BlockchainClient> Deref for Indexer<C> {
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        &self.client
+    }
+}
+
+impl<C: BlockchainClient> Indexer<C> {
+    pub fn new(db: &Path, client: C) -> Result<Self> {
         let db = sled::open(db)?;
-        let url = url.unwrap_or_else(|| chain.url());
-        let client = Client::new(url)?;
-        let network_identifier = chain.config().network;
         let transaction_table = TransactionTable::new(db.open_tree("transaction_table")?);
         let account_table = AccountTable::new(db.open_tree("account_table")?);
-        let indexer = Self {
+        Ok(Self {
             transaction_table,
             account_table,
             client,
-            network_identifier,
-        };
-        let indexer2 = indexer.clone();
-        tokio::task::spawn(async move {
-            loop {
-                tokio::time::sleep(Duration::from_secs(10)).await;
-                if let Err(err) = indexer.sync().await {
-                    log::error!("{}", err);
-                }
-            }
-        });
-        Ok(indexer2)
+        })
     }
 
-    pub fn network(&self) -> &NetworkIdentifier {
-        &self.network_identifier
-    }
-
-    pub async fn block(&self, i: u64) -> Result<Block> {
-        let req = BlockRequest {
-            network_identifier: self.network_identifier.clone(),
-            block_identifier: PartialBlockIdentifier {
-                index: Some(i),
-                hash: None,
-            },
-        };
+    async fn block_by_index(&self, index: u64) -> Result<Block> {
         self.client
-            .block(&req)
-            .await?
-            .block
-            .context("missing block")
+            .block(&PartialBlockIdentifier {
+                index: Some(index),
+                hash: None,
+            })
+            .await
     }
 
     async fn get(&self, tx: &TransactionRef) -> Result<Option<BlockTransaction>> {
-        let block = self.block(tx.block_index).await?;
+        let block = self.block_by_index(tx.block_index).await?;
         Ok(
             if let Some(transaction) = block
                 .transactions
@@ -202,10 +185,7 @@ impl Indexer {
         )
     }
 
-    pub async fn transaction(
-        &self,
-        tx: &TransactionIdentifier,
-    ) -> Result<Option<BlockTransaction>> {
+    async fn transaction(&self, tx: &TransactionIdentifier) -> Result<Option<BlockTransaction>> {
         if let Some(tx) = self.transaction_table.get(tx)? {
             self.get(&tx).await
         } else {
@@ -213,22 +193,11 @@ impl Indexer {
         }
     }
 
-    async fn status(&self) -> Result<BlockIdentifier> {
-        let status = self
-            .client
-            .network_status(&NetworkRequest {
-                network_identifier: self.network_identifier.clone(),
-                metadata: None,
-            })
-            .await?;
-        Ok(status.current_block_identifier)
-    }
-
-    async fn sync(&self) -> Result<()> {
+    pub async fn sync(&self) -> Result<()> {
         let synced_height = self.transaction_table.height()?;
-        let current_height = self.status().await?.index;
+        let current_height = self.client.current_block().await?.index;
         for block_index in synced_height..current_height {
-            let block = self.block(block_index).await?;
+            let block = self.block_by_index(block_index).await?;
             for (transaction_index, transaction) in block.transactions.iter().enumerate() {
                 let tx = TransactionRef::new(block_index, transaction_index as _);
                 self.transaction_table
@@ -248,8 +217,6 @@ impl Indexer {
         &self,
         req: &SearchTransactionsRequest,
     ) -> Result<SearchTransactionsResponse> {
-        anyhow::ensure!(req.network_identifier == self.network_identifier);
-
         let height = self.transaction_table.height()?;
         let max_block = req.max_block.unwrap_or(height as _) as u64;
         let mut offset = req.offset.unwrap_or(0);
@@ -294,7 +261,7 @@ impl Indexer {
                     if tx.block_index > max_block {
                         break;
                     }
-                    block = Some(self.block(tx.block_index).await?);
+                    block = Some(self.block_by_index(tx.block_index).await?);
                 }
                 let block = block.as_ref().unwrap();
                 if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
@@ -323,7 +290,7 @@ impl Indexer {
                     if tx.block_index > max_block {
                         break;
                     }
-                    block = Some(self.block(tx.block_index).await?);
+                    block = Some(self.block_by_index(tx.block_index).await?);
                 }
                 let block = block.as_ref().unwrap();
                 if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
