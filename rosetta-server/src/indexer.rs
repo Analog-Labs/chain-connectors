@@ -22,7 +22,7 @@ impl TransactionRef {
         }
     }
 
-    fn to_bytes(&self) -> [u8; 12] {
+    fn to_bytes(self) -> [u8; 12] {
         let mut buf = [0; 12];
         buf[..8].copy_from_slice(&self.block_index.to_be_bytes()[..]);
         buf[8..].copy_from_slice(&self.transaction_index.to_be_bytes()[..]);
@@ -51,7 +51,7 @@ impl TransactionTable {
     }
 
     pub fn height(&self) -> Result<u64> {
-        Ok(if let Some(height) = self.tree.get(&[])? {
+        Ok(if let Some(height) = self.tree.get([])? {
             u64::from_be_bytes(height[..].try_into()?)
         } else {
             0
@@ -59,7 +59,7 @@ impl TransactionTable {
     }
 
     pub fn set_height(&self, height: u64) -> Result<()> {
-        self.tree.insert(&[], &height.to_be_bytes())?;
+        self.tree.insert([], &height.to_be_bytes())?;
         Ok(())
     }
 
@@ -71,13 +71,10 @@ impl TransactionTable {
     }
 
     pub fn get(&self, tx: &TransactionIdentifier) -> Result<Option<TransactionRef>> {
-        Ok(
-            if let Some(value) = self.tree.get(hex::decode(&tx.hash)?)? {
-                Some(TransactionRef::from_bytes(&value))
-            } else {
-                None
-            },
-        )
+        Ok(self
+            .tree
+            .get(hex::decode(&tx.hash)?)?
+            .map(|value| TransactionRef::from_bytes(&value)))
     }
 
     pub fn insert(&self, tx: &TransactionIdentifier, tx_ref: &TransactionRef) -> Result<()> {
@@ -223,14 +220,12 @@ impl<C: BlockchainClient> Indexer<C> {
         let limit = std::cmp::max(req.limit.unwrap_or(100), 1000) as usize;
         let account = if let Some(account) = &req.account_identifier {
             Some(account.clone())
-        } else if let Some(address) = &req.address {
-            Some(AccountIdentifier {
+        } else {
+            req.address.as_ref().map(|address| AccountIdentifier {
                 address: address.clone(),
                 sub_account: None,
                 metadata: None,
             })
-        } else {
-            None
         };
         let matcher = Matcher {
             op: req.operator.unwrap_or(Operator::And),
@@ -243,7 +238,7 @@ impl<C: BlockchainClient> Indexer<C> {
 
         let mut transactions = Vec::with_capacity(limit as _);
         let next_offset = if let Some(tx) = req.transaction_identifier.as_ref() {
-            if let Some(tx) = self.transaction(&tx).await? {
+            if let Some(tx) = self.transaction(tx).await? {
                 if matcher.matches(&tx.transaction) {
                     transactions.push(tx);
                 }
@@ -386,11 +381,7 @@ impl<'a> Matcher<'a> {
 // TODO: is this really correct?
 fn is_success(tx: &Transaction) -> bool {
     if let Some(op) = tx.operations.last() {
-        if op.r#type.to_lowercase().contains("fail") {
-            false
-        } else {
-            true
-        }
+        !op.r#type.to_lowercase().contains("fail")
     } else {
         false
     }
