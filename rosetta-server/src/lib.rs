@@ -5,10 +5,10 @@ use rosetta_core::crypto::PublicKey;
 use rosetta_core::types::{
     AccountBalanceRequest, AccountBalanceResponse, AccountCoinsRequest, AccountCoinsResponse,
     AccountFaucetRequest, Amount, BlockRequest, BlockResponse, BlockTransactionRequest,
-    CallRequest, CallResponse, ConstructionMetadataRequest, ConstructionMetadataResponse,
-    ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier, NetworkListResponse,
-    NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse, TransactionIdentifier,
-    TransactionIdentifierResponse, Version,
+    BlockTransactionResponse, CallRequest, CallResponse, ConstructionMetadataRequest,
+    ConstructionMetadataResponse, ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier,
+    NetworkListResponse, NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse,
+    TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -259,7 +259,7 @@ async fn block<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let block = req.state().block(&request).await?;
+    let block = req.state().block(&request.block_identifier).await?;
     let response = BlockResponse {
         block: Some(block),
         other_transactions: None,
@@ -273,8 +273,12 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tid
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let transaction = req.state().block_transaction(&request).await?;
-    ok(&transaction)
+    let transaction = req
+        .state()
+        .block_transaction(&request.block_identifier, &request.transaction_identifier)
+        .await?;
+    let response = BlockTransactionResponse { transaction };
+    ok(&response)
 }
 
 async fn call<T: BlockchainClient>(mut req: Request<Arc<T>>) -> tide::Result {

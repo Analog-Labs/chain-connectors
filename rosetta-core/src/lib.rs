@@ -1,13 +1,15 @@
 use crate::crypto::address::{Address, AddressFormat};
 use crate::crypto::{Algorithm, PublicKey, SecretKey};
-use crate::types::{BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier, SignatureType};
+use crate::types::{
+    Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
+    PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
-use types::{Block, BlockRequest, BlockTransactionRequest, CallRequest, Transaction};
 
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
@@ -78,8 +80,12 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
-    async fn block(&self, block_req: &BlockRequest) -> Result<Block>;
-    async fn block_transaction(&self, req: &BlockTransactionRequest) -> Result<Transaction>;
+    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block>;
+    async fn block_transaction(
+        &self,
+        block: &BlockIdentifier,
+        tx: &TransactionIdentifier,
+    ) -> Result<Transaction>;
     async fn call(&self, req: &CallRequest) -> Result<Value>;
 }
 

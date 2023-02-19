@@ -1,25 +1,3 @@
-use ethers::{
-    abi::{Detokenize, InvalidOutputType, Token},
-    prelude::*,
-};
-use std::collections::HashMap;
-use std::str::FromStr;
-
-use ethers::{
-    providers::{Http, Middleware, Provider},
-    types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
-};
-use rosetta_server::types::{
-    AccountIdentifier, Amount, BlockIdentifier, Currency, Operation, OperationIdentifier,
-    TransactionIdentifier,
-};
-
-use rosetta_server::types as rosetta_types;
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
-
-use anyhow::{anyhow, bail, Context, Result};
-
 use crate::eth_types::{
     FlattenTrace, ResultGethExecTraces, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE,
     CONSTANTINOPLE_BLOCK_REWARD, CREATE2_OP_TYPE, CREATE_OP_TYPE, DESTRUCT_OP_TYPE, FAILURE_STATUS,
@@ -27,21 +5,37 @@ use crate::eth_types::{
     MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE, SUCCESS_STATUS, TESTNET_CHAIN_CONFIG,
     UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
 };
+use anyhow::{anyhow, bail, Context, Result};
+use ethers::{
+    abi::{Detokenize, InvalidOutputType, Token},
+    prelude::*,
+};
+use ethers::{
+    providers::{Http, Middleware, Provider},
+    types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
+};
+use rosetta_server::types as rosetta_types;
+use rosetta_server::types::{
+    AccountIdentifier, Amount, BlockIdentifier, Currency, Operation, OperationIdentifier,
+    PartialBlockIdentifier, TransactionIdentifier,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::str::FromStr;
 
 pub fn serialize<T: serde::Serialize>(t: &T) -> serde_json::Value {
     serde_json::to_value(t).expect("Types never fail to serialize.")
 }
 
 pub async fn get_block(
-    block_req: &rosetta_types::BlockRequest,
+    block: &PartialBlockIdentifier,
     client: &Provider<Http>,
 ) -> Result<(Block<Transaction>, Vec<LoadedTransaction>, Vec<Block<H256>>)> {
-    let bl_identifier = block_req.block_identifier.clone();
-
-    let bl_id = if let Some(hash) = bl_identifier.hash {
-        let h256 = H256::from_str(&hash).map_err(|err| anyhow!(err))?;
+    let bl_id = if let Some(hash) = block.hash.as_ref() {
+        let h256 = H256::from_str(hash).map_err(|err| anyhow!(err))?;
         BlockId::Hash(h256)
-    } else if let Some(index) = bl_identifier.index {
+    } else if let Some(index) = block.index {
         let ehters_u64 = U64::from(index);
         let bl_number = BlockNumber::Number(ehters_u64);
         BlockId::Number(bl_number)
@@ -115,11 +109,11 @@ pub async fn get_block(
 
 pub async fn get_transaction(
     block_identifier: &BlockIdentifier,
-    hash: String,
+    hash: &str,
     client: &Provider<Http>,
     currency: &Currency,
 ) -> Result<rosetta_types::Transaction> {
-    let tx_hash = H256::from_str(&hash).map_err(|err| anyhow!(err))?;
+    let tx_hash = H256::from_str(hash).map_err(|err| anyhow!(err))?;
     let transaction = client
         .get_transaction(tx_hash)
         .await

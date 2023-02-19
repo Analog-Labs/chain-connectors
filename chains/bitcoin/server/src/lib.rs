@@ -3,7 +3,8 @@ use bitcoincore_rpc_async::{Auth, Client, RpcApi};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
-    Block, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest, Coin, Transaction,
+    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+    TransactionIdentifier,
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
@@ -88,11 +89,15 @@ impl BlockchainClient for BitcoinClient {
         todo!()
     }
 
-    async fn block(&self, _block_req: &BlockRequest) -> Result<Block> {
+    async fn block(&self, _block: &PartialBlockIdentifier) -> Result<Block> {
         anyhow::bail!("not implemented")
     }
 
-    async fn block_transaction(&self, _req: &BlockTransactionRequest) -> Result<Transaction> {
+    async fn block_transaction(
+        &self,
+        _block: &BlockIdentifier,
+        _tx: &TransactionIdentifier,
+    ) -> Result<Transaction> {
         anyhow::bail!("not implemented")
     }
 
