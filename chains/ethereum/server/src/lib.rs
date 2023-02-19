@@ -1,19 +1,18 @@
-use std::str::FromStr;
-
+use crate::eth_types::GENESIS_BLOCK_INDEX;
+use crate::utils::{get_block, get_transaction, populate_transactions, EthDetokenizer};
 use anyhow::{anyhow, bail, Context, Result};
-use eth_types::GENESIS_BLOCK_INDEX;
 use ethers::abi::Abi;
 use ethers::contract as ethers_contract;
 use ethers::prelude::*;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
-use rosetta_server::types as rosetta_types;
-use rosetta_server::types::{BlockIdentifier, CallRequest, Coin};
+use rosetta_server::types::{
+    Block, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest, Coin, Transaction,
+};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
-use utils::EthDetokenizer;
-use utils::{get_block, get_transaction, populate_transactions};
+use std::str::FromStr;
 
 mod eth_types;
 mod utils;
@@ -146,11 +145,8 @@ impl BlockchainClient for EthereumClient {
             .0
             .to_vec())
     }
-    async fn block(
-        &self,
-        block_req: &rosetta_types::BlockRequest,
-        config: &BlockchainConfig,
-    ) -> Result<rosetta_types::Block> {
+
+    async fn block(&self, block_req: &BlockRequest) -> Result<Block> {
         let (block, loaded_tx, uncles) = get_block(block_req, &self.client).await?;
 
         let block_number = block.number.context("Unable to fetch block number")?;
@@ -171,11 +167,11 @@ impl BlockchainClient for EthereumClient {
             &block,
             uncles,
             loaded_tx,
-            &config.currency(),
+            &self.config.currency(),
         )
         .await?;
 
-        Ok(rosetta_types::Block {
+        Ok(Block {
             block_identifier,
             parent_block_identifier: parent_identifier,
             timestamp: block.timestamp.as_u64() as i64,
@@ -184,11 +180,7 @@ impl BlockchainClient for EthereumClient {
         })
     }
 
-    async fn block_transaction(
-        &self,
-        req: &rosetta_types::BlockTransactionRequest,
-        config: &BlockchainConfig,
-    ) -> Result<rosetta_types::Transaction> {
+    async fn block_transaction(&self, req: &BlockTransactionRequest) -> Result<Transaction> {
         let block_identifier = req.block_identifier.clone();
         let transaction_identifier = req.transaction_identifier.clone();
         if transaction_identifier.hash.is_empty() {
@@ -199,7 +191,7 @@ impl BlockchainClient for EthereumClient {
             &block_identifier,
             transaction_identifier.hash,
             &self.client,
-            &config.currency(),
+            &self.config.currency(),
         )
         .await?;
 
