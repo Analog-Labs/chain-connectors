@@ -1,5 +1,5 @@
 #![allow(clippy::derive_partial_eq_without_eq)]
-use crate::components::{alerts::Alerts, loader::Loader, lock::LockModal};
+use crate::components::{alerts::Alerts, loader::Loader};
 use crate::routes::*;
 use dioxus::prelude::*;
 use dioxus_router::{Route, Router};
@@ -72,15 +72,15 @@ fn app(cx: Scope) -> Element {
             style { styles }
             if is_keyfile_exists() {
                rsx!(
-                LockModal{},
-                Route { to: "/", Tokens{}})
+                Route { to: "/", Lock{}})
             } else {
                 rsx!(Route { to: "/", Signup{}})
-            }
+            }}
+            Route { to: "/tokens", Tokens{}}
             Route { to: "/txns/:chain", Txns {} }
             Route { to: "/send/:chain/:address", Send {} }
             Route { to: "/recv/:chain", Recv {} }
             Route { to: "/scan/:chain", Scan {} }
-        }
+
     })
 }
