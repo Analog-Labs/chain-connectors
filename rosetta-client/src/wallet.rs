@@ -5,11 +5,15 @@ use crate::crypto::SecretKey;
 use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 use crate::types::{
     AccountBalanceRequest, AccountCoinsRequest, AccountFaucetRequest, AccountIdentifier, Amount,
-    BlockIdentifier, Coin, ConstructionMetadataRequest, ConstructionSubmitRequest, PublicKey,
-    SearchTransactionsRequest, SearchTransactionsResponse, TransactionIdentifier,
+    BlockIdentifier, BlockTransaction, Coin, ConstructionMetadataRequest,
+    ConstructionSubmitRequest, PublicKey, SearchTransactionsRequest, SearchTransactionsResponse,
+    TransactionIdentifier,
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
+use futures::{Future, Stream};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 pub enum GenericTransactionBuilder {
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
@@ -179,13 +183,34 @@ impl Wallet {
         Ok(resp.transaction_identifier)
     }
 
-    pub async fn transactions(&self) -> Result<SearchTransactionsResponse> {
+    pub async fn transaction(&self, tx: TransactionIdentifier) -> Result<BlockTransaction> {
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network(),
             operator: None,
             max_block: None,
             offset: None,
             limit: None,
+            transaction_identifier: Some(tx),
+            account_identifier: None,
+            coin_identifier: None,
+            currency: None,
+            status: None,
+            r#type: None,
+            address: None,
+            success: None,
+        };
+        let resp = self.client.search_transactions(&req).await?;
+        anyhow::ensure!(resp.transactions.len() == 1);
+        Ok(resp.transactions[0].clone())
+    }
+
+    pub fn transactions(&self, limit: u16) -> TransactionStream {
+        let req = SearchTransactionsRequest {
+            network_identifier: self.config().network(),
+            operator: None,
+            max_block: None,
+            offset: None,
+            limit: Some(limit as i64),
             transaction_identifier: None,
             account_identifier: Some(self.account.clone()),
             coin_identifier: None,
@@ -195,6 +220,70 @@ impl Wallet {
             address: None,
             success: None,
         };
-        self.client.search_transactions(&req).await
+        TransactionStream::new(self.client.clone(), req)
+    }
+}
+
+pub struct TransactionStream {
+    client: Client,
+    request: SearchTransactionsRequest,
+    future: Option<Pin<Box<dyn Future<Output = Result<SearchTransactionsResponse>> + 'static>>>,
+    finished: bool,
+    total_count: Option<i64>,
+}
+
+impl TransactionStream {
+    pub fn new(client: Client, mut request: SearchTransactionsRequest) -> Self {
+        request.offset = Some(0);
+        Self {
+            client,
+            request,
+            future: None,
+            finished: false,
+            total_count: None,
+        }
+    }
+
+    pub fn total_count(&self) -> Option<i64> {
+        self.total_count
+    }
+}
+
+impl Stream for TransactionStream {
+    type Item = Result<Vec<BlockTransaction>>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        loop {
+            if self.finished {
+                return Poll::Ready(None);
+            } else if let Some(future) = self.future.as_mut() {
+                futures::pin_mut!(future);
+                match future.poll(cx) {
+                    Poll::Pending => return Poll::Pending,
+                    Poll::Ready(Ok(response)) => {
+                        self.future.take();
+                        self.request.offset = response.next_offset;
+                        self.total_count = Some(response.total_count);
+                        if response.transactions.len() < self.request.limit.unwrap() as _ {
+                            self.finished = true;
+                        }
+                        if response.transactions.is_empty() {
+                            continue;
+                        }
+                        return Poll::Ready(Some(Ok(response.transactions)));
+                    }
+                    Poll::Ready(Err(error)) => {
+                        self.future.take();
+                        return Poll::Ready(Some(Err(error)));
+                    }
+                };
+            } else {
+                let client = self.client.clone();
+                let request = self.request.clone();
+                self.future = Some(Box::pin(async move {
+                    client.search_transactions(&request).await
+                }));
+            }
+        }
     }
 }

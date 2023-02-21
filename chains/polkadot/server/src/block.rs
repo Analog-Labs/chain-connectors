@@ -23,6 +23,12 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
         let event = event_data?;
         let event_parsed_data = get_operation_data(config, &event)?;
 
+        let mut fields = vec![];
+        for field in event.event_metadata().fields().iter() {
+            fields.push(json!({"name": field.name(), "type": field.type_name()}));
+        }
+        let op_metadata = Value::Array(fields);
+
         let op_from: Option<AccountIdentifier> =
             event_parsed_data.from.map(|address| AccountIdentifier {
                 address,
@@ -30,24 +36,12 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
                 metadata: None,
             });
 
-        let _op_to: Option<AccountIdentifier> =
-            event_parsed_data.to.map(|address| AccountIdentifier {
-                address,
-                sub_account: None,
+        let op_neg_amount: Option<Amount> =
+            event_parsed_data.amount.as_ref().map(|amount| Amount {
+                value: format!("-{}", amount),
+                currency: config.currency(),
                 metadata: None,
             });
-
-        let op_amount: Option<Amount> = event_parsed_data.amount.map(|amount| Amount {
-            value: amount,
-            currency: config.currency(),
-            metadata: None,
-        });
-
-        let mut fields = vec![];
-        for field in event.event_metadata().fields().iter() {
-            fields.push(json!({"name": field.name(), "type": field.type_name()}));
-        }
-        let op_metadata = Value::Array(fields);
 
         let operation = Operation {
             operation_identifier: OperationIdentifier {
@@ -55,18 +49,42 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
                 network_index: None,
             },
             related_operations: None,
-            r#type: event_parsed_data.event_type,
+            r#type: event_parsed_data.event_type.clone(),
             status: None,
             account: op_from,
-            amount: op_amount,
+            amount: op_neg_amount,
             coin_change: None,
-            metadata: Some(op_metadata),
+            metadata: Some(op_metadata.clone()),
         };
         operations.push(operation);
+
+        if let (Some(to), Some(amount)) = (event_parsed_data.to, event_parsed_data.amount) {
+            operations.push(Operation {
+                operation_identifier: OperationIdentifier {
+                    index: event_index as i64,
+                    network_index: None,
+                },
+                related_operations: None,
+                r#type: event_parsed_data.event_type,
+                status: None,
+                account: Some(AccountIdentifier {
+                    address: to,
+                    sub_account: None,
+                    metadata: None,
+                }),
+                amount: Some(Amount {
+                    value: amount,
+                    currency: config.currency(),
+                    metadata: None,
+                }),
+                coin_change: None,
+                metadata: Some(op_metadata),
+            });
+        }
     }
     Ok(Transaction {
         transaction_identifier: TransactionIdentifier {
-            hash: format!("{:?}", T::Hasher::hash_of(&extrinsic.bytes())),
+            hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())),
         },
         operations,
         related_transactions: None,

@@ -9,6 +9,7 @@ use anyhow::Result;
 use dioxus::prelude::*;
 use dioxus_router::use_router;
 use fermi::*;
+use futures::stream::StreamExt;
 use rosetta_client::types::BlockTransaction;
 
 #[allow(non_snake_case)]
@@ -125,7 +126,10 @@ async fn fallible_faucet(chain: Chain, amount: u128) -> Result<()> {
 
 async fn fallible_transactions(chain: Chain) -> Result<Vec<BlockTransaction>> {
     let wallet = crate::worker::create_wallet(chain)?;
-    let transactions_response = wallet.transactions().await?;
-    let transaction = transactions_response.transactions;
-    Ok(transaction)
+    Ok(wallet
+        .transactions(1000)
+        .next()
+        .await
+        .transpose()?
+        .unwrap_or_default())
 }

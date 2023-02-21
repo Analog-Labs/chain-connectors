@@ -4,13 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-tests = ["rosetta-docker"]
+tests = ["futures", "rosetta-docker"]
 
 [dependencies]
 anyhow = "1.0.68"
 async-trait = "0.1.62"
 clap = { version = "4.1.1", features = ["derive"] }
 femme = "2.2.1"
+futures = { version = "0.3.26", optional = true }
 hex = "0.4.3"
 log = "0.4.17"
 rosetta-core = { version = "0.1.0", path = "../rosetta-core" }

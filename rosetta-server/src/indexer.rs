@@ -83,6 +83,10 @@ impl TransactionTable {
         Ok(())
     }
 
+    pub fn len(&self) -> usize {
+        self.tree.len()
+    }
+
     #[allow(unused)]
     pub fn remove(&self, tx: &TransactionIdentifier) -> Result<()> {
         self.tree.remove(hex::decode(&tx.hash)?)?;
@@ -111,6 +115,13 @@ impl AccountTable {
     pub fn insert(&self, account: &AccountIdentifier, tx: &TransactionRef) -> Result<()> {
         self.tree.insert(account_table_key(account, tx), &[])?;
         Ok(())
+    }
+
+    pub fn len(&self, account: &AccountIdentifier) -> usize {
+        self.tree
+            .scan_prefix(account.address.as_bytes())
+            .keys()
+            .count()
     }
 
     #[allow(unused)]
@@ -193,7 +204,7 @@ impl<C: BlockchainClient> Indexer<C> {
     pub async fn sync(&self) -> Result<()> {
         let synced_height = self.transaction_table.height()?;
         let current_height = self.client.current_block().await?.index;
-        for block_index in synced_height..current_height {
+        for block_index in (synced_height + 1)..current_height {
             let block = self.block_by_index(block_index).await?;
             for (transaction_index, transaction) in block.transactions.iter().enumerate() {
                 let tx = TransactionRef::new(block_index, transaction_index as _);
@@ -205,6 +216,7 @@ impl<C: BlockchainClient> Indexer<C> {
                     }
                 }
             }
+            log::info!("indexed blocks to {}", block_index);
             self.transaction_table.set_height(block_index)?;
         }
         Ok(())
@@ -217,7 +229,7 @@ impl<C: BlockchainClient> Indexer<C> {
         let height = self.transaction_table.height()?;
         let max_block = req.max_block.unwrap_or(height as _) as u64;
         let mut offset = req.offset.unwrap_or(0);
-        let limit = std::cmp::max(req.limit.unwrap_or(100), 1000) as usize;
+        let limit = std::cmp::min(req.limit.unwrap_or(100), 1000) as usize;
         let account = if let Some(account) = &req.account_identifier {
             Some(account.clone())
         } else {
@@ -237,13 +249,16 @@ impl<C: BlockchainClient> Indexer<C> {
         };
 
         let mut transactions = Vec::with_capacity(limit as _);
-        let next_offset = if let Some(tx) = req.transaction_identifier.as_ref() {
-            if let Some(tx) = self.transaction(tx).await? {
+        let (next_offset, total_count) = if let Some(tx) = req.transaction_identifier.as_ref() {
+            let total_count = if let Some(tx) = self.transaction(tx).await? {
                 if matcher.matches(&tx.transaction) {
                     transactions.push(tx);
                 }
+                1
+            } else {
+                0
             };
-            None
+            (None, total_count)
         } else if let Some(account) = account.as_ref() {
             let mut block: Option<Block> = None;
             for tx in self.account_table.get(account).skip(offset as usize) {
@@ -259,6 +274,7 @@ impl<C: BlockchainClient> Indexer<C> {
                     block = Some(self.block_by_index(tx.block_index).await?);
                 }
                 let block = block.as_ref().unwrap();
+                offset += 1;
                 if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
                     if matcher.matches(tx) {
                         transactions.push(BlockTransaction {
@@ -270,9 +286,8 @@ impl<C: BlockchainClient> Indexer<C> {
                         }
                     }
                 }
-                offset += 1;
             }
-            Some(offset)
+            (Some(offset), self.account_table.len(account))
         } else {
             let mut block: Option<Block> = None;
             for tx in self.transaction_table.iter().skip(offset as usize) {
@@ -288,6 +303,7 @@ impl<C: BlockchainClient> Indexer<C> {
                     block = Some(self.block_by_index(tx.block_index).await?);
                 }
                 let block = block.as_ref().unwrap();
+                offset += 1;
                 if let Some(tx) = block.transactions.get(tx.transaction_index as usize) {
                     if matcher.matches(tx) {
                         transactions.push(BlockTransaction {
@@ -299,14 +315,12 @@ impl<C: BlockchainClient> Indexer<C> {
                         }
                     }
                 }
-                offset += 1;
             }
-            Some(offset)
+            (Some(offset), self.transaction_table.len())
         };
-        let total_count = transactions.len() as _;
         Ok(SearchTransactionsResponse {
             transactions,
-            total_count,
+            total_count: total_count as _,
             next_offset,
         })
     }

@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use futures::stream::StreamExt;
 use rosetta_client::types::AccountIdentifier;
 use std::path::PathBuf;
 
@@ -112,13 +113,15 @@ async fn main() -> Result<()> {
             }
         },
         Command::Transactions => {
-            let transactions = wallet.transactions().await?;
-            if transactions.transactions.is_empty() {
-                println!("No transactions found");
-                return Ok(());
-            } else {
-                println!("{: <10} | {: <20} | {: <50}", "Block", "Amount", "Account");
-                for tx in transactions.transactions.iter() {
+            let mut first = true;
+            let mut stream = wallet.transactions(100);
+            while let Some(res) = stream.next().await {
+                let transactions = res?;
+                if first {
+                    println!("{: <10} | {: <20} | {: <50}", "Block", "Amount", "Account");
+                    first = false;
+                }
+                for tx in transactions {
                     if let Some(metadata) = tx.transaction.metadata.clone() {
                         let (account, amount) =
                             if metadata["from"].to_string().trim_start_matches("0x")
@@ -140,6 +143,9 @@ async fn main() -> Result<()> {
                         );
                     }
                 }
+            }
+            if first {
+                println!("No transactions found");
             }
         }
     }
