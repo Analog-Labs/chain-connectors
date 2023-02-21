@@ -218,11 +218,11 @@ impl BlockchainClient for PolkadotClient {
         Ok(Block {
             block_identifier: BlockIdentifier {
                 index: block.number() as _,
-                hash: format!("{:?}", block.hash()),
+                hash: hex::encode(block.hash()),
             },
             parent_block_identifier: BlockIdentifier {
                 index: block.number().saturating_sub(1) as _,
-                hash: format!("{:?}", block.header().parent_hash),
+                hash: hex::encode(block.header().parent_hash),
             },
             timestamp: Duration::from_millis(timestamp).as_nanos() as i64,
             transactions,
@@ -314,5 +314,17 @@ mod tests {
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
         rosetta_server::tests::construction(config).await
+    }
+
+    #[tokio::test]
+    async fn test_find_transaction() -> Result<()> {
+        let config = rosetta_config_polkadot::config("dev")?;
+        rosetta_server::tests::find_transaction(config).await
+    }
+
+    #[tokio::test]
+    async fn test_list_transactions() -> Result<()> {
+        let config = rosetta_config_polkadot::config("dev")?;
+        rosetta_server::tests::list_transactions(config).await
     }
 }

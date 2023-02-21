@@ -4,6 +4,9 @@ volumes:
   bitcoin-volume:
   ethereum-volume:
   polkadot-volume:
+  bitcoin-connector-volume:
+  ethereum-connector-volume:
+  polkadot-connector-volume:
 
 services:
   bitcoin:
@@ -57,27 +60,33 @@ services:
 
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
-    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443"
+    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443 --path /data"
     ports:
     - "8080:8080"
     depends_on:
     - bitcoin
+    volumes:
+    - bitcoin-connector-volume
 
   connector-ethereum:
     image: "analoglabs/connector-ethereum"
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545 --path /data"
     ports:
     - "8081:8081"
     depends_on:
     - ethereum
+    volumes:
+    - ethereum-connector-volume
 
   connector-polkadot:
     image: "analoglabs/connector-polkadot"
-    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944 --path /data"
     ports:
     - "8082:8082"
     depends_on:
     - polkadot
+    volumes:
+    - polkadot-connector-volume
     # TODO: need to do a proper health check
     restart: always
 

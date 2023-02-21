@@ -51,8 +51,6 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     app.with(tide::log::LogMiddleware::new());
     app.with(cors);
     app.at("/").nest(server(indexer.clone()));
-    log::info!("listening on {}", &opts.addr);
-    app.listen(opts.addr).await?;
 
     tokio::task::spawn(async move {
         loop {
@@ -62,6 +60,9 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
             }
         }
     });
+
+    log::info!("listening on {}", &opts.addr);
+    app.listen(opts.addr).await?;
 
     Ok(())
 }
@@ -426,6 +427,7 @@ impl Error {
 #[cfg(feature = "tests")]
 pub mod tests {
     use super::*;
+    use futures::stream::StreamExt;
     use rosetta_docker::Env;
 
     pub async fn network_list(config: BlockchainConfig) -> Result<()> {
@@ -499,6 +501,63 @@ pub mod tests {
         alice.transfer(bob.account(), value).await?;
         let amount = bob.balance().await?;
         assert_eq!(amount.value, value.to_string());
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn find_transaction(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("find-transaction", config.clone()).await?;
+
+        let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let value = u128::pow(10, config.currency_decimals);
+        let alice = env.ephemeral_wallet()?;
+        alice.faucet(faucet).await?;
+
+        let bob = env.ephemeral_wallet()?;
+        let tx_id = alice.transfer(bob.account(), value).await?;
+
+        let tx = alice.transaction(tx_id.clone()).await?;
+        assert_eq!(tx.transaction.transaction_identifier, tx_id);
+
+        env.shutdown().await?;
+        Ok(())
+    }
+
+    pub async fn list_transactions(config: BlockchainConfig) -> Result<()> {
+        let env = Env::new("list-transactions", config.clone()).await?;
+
+        let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let value = u128::pow(10, config.currency_decimals);
+        let alice = env.ephemeral_wallet()?;
+        alice.faucet(faucet).await?;
+
+        let bob = env.ephemeral_wallet()?;
+        alice.transfer(bob.account(), value).await?;
+        alice.transfer(bob.account(), value).await?;
+        alice.transfer(bob.account(), value).await?;
+
+        let mut stream = bob.transactions(1);
+        let mut count = 0;
+        while let Some(res) = stream.next().await {
+            let transactions = res?;
+            assert_eq!(transactions.len(), 1);
+            assert_eq!(stream.total_count(), Some(3));
+            count += 1;
+            assert!(count <= 3);
+        }
+        assert_eq!(count, 3);
+
+        let mut stream = bob.transactions(10);
+        let mut count = 0;
+        while let Some(res) = stream.next().await {
+            let transactions = res?;
+            assert_eq!(transactions.len(), 3);
+            assert_eq!(stream.total_count(), Some(3));
+            count += 1;
+            assert!(count <= 1);
+        }
+        assert_eq!(count, 1);
 
         env.shutdown().await?;
         Ok(())

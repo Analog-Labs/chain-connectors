@@ -7,15 +7,16 @@ edition = "2021"
 anyhow = "1.0.68"
 dirs-next = "2.0.0"
 fraction = { version = "0.12.2", default-features = false, features = ["with-bigint", "with-decimal"] }
+futures = "0.3.26"
 getrandom = "0.2.8"
 hex = "0.4.3"
 log = "0.4.17"
 rosetta-config-bitcoin = { version = "0.1.0", path = "../chains/bitcoin/config" }
 rosetta-config-ethereum = { version = "0.1.0", path = "../chains/ethereum/config" }
 rosetta-config-polkadot = { version = "0.1.0", path = "../chains/polkadot/config" }
+rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 rosetta-tx-ethereum = { version = "0.1.0", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.1.0", path = "../chains/polkadot/tx" }
-rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 serde = "1.0.151"
 serde_json = "1.0.91"
 surf = { version = "2.3.2", default-features = false }

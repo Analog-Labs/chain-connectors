@@ -237,6 +237,7 @@ impl EnvBuilder {
                 format!("--network={}", config.network),
                 format!("--addr=0.0.0.0:{}", config.connector_port),
                 format!("--node-addr={}:{}", link, config.node_port),
+                "--path=/data".into(),
             ])
             .auto_remove(true)
             .attach_stdout(true)
