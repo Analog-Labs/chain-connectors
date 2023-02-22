@@ -1,8 +1,6 @@
 use crate::eth_types::GENESIS_BLOCK_INDEX;
 use crate::utils::{get_block, get_transaction, populate_transactions, EthDetokenizer};
 use anyhow::{anyhow, bail, Context, Result};
-use ethers::abi::Abi;
-use ethers::contract as ethers_contract;
 use ethers::prelude::*;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
@@ -14,6 +12,7 @@ use rosetta_server::types::{
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use std::str::FromStr;
+use utils::parse_method;
 
 mod eth_types;
 mod utils;
@@ -201,10 +200,6 @@ impl BlockchainClient for EthereumClient {
         match call_type.to_lowercase().as_str() {
             "call" => {
                 //process constant call
-                let abi_str = params["abi"].as_str().context("ABI not found")?;
-
-                let abi: Abi = serde_json::from_str(abi_str).map_err(|err| anyhow!(err))?;
-
                 let contract_address = H160::from_str(
                     params["contract_address"]
                         .as_str()
@@ -212,23 +207,29 @@ impl BlockchainClient for EthereumClient {
                 )
                 .map_err(|err| anyhow!(err))?;
 
-                let contract =
-                    ethers_contract::Contract::new(contract_address, abi, self.client.clone());
+                let function = parse_method(&method)?;
 
-                let value: EthDetokenizer = contract
-                    .method(&method, ())
-                    .map_err(|err| anyhow!(err))?
-                    .call()
-                    .await
-                    .map_err(|err| anyhow!(err))?;
+                let bytes: Vec<u8> = function.encode_input(&[])?;
 
-                let result: Value = serde_json::from_str(&value.json)?;
+                let tx = Eip1559TransactionRequest {
+                    to: Some(contract_address.into()),
+                    data: Some(bytes.into()),
+                    ..Default::default()
+                };
+
+                let tx = &tx.into();
+                let received_data = self.client.call(tx, None).await?;
+
+                let data: EthDetokenizer = decode_function_data(&function, received_data, false)?;
+
+                let result: Value = serde_json::from_str(&data.json)?;
+
                 return Ok(result);
             }
             "storage" => {
                 //process storage call
                 let from = H160::from_str(
-                    params["address"]
+                    params["contract_address"]
                         .as_str()
                         .context("address field not found")?,
                 )
