@@ -12,9 +12,9 @@ use crate::types::{
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
 use futures::{Future, Stream};
+use serde_json::Value;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use serde_json::Value;
 
 pub enum GenericTransactionBuilder {
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
