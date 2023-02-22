@@ -7,7 +7,7 @@ use crate::eth_types::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use ethers::{
-    abi::{Detokenize, InvalidOutputType, Token},
+    abi::{Abi, Detokenize, Function, HumanReadableParser, InvalidOutputType, Token},
     prelude::*,
 };
 use ethers::{
@@ -727,6 +727,25 @@ fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> Result<U256>
     }
 
     Ok(base_fee + tx_max_priority_fee_per_gas)
+}
+
+pub fn parse_method(method: &str) -> Result<Function> {
+    let parse_result = HumanReadableParser::parse_function(method);
+    if parse_result.is_ok() {
+        parse_result.map_err(|e| anyhow!(e))
+    } else {
+        let json_parse: Result<Abi, serde_json::Error> =
+            if !(method.starts_with('[') && method.ends_with(']')) {
+                let abi_str = format!("[{method}]");
+                serde_json::from_str(&abi_str)
+            } else {
+                serde_json::from_str(method)
+            };
+        let abi: Abi = json_parse.unwrap();
+        let (_, functions): (&String, &Vec<Function>) = abi.functions.iter().next().unwrap();
+        let function: Function = functions.get(0).unwrap().clone();
+        Ok(function)
+    }
 }
 
 #[derive(Serialize)]

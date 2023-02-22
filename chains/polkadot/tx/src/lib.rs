@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use parity_scale_codec::{Compact, Decode, Encode};
 use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_core::crypto::address::Address;
@@ -96,6 +96,14 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
             call_name: "transfer".into(),
             call_args: Transfer { dest, amount }.encode(),
         })
+    }
+
+    fn method_call(
+        &self,
+        _address: &Address,
+        _params: &serde_json::Value,
+    ) -> Result<Self::MetadataParams> {
+        bail!("Not Implemented")
     }
 
     fn create_and_sign(
