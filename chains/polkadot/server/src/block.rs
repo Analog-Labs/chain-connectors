@@ -38,7 +38,7 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
 
         let op_neg_amount: Option<Amount> =
             event_parsed_data.amount.as_ref().map(|amount| Amount {
-                value: format!("-{}", amount),
+                value: format!("-{amount}"),
                 currency: config.currency(),
                 metadata: None,
             });
@@ -99,7 +99,7 @@ fn get_operation_data(
     let pallet_name = event.pallet_name();
     let event_name = event.variant_name();
 
-    let call_type = format!("{}.{}", pallet_name, event_name);
+    let call_type = format!("{pallet_name}.{event_name}");
 
     let event_fields = event.field_values()?;
     let parsed_data = match event_fields {
