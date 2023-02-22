@@ -113,7 +113,7 @@ fn ok<T: serde::Serialize>(t: &T) -> tide::Result {
 fn err(err: &anyhow::Error) -> tide::Result {
     let error = crate::types::Error {
         code: 500,
-        message: format!("{}", err),
+        message: format!("{err}"),
         description: None,
         retriable: false,
         details: None,
