@@ -21,6 +21,7 @@ use subxt::utils::{AccountId32, MultiAddress, H256};
 use subxt::{Config, OnlineClient, PolkadotConfig};
 
 mod block;
+mod call;
 
 pub struct PolkadotClient {
     config: BlockchainConfig,
@@ -253,8 +254,29 @@ impl BlockchainClient for PolkadotClient {
         crate::block::get_transaction(self.config(), &extrinsic).await
     }
 
-    async fn call(&self, _req: &CallRequest) -> Result<Value> {
-        anyhow::bail!("not implemented")
+    async fn call(&self, request: &CallRequest) -> Result<Value> {
+        let call_details = request.method.split(',').collect::<Vec<&str>>();
+        if call_details.len() != 3 {
+            anyhow::bail!("invalid call request");
+        }
+        let pallet_name = call_details[0];
+        let call_name = call_details[1];
+        let query_type = call_details[2];
+        match query_type.to_lowercase().as_str() {
+            "constant" => crate::call::dynamic_constant_req(&self.client, pallet_name, call_name),
+            "storage" => {
+                crate::call::dynamic_storage_req(
+                    &self.client,
+                    pallet_name,
+                    call_name,
+                    request.parameters.clone(),
+                )
+                .await
+            }
+            _ => {
+                anyhow::bail!("invalid query type");
+            }
+        }
     }
 }
 
