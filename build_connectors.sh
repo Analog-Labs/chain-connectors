@@ -1,4 +1,4 @@
-# #!/bin/sh
+#!/bin/sh
 cargo build -p rosetta-server-bitcoin --target x86_64-unknown-linux-musl --release
 mkdir -p target/release/bitcoin/bin
 cp target/x86_64-unknown-linux-musl/release/rosetta-server-bitcoin target/release/bitcoin/bin

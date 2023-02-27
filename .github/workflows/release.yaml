@@ -18,8 +18,17 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v3
 
-    - run: docker compose build
-    - run: docker compose push
+    - run: sudo apt-get update
+    - name: Install deps
+      run: sudo apt-get install musl-dev musl-tools
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        targets: x86_64-unknown-linux-musl
+
+    - run: ./build_connectors.sh
+    - run: ./push_connectors.sh
 
     - uses: withlogicco/setup-compose-cli@v1
     - run: docker context create ecs aws --from-env
