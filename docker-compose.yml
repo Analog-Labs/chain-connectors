@@ -66,7 +66,7 @@ services:
     depends_on:
     - bitcoin
     volumes:
-    - bitcoin-connector-volume
+    - "bitcoin-connector-volume:/data"
 
   connector-ethereum:
     image: "analoglabs/connector-ethereum"
@@ -76,7 +76,7 @@ services:
     depends_on:
     - ethereum
     volumes:
-    - ethereum-connector-volume
+    - "ethereum-connector-volume:/data"
 
   connector-polkadot:
     image: "analoglabs/connector-polkadot"
@@ -86,7 +86,7 @@ services:
     depends_on:
     - polkadot
     volumes:
-    - polkadot-connector-volume
+    - "polkadot-connector-volume:/data"
     # TODO: need to do a proper health check
     restart: always
 
