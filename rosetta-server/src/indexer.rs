@@ -140,10 +140,7 @@ fn account_table_key(account: &AccountIdentifier, tx: &TransactionRef) -> Vec<u8
 }
 
 fn preprocess_acc_address(address: &str) -> String {
-    address
-        .strip_prefix("0x")
-        .unwrap_or(&address)
-        .to_lowercase()
+    address.strip_prefix("0x").unwrap_or(address).to_lowercase()
 }
 
 #[derive(Clone)]
