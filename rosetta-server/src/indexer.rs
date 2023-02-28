@@ -105,9 +105,10 @@ impl AccountTable {
     }
 
     pub fn get(&self, account: &AccountIdentifier) -> impl Iterator<Item = Result<TransactionRef>> {
-        let address_len = account.address.as_bytes().len();
+        let address = preprocess_acc_address(&account.address);
+        let address_len = address.as_bytes().len();
         self.tree
-            .scan_prefix(account.address.as_bytes())
+            .scan_prefix(address.to_lowercase().as_bytes())
             .keys()
             .map(move |key| Ok(TransactionRef::from_bytes(&key?[address_len..])))
     }
@@ -118,10 +119,8 @@ impl AccountTable {
     }
 
     pub fn len(&self, account: &AccountIdentifier) -> usize {
-        self.tree
-            .scan_prefix(account.address.as_bytes())
-            .keys()
-            .count()
+        let address = preprocess_acc_address(&account.address);
+        self.tree.scan_prefix(address.as_bytes()).keys().count()
     }
 
     #[allow(unused)]
@@ -132,11 +131,19 @@ impl AccountTable {
 }
 
 fn account_table_key(account: &AccountIdentifier, tx: &TransactionRef) -> Vec<u8> {
-    let address_len = account.address.as_bytes().len();
+    let address = preprocess_acc_address(&account.address);
+    let address_len = address.as_bytes().len();
     let mut key = Vec::with_capacity(address_len + 12);
-    key.extend(account.address.as_bytes());
+    key.extend(address.as_bytes());
     key.extend(tx.to_bytes());
     key
+}
+
+fn preprocess_acc_address(address: &str) -> String {
+    address
+        .strip_prefix("0x")
+        .unwrap_or(&address)
+        .to_lowercase()
 }
 
 #[derive(Clone)]
@@ -204,7 +211,7 @@ impl<C: BlockchainClient> Indexer<C> {
     pub async fn sync(&self) -> Result<()> {
         let synced_height = self.transaction_table.height()?;
         let current_height = self.client.current_block().await?.index;
-        for block_index in (synced_height + 1)..current_height {
+        for block_index in (synced_height + 1)..current_height + 1 {
             let block = self.block_by_index(block_index).await?;
             for (transaction_index, transaction) in block.transactions.iter().enumerate() {
                 let tx = TransactionRef::new(block_index, transaction_index as _);
