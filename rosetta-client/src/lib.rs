@@ -1,6 +1,6 @@
 //! Rosetta client.
 use crate::types::Amount;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use fraction::{BigDecimal, BigUint};
 use std::path::Path;
 
@@ -21,6 +21,22 @@ pub fn amount_to_string(amount: &Amount) -> Result<String> {
     let decimals = BigUint::pow(&10u32.into(), amount.currency.decimals);
     let value = BigDecimal::from(value) / BigDecimal::from(decimals);
     Ok(format!("{:.256} {}", value, amount.currency.symbol))
+}
+
+pub fn string_to_amount(amount: &str, decimals: u32) -> Result<u128> {
+    let (amount, decimals): (u128, u32) = if let Some((main, rest)) = amount.split_once('.') {
+        let decimals = decimals
+            .checked_sub(rest.chars().count() as _)
+            .context("too many decimals")?;
+        let mut amount = main.to_string();
+        amount.push_str(rest);
+        (amount.parse()?, decimals)
+    } else {
+        (amount.parse()?, decimals)
+    };
+    amount
+        .checked_mul(u128::pow(10, decimals))
+        .context("u128 overflow")
 }
 
 pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig> {

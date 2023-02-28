@@ -14,13 +14,14 @@ use rosetta_server::types::{
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use std::str::FromStr;
+use std::sync::Arc;
 
 mod eth_types;
 mod utils;
 
 pub struct EthereumClient {
     config: BlockchainConfig,
-    client: Provider<Http>,
+    client: Arc<Provider<Http>>,
     genesis_block: BlockIdentifier,
 }
 
@@ -31,7 +32,7 @@ impl BlockchainClient for EthereumClient {
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
-        let client = Provider::<Http>::try_from(format!("http://{addr}"))?;
+        let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
         let genesis = client.get_block(0).await?.unwrap();
         let genesis_block = BlockIdentifier {
             index: 0,
