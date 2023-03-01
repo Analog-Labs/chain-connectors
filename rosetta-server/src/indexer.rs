@@ -105,10 +105,9 @@ impl AccountTable {
     }
 
     pub fn get(&self, account: &AccountIdentifier) -> impl Iterator<Item = Result<TransactionRef>> {
-        let address = preprocess_acc_address(&account.address);
-        let address_len = address.as_bytes().len();
+        let address_len = account.address.as_bytes().len();
         self.tree
-            .scan_prefix(address.to_lowercase().as_bytes())
+            .scan_prefix(account.address.as_bytes())
             .keys()
             .map(move |key| Ok(TransactionRef::from_bytes(&key?[address_len..])))
     }
@@ -119,8 +118,10 @@ impl AccountTable {
     }
 
     pub fn len(&self, account: &AccountIdentifier) -> usize {
-        let address = preprocess_acc_address(&account.address);
-        self.tree.scan_prefix(address.as_bytes()).keys().count()
+        self.tree
+            .scan_prefix(account.address.as_bytes())
+            .keys()
+            .count()
     }
 
     #[allow(unused)]
@@ -131,16 +132,11 @@ impl AccountTable {
 }
 
 fn account_table_key(account: &AccountIdentifier, tx: &TransactionRef) -> Vec<u8> {
-    let address = preprocess_acc_address(&account.address);
-    let address_len = address.as_bytes().len();
+    let address_len = account.address.as_bytes().len();
     let mut key = Vec::with_capacity(address_len + 12);
-    key.extend(address.as_bytes());
+    key.extend(account.address.as_bytes());
     key.extend(tx.to_bytes());
     key
-}
-
-fn preprocess_acc_address(address: &str) -> String {
-    address.strip_prefix("0x").unwrap_or(address).to_lowercase()
 }
 
 #[derive(Clone)]

@@ -9,6 +9,7 @@ use anyhow::{anyhow, bail, Context, Result};
 use ethers::{
     abi::{Abi, Detokenize, Function, HumanReadableParser, InvalidOutputType, Token},
     prelude::*,
+    utils::to_checksum,
 };
 use ethers::{
     providers::{Http, Middleware, Provider},
@@ -319,7 +320,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{:?}", tx.from),
+            address: parse_address(format!("{:?}", tx.from))?,
             sub_account: None,
             metadata: None,
         }),
@@ -344,7 +345,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{:?}", tx.miner),
+            address: parse_address(format!("{:?}", tx.miner))?,
             sub_account: None,
             metadata: None,
         }),
@@ -370,7 +371,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
             r#type: FEE_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: format!("{:?}", tx.from),
+                address: parse_address(format!("{:?}", tx.from))?,
                 sub_account: None,
                 metadata: None,
             }),
@@ -431,7 +432,7 @@ pub fn get_traces_operations(
                 r#type: trace.trace_type.clone(),
                 status: Some(operation_status.into()),
                 account: Some(AccountIdentifier {
-                    address: from.clone(),
+                    address: parse_address(from.clone())?,
                     sub_account: None,
                     metadata: None,
                 }),
@@ -487,7 +488,7 @@ pub fn get_traces_operations(
                 r#type: trace.trace_type,
                 status: Some(operation_status.into()),
                 account: Some(AccountIdentifier {
-                    address: to.clone(),
+                    address: parse_address(to.clone())?,
                     sub_account: None,
                     metadata: None,
                 }),
@@ -530,7 +531,7 @@ pub fn get_traces_operations(
                 r#type: DESTRUCT_OP_TYPE.into(),
                 status: Some(SUCCESS_STATUS.into()),
                 account: Some(AccountIdentifier {
-                    address: k.clone(),
+                    address: parse_address(k.clone())?,
                     sub_account: None,
                     metadata: None,
                 }),
@@ -597,7 +598,7 @@ pub fn get_mining_rewards(
         r#type: MINING_REWARD_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{miner:?}"),
+            address: parse_address(format!("{miner:?}"))?,
             sub_account: None,
             metadata: None,
         }),
@@ -627,7 +628,7 @@ pub fn get_mining_rewards(
             r#type: UNCLE_REWARD_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: format!("{uncle_miner:?}"),
+                address: parse_address(format!("{uncle_miner:?}"))?,
                 sub_account: None,
                 metadata: None,
             }),
@@ -745,6 +746,11 @@ pub fn parse_method(method: &str) -> Result<Function> {
 pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
     let stripped = s.strip_prefix("0x").unwrap_or(s);
     Ok(hex::decode(stripped)?)
+}
+
+pub fn parse_address(address: String) -> Result<String> {
+    let ethereum_address = H160::from_str(&address)?;
+    Ok(to_checksum(&ethereum_address, None))
 }
 
 pub struct LoadedTransaction {
