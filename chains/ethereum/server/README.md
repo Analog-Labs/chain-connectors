@@ -37,5 +37,23 @@ Methods implemented are:
     Submit signed transaction to chain and returns the transaction id.
 
 ### `block`:
+    This function takes a block index or hash and returns block transaction and operations happened in that transaction.
+
 ### `block_transaction`:
+    This function returns a specific transaction and its operations within specified block.
+
 ### `call`:
+    Required arguments:
+    `method`: function signature of calling contract.
+    `parameters`: Takes a mandatory param `type`
+        `type` supports 3 paramters
+        1. `call`
+        2. `storage`
+        3. `storage_proof`
+
+        `call`: Takes a `contract_address` and returns parameter returned by function.
+
+        `storage`: Takes `contract_address`, `position`, `block_number` and returns value   stored at position at specific `contract_address`.
+
+        `storage_proof`: Takes `contract_address`, `position`, `block_number` and returns proof of value stored in that position at specific `contract_address`. It also does custom verification of proof and returns `true` or `false` based on verification.
+    
