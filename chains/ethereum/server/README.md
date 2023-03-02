@@ -8,6 +8,7 @@ Methods implemented are:
 * `node_version`
 * `current_block`
 * `balance`
+* `faucet`
 * `metadata`
 * `submit`
 * `block`
@@ -28,19 +29,36 @@ Methods implemented are:
     Fetches current block using RPC and returns its identifier.
 
 ### `balance`:
-    Fetches account balance from on chain and returns it. 
+    Fetches account balance from on chain and returns it. It takes two arguments:
+    `address`: Address of account we want to fetch balance of.
+    `block`: block identifier of block at which we want to fetch balance of account.
+
+### `faucet`:
+    This method is used to fund an account with some amount of tokens in testnet. It takes two arguments:
+    `address`: Address of account we want to fund.
+    `amount`: Amount of tokens we want to fund.
 
 ### `metadata`:
-    This call is used to fetch nonce of account, and returns it with chain id and gas price for specified transaction.
+    This call is used to fetch nonce of account, It takes two arguments:
+    `public_key`: This is the public key of sender.
+    `options`: This is Params needed to create metadata. For ethereum chain it takes
+        `destination`: Address of receivier.
+        `amount`: Amount to be transfered to receiver.
+        `data`: encoded input data for call
+
+     It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
 
 ### `submit`:
-    Submit signed transaction to chain and returns the transaction id.
+    It takes transaction bytes which is signed transaction bytes and it Submits signed transaction to chain and return its transaction id.
 
 ### `block`:
-    This function takes a block index or hash and returns block transaction and operations happened in that transaction.
+    This function takes `PartialBlockIdentifier` which contains a block index or hash and returns block transaction and operations happened in that transaction.
 
 ### `block_transaction`:
-    This function returns a specific transaction and its operations within specified block.
+    This function takes: 
+    `block`: Which is a block identifier of block from which we want to fetch transaction from.
+    `tx`: Transaction identifier of transaction we want to fetch.
+    And returns a specific transaction and its operations within specified block.
 
 ### `call`:
     Required arguments:
