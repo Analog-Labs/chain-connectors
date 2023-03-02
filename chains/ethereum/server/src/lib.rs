@@ -276,9 +276,7 @@ impl BlockchainClient for EthereumClient {
                 let storage_hash = proof_data.storage_hash;
                 let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
 
-                let encoded_key = hex::encode(storage_proof.key);
-                let stripped_key = encoded_key.strip_prefix("0x").unwrap_or(&encoded_key);
-                let key = hex::decode(stripped_key)?;
+                let key = &storage_proof.key;
                 let key_hash = keccak256(key);
                 let encoded_val = storage_proof.value.rlp_bytes().to_vec();
 
