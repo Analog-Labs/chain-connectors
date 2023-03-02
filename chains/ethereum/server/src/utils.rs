@@ -320,7 +320,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: parse_address(format!("{:?}", tx.from))?,
+            address: to_checksum(&tx.from, None),
             sub_account: None,
             metadata: None,
         }),
@@ -345,7 +345,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: parse_address(format!("{:?}", tx.miner))?,
+            address: to_checksum(&tx.miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -371,7 +371,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
             r#type: FEE_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: parse_address(format!("{:?}", tx.from))?,
+                address: to_checksum(&tx.from, None),
                 sub_account: None,
                 metadata: None,
             }),
@@ -419,8 +419,8 @@ pub fn get_traces_operations(
             should_add = false;
         }
 
-        let from = format!("{:?}", trace.from);
-        let to = format!("{:?}", trace.to);
+        let from = to_checksum(&trace.from, None);
+        let to = to_checksum(&trace.to, None);
 
         if should_add {
             let mut from_operation = Operation {
@@ -432,7 +432,7 @@ pub fn get_traces_operations(
                 r#type: trace.trace_type.clone(),
                 status: Some(operation_status.into()),
                 account: Some(AccountIdentifier {
-                    address: parse_address(from.clone())?,
+                    address: from.clone(),
                     sub_account: None,
                     metadata: None,
                 }),
@@ -488,7 +488,7 @@ pub fn get_traces_operations(
                 r#type: trace.trace_type,
                 status: Some(operation_status.into()),
                 account: Some(AccountIdentifier {
-                    address: parse_address(to.clone())?,
+                    address: to.clone(),
                     sub_account: None,
                     metadata: None,
                 }),
@@ -531,7 +531,7 @@ pub fn get_traces_operations(
                 r#type: DESTRUCT_OP_TYPE.into(),
                 status: Some(SUCCESS_STATUS.into()),
                 account: Some(AccountIdentifier {
-                    address: parse_address(k.clone())?,
+                    address: to_checksum(&H160::from_str(k)?, None),
                     sub_account: None,
                     metadata: None,
                 }),
@@ -598,7 +598,7 @@ pub fn get_mining_rewards(
         r#type: MINING_REWARD_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: parse_address(format!("{miner:?}"))?,
+            address: to_checksum(miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -628,7 +628,7 @@ pub fn get_mining_rewards(
             r#type: UNCLE_REWARD_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: parse_address(format!("{uncle_miner:?}"))?,
+                address: to_checksum(&uncle_miner, None),
                 sub_account: None,
                 metadata: None,
             }),
@@ -741,16 +741,6 @@ pub fn parse_method(method: &str) -> Result<Function> {
             .clone();
         Ok(function)
     }
-}
-
-pub fn hex_str_to_bytes(s: &str) -> Result<Vec<u8>> {
-    let stripped = s.strip_prefix("0x").unwrap_or(s);
-    Ok(hex::decode(stripped)?)
-}
-
-pub fn parse_address(address: String) -> Result<String> {
-    let ethereum_address = H160::from_str(&address)?;
-    Ok(to_checksum(&ethereum_address, None))
 }
 
 pub struct LoadedTransaction {

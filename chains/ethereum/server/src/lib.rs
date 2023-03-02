@@ -15,7 +15,7 @@ use rosetta_server::types::{
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::{json, Value};
 use std::str::FromStr;
-use utils::{hex_str_to_bytes, parse_method};
+use utils::parse_method;
 
 mod eth_types;
 mod proof;
@@ -276,7 +276,9 @@ impl BlockchainClient for EthereumClient {
                 let storage_hash = proof_data.storage_hash;
                 let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
 
-                let key = hex_str_to_bytes(&hex::encode(storage_proof.key))?;
+                let encoded_key = hex::encode(storage_proof.key);
+                let stripped_key = encoded_key.strip_prefix("0x").unwrap_or(&encoded_key);
+                let key = hex::decode(stripped_key)?;
                 let key_hash = keccak256(key);
                 let encoded_val = storage_proof.value.rlp_bytes().to_vec();
 
