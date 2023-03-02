@@ -1,5 +1,7 @@
 use crate::eth_types::GENESIS_BLOCK_INDEX;
-use crate::utils::{get_block, get_transaction, parse_method, populate_transactions, EthDetokenizer};
+use crate::utils::{
+    get_block, get_transaction, parse_method, populate_transactions, EthDetokenizer,
+};
 use anyhow::{bail, Context, Result};
 use ethers::prelude::*;
 use ethers::utils::keccak256;
