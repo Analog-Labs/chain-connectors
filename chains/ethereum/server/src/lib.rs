@@ -1,9 +1,12 @@
 use crate::eth_types::GENESIS_BLOCK_INDEX;
-use crate::utils::{get_block, get_transaction, populate_transactions, EthDetokenizer};
-use anyhow::{anyhow, bail, Context, Result};
-use ethers::abi::Abi;
-use ethers::contract as ethers_contract;
+use crate::utils::{
+    get_block, get_transaction, parse_method, populate_transactions, EthDetokenizer,
+};
+use anyhow::{bail, Context, Result};
 use ethers::prelude::*;
+use ethers::utils::keccak256;
+use ethers::utils::rlp::Encodable;
+use proof::verify_proof;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -12,11 +15,12 @@ use rosetta_server::types::{
     TransactionIdentifier,
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::str::FromStr;
 use std::sync::Arc;
 
 mod eth_types;
+mod proof;
 mod utils;
 
 pub struct EthereumClient {
@@ -33,7 +37,10 @@ impl BlockchainClient for EthereumClient {
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
         let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
-        let genesis = client.get_block(0).await?.unwrap();
+        let genesis = client
+            .get_block(0)
+            .await?
+            .context("Failed to get genesis block")?;
         let genesis_block = BlockIdentifier {
             index: 0,
             hash: hex::encode(genesis.hash.as_ref().unwrap()),
@@ -113,8 +120,7 @@ impl BlockchainClient for EthereumClient {
         let from: H160 = public_key
             .to_address(self.config().address_format)
             .address()
-            .parse()
-            .unwrap();
+            .parse()?;
         let to = H160::from_slice(&options.destination);
         let chain_id = self.client.get_chainid().await?;
         let nonce = self.client.get_transaction_count(from, None).await?;
@@ -137,12 +143,13 @@ impl BlockchainClient for EthereumClient {
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         let tx = transaction.to_vec().into();
+
         Ok(self
             .client
             .send_raw_transaction(Bytes(tx))
             .await?
             .await?
-            .unwrap()
+            .context("Failed to get transaction receipt")?
             .transaction_hash
             .0
             .to_vec())
@@ -202,42 +209,41 @@ impl BlockchainClient for EthereumClient {
         match call_type.to_lowercase().as_str() {
             "call" => {
                 //process constant call
-                let abi_str = params["abi"].as_str().context("ABI not found")?;
-
-                let abi: Abi = serde_json::from_str(abi_str).map_err(|err| anyhow!(err))?;
-
                 let contract_address = H160::from_str(
                     params["contract_address"]
                         .as_str()
                         .context("contact address not found")?,
-                )
-                .map_err(|err| anyhow!(err))?;
+                )?;
 
-                let contract =
-                    ethers_contract::Contract::new(contract_address, abi, self.client.clone());
+                let function = parse_method(&method)?;
 
-                let value: EthDetokenizer = contract
-                    .method(&method, ())
-                    .map_err(|err| anyhow!(err))?
-                    .call()
-                    .await
-                    .map_err(|err| anyhow!(err))?;
+                let bytes: Vec<u8> = function.encode_input(&[])?;
 
-                let result: Value = serde_json::from_str(&value.json)?;
+                let tx = Eip1559TransactionRequest {
+                    to: Some(contract_address.into()),
+                    data: Some(bytes.into()),
+                    ..Default::default()
+                };
+
+                let tx = &tx.into();
+                let received_data = self.client.call(tx, None).await?;
+
+                let data: EthDetokenizer = decode_function_data(&function, received_data, false)?;
+
+                let result: Value = serde_json::from_str(&data.json)?;
+
                 return Ok(result);
             }
             "storage" => {
                 //process storage call
                 let from = H160::from_str(
-                    params["address"]
+                    params["contract_address"]
                         .as_str()
                         .context("address field not found")?,
-                )
-                .map_err(|err| anyhow!(err))?;
+                )?;
 
                 let location =
-                    H256::from_str(params["position"].as_str().context("position not found")?)
-                        .map_err(|err| anyhow!(err))?;
+                    H256::from_str(params["position"].as_str().context("position not found")?)?;
 
                 let block_num = params["block_number"]
                     .as_u64()
@@ -248,6 +254,47 @@ impl BlockchainClient for EthereumClient {
                     .get_storage_at(from, location, block_num)
                     .await?;
                 return Ok(Value::String(format!("{storage_check:#?}",)));
+            }
+            "storage_proof" => {
+                let from = H160::from_str(
+                    params["contract_address"]
+                        .as_str()
+                        .context("address field not found")?,
+                )?;
+
+                let location =
+                    H256::from_str(params["position"].as_str().context("position not found")?)?;
+
+                let block_num = params["block_number"]
+                    .as_u64()
+                    .map(|block_num| BlockId::Number(block_num.into()));
+
+                let proof_data = self
+                    .client
+                    .get_proof(from, vec![location], block_num)
+                    .await?;
+
+                //process verfiicatin of proof
+                let storage_hash = proof_data.storage_hash;
+                let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
+
+                let key = &storage_proof.key;
+                let key_hash = keccak256(key);
+                let encoded_val = storage_proof.value.rlp_bytes().to_vec();
+
+                let is_valid = verify_proof(
+                    &storage_proof.proof,
+                    storage_hash.as_bytes(),
+                    &key_hash.to_vec(),
+                    &encoded_val,
+                );
+
+                let result = serde_json::to_value(&proof_data)?;
+
+                return Ok(json!({
+                    "proof": result,
+                    "isValid": is_valid
+                }));
             }
             _ => {
                 bail!("request type not supported")
@@ -288,5 +335,17 @@ mod tests {
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_server::tests::construction(config).await
+    }
+
+    #[tokio::test]
+    async fn test_find_transaction() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+        rosetta_server::tests::find_transaction(config).await
+    }
+
+    #[tokio::test]
+    async fn test_list_transactions() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+        rosetta_server::tests::list_transactions(config).await
     }
 }

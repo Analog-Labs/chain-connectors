@@ -113,7 +113,7 @@ fn ok<T: serde::Serialize>(t: &T) -> tide::Result {
 fn err(err: &anyhow::Error) -> tide::Result {
     let error = crate::types::Error {
         code: 500,
-        message: format!("{}", err),
+        message: format!("{err}"),
         description: None,
         retriable: false,
         details: None,
@@ -537,6 +537,7 @@ pub mod tests {
         alice.transfer(bob.account(), value).await?;
         alice.transfer(bob.account(), value).await?;
 
+        tokio::time::sleep(Duration::from_secs(11)).await;
         let mut stream = bob.transactions(1);
         let mut count = 0;
         while let Some(res) = stream.next().await {

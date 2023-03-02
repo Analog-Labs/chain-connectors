@@ -204,7 +204,7 @@ impl<C: BlockchainClient> Indexer<C> {
     pub async fn sync(&self) -> Result<()> {
         let synced_height = self.transaction_table.height()?;
         let current_height = self.client.current_block().await?.index;
-        for block_index in (synced_height + 1)..current_height {
+        for block_index in (synced_height + 1)..current_height + 1 {
             let block = self.block_by_index(block_index).await?;
             for (transaction_index, transaction) in block.transactions.iter().enumerate() {
                 let tx = TransactionRef::new(block_index, transaction_index as _);

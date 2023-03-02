@@ -3,6 +3,7 @@ use clap::Parser;
 use futures::stream::StreamExt;
 use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
 use std::path::PathBuf;
+use surf::http::convert::json;
 
 #[derive(Parser)]
 pub struct Opts {
@@ -27,6 +28,7 @@ pub enum Command {
     Transfer(TransferOpts),
     Transaction(TransactionOpts),
     Transactions,
+    MethodCall(MethodCallOpts),
 }
 
 #[derive(Parser)]
@@ -43,6 +45,14 @@ pub struct FaucetOpts {
 #[derive(Parser)]
 pub struct TransactionOpts {
     pub transaction: String,
+}
+
+#[derive(Parser)]
+pub struct MethodCallOpts {
+    pub address: String,
+    pub method_signature: String,
+    #[clap(value_delimiter = ' ')]
+    pub params: Vec<String>,
 }
 
 #[async_std::main]
@@ -137,6 +147,24 @@ async fn main() -> Result<()> {
             if first {
                 println!("No transactions found");
             }
+        }
+        Command::MethodCall(MethodCallOpts {
+            address,
+            method_signature,
+            params,
+        }) => {
+            let acc_identifier = AccountIdentifier {
+                address,
+                sub_account: None,
+                metadata: None,
+            };
+            let params = json!({
+                "method_signature": method_signature,
+                "params": params
+            });
+
+            let tx = wallet.method_call(&acc_identifier, params).await?;
+            println!("Transaction hash: {:?}", tx.hash);
         }
     }
     Ok(())

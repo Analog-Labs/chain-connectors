@@ -12,6 +12,7 @@ use crate::types::{
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
 use futures::{Future, Stream};
+use serde_json::Value;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -33,6 +34,17 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Ethereum(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
             Self::Polkadot(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
+        })
+    }
+
+    pub fn method_call(
+        &self,
+        method: &Address,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        Ok(match self {
+            Self::Ethereum(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
+            Self::Polkadot(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
         })
     }
 
@@ -163,6 +175,23 @@ impl Wallet {
     ) -> Result<TransactionIdentifier> {
         let address = Address::new(self.config.address_format, account.address.clone());
         let metadata_params = self.tx.transfer(&address, amount)?;
+        let metadata = self.metadata(metadata_params.clone()).await?;
+        let transaction = self.tx.create_and_sign(
+            &self.config,
+            metadata_params,
+            metadata,
+            self.secret_key.secret_key(),
+        );
+        self.submit(&transaction).await
+    }
+
+    pub async fn method_call(
+        &self,
+        account: &AccountIdentifier,
+        params: Value,
+    ) -> Result<TransactionIdentifier> {
+        let address = Address::new(self.config.address_format, account.address.clone());
+        let metadata_params = self.tx.method_call(&address, &params)?;
         let metadata = self.metadata(metadata_params.clone()).await?;
         let transaction = self.tx.create_and_sign(
             &self.config,

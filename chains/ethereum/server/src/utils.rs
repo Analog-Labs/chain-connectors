@@ -7,8 +7,9 @@ use crate::eth_types::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use ethers::{
-    abi::{Detokenize, InvalidOutputType, Token},
+    abi::{Abi, Detokenize, Function, HumanReadableParser, InvalidOutputType, Token},
     prelude::*,
+    utils::to_checksum,
 };
 use ethers::{
     providers::{Http, Middleware, Provider},
@@ -19,8 +20,7 @@ use rosetta_server::types::{
     AccountIdentifier, Amount, BlockIdentifier, Currency, Operation, OperationIdentifier,
     PartialBlockIdentifier, TransactionIdentifier,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -33,7 +33,7 @@ pub async fn get_block(
     client: &Provider<Http>,
 ) -> Result<(Block<Transaction>, Vec<LoadedTransaction>, Vec<Block<H256>>)> {
     let bl_id = if let Some(hash) = block.hash.as_ref() {
-        let h256 = H256::from_str(hash).map_err(|err| anyhow!(err))?;
+        let h256 = H256::from_str(hash)?;
         BlockId::Hash(h256)
     } else if let Some(index) = block.index {
         let ehters_u64 = U64::from(index);
@@ -45,8 +45,7 @@ pub async fn get_block(
 
     let block_eth = client
         .get_block_with_txs(bl_id)
-        .await
-        .map_err(|err| anyhow!(err))?
+        .await?
         .context("Block not found")?;
 
     let block_number = block_eth
@@ -76,7 +75,7 @@ pub async fn get_block(
         traces.extend(block_traces.0);
     }
 
-    let mut loaded_transaction_vec = vec![];
+    let mut loaded_transactions = vec![];
     for (idx, transaction) in block_transactions.iter().enumerate() {
         let tx_receipt = &receipts[idx];
 
@@ -96,15 +95,15 @@ pub async fn get_block(
         };
 
         if !add_traces {
-            loaded_transaction_vec.push(loaded_tx);
+            loaded_transactions.push(loaded_tx);
             continue;
         }
 
         loaded_tx.trace = Some(traces[idx].result.clone());
-        loaded_transaction_vec.push(loaded_tx);
+        loaded_transactions.push(loaded_tx);
     }
 
-    Ok((block_eth, loaded_transaction_vec, uncles))
+    Ok((block_eth, loaded_transactions, uncles))
 }
 
 pub async fn get_transaction(
@@ -113,11 +112,10 @@ pub async fn get_transaction(
     client: &Provider<Http>,
     currency: &Currency,
 ) -> Result<rosetta_types::Transaction> {
-    let tx_hash = H256::from_str(hash).map_err(|err| anyhow!(err))?;
+    let tx_hash = H256::from_str(hash)?;
     let transaction = client
         .get_transaction(tx_hash)
-        .await
-        .map_err(|err| anyhow!(err))?
+        .await?
         .context("Unable to get transaction")?;
 
     let ehters_u64 = U64::from(block_identifier.index);
@@ -126,8 +124,7 @@ pub async fn get_transaction(
 
     let block = client
         .get_block(block_num)
-        .await
-        .map_err(|err| anyhow!(err))?
+        .await?
         .context("Block not found")?;
 
     let block_hash = block.hash.context("Block hash not found")?;
@@ -135,8 +132,7 @@ pub async fn get_transaction(
 
     let tx_receipt = client
         .get_transaction_receipt(tx_hash)
-        .await
-        .map_err(|err| anyhow!(err))?
+        .await?
         .context("Transaction receipt not found")?;
 
     if tx_receipt
@@ -216,7 +212,7 @@ pub async fn populate_transaction(
 
     let transaction = rosetta_types::Transaction {
         transaction_identifier: TransactionIdentifier {
-            hash: format!("{:?}", tx.transaction.hash),
+            hash: hex::encode(tx.transaction.hash),
         },
         operations,
         related_transactions: None,
@@ -235,17 +231,16 @@ pub async fn get_uncles(
     uncles: &[H256],
     client: &Provider<Http>,
 ) -> Result<Vec<Block<H256>>> {
-    let mut uncles_vec = vec![];
+    let mut uncles_data = vec![];
     for (idx, _) in uncles.iter().enumerate() {
         let index = U64::from(idx);
         let uncle_response = client
             .get_uncle(block_index, index)
-            .await
-            .map_err(|err| anyhow!("{err}"))?
+            .await?
             .context("Uncle block now found")?;
-        uncles_vec.push(uncle_response);
+        uncles_data.push(uncle_response);
     }
-    Ok(uncles_vec)
+    Ok(uncles_data)
 }
 
 pub async fn get_block_receipts(
@@ -258,8 +253,7 @@ pub async fn get_block_receipts(
         let tx_hash = tx.hash;
         let receipt = client
             .get_transaction_receipt(tx_hash)
-            .await
-            .map_err(|err| anyhow!("{err}"))?
+            .await?
             .context("Transaction receipt not found")?;
 
         if receipt
@@ -288,8 +282,7 @@ pub async fn get_block_traces(
 
     let traces: ResultGethExecTraces = client
         .request("debug_traceBlockByHash", [hash_serialize, cfg])
-        .await
-        .map_err(|err| anyhow!(err))?;
+        .await?;
 
     Ok(traces)
 }
@@ -304,8 +297,7 @@ async fn get_transaction_trace(hash: &H256, client: &Provider<Http>) -> Result<T
 
     let traces: Trace = client
         .request("debug_traceTransaction", [hash_serialize, cfg])
-        .await
-        .map_err(|err| anyhow!(err))?;
+        .await?;
 
     Ok(traces)
 }
@@ -317,7 +309,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         tx.fee_amount
     };
 
-    let mut operations_vec = vec![];
+    let mut operations = vec![];
 
     let first_op = Operation {
         operation_identifier: OperationIdentifier {
@@ -328,7 +320,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{:?}", tx.from),
+            address: to_checksum(&tx.from, None),
             sub_account: None,
             metadata: None,
         }),
@@ -353,7 +345,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{:?}", tx.miner),
+            address: to_checksum(&tx.miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -366,8 +358,8 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         metadata: None,
     };
 
-    operations_vec.push(first_op);
-    operations_vec.push(second_op);
+    operations.push(first_op);
+    operations.push(second_op);
 
     if let Some(fee_burned) = tx.fee_burned {
         let burned_operation = Operation {
@@ -379,7 +371,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
             r#type: FEE_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: format!("{:?}", tx.from),
+                address: to_checksum(&tx.from, None),
                 sub_account: None,
                 metadata: None,
             }),
@@ -392,11 +384,9 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
             metadata: None,
         };
 
-        operations_vec.push(burned_operation);
-        Ok(operations_vec)
-    } else {
-        Ok(operations_vec)
+        operations.push(burned_operation);
     }
+    Ok(operations)
 }
 
 pub fn get_traces_operations(
@@ -429,8 +419,8 @@ pub fn get_traces_operations(
             should_add = false;
         }
 
-        let from = format!("{:?}", trace.from);
-        let to = format!("{:?}", trace.to);
+        let from = to_checksum(&trace.from, None);
+        let to = to_checksum(&trace.to, None);
 
         if should_add {
             let mut from_operation = Operation {
@@ -541,7 +531,7 @@ pub fn get_traces_operations(
                 r#type: DESTRUCT_OP_TYPE.into(),
                 status: Some(SUCCESS_STATUS.into()),
                 account: Some(AccountIdentifier {
-                    address: k.clone(),
+                    address: to_checksum(&H160::from_str(k)?, None),
                     sub_account: None,
                     metadata: None,
                 }),
@@ -608,7 +598,7 @@ pub fn get_mining_rewards(
         r#type: MINING_REWARD_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: format!("{miner:?}"),
+            address: to_checksum(miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -638,7 +628,7 @@ pub fn get_mining_rewards(
             r#type: UNCLE_REWARD_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: format!("{uncle_miner:?}"),
+                address: to_checksum(&uncle_miner, None),
                 sub_account: None,
                 metadata: None,
             }),
@@ -718,9 +708,7 @@ fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> Result<U256>
         .transaction_type
         .context("transaction type is not available")?;
     let tx_gas_price = tx.gas_price.context("gas price is not available")?;
-    let tx_max_priority_fee_per_gas = tx
-        .max_priority_fee_per_gas
-        .context("max priority fee per gas is not available")?;
+    let tx_max_priority_fee_per_gas = tx.max_priority_fee_per_gas.unwrap_or_default();
 
     if tx_transaction_type.as_u64() != 2 {
         return Ok(tx_gas_price);
@@ -729,50 +717,31 @@ fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> Result<U256>
     Ok(base_fee + tx_max_priority_fee_per_gas)
 }
 
-#[derive(Serialize)]
-#[doc(hidden)]
-pub(crate) struct GethLoggerConfig {
-    /// enable memory capture
-    #[serde(rename = "EnableMemory")]
-    enable_memory: bool,
-    /// disable stack capture
-    #[serde(rename = "DisableStack")]
-    disable_stack: bool,
-    /// disable storage capture
-    #[serde(rename = "DisableStorage")]
-    disable_storage: bool,
-    /// enable return data capture
-    #[serde(rename = "EnableReturnData")]
-    enable_return_data: bool,
-}
-
-impl Default for GethLoggerConfig {
-    fn default() -> Self {
-        Self {
-            enable_memory: false,
-            disable_stack: false,
-            disable_storage: false,
-            enable_return_data: true,
-        }
+pub fn parse_method(method: &str) -> Result<Function> {
+    let parse_result = HumanReadableParser::parse_function(method);
+    if parse_result.is_ok() {
+        parse_result.map_err(|e| anyhow!(e))
+    } else {
+        let json_parse: Result<Abi, serde_json::Error> =
+            if !(method.starts_with('[') && method.ends_with(']')) {
+                let abi_str = format!("[{method}]");
+                serde_json::from_str(&abi_str)
+            } else {
+                serde_json::from_str(method)
+            };
+        let abi: Abi = json_parse?;
+        let (_, functions): (&String, &Vec<Function>) = abi
+            .functions
+            .iter()
+            .next()
+            .context("No functions found in abi")?;
+        let function: Function = functions
+            .get(0)
+            .context("Abi function list is empty")?
+            .clone();
+        Ok(function)
     }
 }
-
-#[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
-pub struct GethExecTrace {
-    /// Used gas
-    pub gas: Gas,
-    /// True when the transaction has failed.
-    pub failed: bool,
-    /// Return value of execution which is a hex encoded byte array
-    #[serde(rename = "returnValue")]
-    pub return_value: String,
-    /// Vector of geth execution steps of the trace.
-    #[serde(rename = "structLogs")]
-    pub struct_logs: Vec<Value>,
-}
-
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Gas(pub u64);
 
 pub struct LoadedTransaction {
     pub transaction: Transaction,
