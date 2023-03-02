@@ -708,7 +708,7 @@ fn effective_gas_price(tx: &Transaction, base_fee: Option<U256>) -> Result<U256>
         .transaction_type
         .context("transaction type is not available")?;
     let tx_gas_price = tx.gas_price.context("gas price is not available")?;
-    let tx_max_priority_fee_per_gas = tx.max_priority_fee_per_gas.unwrap_or(U256::from(0));
+    let tx_max_priority_fee_per_gas = tx.max_priority_fee_per_gas.unwrap_or_default();
 
     if tx_transaction_type.as_u64() != 2 {
         return Ok(tx_gas_price);

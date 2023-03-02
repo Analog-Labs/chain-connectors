@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use ethers::abi::token::{LenientTokenizer, Tokenizer};
 use ethers::abi::{Abi, Function, HumanReadableParser, Param, Token};
 use ethers_core::types::{Eip1559TransactionRequest, Signature, H160, U256};
@@ -31,10 +31,8 @@ impl TransactionBuilder for EthereumTransactionBuilder {
 
         let method_str = params["method_signature"]
             .as_str()
-            .ok_or(anyhow!("Method signature not found"))?;
-        let function_params = params["params"]
-            .as_array()
-            .ok_or(anyhow!("Params not found"))?;
+            .context("Method signature not found")?;
+        let function_params = params["params"].as_array().context("Params not found")?;
 
         let function = parse_method(method_str)?;
 
