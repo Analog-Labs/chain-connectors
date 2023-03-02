@@ -43,9 +43,10 @@ services:
 
   polkadot:
     image: "parity/polkadot:v0.9.37"
-    command: "--chain dev --rpc-cors all --ws-external --alice --tmp"
+    command: "--chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9944"
+    user: root
     ulimits:
       nofile:
         soft: 10000

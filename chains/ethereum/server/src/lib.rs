@@ -1,5 +1,5 @@
 use crate::eth_types::GENESIS_BLOCK_INDEX;
-use crate::utils::{get_block, get_transaction, populate_transactions, EthDetokenizer};
+use crate::utils::{get_block, get_transaction, parse_method, populate_transactions, EthDetokenizer};
 use anyhow::{bail, Context, Result};
 use ethers::prelude::*;
 use ethers::utils::keccak256;
@@ -15,7 +15,7 @@ use rosetta_server::types::{
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::{json, Value};
 use std::str::FromStr;
-use utils::parse_method;
+use std::sync::Arc;
 
 mod eth_types;
 mod proof;
@@ -23,7 +23,7 @@ mod utils;
 
 pub struct EthereumClient {
     config: BlockchainConfig,
-    client: Provider<Http>,
+    client: Arc<Provider<Http>>,
     genesis_block: BlockIdentifier,
 }
 
@@ -34,7 +34,7 @@ impl BlockchainClient for EthereumClient {
 
     async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_ethereum::config(network)?;
-        let client = Provider::<Http>::try_from(format!("http://{addr}"))?;
+        let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
         let genesis = client
             .get_block(0)
             .await?

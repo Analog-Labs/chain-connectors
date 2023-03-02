@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use futures::stream::StreamExt;
-use rosetta_client::types::AccountIdentifier;
+use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
 use std::path::PathBuf;
 use surf::http::convert::json;
 
@@ -26,6 +26,7 @@ pub enum Command {
     Balance,
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
+    Transaction(TransactionOpts),
     Transactions,
     MethodCall(MethodCallOpts),
 }
@@ -33,12 +34,17 @@ pub enum Command {
 #[derive(Parser)]
 pub struct TransferOpts {
     pub account: String,
-    pub amount: u128,
+    pub amount: String,
 }
 
 #[derive(Parser)]
 pub struct FaucetOpts {
-    pub amount: u128,
+    pub amount: String,
+}
+
+#[derive(Parser)]
+pub struct TransactionOpts {
+    pub transaction: String,
 }
 
 #[derive(Parser)]
@@ -72,13 +78,15 @@ async fn main() -> Result<()> {
             println!("{}", rosetta_client::amount_to_string(&balance)?);
         }
         Command::Transfer(TransferOpts { account, amount }) => {
+            let amount =
+                rosetta_client::string_to_amount(&amount, wallet.config().currency_decimals)?;
             let account = AccountIdentifier {
                 address: account,
                 sub_account: None,
                 metadata: None,
             };
             let txid = wallet.transfer(&account, amount).await?;
-            println!("{}", txid.hash);
+            println!("success: {}", txid.hash);
         }
         Command::Faucet(FaucetOpts { amount }) => match wallet.config().blockchain {
             "bitcoin" => {
@@ -103,7 +111,7 @@ async fn main() -> Result<()> {
                     .arg("-rpcuser=rosetta")
                     .arg("-rpcpassword=rosetta")
                     .arg("generatetoaddress")
-                    .arg(amount.to_string())
+                    .arg(amount)
                     .arg(&wallet.account().address)
                     .status()?;
                 if !status.success() {
@@ -111,47 +119,29 @@ async fn main() -> Result<()> {
                 }
             }
             _ => {
-                match wallet.faucet(amount).await {
-                    Ok(data) => {
-                        println!("success: {0}", data.hash);
-                    }
-                    Err(e) => {
-                        println!("Error: {e}");
-                        return Ok(());
-                    }
-                };
+                let amount =
+                    rosetta_client::string_to_amount(&amount, wallet.config().currency_decimals)?;
+                let txid = wallet.faucet(amount).await?;
+                println!("success: {}", txid.hash);
             }
         },
+        Command::Transaction(TransactionOpts { transaction }) => {
+            let txid = TransactionIdentifier { hash: transaction };
+            let tx = wallet.transaction(txid).await?;
+            print_transaction_header();
+            print_transaction(&tx)?;
+        }
         Command::Transactions => {
             let mut first = true;
             let mut stream = wallet.transactions(100);
             while let Some(res) = stream.next().await {
                 let transactions = res?;
                 if first {
-                    println!("{: <10} | {: <20} | {: <50}", "Block", "Amount", "Account");
+                    print_transaction_header();
                     first = false;
                 }
                 for tx in transactions {
-                    if let Some(metadata) = tx.transaction.metadata.clone() {
-                        let (account, amount) =
-                            if metadata["from"].to_string().trim_start_matches("0x")
-                                == wallet.account().address.trim_start_matches("0x")
-                            {
-                                (
-                                    format!("{}", metadata["to"]),
-                                    format!("-{}", metadata["amount"]),
-                                )
-                            } else {
-                                (
-                                    format!("{}", metadata["from"]),
-                                    format!("{}", metadata["amount"]),
-                                )
-                            };
-                        println!(
-                            "{: <10} | {: <20} | {: <50}",
-                            tx.block_identifier.index, amount, account
-                        );
-                    }
+                    print_transaction(&tx)?;
                 }
             }
             if first {
@@ -176,6 +166,36 @@ async fn main() -> Result<()> {
             let tx = wallet.method_call(&acc_identifier, params).await?;
             println!("Transaction hash: {:?}", tx.hash);
         }
+    }
+    Ok(())
+}
+
+fn print_transaction_header() {
+    println!(
+        "{: <10} | {: <20} | {: <20} | {: <50}",
+        "Block", "Op", "Amount", "Account"
+    );
+}
+
+fn print_transaction(tx: &BlockTransaction) -> Result<()> {
+    let block = tx.block_identifier.index;
+    for op in &tx.transaction.operations {
+        let name = &op.r#type;
+        let amount = op
+            .amount
+            .as_ref()
+            .map(rosetta_client::amount_to_string)
+            .transpose()?
+            .unwrap_or_default();
+        let account = op
+            .account
+            .as_ref()
+            .map(|account| account.address.as_str())
+            .unwrap_or_default();
+        println!(
+            "{: <10} | {: <20} | {: <20} | {: <50}",
+            block, name, amount, account
+        );
     }
     Ok(())
 }
