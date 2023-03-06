@@ -17,7 +17,7 @@ Methods implemented are:
 
 
 ### `config`:
-    This method returns `BlockchainConfig` which contains the configuration specific details for specific chain.
+    This method returns `BlockchainConfig` which contains the configuration specific details for ethereum chain.
 
 ### `genesis_block`:
     Returns genesis block identifier.
