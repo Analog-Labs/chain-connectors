@@ -1,20 +1,16 @@
-This project is used to build transactions for ethereum chains.
+This project is used to build transactions for substrate chains.
 
-## `EthereumTransactionBuilder`:
+## `PolkadotTransactionBuilder`:
     Its implementation of `TransactionBuilder` and implements the following methods:
     1. `transfer`
     2. `method_call`
     3. `create_and_sign`
 
 ### `transfer`:
-    Creates `EthereumMetadataParams` for transfer call.
+    Creates `PolkadotMetadataParams` for transfer call.
 
 ### `method_call`:
-    Creates `EthereumMetadataParams` for contract calls. It takes 
-    `address`: address of contract we want to call.
-    `params`: array of json_value with contract method params in string types.
-
-    It returns `EthereumMetadataParams` with `data` field set to the encoded contract call params.
+    Not implemented.
 
 ### `create_and_sign`:
     When `metadata` is created we use this call to create Ethereum Transaction and sign it. It takes following arguments.
@@ -23,6 +19,4 @@ This project is used to build transactions for ethereum chains.
     `metadata`: Metadata required make transaction.
     `secret_key`: wallet's secret key (used to sign the transaction).
 
-    It creates the transaction and signs it and then returns its bytes.
-
-
+    It creates the transaction and signs it and then returns it in bytes.

@@ -1,91 +1,71 @@
 # __Rosetta Server for Substrate Chains__
 
-This server implements following endpoints:
-* `/network/list`
-* `/network/options`
-* `/network/status`
-* `/account/balance`
-* `/account/faucet`
-* `/block`
-* `/block/transaction`
-* `/call`
-* `/construction/combine`
-* `/construction/derive`
-* `/construction/hash`
-* `/construction/metadata`
-* `/construction/payloads`
-* `/construction/preprocess`
-* `/construction/submit`
+This Project contains `BlockchainClient` implementation of ethereum chains.
+
+Methods implemented are:
+* `config`
+* `genesis_block`
+* `node_version`
+* `current_block`
+* `balance`
+* `faucet`
+* `metadata`
+* `submit`
+* `block`
+* `block_transaction`
+* `call`
 
 
-### `/network/list`:
-    This endpoint returns the list of available networks to query. Any NetworkIdentifier returned by /network/list should be accessible through subsequent calls to /network/options, /network/status, and /block.
- 
-### `/network/options`:
-    This endpoint returns the version information and allowed network-specific types for a NetworkIdentifier. 
+### `config`:
+    This method returns `BlockchainConfig` which contains the configuration specific details for specific chain.
 
-### `/network/status`:
-    This endpoint returns the current status of the network requested.
- 
-### `/account/balance`:
-    This endpoint returns the balance of a single account.
- 
-### `/account/faucet`:
-    This endpoint adds testnet balance to specific account.
- 
-### `/block`:
-    This endpoint returns the operations and transactions included in the specified block.
- 
-### `/block/transaction`:
-    This endpoint returns the specific transaction and operations included in specified block.
- 
-### `/call`:
-    This endpoint returns storage or constant value of a Substrate chain.
- 
-### `/construction/combine`:
-    This endpoint takes payload and make a submitable transaction.
- 
-### `/construction/derive`:
-    This endpoint converts the public key of sender to address supported by substrate chain.
- 
-### `/construction/hash`:
-    This endpoint converts tx hex into substrate supported hash.
- 
-### `/construction/metadata`:
-    This endpoint returns nonce of account.
- 
-### `/construction/payloads`:
-    This endpoint returns signable payload which can later be used to sign the transaction and sent to `contrustion/combine` endpoint to make a submitable transaction.
- 
-### `/construction/preprocess`:
-    This endpoint takes out sender address and required_signatures from operations.
- 
-### `/construction/submit`:
-    This endpoint submits a pre-signed transaction to the network. The transaction should be in hex format.
+### `genesis_block`:
+    Returns genesis block identifier.
+
+### `node_version`:
+    Returns node client version.
+
+### `current_block`:
+    Fetches current block using RPC and returns its identifier.
+
+### `balance`:
+    Fetches account balance from on chain and returns it. It takes two arguments:
+    `address`: Address of account we want to fetch balance of.
+    `block`: block identifier of block at which we want to fetch balance of account.
+
+### `block`:
+    This function takes `PartialBlockIdentifier` which contains a block index or hash and returns block transaction and operations happened in that transaction.
+
+### `block_transaction`:
+    This function takes: 
+    `block`: Which is a block identifier of block from which we want to fetch transaction from.
+    `tx`: Transaction identifier of transaction we want to fetch.
+    And returns a specific transaction and its operations within specified block.
+
+### `faucet`:
+    This method is used to fund an account with some amount of tokens in testnet. It takes two arguments:
+    `address`: Address of account we want to fund.
+    `amount`: Amount of tokens we want to fund.
+
+### `metadata`:
+    This call is used to fetch nonce of account, It takes two arguments:
+    `public_key`: This is the public key of sender.
+    `options`: This is Params needed to create metadata. For ethereum chain it takes
+        `destination`: Address of receivier.
+        `amount`: Amount to be transfered to receiver.
+        `data`: encoded input data for call
+
+     It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
+
+### `submit`:
+    It takes transaction bytes which is signed transaction bytes and it Submits signed transaction to chain and return its transaction id.
 
 
-## __Arbitary Call__
-
-### __Making extrinsic calls__
-
-To make signed extrinsic calls we have to combine endpoints and construct a pipeline to execute extrinsic.\
-`1.` We need to get nonce of user for which we call `contrusction_metadata`.\
-`2.` Then we call `construction_payload` endpoint by giving it the `metadata` json object with following keys.
-* `pallet_name`
-* `call_name`
-* `params`
-* `nonce`
-* `sender_address`
-
-`3.` After getting the payload we sign the payload from account and call `construction_combine` command to make extrinsic hex\
-`4.` We submit extrinsic hex to `construction_submit` endpoint which then returns the transaction hash.
-
-### __Fetching Storage or Constant__
-
-To fetch Storage or any Constant from a Substrate chain, you can use the `Call` endpoint. This method takes a `CallRequest` as input and returns a `CallResponse` as output. The `CallRequest` contains the following fields:
+### `call`:
+To fetch Storage or any Constant from a Substrate chain, you can use the `Call` function. This method takes a `CallRequest` as input and returns a json `Value` as output. The `CallRequest` contains the following fields:
 * `NetworkIdentifier` - The network to make the call on.
 * `Method` - A string contains the name of pallet, function of pallet and type of query e.g. `Storage`, `Constant`. 
-* `Params` - A Array containing the parameters required for that pallet function.
+* `Parameters` - A Array containing the parameters required for that pallet function.
 
 ### __Passing paramters__
 `Enums` and `Struct` are passed in paramter as array values
@@ -174,8 +154,3 @@ Other primitive types are passed as they are. e.g.
     ]
 }
 ```
-
-
-
-
-
