@@ -1,6 +1,6 @@
 # __Rosetta Server for Substrate Chains__
 
-This Project contains `BlockchainClient` implementation of ethereum chains.
+This Project contains `BlockchainClient` implementation of substrate chains.
 
 Methods implemented are:
 * `config`
