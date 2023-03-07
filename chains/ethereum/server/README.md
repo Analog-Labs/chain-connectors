@@ -40,7 +40,7 @@ This function takes `PartialBlockIdentifier` which contains a block index or has
 This function takes: 
 `block`: Which is a block identifier of block from which we want to fetch transaction from.
 `tx`: Transaction identifier of transaction we want to fetch.
-    
+
 And returns a specific transaction and its operations within specified block.
 
 ### __`faucet`__:
@@ -58,7 +58,7 @@ This call is used to fetch nonce of account, It takes two arguments:
     `amount`: Amount to be transfered to receiver.
     `data`: encoded input data for call
 
-    It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
+It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
 
 ### __`submit`__:
 
