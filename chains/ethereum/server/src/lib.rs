@@ -201,7 +201,7 @@ impl BlockchainClient for EthereumClient {
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
-        let call_details = req.method.split("-").collect::<Vec<&str>>();
+        let call_details = req.method.split('-').collect::<Vec<&str>>();
         if call_details.len() != 3 {
             anyhow::bail!("Invalid length of call request params");
         }
