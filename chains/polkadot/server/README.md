@@ -64,7 +64,7 @@ This call is used to fetch nonce of account, It takes two arguments:
     `amount`: Amount to be transfered to receiver.
     `data`: encoded input data for call
 
-    It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
+It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
 
 ### `submit`:
 
