@@ -17,54 +17,65 @@ Methods implemented are:
 
 
 ### `config`:
-    This method returns `BlockchainConfig` which contains the configuration specific details for polkadot chain.
+
+This method returns `BlockchainConfig` which contains the configuration specific details for polkadot chain.
 
 ### `genesis_block`:
-    Returns genesis block identifier.
+
+Returns genesis block identifier.
 
 ### `node_version`:
-    Returns node client version.
+
+Returns node client version.
 
 ### `current_block`:
-    Fetches current block using RPC and returns its identifier.
+
+Fetches current block using RPC and returns its identifier.
 
 ### `balance`:
-    Fetches account balance from on chain and returns it. It takes two arguments:
-    `address`: Address of account we want to fetch balance of.
-    `block`: block identifier of block at which we want to fetch balance of account.
+
+Fetches account balance from on chain and returns it. It takes two arguments:
+`address`: Address of account we want to fetch balance of.
+`block`: block identifier of block at which we want to fetch balance of account.
 
 ### `block`:
-    This function takes `PartialBlockIdentifier` which contains a block index or hash and returns block transaction and operations happened in that transaction.
+
+This function takes `PartialBlockIdentifier` which contains a block index or hash and returns block transaction and operations happened in that transaction.
 
 ### `block_transaction`:
-    This function takes: 
-    `block`: Which is a block identifier of block from which we want to fetch transaction from.
-    `tx`: Transaction identifier of transaction we want to fetch.
-    And returns a specific transaction and its operations within specified block.
+
+This function takes: 
+`block`: Which is a block identifier of block from which we want to fetch transaction from.
+`tx`: Transaction identifier of transaction we want to fetch.
+And returns a specific transaction and its operations within specified block.
 
 ### `faucet`:
-    This method is used to fund an account with some amount of tokens in testnet. It takes two arguments:
-    `address`: Address of account we want to fund.
-    `amount`: Amount of tokens we want to fund.
+
+This method is used to fund an account with some amount of tokens in testnet. It takes two arguments:
+`address`: Address of account we want to fund.
+`amount`: Amount of tokens we want to fund.
 
 ### `metadata`:
-    This call is used to fetch nonce of account, It takes two arguments:
-    `public_key`: This is the public key of sender.
-    `options`: This is Params needed to create metadata. For ethereum chain it takes
-        `destination`: Address of receivier.
-        `amount`: Amount to be transfered to receiver.
-        `data`: encoded input data for call
 
-     It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
+This call is used to fetch nonce of account, It takes two arguments:
+`public_key`: This is the public key of sender.
+`options`: This is Params needed to create metadata. For ethereum chain it takes
+    `destination`: Address of receivier.
+    `amount`: Amount to be transfered to receiver.
+    `data`: encoded input data for call
+
+    It returns `EthereumMetadata` which includes `chain_id`, `nonce` and gas details for transaction.
 
 ### `submit`:
-    It takes transaction bytes which is signed transaction bytes and it Submits signed transaction to chain and return its transaction id.
+
+It takes transaction bytes which is signed transaction bytes and it Submits signed transaction to chain and return its transaction id.
 
 
 ### `call`:
+
 To fetch Storage or any Constant from a Substrate chain, you can use the `Call` function. This method takes a `CallRequest` as input and returns a json `Value` as output. The `CallRequest` contains the following fields:
 * `NetworkIdentifier` - The network to make the call on.
-* `Method` - A string contains the name of pallet, function of pallet and type of query e.g. `Storage`, `Constant`. 
+* `Method` - A string contains `-` seperated the name of pallet, function of pallet and type of query e.g. `Storage`, `Constant`. 
 * `Parameters` - A Array containing the parameters required for that pallet function.
 
 ### __Passing paramters__
@@ -135,7 +146,7 @@ and we want to pass `TestStruct { a: 1, b: 2, c: 3 }` as parameter then we pass 
 So passing those both as a paramter list should look like this
 ```Json
 {
-    "method": "pallet_name, storage_name, query_type",
+    "method": "pallet_name-storage_name-query_type",
     "params": [
         ["A", ""], //representing TestEnum::A
         [1, 2, 3] //representing TestStruct { a: 1, b: 2, c: 3 }
@@ -146,7 +157,7 @@ So passing those both as a paramter list should look like this
 Other primitive types are passed as they are. e.g.
 ```Json
 {
-    "method": "pallet_name, storage_name, query_type",
+    "method": "pallet_name-storage_name-query_type",
     "params": [
         1,          //representing u32
         "test",     //representing String
