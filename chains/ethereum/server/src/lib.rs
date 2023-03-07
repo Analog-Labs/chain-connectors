@@ -201,21 +201,21 @@ impl BlockchainClient for EthereumClient {
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
-        let method = req.method.clone();
+        let call_details = req.method.split("-").collect::<Vec<&str>>();
+        if call_details.len() != 3 {
+            anyhow::bail!("Invalid length of call request params");
+        }
+        let contract_address = call_details[0];
+        let method_or_position = call_details[1];
+        let call_type = call_details[2];
+
         let params = req.parameters.clone();
-
-        let call_type = params["type"].as_str().context("type not found")?;
-
         match call_type.to_lowercase().as_str() {
             "call" => {
                 //process constant call
-                let contract_address = H160::from_str(
-                    params["contract_address"]
-                        .as_str()
-                        .context("contact address not found")?,
-                )?;
+                let contract_address = H160::from_str(contract_address)?;
 
-                let function = parse_method(&method)?;
+                let function = parse_method(method_or_position)?;
 
                 let bytes: Vec<u8> = function.encode_input(&[])?;
 
@@ -236,14 +236,9 @@ impl BlockchainClient for EthereumClient {
             }
             "storage" => {
                 //process storage call
-                let from = H160::from_str(
-                    params["contract_address"]
-                        .as_str()
-                        .context("address field not found")?,
-                )?;
+                let from = H160::from_str(contract_address)?;
 
-                let location =
-                    H256::from_str(params["position"].as_str().context("position not found")?)?;
+                let location = H256::from_str(method_or_position)?;
 
                 let block_num = params["block_number"]
                     .as_u64()
@@ -256,14 +251,9 @@ impl BlockchainClient for EthereumClient {
                 return Ok(Value::String(format!("{storage_check:#?}",)));
             }
             "storage_proof" => {
-                let from = H160::from_str(
-                    params["contract_address"]
-                        .as_str()
-                        .context("address field not found")?,
-                )?;
+                let from = H160::from_str(contract_address)?;
 
-                let location =
-                    H256::from_str(params["position"].as_str().context("position not found")?)?;
+                let location = H256::from_str(method_or_position)?;
 
                 let block_num = params["block_number"]
                     .as_u64()

@@ -255,9 +255,9 @@ impl BlockchainClient for PolkadotClient {
     }
 
     async fn call(&self, request: &CallRequest) -> Result<Value> {
-        let call_details = request.method.split(',').collect::<Vec<&str>>();
+        let call_details = request.method.split('-').collect::<Vec<&str>>();
         if call_details.len() != 3 {
-            anyhow::bail!("invalid call request");
+            anyhow::bail!("Invalid length of call request params");
         }
         let pallet_name = call_details[0];
         let call_name = call_details[1];
