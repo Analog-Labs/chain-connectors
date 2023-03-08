@@ -15,7 +15,7 @@ jobs:
 
     - run: sudo apt-get update
     - name: Install deps
-      run: sudo apt-get install libwebkit2gtk-4.0-dev libgtk-3-dev musl-dev musl-tools
+      run: sudo apt-get install musl-dev musl-tools
 
     - name: Install rust toolchain
       uses: hecrj/setup-rust-action@v1
@@ -62,60 +62,3 @@ jobs:
 
     - name: cargo clippy
       run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
-
-  dioxus-wallet-android:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-
-    - name: Install llvm
-      run: sudo apt-get update && sudo apt-get install llvm
-
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
-
-    - name: Install xbuild
-      uses: rust-mobile/setup-xbuild-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build android
-      run: x build --platform android --arch arm64
-      working-directory: dioxus-wallet
-
-  dioxus-wallet-ios:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-
-    - name: Install llvm
-      run: sudo apt-get update && sudo apt-get install llvm
-
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
-
-    - name: Install xbuild
-      uses: rust-mobile/setup-xbuild-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Build ios
-      run: x build --platform ios --arch arm64
-      working-directory: dioxus-wallet
-
-  dioxus-wallet-wasm:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
-      with:
-        targets: wasm32-unknown-unknown
-
-    - name: Build wasm
-      run: cargo build --target wasm32-unknown-unknown
-      working-directory: dioxus-wallet
