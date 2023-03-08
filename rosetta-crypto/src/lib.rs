@@ -2,9 +2,13 @@
 #![deny(missing_docs)]
 #![deny(warnings)]
 
-use anyhow::Result;
-use ecdsa::signature::{hazmat::PrehashSigner, Signature as _};
+use anyhow::{Context, Result};
+use ecdsa::hazmat::SignPrimitive;
+use ecdsa::signature::hazmat::PrehashSigner;
+use ecdsa::signature::{Signer as _, Verifier as _};
+use ecdsa::RecoveryId;
 use ed25519_dalek::{Signer as _, Verifier as _};
+use sha2::Digest;
 
 pub mod address;
 pub mod bip32;
@@ -31,7 +35,7 @@ pub enum SecretKey {
     /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::SigningKey<k256::Secp256k1>),
     /// ECDSA with secp256k1 in Ethereum compatible format.
-    EcdsaRecoverableSecp256k1(k256::ecdsa::SigningKey),
+    EcdsaRecoverableSecp256k1(ecdsa::SigningKey<k256::Secp256k1>),
     /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::SigningKey<p256::NistP256>),
     /// Ed25519.
@@ -62,13 +66,13 @@ impl SecretKey {
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => {
-                SecretKey::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes)?)
+                SecretKey::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
             }
-            Algorithm::EcdsaRecoverableSecp256k1 => {
-                SecretKey::EcdsaRecoverableSecp256k1(k256::ecdsa::SigningKey::from_bytes(bytes)?)
-            }
+            Algorithm::EcdsaRecoverableSecp256k1 => SecretKey::EcdsaRecoverableSecp256k1(
+                ecdsa::SigningKey::from_bytes(bytes.try_into()?)?,
+            ),
             Algorithm::EcdsaSecp256r1 => {
-                SecretKey::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes)?)
+                SecretKey::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
             }
             Algorithm::Ed25519 => {
                 let secret = ed25519_dalek::SecretKey::from_bytes(bytes)?;
@@ -107,11 +111,11 @@ impl SecretKey {
     /// Returns the public key used for verifying signatures.
     pub fn public_key(&self) -> PublicKey {
         match self {
-            SecretKey::EcdsaSecp256k1(secret) => PublicKey::EcdsaSecp256k1(secret.verifying_key()),
+            SecretKey::EcdsaSecp256k1(secret) => PublicKey::EcdsaSecp256k1(*secret.verifying_key()),
             SecretKey::EcdsaRecoverableSecp256k1(secret) => {
-                PublicKey::EcdsaRecoverableSecp256k1(secret.verifying_key())
+                PublicKey::EcdsaRecoverableSecp256k1(*secret.verifying_key())
             }
-            SecretKey::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(secret.verifying_key()),
+            SecretKey::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(*secret.verifying_key()),
             SecretKey::Ed25519(secret) => PublicKey::Ed25519(secret.public),
             SecretKey::Sr25519(secret, _) => PublicKey::Sr25519(secret.public),
         }
@@ -121,8 +125,9 @@ impl SecretKey {
     pub fn sign(&self, msg: &[u8], context_param: &str) -> Signature {
         match self {
             SecretKey::EcdsaSecp256k1(secret) => Signature::EcdsaSecp256k1(secret.sign(msg)),
-            SecretKey::EcdsaRecoverableSecp256k1(secret) => {
-                Signature::EcdsaRecoverableSecp256k1(secret.sign(msg))
+            SecretKey::EcdsaRecoverableSecp256k1(_) => {
+                let digest = sha2::Sha256::digest(msg);
+                self.sign_prehashed(&digest).unwrap()
             }
             SecretKey::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign(msg)),
             SecretKey::Ed25519(secret) => Signature::Ed25519(secret.sign(msg)),
@@ -141,7 +146,10 @@ impl SecretKey {
                 Signature::EcdsaSecp256k1(secret.sign_prehash(hash)?)
             }
             SecretKey::EcdsaRecoverableSecp256k1(secret) => {
-                Signature::EcdsaRecoverableSecp256k1(secret.sign_prehash(hash)?)
+                let (sig, recid) = secret
+                    .as_nonzero_scalar()
+                    .try_sign_prehashed_rfc6979::<sha2::Sha256>(hash.try_into()?, b"")?;
+                Signature::EcdsaRecoverableSecp256k1(sig, recid.context("no recovery id")?)
             }
             SecretKey::EcdsaSecp256r1(secret) => {
                 Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?)
@@ -160,7 +168,7 @@ pub enum PublicKey {
     /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::VerifyingKey<k256::Secp256k1>),
     /// ECDSA with secp256k1 in Ethereum compatible format.
-    EcdsaRecoverableSecp256k1(k256::ecdsa::VerifyingKey),
+    EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey<k256::Secp256k1>),
     /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::VerifyingKey<p256::NistP256>),
     /// Ed25519.
@@ -187,9 +195,9 @@ impl PublicKey {
             Algorithm::EcdsaSecp256k1 => {
                 PublicKey::EcdsaSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             }
-            Algorithm::EcdsaRecoverableSecp256k1 => PublicKey::EcdsaRecoverableSecp256k1(
-                k256::ecdsa::VerifyingKey::from_sec1_bytes(bytes)?,
-            ),
+            Algorithm::EcdsaRecoverableSecp256k1 => {
+                PublicKey::EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+            }
             Algorithm::EcdsaSecp256r1 => {
                 PublicKey::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             }
@@ -207,7 +215,6 @@ impl PublicKey {
         match self {
             PublicKey::EcdsaSecp256k1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
             PublicKey::EcdsaRecoverableSecp256k1(public) => {
-                use ecdsa::elliptic_curve::sec1::ToEncodedPoint;
                 public.to_encoded_point(true).as_bytes().to_vec()
             }
             PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
@@ -221,7 +228,6 @@ impl PublicKey {
         match self {
             PublicKey::EcdsaSecp256k1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
             PublicKey::EcdsaRecoverableSecp256k1(public) => {
-                use ecdsa::elliptic_curve::sec1::ToEncodedPoint;
                 public.to_encoded_point(false).as_bytes().to_vec()
             }
             PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
@@ -238,7 +244,7 @@ impl PublicKey {
             }
             (
                 PublicKey::EcdsaRecoverableSecp256k1(public),
-                Signature::EcdsaRecoverableSecp256k1(sig),
+                Signature::EcdsaRecoverableSecp256k1(sig, _),
             ) => public.verify(msg, sig)?,
             (PublicKey::EcdsaSecp256r1(public), Signature::EcdsaSecp256r1(sig)) => {
                 public.verify(msg, sig)?
@@ -261,7 +267,7 @@ pub enum Signature {
     /// ECDSA with secp256k1.
     EcdsaSecp256k1(ecdsa::Signature<k256::Secp256k1>),
     /// ECDSA with secp256k1 in Ethereum compatible format.
-    EcdsaRecoverableSecp256k1(k256::ecdsa::recoverable::Signature),
+    EcdsaRecoverableSecp256k1(ecdsa::Signature<k256::Secp256k1>, RecoveryId),
     /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::Signature<p256::NistP256>),
     /// Ed25519.
@@ -275,7 +281,7 @@ impl Signature {
     pub fn algorithm(&self) -> Algorithm {
         match self {
             Signature::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
-            Signature::EcdsaRecoverableSecp256k1(_) => Algorithm::EcdsaRecoverableSecp256k1,
+            Signature::EcdsaRecoverableSecp256k1(_, _) => Algorithm::EcdsaRecoverableSecp256k1,
             Signature::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
             Signature::Ed25519(_) => Algorithm::Ed25519,
             Signature::Sr25519(_) => Algorithm::Sr25519,
@@ -286,13 +292,14 @@ impl Signature {
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => {
-                Signature::EcdsaSecp256k1(ecdsa::Signature::from_bytes(bytes)?)
+                Signature::EcdsaSecp256k1(ecdsa::Signature::try_from(bytes)?)
             }
             Algorithm::EcdsaRecoverableSecp256k1 => Signature::EcdsaRecoverableSecp256k1(
-                k256::ecdsa::recoverable::Signature::from_bytes(bytes)?,
+                ecdsa::Signature::try_from(&bytes[1..])?,
+                RecoveryId::from_byte(bytes[0]).context("invalid signature")?,
             ),
             Algorithm::EcdsaSecp256r1 => {
-                Signature::EcdsaSecp256r1(ecdsa::Signature::from_bytes(bytes)?)
+                Signature::EcdsaSecp256r1(ecdsa::Signature::try_from(bytes)?)
             }
             Algorithm::Ed25519 => Signature::Ed25519(ed25519_dalek::Signature::from_bytes(bytes)?),
             Algorithm::Sr25519 => {
@@ -307,7 +314,12 @@ impl Signature {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Signature::EcdsaSecp256k1(sig) => sig.to_vec(),
-            Signature::EcdsaRecoverableSecp256k1(sig) => sig.as_bytes().to_vec(),
+            Signature::EcdsaRecoverableSecp256k1(sig, recovery_id) => {
+                let mut bytes = Vec::with_capacity(65);
+                bytes.push(recovery_id.to_byte());
+                bytes.extend(sig.to_bytes());
+                bytes
+            }
             Signature::EcdsaSecp256r1(sig) => sig.to_vec(),
             Signature::Ed25519(sig) => sig.to_bytes().to_vec(),
             Signature::Sr25519(sig) => sig.to_bytes().to_vec(),
@@ -316,8 +328,9 @@ impl Signature {
 
     /// Returns the recovered public key if supported.
     pub fn recover(&self, msg: &[u8]) -> Result<Option<PublicKey>> {
-        if let Signature::EcdsaRecoverableSecp256k1(signature) = self {
-            let recovered_key = signature.recover_verifying_key(msg)?;
+        if let Signature::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
+            let recovered_key =
+                ecdsa::VerifyingKey::recover_from_msg(msg, signature, *recovery_id)?;
             Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))
         } else {
             Ok(None)
@@ -326,9 +339,9 @@ impl Signature {
 
     /// Returns the recovered public key if supported.
     pub fn recover_prehashed(&self, hash: &[u8]) -> Result<Option<PublicKey>> {
-        if let Signature::EcdsaRecoverableSecp256k1(signature) = self {
-            let hash: [u8; 32] = hash.try_into()?;
-            let recovered_key = signature.recover_verifying_key_from_digest_bytes(&hash.into())?;
+        if let Signature::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
+            let recovered_key =
+                ecdsa::VerifyingKey::recover_from_prehash(hash, signature, *recovery_id)?;
             Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))
         } else {
             Ok(None)

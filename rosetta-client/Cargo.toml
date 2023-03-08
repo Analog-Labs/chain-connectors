@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 dirs-next = "2.0.0"
-fraction = { version = "0.12.2", default-features = false, features = ["with-bigint", "with-decimal"] }
+fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3.26"
 getrandom = "0.2.8"
 hex = "0.4.3"
@@ -17,12 +17,12 @@ rosetta-config-polkadot = { version = "0.1.0", path = "../chains/polkadot/config
 rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
 rosetta-tx-ethereum = { version = "0.1.0", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.1.0", path = "../chains/polkadot/tx" }
-serde = "1.0.151"
-serde_json = "1.0.91"
+serde = "1.0.153"
+serde_json = "1.0.94"
 surf = { version = "2.3.2", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.8", features = ["js"] }
-js-sys = "0.3.60"
-wasm-bindgen = "0.2.83"
-web-sys = { version = "0.3.60", features = ["Storage", "Window"] }
+js-sys = "0.3.61"
+wasm-bindgen = "0.2.84"
+web-sys = { version = "0.3.61", features = ["Storage", "Window"] }

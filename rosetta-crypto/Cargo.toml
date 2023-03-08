@@ -4,22 +4,22 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 bech32 = "0.9.1"
 blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
-ecdsa = { version = "0.14.8", features = ["arithmetic"] }
+ecdsa = { version = "0.16.0", features = ["arithmetic"] }
 ed25519-dalek = "1.0.1"
 hex = "0.4.3"
 hmac = "0.12.1"
-k256 = { version = "0.11.6", features = ["keccak256"] }
-p256 = "0.11.1"
+k256 = "0.13.0"
+p256 = "0.13.0"
 ripemd = "0.1.3"
 rust-bip39 = "1.0.0"
 schnorrkel = "0.10.2"
 sha2 = "0.10.6"
 sha3 = "0.10.6"
-ss58-registry = "1.36.0"
+ss58-registry = "1.39.0"
 substrate-bip39 = "0.4.4"
 
 [dev-dependencies]

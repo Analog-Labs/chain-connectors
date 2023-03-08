@@ -37,7 +37,11 @@ impl SecretKey {
     fn tweak_add(&self, secret_key: &SecretKey) -> Result<Option<Self>> {
         use ecdsa::elliptic_curve::NonZeroScalar;
         match (self, secret_key) {
-            (SecretKey::EcdsaSecp256k1(secret), SecretKey::EcdsaSecp256k1(secret2)) => {
+            (SecretKey::EcdsaSecp256k1(secret), SecretKey::EcdsaSecp256k1(secret2))
+            | (
+                SecretKey::EcdsaRecoverableSecp256k1(secret),
+                SecretKey::EcdsaRecoverableSecp256k1(secret2),
+            ) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =
@@ -46,25 +50,6 @@ impl SecretKey {
                     Some(scalar) => Ok(Some(SecretKey::EcdsaSecp256k1(ecdsa::SigningKey::from(
                         scalar,
                     )))),
-                    None => Ok(None),
-                }
-            }
-            (
-                SecretKey::EcdsaRecoverableSecp256k1(secret),
-                SecretKey::EcdsaRecoverableSecp256k1(secret2),
-            ) => {
-                let secret =
-                    ecdsa::SigningKey::<k256::Secp256k1>::from_bytes(&secret.to_bytes()).unwrap();
-                let secret2 =
-                    ecdsa::SigningKey::<k256::Secp256k1>::from_bytes(&secret2.to_bytes()).unwrap();
-                let scalar = secret.as_nonzero_scalar().as_ref();
-                let tweak = secret2.as_nonzero_scalar().as_ref();
-                let scalar: Option<NonZeroScalar<_>> =
-                    Option::from(NonZeroScalar::new(scalar + tweak));
-                match scalar {
-                    Some(scalar) => Ok(Some(SecretKey::EcdsaRecoverableSecp256k1(
-                        k256::ecdsa::SigningKey::from(scalar),
-                    ))),
                     None => Ok(None),
                 }
             }
@@ -88,25 +73,16 @@ impl SecretKey {
 impl PublicKey {
     fn tweak_add(&self, tweak: [u8; 32]) -> Result<Option<Self>> {
         match self {
-            PublicKey::EcdsaSecp256k1(public) => Ok((|| {
-                let parent_key = k256::ProjectivePoint::from(public.as_affine());
-                let tweak = k256::NonZeroScalar::try_from(&tweak[..]).ok()?;
-                let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
-                tweak_point += parent_key;
-                let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
-                Some(PublicKey::EcdsaSecp256k1(public))
-            })()),
-            PublicKey::EcdsaRecoverableSecp256k1(public) => Ok((|| {
-                let public =
-                    ecdsa::VerifyingKey::<k256::Secp256k1>::from_sec1_bytes(&public.to_bytes())
-                        .unwrap();
-                let parent_key = k256::ProjectivePoint::from(public.as_affine());
-                let tweak = k256::NonZeroScalar::try_from(&tweak[..]).ok()?;
-                let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
-                tweak_point += parent_key;
-                let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
-                Some(PublicKey::EcdsaRecoverableSecp256k1(public.into()))
-            })()),
+            PublicKey::EcdsaSecp256k1(public) | PublicKey::EcdsaRecoverableSecp256k1(public) => {
+                Ok((|| {
+                    let parent_key = k256::ProjectivePoint::from(public.as_affine());
+                    let tweak = k256::NonZeroScalar::try_from(&tweak[..]).ok()?;
+                    let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
+                    tweak_point += parent_key;
+                    let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
+                    Some(PublicKey::EcdsaSecp256k1(public))
+                })())
+            }
             PublicKey::EcdsaSecp256r1(public) => Ok((|| {
                 let parent_key = p256::ProjectivePoint::from(public.as_affine());
                 let tweak = p256::NonZeroScalar::try_from(&tweak[..]).ok()?;
