@@ -1,8 +1,8 @@
 use anyhow::Result;
 use docker_api::conn::TtyChunk;
 use docker_api::opts::{
-    ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, LogsOpts, NetworkCreateOpts,
-    NetworkListOpts, PublishPort,
+    ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, LogsOpts,
+    NetworkCreateOpts, NetworkListOpts, PublishPort,
 };
 use docker_api::{Container, Docker, Network};
 use futures::stream::StreamExt;
@@ -58,8 +58,9 @@ impl Env {
     }
 
     pub async fn shutdown(&self) -> Result<()> {
-        self.connector.stop(None).await?;
-        self.node.stop(None).await?;
+        let opts = ContainerStopOpts::builder().build();
+        self.connector.stop(&opts).await?;
+        self.node.stop(&opts).await?;
         self.network.delete().await?;
         Ok(())
     }
@@ -133,7 +134,9 @@ impl EnvBuilder {
             {
                 let container = Container::new(self.docker.clone(), container.id.unwrap());
                 log::info!("stopping {}", name);
-                container.stop(None).await?;
+                container
+                    .stop(&ContainerStopOpts::builder().build())
+                    .await?;
                 container.delete().await.ok();
                 break;
             }

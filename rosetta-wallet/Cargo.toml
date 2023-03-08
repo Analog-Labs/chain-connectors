@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.68"
+anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["attributes"] }
-clap = { version = "4.0.29", features = ["derive"] }
+clap = { version = "4.1.8", features = ["derive"] }
 futures = "0.3.26"
 rosetta-client = { path = "../rosetta-client" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
