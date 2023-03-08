@@ -7,6 +7,34 @@ on:
 name: rosetta-wallet
 
 jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        components: rustfmt
+
+    - name: cargo fmt
+      run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Install rust toolchain
+      uses: hecrj/setup-rust-action@v1
+      with:
+        components: clippy
+
+    - name: cargo clippy
+      run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -30,35 +58,3 @@ jobs:
 
     - name: cargo test
       run: cargo test --all-features --workspace
-
-  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
-      with:
-        components: rustfmt
-
-    - name: cargo fmt
-      run: cargo fmt --all -- --check
-
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v3
-
-    - run: sudo apt-get update
-    - name: Install deps
-      run: sudo apt-get install libwebkit2gtk-4.0-dev libgtk-3-dev
-
-    - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
-      with:
-        components: clippy
-
-    - name: cargo clippy
-      run: cargo clippy --workspace --examples --tests --all-features -- -D warnings

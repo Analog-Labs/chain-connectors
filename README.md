@@ -8,10 +8,9 @@ response structs used by the client and server.
 - `rosetta-client`: client to interact with a rosetta server.
 - `rosetta-wallet`: command line interface built with the `rosetta-client`.
 - `rosetta-cli`: command line interface built with the `rosetta-client`.
-- `dioxus-wallet`: multichain mobile wallet
-- `rosetta-server-substrate`: rosetta implementation for substrate chains
-- `rosetta-server-polkadot`: rosetta implementation for polkadot using `rosetta-server-substrate`
-- `rosetta-indexer`: generic block indexer for a rosetta connector
+- `rosetta-server`: generic rosetta server implementation.
+- `rosetta-docker`: generic rosetta server testing infrastructure.
+- `chains`: chain specific client/server parts.
 
 ## Getting started
 
