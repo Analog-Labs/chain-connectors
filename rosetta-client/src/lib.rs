@@ -1,4 +1,6 @@
 //! Rosetta client.
+#![deny(missing_docs)]
+#![deny(warnings)]
 use crate::types::Amount;
 use anyhow::{Context, Result};
 use fraction::{BigDecimal, BigUint};
@@ -15,6 +17,7 @@ mod mnemonic;
 mod signer;
 mod wallet;
 
+/// Converts an amount to a human readable string.
 pub fn amount_to_string(amount: &Amount) -> Result<String> {
     let value = BigUint::parse_bytes(amount.value.as_bytes(), 10)
         .ok_or_else(|| anyhow::anyhow!("invalid amount {:?}", amount))?;
@@ -23,6 +26,10 @@ pub fn amount_to_string(amount: &Amount) -> Result<String> {
     Ok(format!("{:.256} {}", value, amount.currency.symbol))
 }
 
+/// Parses a string into an amount using the equation `amount * 10 ** decimals`.
+///
+/// Example:
+/// `string_to_amount("1.1", 10)` converts 1.1 dot into 11_000_000_000 planc.
 pub fn string_to_amount(amount: &str, decimals: u32) -> Result<u128> {
     let (amount, decimals): (u128, u32) = if let Some((main, rest)) = amount.split_once('.') {
         let decimals = decimals
@@ -39,6 +46,7 @@ pub fn string_to_amount(amount: &str, decimals: u32) -> Result<u128> {
         .context("u128 overflow")
 }
 
+/// Returns a blockchain config for a given blockchain and network.
 pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig> {
     match blockchain {
         "bitcoin" => rosetta_config_bitcoin::config(network),
@@ -48,12 +56,14 @@ pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig
     }
 }
 
+/// Returns a signer for a given keyfile.
 pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
     let store = MnemonicStore::new(_keyfile)?;
     let mnemonic = store.get_or_generate_mnemonic()?;
     Signer::new(&mnemonic, "")
 }
 
+/// Returns a client instance.
 pub async fn create_client(
     blockchain: Option<String>,
     network: Option<String>,
@@ -73,6 +83,7 @@ pub async fn create_client(
     Ok((config, client))
 }
 
+/// Returns a wallet instance.
 pub async fn create_wallet(
     blockchain: Option<String>,
     network: Option<String>,

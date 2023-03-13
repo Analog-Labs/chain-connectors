@@ -12,6 +12,7 @@ use wasm_bindgen::{JsCast, UnwrapThrowExt};
 #[cfg(target_family = "wasm")]
 use web_sys::Storage;
 
+/// Generates a mnemonic.
 pub fn generate_mnemonic() -> Result<Mnemonic> {
     let mut entropy = [0; 32];
     getrandom::getrandom(&mut entropy)?;
@@ -19,6 +20,10 @@ pub fn generate_mnemonic() -> Result<Mnemonic> {
     Ok(mnemonic)
 }
 
+/// Mnemonic storage backend.
+///
+/// On most platforms it will be backed by a file. On wasm it will be
+/// backed by local storage.
 pub struct MnemonicStore {
     #[cfg(not(target_family = "wasm"))]
     path: PathBuf,
@@ -27,12 +32,15 @@ pub struct MnemonicStore {
 }
 
 impl MnemonicStore {
+    /// Generates a new mnemonic and stores it.
     pub fn generate(&self) -> Result<Mnemonic> {
         let mnemonic = generate_mnemonic()?;
         self.set(&mnemonic)?;
         Ok(mnemonic)
     }
 
+    /// Gets a mnemonic if there is one or generates a new mnemonic
+    /// if the store is empty.
     pub fn get_or_generate_mnemonic(&self) -> Result<Mnemonic> {
         if self.exists() {
             self.get()
@@ -44,6 +52,7 @@ impl MnemonicStore {
 
 #[cfg(not(target_family = "wasm"))]
 impl MnemonicStore {
+    /// Creates a new mnemonic store optinally taking a path.
     pub fn new(path: Option<&Path>) -> Result<Self> {
         let path = if let Some(path) = path {
             path.into()
@@ -56,6 +65,7 @@ impl MnemonicStore {
         Ok(Self { path })
     }
 
+    /// Sets the stored mnemonic.
     pub fn set(&self, mnemonic: &Mnemonic) -> Result<()> {
         std::fs::create_dir_all(self.path.parent().unwrap())?;
         #[cfg(unix)]
@@ -69,12 +79,14 @@ impl MnemonicStore {
         Ok(())
     }
 
+    /// Returns the stored mnemonic.
     pub fn get(&self) -> Result<Mnemonic> {
         let mnemonic = std::fs::read_to_string(&self.path)?;
         let mnemonic = Mnemonic::parse_in(Language::English, mnemonic)?;
         Ok(mnemonic)
     }
 
+    /// Checks if a mnemonic is stored.
     pub fn exists(&self) -> bool {
         self.path.exists()
     }
@@ -82,6 +94,7 @@ impl MnemonicStore {
 
 #[cfg(target_family = "wasm")]
 impl MnemonicStore {
+    /// Creates a new mnemonic store optinally taking a path.
     pub fn new(_path: Option<&Path>) -> Result<Self> {
         let local_storage = web_sys::window()
             .expect_throw("no window")
@@ -91,6 +104,7 @@ impl MnemonicStore {
         Ok(Self { local_storage })
     }
 
+    /// Sets the stored mnemonic.
     pub fn set(&self, mnemonic: &Mnemonic) -> Result<()> {
         self.local_storage
             .set_item("mnemonic", &mnemonic.to_string())
@@ -102,6 +116,7 @@ impl MnemonicStore {
         Ok(())
     }
 
+    /// Returns the stored mnemonic.
     pub fn get(&self) -> Result<Mnemonic> {
         let mnemonic = self
             .local_storage
@@ -111,6 +126,7 @@ impl MnemonicStore {
         Ok(Mnemonic::parse_in(Language::English, &mnemonic)?)
     }
 
+    /// Checks if a mnemonic is stored.
     pub fn exists(&self) -> bool {
         self.local_storage
             .get_item("mnemonic")

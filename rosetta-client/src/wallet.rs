@@ -70,6 +70,7 @@ impl GenericTransactionBuilder {
     }
 }
 
+/// The wallet provides the main entry point to this crate.
 pub struct Wallet {
     config: BlockchainConfig,
     client: Client,
@@ -80,6 +81,7 @@ pub struct Wallet {
 }
 
 impl Wallet {
+    /// Creates a new wallet from a config, signer and client.
     pub fn new(config: BlockchainConfig, signer: &Signer, client: Client) -> Result<Self> {
         let tx = GenericTransactionBuilder::new(&config)?;
         let secret_key = if config.bip44 {
@@ -102,27 +104,33 @@ impl Wallet {
         })
     }
 
+    /// Returns the blockchain config.
     pub fn config(&self) -> &BlockchainConfig {
         &self.config
     }
 
+    /// Returns the rosetta client.
     pub fn client(&self) -> &Client {
         &self.client
     }
 
+    /// Returns the public key.
     pub fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
 
+    /// Returns the account identifier.
     pub fn account(&self) -> &AccountIdentifier {
         &self.account
     }
 
+    /// Returns the current block identifier.
     pub async fn status(&self) -> Result<BlockIdentifier> {
         let status = self.client.network_status(self.config.network()).await?;
         Ok(status.current_block_identifier)
     }
 
+    /// Returns the balance of the wallet.
     pub async fn balance(&self) -> Result<Amount> {
         let balance = self
             .client
@@ -136,6 +144,7 @@ impl Wallet {
         Ok(balance.balances[0].clone())
     }
 
+    /// Returns the coins of the wallet.
     pub async fn coins(&self) -> Result<Vec<Coin>> {
         let coins = self
             .client
@@ -149,6 +158,7 @@ impl Wallet {
         Ok(coins.coins)
     }
 
+    /// Returns the on chain metadata.
     pub async fn metadata(&self, metadata_params: serde_json::Value) -> Result<serde_json::Value> {
         let req = ConstructionMetadataRequest {
             network_identifier: self.config.network(),
@@ -159,6 +169,7 @@ impl Wallet {
         Ok(response.metadata)
     }
 
+    /// Submits a transaction and returns the transaction identifier.
     pub async fn submit(&self, transaction: &[u8]) -> Result<TransactionIdentifier> {
         let req = ConstructionSubmitRequest {
             network_identifier: self.config.network(),
@@ -168,6 +179,7 @@ impl Wallet {
         Ok(submit.transaction_identifier)
     }
 
+    /// Makes a transfer.
     pub async fn transfer(
         &self,
         account: &AccountIdentifier,
@@ -185,6 +197,7 @@ impl Wallet {
         self.submit(&transaction).await
     }
 
+    /// Makes a method call.
     pub async fn method_call(
         &self,
         account: &AccountIdentifier,
@@ -202,6 +215,7 @@ impl Wallet {
         self.submit(&transaction).await
     }
 
+    /// Uses the faucet on dev chains to seed the account with funds.
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<TransactionIdentifier> {
         let req = AccountFaucetRequest {
             network_identifier: self.config.network(),
@@ -212,6 +226,7 @@ impl Wallet {
         Ok(resp.transaction_identifier)
     }
 
+    /// Returns the transaction matching the transaction identifier.
     pub async fn transaction(&self, tx: TransactionIdentifier) -> Result<BlockTransaction> {
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network(),
@@ -233,6 +248,7 @@ impl Wallet {
         Ok(resp.transactions[0].clone())
     }
 
+    /// Returns a stream of transactions associated with the account.
     pub fn transactions(&self, limit: u16) -> TransactionStream {
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network(),
@@ -253,6 +269,7 @@ impl Wallet {
     }
 }
 
+/// A paged transaction stream.
 pub struct TransactionStream {
     client: Client,
     request: SearchTransactionsRequest,
@@ -262,7 +279,7 @@ pub struct TransactionStream {
 }
 
 impl TransactionStream {
-    pub fn new(client: Client, mut request: SearchTransactionsRequest) -> Self {
+    fn new(client: Client, mut request: SearchTransactionsRequest) -> Self {
         request.offset = Some(0);
         Self {
             client,
@@ -273,6 +290,7 @@ impl TransactionStream {
         }
     }
 
+    /// Returns the total number of transactions.
     pub fn total_count(&self) -> Option<i64> {
         self.total_count
     }

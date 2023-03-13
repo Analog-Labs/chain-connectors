@@ -8,6 +8,7 @@ use crate::crypto::{
 use crate::types::{AccountIdentifier, CurveType, PublicKey};
 use anyhow::Result;
 
+/// Signer derives keys from a mnemonic.
 pub struct Signer {
     secp256k1: DerivedSecretKey,
     secp256k1_recoverable: DerivedSecretKey,
@@ -17,6 +18,7 @@ pub struct Signer {
 }
 
 impl Signer {
+    /// Creates a new signer from a mnemonic and password.
     pub fn new(mnemonic: &Mnemonic, password: &str) -> Result<Self> {
         let secp256k1 = DerivedSecretKey::new(mnemonic, password, Algorithm::EcdsaSecp256k1)?;
         let secp256k1_recoverable =
@@ -33,11 +35,13 @@ impl Signer {
         })
     }
 
+    /// Creates a new ephemeral signer.
     pub fn generate() -> Result<Self> {
         let mnemonic = crate::mnemonic::generate_mnemonic()?;
         Self::new(&mnemonic, "")
     }
 
+    /// Derives a master key from a mnemonic.
     pub fn master_key(&self, algorithm: Algorithm) -> Result<&DerivedSecretKey> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => &self.secp256k1,
@@ -48,6 +52,7 @@ impl Signer {
         })
     }
 
+    /// Derives a bip44 key from a mnemonic.
     pub fn bip44_account(
         &self,
         algorithm: Algorithm,
@@ -61,7 +66,9 @@ impl Signer {
     }
 }
 
+/// Conversion trait for public keys.
 pub trait RosettaPublicKey {
+    /// Returns a rosetta public key.
     fn to_rosetta(&self) -> PublicKey;
 }
 
@@ -80,7 +87,9 @@ impl RosettaPublicKey for DerivedPublicKey {
     }
 }
 
+/// Conversion trait for account identifiers.
 pub trait RosettaAccount {
+    /// Returns a rosetta account identifier.
     fn to_rosetta(&self) -> AccountIdentifier;
 }
 
