@@ -537,6 +537,8 @@ pub mod tests {
         alice.transfer(bob.account(), value).await?;
         alice.transfer(bob.account(), value).await?;
 
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
         let mut stream = bob.transactions(1);
         let mut count = 0;
         while let Some(res) = stream.next().await {
