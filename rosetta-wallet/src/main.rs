@@ -172,7 +172,7 @@ async fn main() -> Result<()> {
 
 fn print_transaction_header() {
     println!(
-        "{: <10} | {: <20} | {: <20} | {: <50}",
+        "{: <8} | {: <40} | {: <25} | {: <50}",
         "Block", "Op", "Amount", "Account"
     );
 }
@@ -193,7 +193,7 @@ fn print_transaction(tx: &BlockTransaction) -> Result<()> {
             .map(|account| account.address.as_str())
             .unwrap_or_default();
         println!(
-            "{: <10} | {: <20} | {: <20} | {: <50}",
+            "{: <8} | {: <40} | {: >25} | {: <50}",
             block, name, amount, account
         );
     }

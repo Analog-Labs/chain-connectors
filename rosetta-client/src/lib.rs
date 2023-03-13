@@ -3,7 +3,7 @@
 #![deny(warnings)]
 use crate::types::Amount;
 use anyhow::{Context, Result};
-use fraction::{BigDecimal, BigUint};
+use fraction::{BigDecimal, BigInt};
 use std::path::Path;
 
 pub use crate::client::Client;
@@ -19,9 +19,9 @@ mod wallet;
 
 /// Converts an amount to a human readable string.
 pub fn amount_to_string(amount: &Amount) -> Result<String> {
-    let value = BigUint::parse_bytes(amount.value.as_bytes(), 10)
+    let value = BigInt::parse_bytes(amount.value.as_bytes(), 10)
         .ok_or_else(|| anyhow::anyhow!("invalid amount {:?}", amount))?;
-    let decimals = BigUint::pow(&10u32.into(), amount.currency.decimals);
+    let decimals = BigInt::pow(&10u32.into(), amount.currency.decimals);
     let value = BigDecimal::from(value) / BigDecimal::from(decimals);
     Ok(format!("{:.256} {}", value, amount.currency.symbol))
 }
