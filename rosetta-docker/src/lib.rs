@@ -4,7 +4,7 @@ use docker_api::opts::{
     ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, LogsOpts,
     NetworkCreateOpts, NetworkListOpts, PublishPort,
 };
-use docker_api::{Container, Docker, Network};
+use docker_api::{ApiVersion, Container, Docker, Network};
 use futures::stream::StreamExt;
 use rosetta_client::{Client, Signer, Wallet};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
@@ -73,10 +73,11 @@ struct EnvBuilder {
 
 impl EnvBuilder {
     pub fn new(prefix: &'static str) -> Result<Self> {
+        let version = ApiVersion::new(1, Some(41), None);
         #[cfg(unix)]
-        let docker = Docker::unix("/var/run/docker.sock");
+        let docker = Docker::unix_versioned("/var/run/docker.sock", version);
         #[cfg(not(unix))]
-        let docker = Docker::new("tcp://127.0.0.1:8080")?;
+        let docker = Docker::tcp_versioned("127.0.0.1:8080", version)?;
         Ok(Self { prefix, docker })
     }
 
