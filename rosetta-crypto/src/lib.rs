@@ -30,6 +30,13 @@ pub enum Algorithm {
     Sr25519,
 }
 
+impl Algorithm {
+    /// Returns true if the signer's public key is recoverable from the signature.
+    pub fn is_recoverable(&self) -> bool {
+        matches!(self, Algorithm::EcdsaRecoverableSecp256k1)
+    }
+}
+
 /// Secret key used for constructing signatures.
 pub enum SecretKey {
     /// ECDSA with secp256k1.
@@ -295,8 +302,8 @@ impl Signature {
                 Signature::EcdsaSecp256k1(ecdsa::Signature::try_from(bytes)?)
             }
             Algorithm::EcdsaRecoverableSecp256k1 => Signature::EcdsaRecoverableSecp256k1(
-                ecdsa::Signature::try_from(&bytes[1..])?,
-                RecoveryId::from_byte(bytes[0]).context("invalid signature")?,
+                ecdsa::Signature::try_from(&bytes[..64])?,
+                RecoveryId::from_byte(bytes[64]).context("invalid signature")?,
             ),
             Algorithm::EcdsaSecp256r1 => {
                 Signature::EcdsaSecp256r1(ecdsa::Signature::try_from(bytes)?)
@@ -316,8 +323,8 @@ impl Signature {
             Signature::EcdsaSecp256k1(sig) => sig.to_vec(),
             Signature::EcdsaRecoverableSecp256k1(sig, recovery_id) => {
                 let mut bytes = Vec::with_capacity(65);
-                bytes.push(recovery_id.to_byte());
                 bytes.extend(sig.to_bytes());
+                bytes.push(recovery_id.to_byte());
                 bytes
             }
             Signature::EcdsaSecp256r1(sig) => sig.to_vec(),

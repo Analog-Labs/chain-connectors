@@ -46,12 +46,15 @@ impl SecretKey {
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =
                     Option::from(NonZeroScalar::new(scalar + tweak));
-                match scalar {
-                    Some(scalar) => Ok(Some(SecretKey::EcdsaSecp256k1(ecdsa::SigningKey::from(
-                        scalar,
-                    )))),
-                    None => Ok(None),
-                }
+                let signing_key = match scalar {
+                    Some(scalar) => ecdsa::SigningKey::from(scalar),
+                    None => return Ok(None),
+                };
+                Ok(Some(if self.algorithm().is_recoverable() {
+                    SecretKey::EcdsaRecoverableSecp256k1(signing_key)
+                } else {
+                    SecretKey::EcdsaSecp256k1(signing_key)
+                }))
             }
             (SecretKey::EcdsaSecp256r1(secret), SecretKey::EcdsaSecp256r1(secret2)) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
@@ -80,7 +83,11 @@ impl PublicKey {
                     let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
                     tweak_point += parent_key;
                     let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
-                    Some(PublicKey::EcdsaSecp256k1(public))
+                    Some(if self.algorithm().is_recoverable() {
+                        PublicKey::EcdsaRecoverableSecp256k1(public)
+                    } else {
+                        PublicKey::EcdsaSecp256k1(public)
+                    })
                 })())
             }
             PublicKey::EcdsaSecp256r1(public) => Ok((|| {
