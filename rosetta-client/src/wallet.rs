@@ -198,11 +198,7 @@ impl Wallet {
     }
 
     /// Makes a method call.
-    pub async fn method_call(
-        &self,
-        method: &str,
-        params: Value,
-    ) -> Result<TransactionIdentifier> {
+    pub async fn method_call(&self, method: &str, params: Value) -> Result<TransactionIdentifier> {
         let metadata_params = self.tx.method_call(method, &params)?;
         let metadata = self.metadata(metadata_params.clone()).await?;
         let transaction = self.tx.create_and_sign(
