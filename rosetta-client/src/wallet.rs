@@ -39,7 +39,7 @@ impl GenericTransactionBuilder {
 
     pub fn method_call(
         &self,
-        method: &Address,
+        method: &str,
         params: &serde_json::Value,
     ) -> Result<serde_json::Value> {
         Ok(match self {
@@ -200,11 +200,10 @@ impl Wallet {
     /// Makes a method call.
     pub async fn method_call(
         &self,
-        account: &AccountIdentifier,
+        method: &str,
         params: Value,
     ) -> Result<TransactionIdentifier> {
-        let address = Address::new(self.config.address_format, account.address.clone());
-        let metadata_params = self.tx.method_call(&address, &params)?;
+        let metadata_params = self.tx.method_call(method, &params)?;
         let metadata = self.metadata(metadata_params.clone()).await?;
         let transaction = self.tx.create_and_sign(
             &self.config,
