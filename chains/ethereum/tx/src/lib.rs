@@ -26,13 +26,15 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         })
     }
 
-    fn method_call(&self, address: &Address, params: &Value) -> Result<Self::MetadataParams> {
-        let destination: H160 = address.address().parse()?;
+    fn method_call(&self, method: &str, params: &Value) -> Result<Self::MetadataParams> {
+        let method_params = method.split("-").collect::<Vec<_>>();
 
-        let method_str = params["method_signature"]
-            .as_str()
-            .context("Method signature not found")?;
-        let function_params = params["params"].as_array().context("Params not found")?;
+        let contract_address = method_params[0];
+        let method_str = method_params[1];
+
+        let destination: H160 = contract_address.parse()?;
+
+        let function_params = params.as_array().context("Params must be an array")?;
 
         let function = parse_method(method_str)?;
 

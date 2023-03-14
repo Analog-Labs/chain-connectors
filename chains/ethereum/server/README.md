@@ -69,9 +69,9 @@ It takes transaction bytes which is signed transaction bytes and it Submits sign
 This function takes `CallRequest` which contains `method` and `parameters` and returns value returned by function or value stored at specific position in storage or proof of value stored at specific position in storage.
 
 `method`: its a string containing 3 values separated by `-` (dash). <br/>
-    1. `contract_address`: This is the name of the contract.
-    2. `method_signature` in case of contract call or `position` in case of storage call.
-    3. `call_type`: This is the type of call. It can be `call`, `storage` or `storage_proof`.
+    1. `contract_address`: This is the name of the contract. <br/>
+    2. `method_signature` in case of contract call or `position` in case of storage call. <br/>
+    3. `call_type`: This is the type of call. It can be `call`, `storage` or `storage_proof`. <br/>
 
 `parameters`: It takes additional parameter needed for call or storage call. In case of storage call or storage_proof call user can pass `block_number`.
 

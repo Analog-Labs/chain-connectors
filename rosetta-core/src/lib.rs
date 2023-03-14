@@ -122,7 +122,7 @@ pub trait TransactionBuilder: Default + Sized {
 
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams>;
 
-    fn method_call(&self, address: &Address, values: &Value) -> Result<Self::MetadataParams>;
+    fn method_call(&self, method: &str, values: &Value) -> Result<Self::MetadataParams>;
 
     fn create_and_sign(
         &self,

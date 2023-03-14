@@ -11,8 +11,8 @@ This project is used to build transactions for ethereum chains.
 
 ### `method_call`:
     Creates `EthereumMetadataParams` for contract calls. It takes 
-    `address`: address of contract we want to call.
-    `params`: array of json_value with contract method params in string types.
+    `method`: this is a string contraining contract address and method signature with `-` seperation.
+    `params`: array of json_value with params taken by contract methods in string format.
 
     It returns `EthereumMetadataParams` with `data` field set to the encoded contract call params.
 

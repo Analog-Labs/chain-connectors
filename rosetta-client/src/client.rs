@@ -12,6 +12,7 @@ use crate::types::{
     SearchTransactionsResponse, TransactionIdentifierResponse,
 };
 use anyhow::Result;
+use rosetta_core::types::{CallRequest, CallResponse};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// The client struct to interface with a rosetta endpoint.
@@ -134,6 +135,11 @@ impl Client {
         request: &MempoolTransactionRequest,
     ) -> Result<MempoolTransactionResponse> {
         self.post("/mempool/transaction", &request).await
+    }
+
+    /// Make a call to the /call endpoint.
+    pub async fn call(&self, request: &CallRequest) -> Result<CallResponse> {
+        self.post("/call", &request).await
     }
 
     /// Make a call to the /construction/combine endpoint.

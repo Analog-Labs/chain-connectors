@@ -49,8 +49,7 @@ pub struct TransactionOpts {
 
 #[derive(Parser)]
 pub struct MethodCallOpts {
-    pub address: String,
-    pub method_signature: String,
+    pub method: String,
     #[clap(value_delimiter = ' ')]
     pub params: Vec<String>,
 }
@@ -148,22 +147,9 @@ async fn main() -> Result<()> {
                 println!("No transactions found");
             }
         }
-        Command::MethodCall(MethodCallOpts {
-            address,
-            method_signature,
-            params,
-        }) => {
-            let acc_identifier = AccountIdentifier {
-                address,
-                sub_account: None,
-                metadata: None,
-            };
-            let params = json!({
-                "method_signature": method_signature,
-                "params": params
-            });
-
-            let tx = wallet.method_call(&acc_identifier, params).await?;
+        Command::MethodCall(MethodCallOpts { method, params }) => {
+            let params = json!(params);
+            let tx = wallet.method_call(&method, params).await?;
             println!("Transaction hash: {:?}", tx.hash);
         }
     }
