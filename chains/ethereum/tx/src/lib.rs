@@ -27,7 +27,7 @@ impl TransactionBuilder for EthereumTransactionBuilder {
     }
 
     fn method_call(&self, method: &str, params: &Value) -> Result<Self::MetadataParams> {
-        let method_params = method.split("-").collect::<Vec<_>>();
+        let method_params = method.split('-').collect::<Vec<_>>();
 
         let contract_address = method_params[0];
         let method_str = method_params[1];
