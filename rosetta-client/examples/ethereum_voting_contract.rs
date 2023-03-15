@@ -8,8 +8,8 @@ use serde_json::json;
 #[tokio::main]
 async fn main() {
     let contract_address = "0xc3c2640cfda6cafabb33da7ac1609a0fb4c53afe";
-    rosetta_wallet_methods(&contract_address).await;
-    rosetta_client_methods(&contract_address).await;
+    rosetta_wallet_methods(contract_address).await;
+    rosetta_client_methods(contract_address).await;
 }
 
 async fn rosetta_wallet_methods(contract_address: &str) {
