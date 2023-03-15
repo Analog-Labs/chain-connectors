@@ -4,7 +4,6 @@ use rosetta_client::{
     Client, Wallet,
 };
 use serde_json::json;
-use tokio;
 
 #[tokio::main]
 async fn main() {
