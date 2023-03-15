@@ -11,8 +11,9 @@ use tokio;
 
 #[tokio::main]
 async fn main() {
-    rosetta_wallet_methods().await;
-    rosetta_client_methods().await;
+    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
+    rosetta_wallet_methods(contract_address).await;
+    rosetta_client_methods(contract_address).await;
 }
 
 /// Wallet methods
@@ -23,7 +24,7 @@ async fn main() {
 /// 5. transfer_call
 /// 6. method_call
 
-async fn rosetta_wallet_methods() {
+async fn rosetta_wallet_methods(contract_address: &str) {
     let wallet = create_wallet(
         Some("ethereum".to_owned()),
         Some("dev".to_owned()),
@@ -38,7 +39,7 @@ async fn rosetta_wallet_methods() {
     faucet(&wallet).await;
     balance(&wallet).await;
     transfer_call(&wallet).await;
-    method_call(&wallet).await;
+    method_call(&wallet, contract_address).await;
 }
 
 fn account(wallet: &Wallet) {
@@ -81,9 +82,8 @@ async fn transfer_call(wallet: &Wallet) {
     println!("{:?}", wallet.balance().await);
 }
 
-async fn method_call(wallet: &Wallet) {
+async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("method call ==================");
-    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
     let function_signature = "function changeOwner(address newOwner)";
     let method_params = format!("{}-{}", contract_address, function_signature);
     println!(
@@ -91,6 +91,7 @@ async fn method_call(wallet: &Wallet) {
         wallet
             .method_call(
                 &method_params,
+                //your eth.coinbase account to transfer ownership to it
                 json!(["0x166aae20169fe6e4c79fd5f060a9c6306f09d8e0"])
             )
             .await
@@ -105,7 +106,7 @@ async fn method_call(wallet: &Wallet) {
 /// 3. contract_call
 /// 4. storage
 /// 5. storage_proof
-async fn rosetta_client_methods() {
+async fn rosetta_client_methods(contract_address: &str) {
     let server_url = "http://127.0.0.1:8081";
     let client = Client::new(server_url).unwrap();
     let network_identifier = NetworkIdentifier {
@@ -116,9 +117,9 @@ async fn rosetta_client_methods() {
 
     block(&client, network_identifier.clone()).await;
     block_transaction(&client, network_identifier.clone()).await;
-    contract_call(&client, network_identifier.clone()).await;
-    storage(&client, network_identifier.clone()).await;
-    stroage_proof(&client, network_identifier.clone()).await;
+    contract_call(&client, network_identifier.clone(), contract_address).await;
+    storage(&client, network_identifier.clone(), contract_address).await;
+    stroage_proof(&client, network_identifier.clone(), contract_address).await;
 }
 
 async fn block(client: &Client, network_identifier: NetworkIdentifier) {
@@ -148,8 +149,11 @@ async fn block_transaction(client: &Client, network_identifier: NetworkIdentifie
     println!("block transaction response {:#?}\n", response);
 }
 
-async fn contract_call(client: &Client, network_identifier: NetworkIdentifier) {
-    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
+async fn contract_call(
+    client: &Client,
+    network_identifier: NetworkIdentifier,
+    contract_address: &str,
+) {
     let method_signature = "function getOwner() external view returns (address)";
     let call_type = "call";
 
@@ -163,8 +167,7 @@ async fn contract_call(client: &Client, network_identifier: NetworkIdentifier) {
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage(client: &Client, network_identifier: NetworkIdentifier) {
-    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
+async fn storage(client: &Client, network_identifier: NetworkIdentifier, contract_address: &str) {
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage";
 
@@ -178,8 +181,11 @@ async fn storage(client: &Client, network_identifier: NetworkIdentifier) {
     println!("storage response {:#?}", response);
 }
 
-async fn stroage_proof(client: &Client, network_identifier: NetworkIdentifier) {
-    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
+async fn stroage_proof(
+    client: &Client,
+    network_identifier: NetworkIdentifier,
+    contract_address: &str,
+) {
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage_proof";
 
