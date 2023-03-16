@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
+clap = "4.1.8"
 dirs-next = "2.0.0"
 fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3.26"

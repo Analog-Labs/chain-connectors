@@ -10,6 +10,7 @@ pub use crate::client::Client;
 pub use crate::mnemonic::{generate_mnemonic, MnemonicStore};
 pub use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 pub use crate::wallet::Wallet;
+pub use crate::wallet::EthereumExt;
 pub use rosetta_core::{crypto, types, BlockchainConfig, TransactionBuilder};
 
 mod client;

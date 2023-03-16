@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use ethers::abi::token::{LenientTokenizer, Tokenizer};
 use ethers::abi::{Abi, Function, HumanReadableParser, Param, Token};
-use ethers_core::types::{Eip1559TransactionRequest, Signature, H160, U256};
+use ethers_core::types::{Eip1559TransactionRequest, NameOrAddress, Signature, H160, U256};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_core::crypto::address::Address;
 use rosetta_core::crypto::SecretKey;
@@ -62,10 +62,14 @@ impl TransactionBuilder for EthereumTransactionBuilder {
             .address()
             .parse()
             .unwrap();
-        let to = H160::from_slice(&metadata_params.destination);
+        let to: Option<NameOrAddress> = if metadata_params.destination.len() >= 20 {
+            Some(H160::from_slice(&metadata_params.destination).into())
+        } else {
+            None
+        };
         let tx = Eip1559TransactionRequest {
             from: Some(from),
-            to: Some(to.into()),
+            to,
             gas: Some(U256(metadata.gas_limit)),
             value: Some(U256(metadata_params.amount)),
             data: Some(metadata_params.data.clone().into()),
@@ -89,6 +93,14 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         tx.push(0x02);
         tx.extend(rlp);
         tx
+    }
+
+    fn deploy_contract(&self, contract_binary: &[u8]) -> Result<Self::MetadataParams> {
+        Ok(EthereumMetadataParams {
+            destination: vec![],
+            amount: [0, 0, 0, 0],
+            data: contract_binary.to_vec(),
+        })
     }
 }
 

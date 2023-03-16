@@ -124,6 +124,8 @@ pub trait TransactionBuilder: Default + Sized {
 
     fn method_call(&self, method: &str, values: &Value) -> Result<Self::MetadataParams>;
 
+    fn deploy_contract(&self, contract_binary: &[u8]) -> Result<Self::MetadataParams>;
+
     fn create_and_sign(
         &self,
         config: &BlockchainConfig,
