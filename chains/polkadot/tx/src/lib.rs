@@ -168,4 +168,8 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         transaction.extend(encoded);
         transaction
     }
+
+    fn deploy_contract(&self, _contract_binary: &[u8]) -> Result<Self::MetadataParams> {
+        bail!("Not Implemented")
+    }
 }

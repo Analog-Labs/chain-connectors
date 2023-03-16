@@ -121,16 +121,22 @@ impl BlockchainClient for EthereumClient {
             .to_address(self.config().address_format)
             .address()
             .parse()?;
-        let to = H160::from_slice(&options.destination);
+        let to: Option<NameOrAddress> = if options.destination.len() >= 20 {
+            Some(H160::from_slice(&options.destination).into())
+        } else {
+            None
+        };
         let chain_id = self.client.get_chainid().await?;
         let nonce = self.client.get_transaction_count(from, None).await?;
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             self.client.estimate_eip1559_fees(None).await?;
-        let tx = Eip1559TransactionRequest::new()
-            .from(from)
-            .to(to)
-            .value(U256(options.amount))
-            .data(options.data.clone());
+        let tx = Eip1559TransactionRequest {
+            from: Some(from),
+            to,
+            value: Some(U256(options.amount)),
+            data: Some(options.data.clone().into()),
+            ..Default::default()
+        };
         let gas_limit = self.client.estimate_gas(&tx.into(), None).await?;
         Ok(EthereumMetadata {
             chain_id: chain_id.as_u64(),
@@ -285,6 +291,12 @@ impl BlockchainClient for EthereumClient {
                     "proof": result,
                     "isValid": is_valid
                 }));
+            }
+            "transaction_receipt" => {
+                let tx_hash = H256::from_str(contract_address)?;
+                let receipt = self.client.get_transaction_receipt(tx_hash).await?;
+                let result = serde_json::to_value(&receipt)?;
+                return Ok(result);
             }
             _ => {
                 bail!("request type not supported")

@@ -1,10 +1,7 @@
 use rosetta_client::{
     create_wallet,
-    types::{
-        AccountIdentifier, BlockIdentifier, BlockRequest, BlockTransactionRequest, CallRequest,
-        NetworkIdentifier, PartialBlockIdentifier, TransactionIdentifier,
-    },
-    Client, Wallet,
+    types::{AccountIdentifier, BlockIdentifier, PartialBlockIdentifier, TransactionIdentifier},
+    Wallet,
 };
 use serde_json::json;
 
@@ -12,7 +9,6 @@ use serde_json::json;
 async fn main() {
     let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
     rosetta_wallet_methods(contract_address).await;
-    rosetta_client_methods(contract_address).await;
 }
 
 /// Wallet methods
@@ -105,97 +101,68 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
 /// 3. contract_call
 /// 4. storage
 /// 5. storage_proof
-async fn rosetta_client_methods(contract_address: &str) {
-    let server_url = "http://127.0.0.1:8081";
-    let client = Client::new(server_url).unwrap();
-    let network_identifier = NetworkIdentifier {
-        blockchain: "ethereum".to_owned(),
-        network: "dev".to_owned(),
-        sub_network_identifier: None,
-    };
+// async fn rosetta_client_methods(contract_address: &str) {
+//     let server_url = "http://127.0.0.1:8081";
+//     let client = Client::new(server_url).unwrap();
+//     let network_identifier = NetworkIdentifier {
+//         blockchain: "ethereum".to_owned(),
+//         network: "dev".to_owned(),
+//         sub_network_identifier: None,
+//     };
 
-    block(&client, network_identifier.clone()).await;
-    block_transaction(&client, network_identifier.clone()).await;
-    contract_call(&client, network_identifier.clone(), contract_address).await;
-    storage(&client, network_identifier.clone(), contract_address).await;
-    stroage_proof(&client, network_identifier.clone(), contract_address).await;
-}
+//     block(&client, network_identifier.clone()).await;
+//     block_transaction(&client, network_identifier.clone()).await;
+//     contract_call(&client, network_identifier.clone(), contract_address).await;
+//     storage(&client, network_identifier.clone(), contract_address).await;
+//     stroage_proof(&client, network_identifier.clone(), contract_address).await;
+// }
 
-async fn block(client: &Client, network_identifier: NetworkIdentifier) {
-    let request = BlockRequest {
-        network_identifier,
-        block_identifier: PartialBlockIdentifier {
-            index: Some(1),
-            hash: None,
-        },
+async fn block(wallet: &Wallet) {
+    let block_identifier = PartialBlockIdentifier {
+        index: Some(1),
+        hash: None,
     };
-    let response = client.block(&request).await;
+    let response = wallet.block(block_identifier).await;
     println!("block response {:#?}\n", response);
 }
 
-async fn block_transaction(client: &Client, network_identifier: NetworkIdentifier) {
-    let request = BlockTransactionRequest {
-        network_identifier,
-        block_identifier: BlockIdentifier {
-            index: 1,
-            hash: "d3d376808a1fa60f88845ef6c3c548b232bca9b7ab0a7caf0b757249f667a17d".to_owned(),
-        },
-        transaction_identifier: TransactionIdentifier {
-            hash: "1712954814870eaf10405a475673eb53ccbb11d04cb4b26a433ac7e343b75db7".to_owned(),
-        },
+async fn block_transaction(wallet: &Wallet) {
+    let block_identifier = BlockIdentifier {
+        index: 1,
+        hash: "d3d376808a1fa60f88845ef6c3c548b232bca9b7ab0a7caf0b757249f667a17d".to_owned(),
     };
-    let response = client.block_transaction(&request).await;
+    let transaction_identifier = TransactionIdentifier {
+        hash: "1712954814870eaf10405a475673eb53ccbb11d04cb4b26a433ac7e343b75db7".to_owned(),
+    };
+    let response = wallet
+        .block_transaction(block_identifier, transaction_identifier)
+        .await;
     println!("block transaction response {:#?}\n", response);
 }
 
-async fn contract_call(
-    client: &Client,
-    network_identifier: NetworkIdentifier,
-    contract_address: &str,
-) {
+async fn contract_call(wallet: &Wallet, contract_address: &str) {
     let method_signature = "function getOwner() external view returns (address)";
     let call_type = "call";
-
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-    let request = CallRequest {
-        network_identifier,
-        method,
-        parameters: json!({}),
-    };
-    let response = client.call(&request).await;
+
+    let response = wallet.call(method, &json!({})).await;
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage(client: &Client, network_identifier: NetworkIdentifier, contract_address: &str) {
+async fn storage(wallet: &Wallet, contract_address: &str) {
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage";
 
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-    let request = CallRequest {
-        network_identifier,
-        method,
-        parameters: json!({}),
-    };
-    let response = client.call(&request).await;
+    let response = wallet.call(method, &json!({})).await;
     println!("storage response {:#?}", response);
 }
 
-async fn stroage_proof(
-    client: &Client,
-    network_identifier: NetworkIdentifier,
-    contract_address: &str,
-) {
+async fn stroage_proof(wallet: &Wallet, contract_address: &str) {
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage_proof";
 
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-
-    let request = CallRequest {
-        network_identifier,
-        method,
-        parameters: json!({}),
-    };
-
-    let response = client.call(&request).await;
+    let response = wallet.call(method, &json!({})).await;
     println!("storage proof response {:#?}", response);
 }

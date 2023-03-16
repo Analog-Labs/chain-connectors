@@ -12,9 +12,14 @@ use crate::types::{
 use crate::{BlockchainConfig, Client, TransactionBuilder};
 use anyhow::Result;
 use futures::{Future, Stream};
-use serde_json::Value;
+use rosetta_core::types::{
+    BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse, CallRequest,
+    CallResponse, PartialBlockIdentifier,
+};
+use serde_json::{json, Value};
 use std::pin::Pin;
 use std::task::{Context, Poll};
+use surf::utils::async_trait;
 
 pub enum GenericTransactionBuilder {
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
@@ -144,6 +149,44 @@ impl Wallet {
         Ok(balance.balances[0].clone())
     }
 
+    /// Returns blokck data
+    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<BlockResponse> {
+        let req = BlockRequest {
+            network_identifier: self.config.network(),
+            block_identifier: data,
+        };
+        let block = self.client.block(&req).await?;
+        Ok(block)
+    }
+
+    /// Returns transactions included in a block
+    pub async fn block_transaction(
+        &self,
+        block_identifer: BlockIdentifier,
+        tx_identifier: TransactionIdentifier
+    ) -> Result<BlockTransactionResponse> {
+        let req = BlockTransactionRequest {
+            network_identifier: self.config.network(),
+            block_identifier: block_identifer,
+            transaction_identifier: tx_identifier,
+        };
+        let block = self.client.block_transaction(&req).await?;
+        Ok(block)
+    }
+
+    /// Extension of rosetta-api does multiple things
+    /// 1. fetching storage
+    /// 2. calling extrinsic/contract
+    pub async fn call(&self, method: String, params: &serde_json::Value) -> Result<CallResponse> {
+        let req = CallRequest {
+            network_identifier: self.config.network(),
+            method,
+            parameters: params.clone(),
+        };
+        let response = self.client.call(&req).await?;
+        Ok(response)
+    }
+
     /// Returns the coins of the wallet.
     pub async fn coins(&self) -> Result<Vec<Coin>> {
         let coins = self
@@ -261,6 +304,36 @@ impl Wallet {
             success: None,
         };
         TransactionStream::new(self.client.clone(), req)
+    }
+}
+
+/// Extension trait for the wallet. for ethereum chain
+#[async_trait]
+pub trait EthereumExt {
+    /// deploys contract to chain
+    async fn deploy_contract(&self, bytecode: Vec<u8>) -> Result<TransactionIdentifier>;
+}
+
+#[async_trait]
+impl EthereumExt for Wallet {
+    async fn deploy_contract(&self, bytecode: Vec<u8>) -> Result<TransactionIdentifier>{
+        let metadata_params = json!({
+            "destination": [],
+            "amount": [0,0,0,0],
+            "data": bytecode
+        });
+
+        let metadata = self.metadata(metadata_params.clone()).await;
+        // println!("{:?}", metadata);
+        let metadata = metadata?;
+
+        let transaction = self.tx.create_and_sign(
+            &self.config,
+            metadata_params,
+            metadata,
+            self.secret_key.secret_key(),
+        );
+        self.submit(&transaction).await
     }
 }
 
