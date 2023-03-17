@@ -26,7 +26,7 @@ __Running voting_contract example__
 `cargo run --example voting_contract vote --contract-address "0x678ea0447843f69805146c521afcbcc07d6e28a2" -v`
 To vote for no run 
 `cargo run --example voting_contract vote --contract-address "0x678ea0447843f69805146c521afcbcc07d6e28a2"`
-you will get `CallResponse` as output containing n array first uint is total of `yes` votes and second for `no` votes.
+you will get `CallResponse` as output containing n array first uint is total of `yes` votes and second for `no` votes in contract.
 
 
 __Running ethereum example__
