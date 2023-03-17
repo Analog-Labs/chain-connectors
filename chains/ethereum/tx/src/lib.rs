@@ -49,6 +49,14 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         })
     }
 
+    fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<Self::MetadataParams> {
+        Ok(EthereumMetadataParams {
+            destination: vec![],
+            amount: [0, 0, 0, 0],
+            data: contract_binary,
+        })
+    }
+
     fn create_and_sign(
         &self,
         config: &BlockchainConfig,
@@ -93,14 +101,6 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         tx.push(0x02);
         tx.extend(rlp);
         tx
-    }
-
-    fn deploy_contract(&self, contract_binary: &[u8]) -> Result<Self::MetadataParams> {
-        Ok(EthereumMetadataParams {
-            destination: vec![],
-            amount: [0, 0, 0, 0],
-            data: contract_binary.to_vec(),
-        })
     }
 }
 
