@@ -1,7 +1,5 @@
 # Rosetta SDK Documentation
-The Rosetta SDK is a Rust-based package that implements Coinbase’s [Rosetta API](https://www.rosetta-api.org/docs/welcome.html) specifications. The goal of Rosetta API is to make blockchain interaction simpler, faster, and more reliable than using native integration efforts.
-
-This repo provides a framework for Analog’s connectors — special nodes hosted by time node operators — to simplify their interactions with Analog-connected chains in a manner compliant with the Analog Network’s protocol. 
+The Rosetta SDK is a Rust-based package that implements Coinbase’s [Rosetta API](https://www.rosetta-api.org/docs/welcome.html) specifications. This repo provides a framework for Analog’s connectors — special nodes hosted by time node operators — to simplify their interactions with Analog-connected chains in a manner compliant with the Analog Network’s protocol. 
 
 
 ## Repository structure
