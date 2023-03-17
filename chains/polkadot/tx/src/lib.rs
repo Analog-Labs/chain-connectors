@@ -169,7 +169,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         transaction
     }
 
-    fn deploy_contract(&self, _contract_binary: &[u8]) -> Result<Self::MetadataParams> {
+    fn deploy_contract(&self, _contract_binary: Vec<u8>) -> Result<Self::MetadataParams> {
         bail!("Not Implemented")
     }
 }

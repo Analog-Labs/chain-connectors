@@ -1,14 +1,22 @@
+use clap::Parser;
 use rosetta_client::{
     create_wallet,
-    types::{AccountIdentifier, BlockIdentifier, PartialBlockIdentifier, TransactionIdentifier},
+    types::{AccountIdentifier, BlockResponse, PartialBlockIdentifier},
     Wallet,
 };
 use serde_json::json;
 
+#[derive(Parser)]
+struct EthereumOpts {
+    #[clap(long, short)]
+    contract_address: String,
+}
+
+// cargo run --example voting_contract vote --contract-address "0x678ea0447843f69805146c521afcbcc07d6e28a2"
 #[tokio::main]
 async fn main() {
-    let contract_address = "0xb38dfb93a3da0f56736a0ce020bc28c141ca09bc";
-    rosetta_wallet_methods(contract_address).await;
+    let opts = EthereumOpts::parse();
+    rosetta_wallet_methods(&opts.contract_address).await;
 }
 
 /// Wallet methods
@@ -18,7 +26,11 @@ async fn main() {
 /// 4. balance
 /// 5. transfer_call
 /// 6. method_call
-
+/// 7. block
+/// 8. block_transaction
+/// 9. call
+/// 10. storage
+/// 11. storage_proof
 async fn rosetta_wallet_methods(contract_address: &str) {
     let wallet = create_wallet(
         Some("ethereum".to_owned()),
@@ -34,7 +46,13 @@ async fn rosetta_wallet_methods(contract_address: &str) {
     faucet(&wallet).await;
     balance(&wallet).await;
     transfer_call(&wallet).await;
+    let block_response = block(&wallet).await;
+    block_transaction(&wallet, block_response).await;
     method_call(&wallet, contract_address).await;
+    contract_call(&wallet, contract_address).await;
+    storage_yes_votes(&wallet, contract_address).await;
+    storage_no_votes(&wallet, contract_address).await;
+    stroage_proof(&wallet, contract_address).await;
 }
 
 fn account(wallet: &Wallet) {
@@ -49,7 +67,7 @@ async fn network_status(wallet: &Wallet) {
 
 async fn faucet(wallet: &Wallet) {
     println!("faucet ==================");
-    println!("{:?}", wallet.faucet(1000000000000).await);
+    println!("{:?}", wallet.faucet(1000000000000000).await);
 }
 
 async fn balance(wallet: &Wallet) {
@@ -77,17 +95,47 @@ async fn transfer_call(wallet: &Wallet) {
     println!("{:?}", wallet.balance().await);
 }
 
+async fn block(wallet: &Wallet) -> BlockResponse {
+    //getting latest block data
+    let network_status = wallet.status().await.unwrap();
+
+    let block_identifier = PartialBlockIdentifier {
+        index: Some(network_status.index),
+        hash: None,
+    };
+    let response = wallet.block(block_identifier).await.unwrap();
+    println!("block response {:#?}\n", response);
+    response
+}
+
+async fn block_transaction(wallet: &Wallet, block_data: BlockResponse) {
+    let block_data = block_data.block.unwrap();
+    let block_identifier = block_data.block_identifier;
+    //taking transaction_identifier from block data
+    let transaction_identifier = block_data
+        .transactions
+        .last()
+        .unwrap()
+        .transaction_identifier
+        .clone();
+
+    let response = wallet
+        .block_transaction(block_identifier, transaction_identifier)
+        .await;
+    println!("block transaction response {:#?}\n", response);
+}
+
 async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("method call ==================");
-    let function_signature = "function changeOwner(address newOwner)";
+    let function_signature = "function vote_yes()";
     let method_params = format!("{}-{}", contract_address, function_signature);
     println!(
         "{:?}",
         wallet
             .method_call(
                 &method_params,
-                //your eth.coinbase account to transfer ownership to it
-                json!(["0x166aae20169fe6e4c79fd5f060a9c6306f09d8e0"])
+                //must be an array of parameters needed by the function
+                json!([])
             )
             .await
     );
@@ -95,53 +143,8 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("{:?}", wallet.balance().await);
 }
 
-/// Api methods
-/// 1. block
-/// 2. block_transaction
-/// 3. contract_call
-/// 4. storage
-/// 5. storage_proof
-// async fn rosetta_client_methods(contract_address: &str) {
-//     let server_url = "http://127.0.0.1:8081";
-//     let client = Client::new(server_url).unwrap();
-//     let network_identifier = NetworkIdentifier {
-//         blockchain: "ethereum".to_owned(),
-//         network: "dev".to_owned(),
-//         sub_network_identifier: None,
-//     };
-
-//     block(&client, network_identifier.clone()).await;
-//     block_transaction(&client, network_identifier.clone()).await;
-//     contract_call(&client, network_identifier.clone(), contract_address).await;
-//     storage(&client, network_identifier.clone(), contract_address).await;
-//     stroage_proof(&client, network_identifier.clone(), contract_address).await;
-// }
-
-async fn block(wallet: &Wallet) {
-    let block_identifier = PartialBlockIdentifier {
-        index: Some(1),
-        hash: None,
-    };
-    let response = wallet.block(block_identifier).await;
-    println!("block response {:#?}\n", response);
-}
-
-async fn block_transaction(wallet: &Wallet) {
-    let block_identifier = BlockIdentifier {
-        index: 1,
-        hash: "d3d376808a1fa60f88845ef6c3c548b232bca9b7ab0a7caf0b757249f667a17d".to_owned(),
-    };
-    let transaction_identifier = TransactionIdentifier {
-        hash: "1712954814870eaf10405a475673eb53ccbb11d04cb4b26a433ac7e343b75db7".to_owned(),
-    };
-    let response = wallet
-        .block_transaction(block_identifier, transaction_identifier)
-        .await;
-    println!("block transaction response {:#?}\n", response);
-}
-
 async fn contract_call(wallet: &Wallet, contract_address: &str) {
-    let method_signature = "function getOwner() external view returns (address)";
+    let method_signature = "function get_votes_stats() external view returns (uint, uint)";
     let call_type = "call";
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
 
@@ -149,20 +152,32 @@ async fn contract_call(wallet: &Wallet, contract_address: &str) {
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage(wallet: &Wallet, contract_address: &str) {
+async fn storage_yes_votes(wallet: &Wallet, contract_address: &str) {
+    // 0th position of storage in contract
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage";
 
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
     let response = wallet.call(method, &json!({})).await;
-    println!("storage response {:#?}", response);
+    println!("storage 0th response {:#?}", response);
+}
+
+async fn storage_no_votes(wallet: &Wallet, contract_address: &str) {
+    // 0th position of storage in contract
+    let method_signature = "0000000000000000000000000000000000000000000000000000000000000001";
+    let call_type = "storage";
+
+    let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
+    let response = wallet.call(method, &json!({})).await;
+    println!("storage 1th response {:#?}", response);
 }
 
 async fn stroage_proof(wallet: &Wallet, contract_address: &str) {
+    // 0th position of storage_proof in contract
     let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
     let call_type = "storage_proof";
 
     let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
     let response = wallet.call(method, &json!({})).await;
-    println!("storage proof response {:#?}", response);
+    println!("storage proof 0th index response {:#?}", response);
 }

@@ -16,7 +16,7 @@ use rosetta_core::types::{
     BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse, CallRequest,
     CallResponse, PartialBlockIdentifier,
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use surf::utils::async_trait;
@@ -50,6 +50,13 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Ethereum(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
             Self::Polkadot(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
+        })
+    }
+
+    pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<serde_json::Value> {
+        Ok(match self {
+            Self::Ethereum(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
+            Self::Polkadot(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
         })
     }
 
@@ -163,7 +170,7 @@ impl Wallet {
     pub async fn block_transaction(
         &self,
         block_identifer: BlockIdentifier,
-        tx_identifier: TransactionIdentifier
+        tx_identifier: TransactionIdentifier,
     ) -> Result<BlockTransactionResponse> {
         let req = BlockTransactionRequest {
             network_identifier: self.config.network(),
@@ -316,16 +323,10 @@ pub trait EthereumExt {
 
 #[async_trait]
 impl EthereumExt for Wallet {
-    async fn deploy_contract(&self, bytecode: Vec<u8>) -> Result<TransactionIdentifier>{
-        let metadata_params = json!({
-            "destination": [],
-            "amount": [0,0,0,0],
-            "data": bytecode
-        });
+    async fn deploy_contract(&self, bytecode: Vec<u8>) -> Result<TransactionIdentifier> {
+        let metadata_params = self.tx.deploy_contract(bytecode)?;
 
-        let metadata = self.metadata(metadata_params.clone()).await;
-        // println!("{:?}", metadata);
-        let metadata = metadata?;
+        let metadata = self.metadata(metadata_params.clone()).await?;
 
         let transaction = self.tx.create_and_sign(
             &self.config,
