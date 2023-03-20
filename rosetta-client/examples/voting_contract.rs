@@ -53,7 +53,7 @@ async fn faucet_etheruem(wallet: &Wallet) {
 async fn deploy_contract(wallet: &Wallet) {
     //getting compiled contract data
     let compiled_contract_bin = include_str!("../examples/voting_contract.bin")
-        .strip_suffix("\n")
+        .strip_suffix('\n')
         .unwrap();
     let bytes = hex::decode(compiled_contract_bin).unwrap();
 
@@ -66,10 +66,7 @@ async fn deploy_contract(wallet: &Wallet) {
         .await
         .unwrap();
     let contract_address = tx_receipt.result["contractAddress"].clone();
-    println!(
-        "Deployed contract address: {}",
-        contract_address.to_string()
-    );
+    println!("Deployed contract address: {}", contract_address);
 }
 
 async fn vote(wallet: &Wallet, data: VoteOpts) {
