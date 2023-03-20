@@ -168,6 +168,8 @@ async fn storage_no_votes(wallet: &Wallet, contract_address: &str) {
 async fn stroage_proof(wallet: &Wallet, contract_address: &str) {
     // 0th position of storage_proof in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
-    let response = wallet.eth_storage_proof(contract_address, storage_slot).await;
+    let response = wallet
+        .eth_storage_proof(contract_address, storage_slot)
+        .await;
     println!("storage proof 0th index response {:#?}", response);
 }
