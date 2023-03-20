@@ -16,7 +16,7 @@ use rosetta_core::types::{
     BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse, CallRequest,
     CallResponse, PartialBlockIdentifier,
 };
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use surf::utils::async_trait;
@@ -333,9 +333,14 @@ pub trait EthereumExt {
         params: Value,
     ) -> Result<TransactionIdentifier>;
     /// gets storage from ethereum contract
-    async fn eth_storage(&self, contract_address: &str, storage_slot: &str) -> Result<CallResponse>;
+    async fn eth_storage(&self, contract_address: &str, storage_slot: &str)
+        -> Result<CallResponse>;
     /// gets storage proof from ethereum contract
-    async fn eth_storage_proof(&self, contract_address: &str, storage_slot: &str) -> Result<CallResponse>;
+    async fn eth_storage_proof(
+        &self,
+        contract_address: &str,
+        storage_slot: &str,
+    ) -> Result<CallResponse>;
     /// gets transaction receipt of specific hash
     async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse>;
 }
@@ -356,7 +361,12 @@ impl EthereumExt for Wallet {
         self.submit(&transaction).await
     }
 
-    async fn eth_send_call(&self, contract_address: &str, method_signature: &str, params: Value) -> Result<TransactionIdentifier> {
+    async fn eth_send_call(
+        &self,
+        contract_address: &str,
+        method_signature: &str,
+        params: Value,
+    ) -> Result<TransactionIdentifier> {
         let method_params = format!("{}-{}", contract_address, method_signature);
         self.method_call(&method_params, params).await
     }
@@ -371,18 +381,26 @@ impl EthereumExt for Wallet {
         self.call(method, &json!({})).await
     }
 
-    async fn eth_storage(&self, contract_address: &str, storage_slot: &str) -> Result<CallResponse>{
+    async fn eth_storage(
+        &self,
+        contract_address: &str,
+        storage_slot: &str,
+    ) -> Result<CallResponse> {
         let call_type = "storage";
         let method = format!("{}-{}-{}", contract_address, storage_slot, call_type);
         self.call(method, &json!({})).await
     }
 
-    async fn eth_storage_proof(&self, contract_address: &str, storage_slot: &str) -> Result<CallResponse>{
+    async fn eth_storage_proof(
+        &self,
+        contract_address: &str,
+        storage_slot: &str,
+    ) -> Result<CallResponse> {
         let call_type = "storage_proof";
         let method = format!("{}-{}-{}", contract_address, storage_slot, call_type);
         self.call(method, &json!({})).await
     }
-    async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse>{
+    async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse> {
         let call_method = format!("{}--transaction_receipt", tx_hash);
         let value = json!({});
         self.call(call_method, &value).await
