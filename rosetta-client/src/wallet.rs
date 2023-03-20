@@ -156,7 +156,8 @@ impl Wallet {
         Ok(balance.balances[0].clone())
     }
 
-    /// Returns blokck data
+    /// Returns block data
+    /// Takes PartialBlockIdentifier
     pub async fn block(&self, data: PartialBlockIdentifier) -> Result<BlockResponse> {
         let req = BlockRequest {
             network_identifier: self.config.network(),
@@ -167,6 +168,9 @@ impl Wallet {
     }
 
     /// Returns transactions included in a block
+    /// Parameters:
+    /// 1. block_identifier: BlockIdentifier containing block number and hash
+    /// 2. tx_identifier: TransactionIdentifier containing hash of transaction
     pub async fn block_transaction(
         &self,
         block_identifer: BlockIdentifier,
@@ -209,6 +213,8 @@ impl Wallet {
     }
 
     /// Returns the on chain metadata.
+    /// Parameters:
+    /// - metadata_params: the metadata parameters which we got from transaction builder.
     pub async fn metadata(&self, metadata_params: serde_json::Value) -> Result<serde_json::Value> {
         let req = ConstructionMetadataRequest {
             network_identifier: self.config.network(),
@@ -220,6 +226,8 @@ impl Wallet {
     }
 
     /// Submits a transaction and returns the transaction identifier.
+    /// Parameters:
+    /// - transaction: the transaction bytes to submit
     pub async fn submit(&self, transaction: &[u8]) -> Result<TransactionIdentifier> {
         let req = ConstructionSubmitRequest {
             network_identifier: self.config.network(),
@@ -230,6 +238,9 @@ impl Wallet {
     }
 
     /// Makes a transfer.
+    /// Parameters:
+    /// - account: the account to transfer to
+    /// - amount: the amount to transfer
     pub async fn transfer(
         &self,
         account: &AccountIdentifier,
@@ -248,6 +259,9 @@ impl Wallet {
     }
 
     /// Makes a method call.
+    /// Parameters:
+    /// - method: the method to call
+    /// - params: the parameters to pass to the method
     pub async fn method_call(&self, method: &str, params: Value) -> Result<TransactionIdentifier> {
         let metadata_params = self.tx.method_call(method, &params)?;
         let metadata = self.metadata(metadata_params.clone()).await?;
@@ -261,6 +275,8 @@ impl Wallet {
     }
 
     /// Uses the faucet on dev chains to seed the account with funds.
+    /// Parameters:
+    /// - faucet_parameter: the amount to seed the account with
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<TransactionIdentifier> {
         let req = AccountFaucetRequest {
             network_identifier: self.config.network(),
@@ -272,6 +288,8 @@ impl Wallet {
     }
 
     /// Returns the transaction matching the transaction identifier.
+    /// Parameters:
+    /// - tx: the transaction identifier to search for.
     pub async fn transaction(&self, tx: TransactionIdentifier) -> Result<BlockTransaction> {
         let req = SearchTransactionsRequest {
             network_identifier: self.config().network(),

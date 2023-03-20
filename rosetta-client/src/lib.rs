@@ -65,6 +65,10 @@ pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
 }
 
 /// Returns a client instance.
+/// Parameters:
+/// - `blockchain`: blockchain name e.g. "bitcoin", "ethereum".
+/// - `network`: network name e.g. "dev".
+/// - `url`: rosetta server url.
 pub async fn create_client(
     blockchain: Option<String>,
     network: Option<String>,
@@ -85,6 +89,11 @@ pub async fn create_client(
 }
 
 /// Returns a wallet instance.
+/// Parameters:
+/// - `blockchain`: blockchain name e.g. "bitcoin", "ethereum".
+/// - `network`: network name e.g. "dev".
+/// - `url`: rosetta server url.
+/// - `keyfile`: path to a keyfile.
 pub async fn create_wallet(
     blockchain: Option<String>,
     network: Option<String>,

@@ -87,3 +87,5 @@ For contract call this is the method signature of the function we want to call. 
 `storage`: This call type can be used to fetch storage from given contract provided the position of storage.
 
 `storage_proof`: It returns proof of a value stored in contract storage at a given position.
+
+`transaction_receipt`: This call type can be used to fetch transaction receipt of specified transaction.
