@@ -18,6 +18,12 @@ linker = "x86_64-linux-musl-gcc"
 6. After conenctors are build run `docker compose up`.
 
 
+__Compiling voting contract__
+1. We have a `voting_contract.sol` we have to compile and get its binary in order to deploy it. For this you need to have `solc` installed. You can install it using `brew install solidity` or `sudo apt-get install solc`.
+2. Run `solc --combined-json abi,bin --abi --bin voting_contract.sol -o ./voting_contract_files` in contract folder.
+3. You will get `voting_contract_files` folder with `voting_contract.abi`, `voting_contract.bin` and `combined_voting_contract.json` which contains both abi and bin since we are only concerned with bin we will use `voting_contract.bin`. and for sake of easiness we have already compiled and imported it in examples folder.
+
+
 __Running voting_contract example__
 1. This example demonstrate how to interact with smart contract using Aanlog's wallet. We will deploy a basic contracts storing yes or no votes and displays total votes on voting.
 2. Run `cargo run --example voting_contract faucet`. to get some funds to deploy contract.

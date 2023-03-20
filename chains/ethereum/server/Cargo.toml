@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1.66"
-ethers = { git = "https://github.com/gakonst/ethers-rs" }
+ethers = { git = "https://github.com/Haider-Ali-DS/ethers-rs" }
 hex = "0.4.3"
 rosetta-config-ethereum = { version = "0.1.0", path = "../config" }
 rosetta-server = { version = "0.1.0", path = "../../../rosetta-server" }
