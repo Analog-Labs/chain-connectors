@@ -2,7 +2,7 @@ use clap::Parser;
 use rosetta_client::{
     create_wallet,
     types::{AccountIdentifier, BlockResponse, PartialBlockIdentifier},
-    Wallet,
+    EthereumExt, Wallet,
 };
 use serde_json::json;
 
@@ -128,12 +128,12 @@ async fn block_transaction(wallet: &Wallet, block_data: BlockResponse) {
 async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("method call ==================");
     let function_signature = "function vote_yes()";
-    let method_params = format!("{}-{}", contract_address, function_signature);
     println!(
         "{:?}",
         wallet
-            .method_call(
-                &method_params,
+            .eth_send_call(
+                contract_address,
+                function_signature,
                 //must be an array of parameters needed by the function
                 json!([])
             )
@@ -145,39 +145,29 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
 
 async fn contract_call(wallet: &Wallet, contract_address: &str) {
     let method_signature = "function get_votes_stats() external view returns (uint, uint)";
-    let call_type = "call";
-    let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-
-    let response = wallet.call(method, &json!({})).await;
+    let response = wallet
+        .eth_view_call(contract_address, method_signature)
+        .await;
     println!("contract call response {:#?}\n", response);
 }
 
 async fn storage_yes_votes(wallet: &Wallet, contract_address: &str) {
     // 0th position of storage in contract
-    let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
-    let call_type = "storage";
-
-    let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-    let response = wallet.call(method, &json!({})).await;
+    let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
+    let response = wallet.eth_storage(contract_address, storage_slot).await;
     println!("storage 0th response {:#?}", response);
 }
 
 async fn storage_no_votes(wallet: &Wallet, contract_address: &str) {
     // 0th position of storage in contract
-    let method_signature = "0000000000000000000000000000000000000000000000000000000000000001";
-    let call_type = "storage";
-
-    let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-    let response = wallet.call(method, &json!({})).await;
+    let storage_slot = "0000000000000000000000000000000000000000000000000000000000000001";
+    let response = wallet.eth_storage(contract_address, storage_slot).await;
     println!("storage 1th response {:#?}", response);
 }
 
 async fn stroage_proof(wallet: &Wallet, contract_address: &str) {
     // 0th position of storage_proof in contract
-    let method_signature = "0000000000000000000000000000000000000000000000000000000000000000";
-    let call_type = "storage_proof";
-
-    let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
-    let response = wallet.call(method, &json!({})).await;
+    let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
+    let response = wallet.eth_storage_proof(contract_address, storage_slot).await;
     println!("storage proof 0th index response {:#?}", response);
 }

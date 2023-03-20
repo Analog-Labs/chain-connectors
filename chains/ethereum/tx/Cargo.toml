@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.69"
 ethers-core = "2.0.0"
-ethers = { git = "https://github.com/gakonst/ethers-rs" }
+ethers = { git = "https://github.com/Haider-Ali-DS/ethers-rs" }
 rosetta-config-ethereum = { version = "0.1.0", path = "../config" }
 rosetta-core = { version = "0.1.0", path = "../../../rosetta-core" }
 serde_json = "1.0.94"
