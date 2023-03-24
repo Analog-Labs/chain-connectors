@@ -1,13 +1,12 @@
 use crate::eth_types::{
-    FlattenTrace, ResultGethExecTraces, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE,
-    CONSTANTINOPLE_BLOCK_REWARD, CREATE2_OP_TYPE, CREATE_OP_TYPE, DESTRUCT_OP_TYPE, FAILURE_STATUS,
-    FEE_OP_TYPE, FRONTIER_BLOCK_REWARD, GENESIS_BLOCK_INDEX, MAX_UNCLE_DEPTH,
-    MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE, SUCCESS_STATUS, TESTNET_CHAIN_CONFIG,
-    UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
+    FlattenTrace, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE, CONSTANTINOPLE_BLOCK_REWARD,
+    CREATE2_OP_TYPE, CREATE_OP_TYPE, DESTRUCT_OP_TYPE, FAILURE_STATUS, FEE_OP_TYPE,
+    FRONTIER_BLOCK_REWARD, MAX_UNCLE_DEPTH, MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE,
+    SUCCESS_STATUS, TESTNET_CHAIN_CONFIG, UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use ethers::{
-    abi::{Abi, Detokenize, Function, HumanReadableParser, InvalidOutputType, Token},
+    abi::{Abi, Function, HumanReadableParser},
     prelude::*,
     utils::to_checksum,
 };
@@ -17,296 +16,110 @@ use ethers::{
 };
 use rosetta_server::types as rosetta_types;
 use rosetta_server::types::{
-    AccountIdentifier, Amount, BlockIdentifier, Currency, Operation, OperationIdentifier,
-    PartialBlockIdentifier, TransactionIdentifier,
+    AccountIdentifier, Amount, Currency, Operation, OperationIdentifier, TransactionIdentifier,
 };
+use rosetta_server::BlockchainConfig;
 use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
-pub fn serialize<T: serde::Serialize>(t: &T) -> serde_json::Value {
-    serde_json::to_value(t).expect("Types never fail to serialize.")
-}
-
-pub async fn get_block(
-    block: &PartialBlockIdentifier,
+pub async fn get_transaction<T>(
     client: &Provider<Http>,
-) -> Result<(Block<Transaction>, Vec<LoadedTransaction>, Vec<Block<H256>>)> {
-    let bl_id = if let Some(hash) = block.hash.as_ref() {
-        let h256 = H256::from_str(hash)?;
-        BlockId::Hash(h256)
-    } else if let Some(index) = block.index {
-        let ehters_u64 = U64::from(index);
-        let bl_number = BlockNumber::Number(ehters_u64);
-        BlockId::Number(bl_number)
-    } else {
-        bail!("Block identifier is not valid");
-    };
-
-    let block_eth = client
-        .get_block_with_txs(bl_id)
-        .await?
-        .context("Block not found")?;
-
-    let block_number = block_eth
-        .number
-        .context("Block number not found in block result")?
-        .as_u64();
-
-    let block_author = block_eth
-        .author
-        .context("Block author not found in block result")?;
-
-    let block_hash = block_eth
-        .hash
-        .context("Block hash not found in block result")?;
-
-    let block_transactions = block_eth.transactions.clone();
-
-    let uncles = get_uncles(block_number, &block_eth.uncles, client).await?;
-
-    let receipts = get_block_receipts(block_hash, &block_transactions, client).await?;
-
-    let mut traces = vec![];
-    let mut add_traces = false;
-    if block_number != GENESIS_BLOCK_INDEX {
-        add_traces = true;
-        let block_traces = get_block_traces(&block_hash, client).await?;
-        traces.extend(block_traces.0);
-    }
-
-    let mut loaded_transactions = vec![];
-    for (idx, transaction) in block_transactions.iter().enumerate() {
-        let tx_receipt = &receipts[idx];
-
-        let (fee_amount, fee_burned) =
-            estimatate_gas(transaction, tx_receipt, block_eth.base_fee_per_gas)?;
-
-        let mut loaded_tx = LoadedTransaction {
-            transaction: transaction.clone(),
-            from: transaction.from,
-            block_number: U64::from(block_number),
-            block_hash,
-            fee_amount,
-            fee_burned,
-            miner: block_author,
-            receipt: receipts[idx].clone(),
-            trace: None,
-        };
-
-        if !add_traces {
-            loaded_transactions.push(loaded_tx);
-            continue;
-        }
-
-        loaded_tx.trace = Some(traces[idx].result.clone());
-        loaded_transactions.push(loaded_tx);
-    }
-
-    Ok((block_eth, loaded_transactions, uncles))
-}
-
-pub async fn get_transaction(
-    block_identifier: &BlockIdentifier,
-    hash: &str,
-    client: &Provider<Http>,
-    currency: &Currency,
+    config: &BlockchainConfig,
+    block: &Block<T>,
+    tx: &Transaction,
 ) -> Result<rosetta_types::Transaction> {
-    let tx_hash = H256::from_str(hash)?;
-    let transaction = client
-        .get_transaction(tx_hash)
-        .await?
-        .context("Unable to get transaction")?;
-
-    let ehters_u64 = U64::from(block_identifier.index);
-    let bl_number = BlockNumber::Number(ehters_u64);
-    let block_num = BlockId::Number(bl_number);
-
-    let block = client
-        .get_block(block_num)
-        .await?
-        .context("Block not found")?;
-
-    let block_hash = block.hash.context("Block hash not found")?;
-    let block_author = block.author.context("Block author not found")?;
-
     let tx_receipt = client
-        .get_transaction_receipt(tx_hash)
+        .get_transaction_receipt(tx.hash)
         .await?
         .context("Transaction receipt not found")?;
 
     if tx_receipt
         .block_hash
         .context("Block hash not found in tx receipt")?
-        != block_hash
+        != block.hash.unwrap()
     {
         bail!("Transaction receipt block hash does not match block hash");
     }
 
-    let mut add_traces = false;
-    let mut traces = vec![];
-    if ehters_u64 != U64::from(0) {
-        add_traces = true;
-
-        let tx_traces = get_transaction_trace(&tx_hash, client).await?;
-        traces.push(tx_traces);
-    }
-
-    let (fee_amount, fee_burned) =
-        estimatate_gas(&transaction, &tx_receipt, block.base_fee_per_gas)?;
-
-    let mut loaded_transaction = LoadedTransaction {
-        transaction: transaction.clone(),
-        from: transaction.from,
-        block_number: ehters_u64,
-        block_hash,
-        fee_amount,
-        fee_burned,
-        miner: block_author,
-        receipt: tx_receipt,
-        trace: None,
-    };
-
-    if add_traces {
-        loaded_transaction.trace = Some(traces[0].clone());
-    }
-
-    let tx = populate_transaction(loaded_transaction, currency).await?;
-    Ok(tx)
-}
-
-pub async fn populate_transactions(
-    block_identifier: &BlockIdentifier,
-    block: &Block<Transaction>,
-    uncles: Vec<Block<H256>>,
-    loaded_transactions: Vec<LoadedTransaction>,
-    currency: &Currency,
-) -> Result<Vec<rosetta_types::Transaction>> {
-    let mut transactions = vec![];
-    let miner = block.author.context("Block author not found")?;
-    let block_reward_transaction = get_mining_rewards(block_identifier, &miner, &uncles, currency)?;
-    transactions.push(block_reward_transaction);
-
-    for tx in loaded_transactions {
-        let transaction = populate_transaction(tx, currency).await?;
-        transactions.push(transaction);
-    }
-
-    Ok(transactions)
-}
-
-pub async fn populate_transaction(
-    tx: LoadedTransaction,
-    currency: &Currency,
-) -> Result<rosetta_types::Transaction> {
+    let currency = config.currency();
     let mut operations = vec![];
 
-    let fee_ops = get_fee_operations(&tx, currency)?;
+    let (fee_amount, fee_burned) = estimatate_gas(tx, &tx_receipt, block.base_fee_per_gas)?;
+    let fee_ops = get_fee_operations(
+        tx.from,
+        block.author.context("block has no author")?,
+        fee_amount,
+        fee_burned,
+        &currency,
+    )?;
     operations.extend(fee_ops);
 
-    let tx_trace = tx.trace.context("Transaction trace not found")?;
-    let traces = flatten_traces(tx_trace.clone())?;
+    let tx_trace = if block.number.unwrap().as_u64() != 0 {
+        let trace = get_transaction_trace(&tx.hash, client).await?;
+        let flattened = flatten_traces(trace.clone())?;
+        let trace_ops = get_traces_operations(flattened, operations.len() as i64, &currency)?;
+        operations.extend(trace_ops);
+        Some(trace)
+    } else {
+        None
+    };
 
-    let traces_ops = get_traces_operations(traces, operations.len() as i64, currency)?;
-    operations.extend(traces_ops);
-
-    let transaction = rosetta_types::Transaction {
+    Ok(rosetta_types::Transaction {
         transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(tx.transaction.hash),
+            hash: hex::encode(tx.hash),
         },
         operations,
         related_transactions: None,
         metadata: Some(json!({
-            "gas_limit" : tx.transaction.gas,
-            "gas_price": tx.transaction.gas_price,
-            "receipt": tx.receipt,
+            "gas_limit" : tx.gas,
+            "gas_price": tx.gas_price,
+            "receipt": tx_receipt,
             "trace": tx_trace,
         })),
-    };
-    Ok(transaction)
+    })
 }
 
-pub async fn get_uncles(
-    block_index: u64,
-    uncles: &[H256],
+pub async fn block_reward_transaction(
     client: &Provider<Http>,
-) -> Result<Vec<Block<H256>>> {
-    let mut uncles_data = vec![];
-    for (idx, _) in uncles.iter().enumerate() {
-        let index = U64::from(idx);
-        let uncle_response = client
-            .get_uncle(block_index, index)
+    config: &BlockchainConfig,
+    block: &Block<Transaction>,
+) -> Result<rosetta_types::Transaction> {
+    let block_number = block.number.context("missing block number")?;
+    let block_id = BlockId::Number(BlockNumber::Number(block_number));
+    let mut uncles = vec![];
+    for (i, _) in block.uncles.iter().enumerate() {
+        let uncle = client
+            .get_uncle(block_id, U64::from(i))
             .await?
             .context("Uncle block now found")?;
-        uncles_data.push(uncle_response);
+        uncles.push(uncle);
     }
-    Ok(uncles_data)
-}
-
-pub async fn get_block_receipts(
-    block_hash: H256,
-    transactions: &Vec<Transaction>,
-    client: &Provider<Http>,
-) -> Result<Vec<TransactionReceipt>> {
-    let mut receipts = vec![];
-    for tx in transactions {
-        let tx_hash = tx.hash;
-        let receipt = client
-            .get_transaction_receipt(tx_hash)
-            .await?
-            .context("Transaction receipt not found")?;
-
-        if receipt
-            .block_hash
-            .context("Block hash not found in receipt")?
-            != block_hash
-        {
-            bail!("Receipt's block hash does not match block hash")
-        }
-
-        receipts.push(receipt);
-    }
-    Ok(receipts)
-}
-
-pub async fn get_block_traces(
-    hash: &H256,
-    client: &Provider<Http>,
-) -> Result<ResultGethExecTraces> {
-    let hash_serialize = serialize(hash);
-    let cfg = json!(
-        {
-            "tracer": "callTracer"
-        }
-    );
-
-    let traces: ResultGethExecTraces = client
-        .request("debug_traceBlockByHash", [hash_serialize, cfg])
-        .await?;
-
-    Ok(traces)
+    get_mining_rewards(block, &uncles, &config.currency())
 }
 
 async fn get_transaction_trace(hash: &H256, client: &Provider<Http>) -> Result<Trace> {
-    let hash_serialize = serialize(hash);
-    let cfg = json!(
+    let params = json!([
+        hash,
         {
             "tracer": "callTracer"
         }
-    );
-
-    let traces: Trace = client
-        .request("debug_traceTransaction", [hash_serialize, cfg])
-        .await?;
-
+    ]);
+    let traces: Trace = client.request("debug_traceTransaction", params).await?;
     Ok(traces)
 }
 
-pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result<Vec<Operation>> {
-    let miner_earned_reward = if let Some(fee_burned) = tx.fee_burned {
-        tx.fee_amount - fee_burned
+fn get_fee_operations(
+    from: H160,
+    miner: H160,
+    fee_amount: U256,
+    fee_burned: Option<U256>,
+    currency: &Currency,
+) -> Result<Vec<Operation>> {
+    let miner_earned_reward = if let Some(fee_burned) = fee_burned {
+        fee_amount - fee_burned
     } else {
-        tx.fee_amount
+        fee_amount
     };
 
     let mut operations = vec![];
@@ -320,7 +133,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: to_checksum(&tx.from, None),
+            address: to_checksum(&from, None),
             sub_account: None,
             metadata: None,
         }),
@@ -345,7 +158,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: to_checksum(&tx.miner, None),
+            address: to_checksum(&miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -361,7 +174,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
     operations.push(first_op);
     operations.push(second_op);
 
-    if let Some(fee_burned) = tx.fee_burned {
+    if let Some(fee_burned) = fee_burned {
         let burned_operation = Operation {
             operation_identifier: OperationIdentifier {
                 index: 2,
@@ -371,7 +184,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
             r#type: FEE_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
             account: Some(AccountIdentifier {
-                address: to_checksum(&tx.from, None),
+                address: to_checksum(&from, None),
                 sub_account: None,
                 metadata: None,
             }),
@@ -389,7 +202,7 @@ pub fn get_fee_operations(tx: &LoadedTransaction, currency: &Currency) -> Result
     Ok(operations)
 }
 
-pub fn get_traces_operations(
+fn get_traces_operations(
     traces: Vec<FlattenTrace>,
     op_len: i64,
     currency: &Currency,
@@ -573,14 +386,16 @@ fn flatten_traces(data: Trace) -> Result<Vec<FlattenTrace>> {
     Ok(traces)
 }
 
-pub fn get_mining_rewards(
-    block_identifier: &BlockIdentifier,
-    miner: &H160,
+fn get_mining_rewards(
+    block: &Block<Transaction>,
     uncles: &Vec<Block<H256>>,
     currency: &Currency,
 ) -> Result<rosetta_types::Transaction> {
+    let block_number = block.number.unwrap().as_u64();
+    let block_hash = block.hash.unwrap();
+    let miner = block.author.unwrap();
     let mut operations: Vec<Operation> = vec![];
-    let mut mining_reward = mining_reward(block_identifier.index);
+    let mut mining_reward = mining_reward(block_number);
 
     if !uncles.is_empty() {
         let uncle_reward = (mining_reward / UNCLE_REWARD_MULTIPLIER) as f64;
@@ -598,7 +413,7 @@ pub fn get_mining_rewards(
         r#type: MINING_REWARD_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
-            address: to_checksum(miner, None),
+            address: to_checksum(&miner, None),
             sub_account: None,
             metadata: None,
         }),
@@ -615,9 +430,9 @@ pub fn get_mining_rewards(
 
     for block in uncles {
         let uncle_miner = block.author.context("Uncle block has no author")?;
-        let block_number = block.number.context("Uncle block has no number")?;
-        let uncle_block_reward = (block_number + MAX_UNCLE_DEPTH - block_identifier.index)
-            * (mining_reward / MAX_UNCLE_DEPTH);
+        let uncle_number = block.number.context("Uncle block has no number")?;
+        let uncle_block_reward =
+            (uncle_number + MAX_UNCLE_DEPTH - block_number) * (mining_reward / MAX_UNCLE_DEPTH);
 
         let operation = Operation {
             operation_identifier: OperationIdentifier {
@@ -646,7 +461,7 @@ pub fn get_mining_rewards(
 
     Ok(rosetta_types::Transaction {
         transaction_identifier: TransactionIdentifier {
-            hash: block_identifier.hash.clone(),
+            hash: hex::encode(block_hash),
         },
         related_transactions: None,
         operations,
@@ -687,7 +502,7 @@ fn is_block_forked(block_val: Option<u64>, head: Option<u64>) -> bool {
     }
 }
 
-pub fn estimatate_gas(
+fn estimatate_gas(
     tx: &Transaction,
     receipt: &TransactionReceipt,
     base_fee: Option<U256>,
@@ -740,32 +555,5 @@ pub fn parse_method(method: &str) -> Result<Function> {
             .context("Abi function list is empty")?
             .clone();
         Ok(function)
-    }
-}
-
-pub struct LoadedTransaction {
-    pub transaction: Transaction,
-    pub from: H160,
-    pub block_number: U64,
-    pub block_hash: H256,
-    pub fee_amount: U256,
-    pub fee_burned: Option<U256>,
-    pub miner: H160,
-    pub receipt: TransactionReceipt,
-    pub trace: Option<Trace>,
-}
-
-#[derive(Debug)]
-pub struct EthDetokenizer {
-    pub json: String,
-}
-impl Detokenize for EthDetokenizer {
-    fn from_tokens(tokens: Vec<Token>) -> std::result::Result<Self, InvalidOutputType>
-    where
-        Self: Sized,
-    {
-        let json = serde_json::to_string(&tokens)
-            .map_err(|e| InvalidOutputType(format!("serde json error {e:?}",)))?;
-        Ok(EthDetokenizer { json })
     }
 }

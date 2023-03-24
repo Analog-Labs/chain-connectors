@@ -1,8 +1,5 @@
-use crate::eth_types::GENESIS_BLOCK_INDEX;
-use crate::utils::{
-    get_block, get_transaction, parse_method, populate_transactions, EthDetokenizer,
-};
 use anyhow::{bail, Context, Result};
+use ethers::abi::{Detokenize, InvalidOutputType, Token};
 use ethers::prelude::*;
 use ethers::utils::keccak256;
 use ethers::utils::rlp::Encodable;
@@ -149,7 +146,6 @@ impl BlockchainClient for EthereumClient {
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         let tx = transaction.to_vec().into();
-
         Ok(self
             .client
             .send_raw_transaction(Bytes(tx))
@@ -161,34 +157,43 @@ impl BlockchainClient for EthereumClient {
             .to_vec())
     }
 
-    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
-        let (block, loaded_tx, uncles) = get_block(block, &self.client).await?;
-
+    async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
+        let block_id = if let Some(hash) = block_identifier.hash.as_ref() {
+            BlockId::Hash(H256::from_str(hash)?)
+        } else {
+            let index = if let Some(index) = block_identifier.index {
+                U64::from(index)
+            } else {
+                self.client.get_block_number().await?
+            };
+            BlockId::Number(BlockNumber::Number(index))
+        };
+        let block = self
+            .client
+            .get_block_with_txs(block_id)
+            .await?
+            .context("block not found")?;
         let block_number = block.number.context("Unable to fetch block number")?;
         let block_hash = block.hash.context("Unable to fetch block hash")?;
-        let block_identifier = BlockIdentifier {
-            index: block_number.as_u64(),
-            hash: hex::encode(block_hash),
-        };
-
-        let mut parent_identifier = block_identifier.clone();
-        if block_identifier.index != GENESIS_BLOCK_INDEX {
-            parent_identifier.index -= 1;
-            parent_identifier.hash = hex::encode(block.parent_hash);
+        let mut transactions = vec![];
+        let block_reward_transaction =
+            crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
+        transactions.push(block_reward_transaction);
+        for transaction in &block.transactions {
+            let transaction =
+                crate::utils::get_transaction(&self.client, self.config(), &block, transaction)
+                    .await?;
+            transactions.push(transaction);
         }
-
-        let transactions = populate_transactions(
-            &block_identifier,
-            &block,
-            uncles,
-            loaded_tx,
-            &self.config.currency(),
-        )
-        .await?;
-
         Ok(Block {
-            block_identifier,
-            parent_block_identifier: parent_identifier,
+            block_identifier: BlockIdentifier {
+                index: block_number.as_u64(),
+                hash: hex::encode(block_hash),
+            },
+            parent_block_identifier: BlockIdentifier {
+                index: block_number.as_u64().saturating_sub(1),
+                hash: hex::encode(block.parent_hash),
+            },
             timestamp: block.timestamp.as_u64() as i64,
             transactions,
             metadata: None,
@@ -200,9 +205,20 @@ impl BlockchainClient for EthereumClient {
         block: &BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
+        let tx_id = H256::from_str(&tx.hash)?;
+        let block = self
+            .client
+            .get_block(BlockId::Hash(H256::from_str(&block.hash)?))
+            .await?
+            .context("block not found")?;
+        let transaction = self
+            .client
+            .get_transaction(tx_id)
+            .await?
+            .context("transaction not found")?;
         let transaction =
-            get_transaction(block, &tx.hash, &self.client, &self.config.currency()).await?;
-
+            crate::utils::get_transaction(&self.client, self.config(), &block, &transaction)
+                .await?;
         Ok(transaction)
     }
 
@@ -221,7 +237,7 @@ impl BlockchainClient for EthereumClient {
                 //process constant call
                 let contract_address = H160::from_str(contract_address)?;
 
-                let function = parse_method(method_or_position)?;
+                let function = crate::utils::parse_method(method_or_position)?;
 
                 let bytes: Vec<u8> = function.encode_input(&[])?;
 
@@ -234,11 +250,17 @@ impl BlockchainClient for EthereumClient {
                 let tx = &tx.into();
                 let received_data = self.client.call(tx, None).await?;
 
-                let data: EthDetokenizer = decode_function_data(&function, received_data, false)?;
-
-                let result: Value = serde_json::from_str(&data.json)?;
-
-                return Ok(result);
+                struct Detokenizer {
+                    tokens: Vec<Token>,
+                }
+                impl Detokenize for Detokenizer {
+                    fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
+                        Ok(Self { tokens })
+                    }
+                }
+                let detokenizer: Detokenizer =
+                    decode_function_data(&function, received_data, false)?;
+                return Ok(serde_json::to_value(detokenizer.tokens)?);
             }
             "storage" => {
                 //process storage call
