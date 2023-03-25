@@ -41,16 +41,6 @@ pub const TESTNET_CHAIN_CONFIG: ChainConfig = ChainConfig {
     constantinople_block: 0,
 };
 
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-#[doc(hidden)]
-pub struct ResultGethExecTraces(pub Vec<ResultGethExecTrace>);
-
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-#[doc(hidden)]
-pub struct ResultGethExecTrace {
-    pub result: Trace,
-}
-
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct Trace {
     pub from: H160,
@@ -63,29 +53,12 @@ pub struct Trace {
     #[serde(rename = "type")]
     pub trace_type: String,
     pub value: U256,
-    #[serde(default = "revert_default")]
+    #[serde(default)]
     pub revert: bool,
-    #[serde(rename = "error", default = "error_default")]
+    #[serde(rename = "error", default)]
     pub error_message: String,
-    #[serde(default = "calls_default")]
+    #[serde(default)]
     pub calls: Vec<Trace>,
-}
-
-impl Trace {
-    pub fn flatten(&self) -> FlattenTrace {
-        FlattenTrace {
-            from: self.from,
-            gas: self.gas,
-            gas_used: self.gas_used,
-            input: self.input.clone(),
-            output: self.output.clone(),
-            to: self.to,
-            trace_type: self.trace_type.clone(),
-            value: self.value,
-            revert: self.revert,
-            error_message: self.error_message.clone(),
-        }
-    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
@@ -102,14 +75,19 @@ pub struct FlattenTrace {
     pub error_message: String,
 }
 
-fn revert_default() -> bool {
-    false
-}
-
-fn error_default() -> String {
-    "".into()
-}
-
-fn calls_default() -> Vec<Trace> {
-    vec![]
+impl From<Trace> for FlattenTrace {
+    fn from(trace: Trace) -> Self {
+        Self {
+            from: trace.from,
+            gas: trace.gas,
+            gas_used: trace.gas_used,
+            input: trace.input,
+            output: trace.output,
+            to: trace.to,
+            trace_type: trace.trace_type,
+            value: trace.value,
+            revert: trace.revert,
+            error_message: trace.error_message,
+        }
+    }
 }
