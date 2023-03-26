@@ -330,6 +330,13 @@ impl BlockchainClient for EthereumClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ethers_solc::artifacts::Source;
+    use ethers_solc::{CompilerInput, Solc};
+    use rosetta_client::EthereumExt;
+    use rosetta_docker::Env;
+    use sha3::Digest;
+    use std::collections::BTreeMap;
+    use std::path::Path;
 
     #[tokio::test]
     async fn test_network_list() -> Result<()> {
@@ -371,5 +378,62 @@ mod tests {
     async fn test_list_transactions() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_server::tests::list_transactions(config).await
+    }
+
+    fn compile_snippet(source: &str) -> Result<Vec<u8>> {
+        let solc = Solc::default();
+        let source = format!("contract Contract {{ {source} }}");
+        let mut sources = BTreeMap::new();
+        sources.insert(Path::new("contract.sol").into(), Source::new(source));
+        let input = &CompilerInput::with_sources(sources)[0];
+        let output = solc.compile_exact(input)?;
+        let file = output.contracts.get("contract.sol").unwrap();
+        let contract = file.get("Contract").unwrap();
+        let bytecode = contract
+            .evm
+            .as_ref()
+            .unwrap()
+            .bytecode
+            .as_ref()
+            .unwrap()
+            .object
+            .as_bytes()
+            .unwrap()
+            .to_vec();
+        Ok(bytecode)
+    }
+
+    #[tokio::test]
+    async fn test_smart_contract() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+
+        let env = Env::new("smart-contract", config.clone()).await?;
+
+        let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let wallet = env.ephemeral_wallet()?;
+        wallet.faucet(faucet).await?;
+
+        let bytes = compile_snippet(
+            r#"
+            event AnEvent();
+            function emitEvent() public {
+                emit AnEvent();
+            }
+        "#,
+        )?;
+        let response = wallet.eth_deploy_contract(bytes).await?;
+
+        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
+        let contract_address = receipt.result["contractAddress"].as_str().unwrap();
+        let response = wallet
+            .eth_send_call(contract_address, "function emitEvent()", json!([]))
+            .await?;
+        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
+        let logs = receipt.result["logs"].as_array().unwrap();
+        assert_eq!(logs.len(), 1);
+        let topic = logs[0]["topics"][0].as_str().unwrap();
+        let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
+        assert_eq!(topic, expected);
+        Ok(())
     }
 }
