@@ -38,17 +38,17 @@ pub async fn dynamic_storage_req(
 
     let storage_type = storage_metadata.ty.clone();
     let type_id = match storage_type {
-        StorageEntryType::Map { key, .. } => Some(key.id()),
+        StorageEntryType::Map { key, .. } => Some(key.id),
         _ => None,
     };
     let params = if let Some(id) = type_id {
         let ty = types.resolve(id).context("invalid metadata")?;
-        match ty.type_def() {
-            TypeDef::Tuple(_) => type_distributor(params, ty.type_def(), types)?,
+        match ty.type_def {
+            TypeDef::Tuple(_) => type_distributor(params, &ty.type_def, types)?,
             _ => {
                 let json_params = params.as_array().context("expected array")?;
                 let params = json_params.iter().next().context("invalid params")?.clone();
-                type_distributor(params, ty.type_def(), types)?
+                type_distributor(params, &ty.type_def, types)?
             }
         }
     } else {
@@ -93,7 +93,7 @@ fn set_params_acc_to_storage(values: Vec<SubxtValue>) -> Vec<SubxtValue> {
 
 fn get_type_def(id: u32, types: &PortableRegistry) -> Result<&TypeDef<PortableForm>> {
     let ty = types.resolve(id).context("invalid metadata")?;
-    Ok(ty.type_def())
+    Ok(&ty.type_def)
 }
 
 fn type_distributor(
@@ -121,7 +121,7 @@ fn make_variant(
     type_from_pallet: &TypeDefVariant<PortableForm>,
     types: &PortableRegistry,
 ) -> Result<SubxtValue> {
-    let variants = type_from_pallet.variants();
+    let variants = &type_from_pallet.variants;
     let mut vec_of_named_data: Vec<(String, SubxtValue)> = vec![];
     let mut vec_of_unnamed_data: Vec<SubxtValue> = vec![];
 
@@ -136,17 +136,17 @@ fn make_variant(
         .context("invalid variant id")?
         .fields
         .clone();
-    let is_named = fields.iter().any(|f| f.name().is_some());
+    let is_named = fields.iter().any(|f| f.name.is_some());
 
     for field in fields {
-        let ty_id = field.ty().id();
+        let ty_id = field.ty.id;
         let type_def = get_type_def(ty_id, types)?;
         let obtained_result = type_distributor(json_value.clone(), type_def, types);
         if let Ok(obtained_types) = obtained_result {
             if let Some(obtained_type) = obtained_types.into_iter().next() {
                 if is_named {
                     vec_of_named_data.push((
-                        field.name().context("invalid metadata")?.to_string(),
+                        field.name.context("invalid metadata")?.to_string(),
                         obtained_type,
                     ));
                 } else {
@@ -168,25 +168,23 @@ fn make_composite(
     type_from_pallet: &TypeDefComposite<PortableForm>,
     types: &PortableRegistry,
 ) -> Result<SubxtValue> {
-    let fields = type_from_pallet.fields();
+    let fields = &type_from_pallet.fields;
     let mut vec_of_named_data: Vec<(String, SubxtValue)> = vec![];
     let mut vec_of_unnamed_data: Vec<SubxtValue> = vec![];
 
-    let is_named = fields.iter().any(|f| f.name().is_some());
+    let is_named = fields.iter().any(|f| f.name.is_some());
 
     match fields.len().cmp(&1) {
         std::cmp::Ordering::Equal => {
             let field = fields[0].clone();
-            let ty_id = field.ty().id();
+            let ty_id = field.ty.id;
             let type_def = get_type_def(ty_id, types)?;
             let obtained_result = type_distributor(json_value, type_def, types);
             if let Ok(obtained_types) = obtained_result {
                 if let Some(obtained_type) = obtained_types.into_iter().next() {
                     if is_named {
-                        vec_of_named_data.push((
-                            field.name().context("invalid metadata")?.to_string(),
-                            obtained_type,
-                        ));
+                        vec_of_named_data
+                            .push((field.name.context("invalid metadata")?, obtained_type));
                     } else {
                         vec_of_unnamed_data.push(obtained_type);
                     }
@@ -196,14 +194,14 @@ fn make_composite(
         std::cmp::Ordering::Greater => {
             let json_value = json_value.as_array().context("invalid params")?;
             for (value_received, field) in json_value.iter().zip(fields) {
-                let ty_id = field.ty().id();
+                let ty_id = field.ty.id;
                 let type_def = get_type_def(ty_id, types)?;
                 let obtained_result = type_distributor(value_received.clone(), type_def, types);
                 if let Ok(obtained_types) = obtained_result {
                     if let Some(obtained_type) = obtained_types.into_iter().next() {
                         if is_named {
                             vec_of_named_data.push((
-                                field.name().context("invalid metadata")?.to_string(),
+                                field.name.as_ref().context("invalid metadata")?.clone(),
                                 obtained_type,
                             ));
                         } else {
@@ -231,7 +229,7 @@ fn make_sequence(
     types: &PortableRegistry,
 ) -> Result<SubxtValue> {
     let mut vec_of_data = vec![];
-    let id = type_from_pallet.type_param().id();
+    let id = type_from_pallet.type_param.id;
     let type_def = get_type_def(id, types)?;
     let converted_type = type_distributor(json_value, type_def, types)?;
     for val in converted_type {
@@ -266,10 +264,10 @@ fn make_tuple(
     types: &PortableRegistry,
 ) -> Result<SubxtValue> {
     let mut values_vec = vec![];
-    let fields = type_from_pallet.fields();
+    let fields = &type_from_pallet.fields;
     if let Value::Array(val) = json_value {
         for (value, field) in val.iter().zip(fields) {
-            let ty_id = field.id();
+            let ty_id = field.id;
             let type_def = get_type_def(ty_id, types)?;
             let converted_vals = type_distributor(value.clone(), type_def, types)?;
             for converted_val in converted_vals {
