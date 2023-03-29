@@ -26,22 +26,17 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         })
     }
 
-    fn method_call(&self, method: &str, params: &Value) -> Result<Self::MetadataParams> {
-        let method_params = method.split('-').collect::<Vec<_>>();
-
-        let contract_address = method_params[0];
-        let method_str = method_params[1];
-
-        let destination: H160 = contract_address.parse()?;
-
+    fn method_call(
+        &self,
+        contract: &str,
+        method: &str,
+        params: &Value,
+    ) -> Result<Self::MetadataParams> {
+        let destination: H160 = contract.parse()?;
+        let function = parse_method(method)?;
         let function_params = params.as_array().context("Params must be an array")?;
-
-        let function = parse_method(method_str)?;
-
         let tokens = tokenize_params(function_params, &function.inputs);
-
         let bytes: Vec<u8> = function.encode_input(&tokens).map(Into::into)?;
-
         Ok(EthereumMetadataParams {
             destination: destination.0.to_vec(),
             amount: [0, 0, 0, 0],
@@ -125,7 +120,6 @@ fn parse_method(method: &str) -> Result<Function> {
 
 fn tokenize_params(values: &[Value], inputs: &[Param]) -> Vec<Token> {
     let value_strings: Vec<String> = values.iter().map(|v| v.as_str().unwrap().into()).collect();
-
     inputs
         .iter()
         .zip(value_strings.iter())
