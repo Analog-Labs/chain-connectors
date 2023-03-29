@@ -10,10 +10,10 @@ use crate::types::{
     TransactionIdentifier,
 };
 use crate::{BlockchainConfig, Client, TransactionBuilder};
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use futures::{Future, Stream};
 use rosetta_core::types::{
-    BlockRequest, BlockResponse, BlockTransactionRequest, BlockTransactionResponse, CallRequest,
+    Block, BlockRequest, BlockTransactionRequest, BlockTransactionResponse, CallRequest,
     CallResponse, PartialBlockIdentifier,
 };
 use serde_json::{json, Value};
@@ -44,12 +44,13 @@ impl GenericTransactionBuilder {
 
     pub fn method_call(
         &self,
+        contract: &str,
         method: &str,
         params: &serde_json::Value,
     ) -> Result<serde_json::Value> {
         Ok(match self {
-            Self::Ethereum(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
-            Self::Polkadot(tx) => serde_json::to_value(tx.method_call(method, params)?)?,
+            Self::Ethereum(tx) => serde_json::to_value(tx.method_call(contract, method, params)?)?,
+            Self::Polkadot(tx) => serde_json::to_value(tx.method_call(contract, method, params)?)?,
         })
     }
 
@@ -158,13 +159,13 @@ impl Wallet {
 
     /// Returns block data
     /// Takes PartialBlockIdentifier
-    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<BlockResponse> {
+    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
         let req = BlockRequest {
             network_identifier: self.config.network(),
             block_identifier: data,
         };
         let block = self.client.block(&req).await?;
-        Ok(block)
+        block.block.context("block not found")
     }
 
     /// Returns transactions included in a block
@@ -237,6 +238,18 @@ impl Wallet {
         Ok(submit.transaction_identifier)
     }
 
+    /// Creates, signs and submits a transaction.
+    pub async fn construct(&self, metadata_params: Value) -> Result<TransactionIdentifier> {
+        let metadata = self.metadata(metadata_params.clone()).await?;
+        let transaction = self.tx.create_and_sign(
+            &self.config,
+            metadata_params,
+            metadata,
+            self.secret_key.secret_key(),
+        );
+        self.submit(&transaction).await
+    }
+
     /// Makes a transfer.
     /// Parameters:
     /// - account: the account to transfer to
@@ -248,30 +261,7 @@ impl Wallet {
     ) -> Result<TransactionIdentifier> {
         let address = Address::new(self.config.address_format, account.address.clone());
         let metadata_params = self.tx.transfer(&address, amount)?;
-        let metadata = self.metadata(metadata_params.clone()).await?;
-        let transaction = self.tx.create_and_sign(
-            &self.config,
-            metadata_params,
-            metadata,
-            self.secret_key.secret_key(),
-        );
-        self.submit(&transaction).await
-    }
-
-    /// Makes a method call.
-    /// Parameters:
-    /// - method: the method to call
-    /// - params: the parameters to pass to the method
-    pub async fn method_call(&self, method: &str, params: Value) -> Result<TransactionIdentifier> {
-        let metadata_params = self.tx.method_call(method, &params)?;
-        let metadata = self.metadata(metadata_params.clone()).await?;
-        let transaction = self.tx.create_and_sign(
-            &self.config,
-            metadata_params,
-            metadata,
-            self.secret_key.secret_key(),
-        );
-        self.submit(&transaction).await
+        self.construct(metadata_params).await
     }
 
     /// Uses the faucet on dev chains to seed the account with funds.
@@ -367,16 +357,7 @@ pub trait EthereumExt {
 impl EthereumExt for Wallet {
     async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<TransactionIdentifier> {
         let metadata_params = self.tx.deploy_contract(bytecode)?;
-
-        let metadata = self.metadata(metadata_params.clone()).await?;
-
-        let transaction = self.tx.create_and_sign(
-            &self.config,
-            metadata_params,
-            metadata,
-            self.secret_key.secret_key(),
-        );
-        self.submit(&transaction).await
+        self.construct(metadata_params).await
     }
 
     async fn eth_send_call(
@@ -385,8 +366,10 @@ impl EthereumExt for Wallet {
         method_signature: &str,
         params: Value,
     ) -> Result<TransactionIdentifier> {
-        let method_params = format!("{}-{}", contract_address, method_signature);
-        self.method_call(&method_params, params).await
+        let metadata_params = self
+            .tx
+            .method_call(contract_address, method_signature, &params)?;
+        self.construct(metadata_params).await
     }
 
     async fn eth_view_call(
@@ -394,8 +377,7 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         method_signature: &str,
     ) -> Result<CallResponse> {
-        let call_type = "call";
-        let method = format!("{}-{}-{}", contract_address, method_signature, call_type);
+        let method = format!("{}-{}-call", contract_address, method_signature);
         self.call(method, &json!({})).await
     }
 
@@ -404,8 +386,7 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         storage_slot: &str,
     ) -> Result<CallResponse> {
-        let call_type = "storage";
-        let method = format!("{}-{}-{}", contract_address, storage_slot, call_type);
+        let method = format!("{}-{}-storage", contract_address, storage_slot);
         self.call(method, &json!({})).await
     }
 
@@ -414,14 +395,13 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         storage_slot: &str,
     ) -> Result<CallResponse> {
-        let call_type = "storage_proof";
-        let method = format!("{}-{}-{}", contract_address, storage_slot, call_type);
+        let method = format!("{}-{}-storage_proof", contract_address, storage_slot);
         self.call(method, &json!({})).await
     }
+
     async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse> {
         let call_method = format!("{}--transaction_receipt", tx_hash);
-        let value = json!({});
-        self.call(call_method, &value).await
+        self.call(call_method, &json!({})).await
     }
 }
 

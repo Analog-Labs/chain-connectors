@@ -100,6 +100,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
 
     fn method_call(
         &self,
+        _module: &str,
         _method: &str,
         _params: &serde_json::Value,
     ) -> Result<Self::MetadataParams> {

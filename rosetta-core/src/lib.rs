@@ -122,7 +122,12 @@ pub trait TransactionBuilder: Default + Sized {
 
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams>;
 
-    fn method_call(&self, method: &str, values: &Value) -> Result<Self::MetadataParams>;
+    fn method_call(
+        &self,
+        contract: &str,
+        method: &str,
+        values: &Value,
+    ) -> Result<Self::MetadataParams>;
 
     fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<Self::MetadataParams>;
 
