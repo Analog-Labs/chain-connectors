@@ -1,12 +1,11 @@
-use anyhow::{anyhow, Context, Result};
-use ethers::abi::token::{LenientTokenizer, Tokenizer};
-use ethers::abi::{Abi, Function, HumanReadableParser, Param, Token};
+use anyhow::Result;
+use ethabi::token::{LenientTokenizer, Tokenizer};
+use ethers_core::abi::HumanReadableParser;
 use ethers_core::types::{Eip1559TransactionRequest, NameOrAddress, Signature, H160, U256};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_core::crypto::address::Address;
 use rosetta_core::crypto::SecretKey;
 use rosetta_core::{BlockchainConfig, TransactionBuilder};
-use serde_json::Value;
 use sha3::{Digest, Keccak256};
 
 #[derive(Default)]
@@ -30,13 +29,15 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         &self,
         contract: &str,
         method: &str,
-        params: &Value,
+        params: &[String],
     ) -> Result<Self::MetadataParams> {
         let destination: H160 = contract.parse()?;
-        let function = parse_method(method)?;
-        let function_params = params.as_array().context("Params must be an array")?;
-        let tokens = tokenize_params(function_params, &function.inputs);
-        let bytes: Vec<u8> = function.encode_input(&tokens).map(Into::into)?;
+        let function = HumanReadableParser::parse_function(method)?;
+        let mut tokens = Vec::with_capacity(params.len());
+        for (ty, arg) in function.inputs.iter().zip(params) {
+            tokens.push(LenientTokenizer::tokenize(&ty.kind, arg)?);
+        }
+        let bytes = function.encode_input(&tokens)?;
         Ok(EthereumMetadataParams {
             destination: destination.0.to_vec(),
             amount: [0, 0, 0, 0],
@@ -97,32 +98,4 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         tx.extend(rlp);
         tx
     }
-}
-
-fn parse_method(method: &str) -> Result<Function> {
-    let parse_result = HumanReadableParser::parse_function(method);
-    if parse_result.is_ok() {
-        parse_result.map_err(|e| anyhow!(e))
-    } else {
-        let json_parse: Result<Abi, serde_json::Error> =
-            if !(method.starts_with('[') && method.ends_with(']')) {
-                let abi_str = format!("[{method}]");
-                serde_json::from_str(&abi_str)
-            } else {
-                serde_json::from_str(method)
-            };
-        let abi: Abi = json_parse.unwrap();
-        let (_, functions): (&String, &Vec<Function>) = abi.functions.iter().next().unwrap();
-        let function: Function = functions.get(0).unwrap().clone();
-        Ok(function)
-    }
-}
-
-fn tokenize_params(values: &[Value], inputs: &[Param]) -> Vec<Token> {
-    let value_strings: Vec<String> = values.iter().map(|v| v.as_str().unwrap().into()).collect();
-    inputs
-        .iter()
-        .zip(value_strings.iter())
-        .map(|(param, arg)| LenientTokenizer::tokenize(&param.kind, arg).unwrap())
-        .collect()
 }

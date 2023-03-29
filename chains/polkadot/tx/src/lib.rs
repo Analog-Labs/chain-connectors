@@ -102,7 +102,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         &self,
         _module: &str,
         _method: &str,
-        _params: &serde_json::Value,
+        _params: &[String],
     ) -> Result<Self::MetadataParams> {
         bail!("Not Implemented")
     }

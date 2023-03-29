@@ -426,7 +426,7 @@ mod tests {
         let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
         let contract_address = receipt.result["contractAddress"].as_str().unwrap();
         let response = wallet
-            .eth_send_call(contract_address, "function emitEvent()", json!([]))
+            .eth_send_call(contract_address, "function emitEvent()", &[])
             .await?;
         let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
         let logs = receipt.result["logs"].as_array().unwrap();

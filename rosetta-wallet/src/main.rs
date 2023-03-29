@@ -2,8 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 use futures::stream::StreamExt;
 use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
+use rosetta_client::EthereumExt;
 use std::path::PathBuf;
-use surf::http::convert::json;
 
 #[derive(Parser)]
 pub struct Opts {
@@ -49,6 +49,7 @@ pub struct TransactionOpts {
 
 #[derive(Parser)]
 pub struct MethodCallOpts {
+    pub contract: String,
     pub method: String,
     #[clap(value_delimiter = ' ')]
     pub params: Vec<String>,
@@ -147,9 +148,12 @@ async fn main() -> Result<()> {
                 println!("No transactions found");
             }
         }
-        Command::MethodCall(MethodCallOpts { method, params }) => {
-            let params = json!(params);
-            let tx = wallet.method_call(&method, params).await?;
+        Command::MethodCall(MethodCallOpts {
+            contract,
+            method,
+            params,
+        }) => {
+            let tx = wallet.eth_send_call(&contract, &method, &params).await?;
             println!("Transaction hash: {:?}", tx.hash);
         }
     }

@@ -1,6 +1,5 @@
 use clap::Parser;
 use rosetta_client::{create_wallet, EthereumExt, Wallet};
-use serde_json::json;
 
 #[derive(Parser)]
 pub enum Command {
@@ -79,7 +78,7 @@ async fn vote(wallet: &Wallet, data: VoteOpts) {
     println!(
         "{:?}",
         wallet
-            .eth_send_call(&data.contract_address, function_signature, json!([]))
+            .eth_send_call(&data.contract_address, function_signature, &[])
             .await
     );
 

@@ -1,10 +1,9 @@
 use clap::Parser;
 use rosetta_client::{
     create_wallet,
-    types::{AccountIdentifier, BlockResponse, PartialBlockIdentifier},
+    types::{AccountIdentifier, Block, PartialBlockIdentifier},
     EthereumExt, Wallet,
 };
-use serde_json::json;
 
 #[derive(Parser)]
 struct EthereumOpts {
@@ -95,7 +94,7 @@ async fn transfer_call(wallet: &Wallet) {
     println!("{:?}", wallet.balance().await);
 }
 
-async fn block(wallet: &Wallet) -> BlockResponse {
+async fn block(wallet: &Wallet) -> Block {
     //getting latest block data
     let network_status = wallet.status().await.unwrap();
 
@@ -104,12 +103,11 @@ async fn block(wallet: &Wallet) -> BlockResponse {
         hash: None,
     };
     let response = wallet.block(block_identifier).await.unwrap();
-    println!("block response {:#?}\n", response);
+    println!("block {:#?}\n", response);
     response
 }
 
-async fn block_transaction(wallet: &Wallet, block_data: BlockResponse) {
-    let block_data = block_data.block.unwrap();
+async fn block_transaction(wallet: &Wallet, block_data: Block) {
     let block_identifier = block_data.block_identifier;
     //taking transaction_identifier from block data
     let transaction_identifier = block_data
@@ -131,12 +129,7 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!(
         "{:?}",
         wallet
-            .eth_send_call(
-                contract_address,
-                function_signature,
-                //must be an array of parameters needed by the function
-                json!([])
-            )
+            .eth_send_call(contract_address, function_signature, &[])
             .await
     );
     println!("latest balance ==================");
