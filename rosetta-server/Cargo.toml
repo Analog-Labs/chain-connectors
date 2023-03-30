@@ -2,6 +2,9 @@
 name = "rosetta-server"
 version = "0.1.0"
 edition = "2021"
+description = "Generic rosetta server implementation."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [features]
 tests = ["futures", "rosetta-docker"]

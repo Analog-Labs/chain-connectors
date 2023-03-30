@@ -2,6 +2,9 @@
 name = "rosetta-types"
 version = "0.1.0"
 edition = "2021"
+description = "Rosetta API request and response structs."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [dependencies]
 serde = { version = "1.0.153", features = ["derive"] }

@@ -2,7 +2,10 @@
 name = "rosetta-config-bitcoin"
 version = "0.1.0"
 edition = "2021"
+description = "Bitcoin configuration."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
-rosetta-core = { path = "../../../rosetta-core" }
+rosetta-core = { version = "0.1.0", path = "../../../rosetta-core" }
