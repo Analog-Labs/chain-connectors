@@ -162,11 +162,11 @@ impl BlockchainClient for EthereumClient {
             BlockId::Hash(H256::from_str(hash)?)
         } else {
             let index = if let Some(index) = block_identifier.index {
-                U64::from(index)
+                BlockNumber::Number(U64::from(index))
             } else {
-                self.client.get_block_number().await?
+                BlockNumber::Latest
             };
-            BlockId::Number(BlockNumber::Number(index))
+            BlockId::Number(index)
         };
         let block = self
             .client
