@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-client"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Client library for interacting with connectors."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -23,11 +23,14 @@ rosetta-tx-ethereum = { version = "0.1.0", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.1.0", path = "../chains/polkadot/tx" }
 serde = "1.0.153"
 serde_json = "1.0.94"
-surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
-tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
+surf = { version = "2.3.2", default-features = false }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.8", features = ["js"] }
 js-sys = "0.3.61"
 wasm-bindgen = "0.2.84"
 web-sys = { version = "0.3.61", features = ["Storage", "Window"] }
+
+[dev-dependencies]
+surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
+tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros"] }
