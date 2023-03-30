@@ -41,9 +41,10 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v3
 
+    - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update
     - name: Install deps
-      run: sudo apt-get install musl-dev musl-tools
+      run: sudo apt-get install musl-dev musl-tools solc
 
     - name: Install rust toolchain
       uses: hecrj/setup-rust-action@v1

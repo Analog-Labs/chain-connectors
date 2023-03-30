@@ -2,8 +2,11 @@
 name = "rosetta-config-polkadot"
 version = "0.1.0"
 edition = "2021"
+description = "Polkadot configuration."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
-rosetta-core = { path = "../../../rosetta-core" }
+rosetta-core = { version = "0.1.0", path = "../../../rosetta-core" }
 serde = { version = "1.0.153", features = ["derive"] }

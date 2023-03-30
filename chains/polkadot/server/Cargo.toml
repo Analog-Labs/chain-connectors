@@ -2,6 +2,9 @@
 name = "rosetta-server-polkadot"
 version = "0.1.0"
 edition = "2021"
+description = "Polkadot rosetta server."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"

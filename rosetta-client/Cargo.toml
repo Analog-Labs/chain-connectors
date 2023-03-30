@@ -2,6 +2,9 @@
 name = "rosetta-client"
 version = "0.1.0"
 edition = "2021"
+description = "Client library for interacting with connectors."
+repository = "https://github.com/analog-labs/chain-connectors"
+license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
