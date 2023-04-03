@@ -129,7 +129,7 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!(
         "{:?}",
         wallet
-            .eth_send_call(contract_address, function_signature, &[])
+            .eth_send_call(contract_address, function_signature, &[], 0)
             .await
     );
     println!("latest balance ==================");

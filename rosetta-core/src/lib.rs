@@ -127,6 +127,7 @@ pub trait TransactionBuilder: Default + Sized {
         contract: &str,
         method: &str,
         values: &[String],
+        amount: u128,
     ) -> Result<Self::MetadataParams>;
 
     fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<Self::MetadataParams>;

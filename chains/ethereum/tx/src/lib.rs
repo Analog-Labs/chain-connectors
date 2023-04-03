@@ -30,8 +30,10 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         contract: &str,
         method: &str,
         params: &[String],
+        amount: u128,
     ) -> Result<Self::MetadataParams> {
         let destination: H160 = contract.parse()?;
+        let amount: U256 = amount.into();
         let function = HumanReadableParser::parse_function(method)?;
         let mut tokens = Vec::with_capacity(params.len());
         for (ty, arg) in function.inputs.iter().zip(params) {
@@ -40,7 +42,7 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         let bytes = function.encode_input(&tokens)?;
         Ok(EthereumMetadataParams {
             destination: destination.0.to_vec(),
-            amount: [0, 0, 0, 0],
+            amount: amount.0,
             data: bytes,
         })
     }
