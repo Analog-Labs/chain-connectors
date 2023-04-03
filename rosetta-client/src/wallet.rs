@@ -47,10 +47,15 @@ impl GenericTransactionBuilder {
         contract: &str,
         method: &str,
         params: &[String],
+        amount: u128,
     ) -> Result<serde_json::Value> {
         Ok(match self {
-            Self::Ethereum(tx) => serde_json::to_value(tx.method_call(contract, method, params)?)?,
-            Self::Polkadot(tx) => serde_json::to_value(tx.method_call(contract, method, params)?)?,
+            Self::Ethereum(tx) => {
+                serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
+            }
+            Self::Polkadot(tx) => {
+                serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
+            }
         })
     }
 
@@ -339,6 +344,7 @@ pub trait EthereumExt {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
+        amount: u128,
     ) -> Result<TransactionIdentifier>;
     /// gets storage from ethereum contract
     async fn eth_storage(&self, contract_address: &str, storage_slot: &str)
@@ -365,10 +371,11 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
+        amount: u128,
     ) -> Result<TransactionIdentifier> {
-        let metadata_params = self
-            .tx
-            .method_call(contract_address, method_signature, params)?;
+        let metadata_params =
+            self.tx
+                .method_call(contract_address, method_signature, params, amount)?;
         self.construct(metadata_params).await
     }
 

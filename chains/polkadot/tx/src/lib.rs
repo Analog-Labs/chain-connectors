@@ -103,6 +103,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         _module: &str,
         _method: &str,
         _params: &[String],
+        _amount: u128,
     ) -> Result<Self::MetadataParams> {
         bail!("Not Implemented")
     }

@@ -53,6 +53,8 @@ pub struct MethodCallOpts {
     pub method: String,
     #[clap(value_delimiter = ' ')]
     pub params: Vec<String>,
+    #[clap(long, default_value = "0")]
+    pub amount: u128,
 }
 
 #[async_std::main]
@@ -152,8 +154,11 @@ async fn main() -> Result<()> {
             contract,
             method,
             params,
+            amount,
         }) => {
-            let tx = wallet.eth_send_call(&contract, &method, &params).await?;
+            let tx = wallet
+                .eth_send_call(&contract, &method, &params, amount)
+                .await?;
             println!("Transaction hash: {:?}", tx.hash);
         }
     }
