@@ -23,7 +23,7 @@ async fn main() {
     let wallet = create_wallet(
         Some("ethereum".to_owned()),
         Some("dev".to_owned()),
-        Some("http://127.0.0.1:8081".to_owned()),
+        Some("http://rosetta.analog.one:8081".to_owned()),
         None,
     )
     .await

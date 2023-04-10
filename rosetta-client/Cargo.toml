@@ -8,7 +8,6 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
-clap = "4.1.8"
 dirs-next = "2.0.0"
 fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3.26"
@@ -32,5 +31,6 @@ wasm-bindgen = "0.2.84"
 web-sys = { version = "0.3.61", features = ["Storage", "Window"] }
 
 [dev-dependencies]
+clap = { version = "4.1.8", features = ["derive"] }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }
 tokio = { version = "1.27.0", features = ["rt-multi-thread", "macros"] }
