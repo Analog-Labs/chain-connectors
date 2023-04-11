@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
                 let req = AccountBalanceRequest {
                     network_identifier: config.network(),
                     account_identifier,
-                    block_identifier: opts.block.partial_block_identifier(),
+                    block_identifier: Some(opts.block.partial_block_identifier()),
                     currencies: None,
                 };
                 let balance = client.account_balance(&req).await?;
@@ -104,10 +104,7 @@ async fn main() -> Result<()> {
                 let res = client.block_transaction(&req).await?;
                 println!("{res:#?}");
             } else {
-                let block_identifier = opts
-                    .block
-                    .partial_block_identifier()
-                    .ok_or_else(|| anyhow::anyhow!("missing partial block identifier"))?;
+                let block_identifier = opts.block.partial_block_identifier();
                 let req = BlockRequest {
                     network_identifier,
                     block_identifier,

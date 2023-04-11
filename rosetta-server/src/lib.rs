@@ -157,7 +157,7 @@ async fn network_options<T: BlockchainClient>(mut req: Request<State<T>>) -> tid
         version: Version {
             rosetta_version: "1.4.13".into(),
             node_version,
-            middleware_version: None,
+            middleware_version: Some(env!("VERGEN_GIT_DESCRIBE").into()),
             metadata: None,
         },
         allow: None,
