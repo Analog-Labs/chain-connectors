@@ -24,3 +24,7 @@ serde_json = "1.0.94"
 sled = "0.34.7"
 tide = { version = "0.16.0", default-features = false, features = ["h1-server", "logger"] }
 tokio = { version = "1.26.0", features = ["full"] }
+
+[build-dependencies]
+anyhow = "1.0.69"
+vergen = { version = "8.1.1", features = ["build", "git", "gitcl"] }

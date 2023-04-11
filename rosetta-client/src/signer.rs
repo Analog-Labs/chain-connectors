@@ -62,7 +62,8 @@ impl Signer {
         self.master_key(algorithm)?
             .derive(ChildNumber::hardened_from_u32(44))?
             .derive(ChildNumber::hardened_from_u32(coin))?
-            .derive(ChildNumber::hardened_from_u32(account))
+            .derive(ChildNumber::hardened_from_u32(account))?
+            .derive(ChildNumber::non_hardened_from_u32(0))
     }
 }
 

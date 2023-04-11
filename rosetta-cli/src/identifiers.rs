@@ -40,14 +40,11 @@ pub struct BlockIdentifierOpts {
 }
 
 impl BlockIdentifierOpts {
-    pub fn partial_block_identifier(&self) -> Option<PartialBlockIdentifier> {
-        if self.index.is_none() && self.hash.is_none() {
-            return None;
-        }
-        Some(PartialBlockIdentifier {
+    pub fn partial_block_identifier(&self) -> PartialBlockIdentifier {
+        PartialBlockIdentifier {
             index: self.index,
             hash: self.hash.clone(),
-        })
+        }
     }
 
     pub fn block_identifier(&self) -> Option<BlockIdentifier> {
