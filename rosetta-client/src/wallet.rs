@@ -337,6 +337,7 @@ pub trait EthereumExt {
         &self,
         contract_address: &str,
         method_signature: &str,
+        params: &[String],
     ) -> Result<CallResponse>;
     /// calls contract send call function
     async fn eth_send_call(
@@ -383,9 +384,10 @@ impl EthereumExt for Wallet {
         &self,
         contract_address: &str,
         method_signature: &str,
+        params: &[String],
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-call", contract_address, method_signature);
-        self.call(method, &json!({})).await
+        self.call(method, &json!(params)).await
     }
 
     async fn eth_storage(

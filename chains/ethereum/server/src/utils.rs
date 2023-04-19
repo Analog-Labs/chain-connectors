@@ -4,12 +4,8 @@ use crate::eth_types::{
     FRONTIER_BLOCK_REWARD, MAX_UNCLE_DEPTH, MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE,
     SUCCESS_STATUS, TESTNET_CHAIN_CONFIG, UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
 };
-use anyhow::{anyhow, bail, Context, Result};
-use ethers::{
-    abi::{Abi, Function, HumanReadableParser},
-    prelude::*,
-    utils::to_checksum,
-};
+use anyhow::{bail, Context, Result};
+use ethers::{prelude::*, utils::to_checksum};
 use ethers::{
     providers::{Http, Middleware, Provider},
     types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
@@ -453,30 +449,4 @@ pub async fn block_reward_transaction(
         operations,
         metadata: None,
     })
-}
-
-pub fn parse_method(method: &str) -> Result<Function> {
-    let parse_result = HumanReadableParser::parse_function(method);
-    if parse_result.is_ok() {
-        parse_result.map_err(|e| anyhow!(e))
-    } else {
-        let json_parse: Result<Abi, serde_json::Error> =
-            if !(method.starts_with('[') && method.ends_with(']')) {
-                let abi_str = format!("[{method}]");
-                serde_json::from_str(&abi_str)
-            } else {
-                serde_json::from_str(method)
-            };
-        let abi: Abi = json_parse?;
-        let (_, functions): (&String, &Vec<Function>) = abi
-            .functions
-            .iter()
-            .next()
-            .context("No functions found in abi")?;
-        let function: Function = functions
-            .get(0)
-            .context("Abi function list is empty")?
-            .clone();
-        Ok(function)
-    }
 }
