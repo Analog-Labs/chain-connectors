@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
-use ethers::abi::{Detokenize, InvalidOutputType, Token};
+use ethabi::token::{LenientTokenizer, Tokenizer};
+use ethers::abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token};
 use ethers::prelude::*;
 use ethers::utils::keccak256;
 use ethers::utils::rlp::Encodable;
@@ -231,19 +232,23 @@ impl BlockchainClient for EthereumClient {
         let method_or_position = call_details[1];
         let call_type = call_details[2];
 
-        let params = req.parameters.clone();
+        let params = &req.parameters;
         match call_type.to_lowercase().as_str() {
             "call" => {
                 //process constant call
                 let contract_address = H160::from_str(contract_address)?;
 
-                let function = crate::utils::parse_method(method_or_position)?;
-
-                let bytes: Vec<u8> = function.encode_input(&[])?;
+                let function = HumanReadableParser::parse_function(method_or_position)?;
+                let params: Vec<String> = serde_json::from_value(params.clone())?;
+                let mut tokens = Vec::with_capacity(params.len());
+                for (ty, arg) in function.inputs.iter().zip(params) {
+                    tokens.push(LenientTokenizer::tokenize(&ty.kind, &arg)?);
+                }
+                let data = function.encode_input(&tokens)?;
 
                 let tx = Eip1559TransactionRequest {
                     to: Some(contract_address.into()),
-                    data: Some(bytes.into()),
+                    data: Some(data.into()),
                     ..Default::default()
                 };
 
@@ -260,7 +265,11 @@ impl BlockchainClient for EthereumClient {
                 }
                 let detokenizer: Detokenizer =
                     decode_function_data(&function, received_data, false)?;
-                return Ok(serde_json::to_value(detokenizer.tokens)?);
+                let mut result = Vec::with_capacity(tokens.len());
+                for token in detokenizer.tokens {
+                    result.push(token.to_string());
+                }
+                return Ok(serde_json::to_value(result)?);
             }
             "storage" => {
                 //process storage call
@@ -434,6 +443,41 @@ mod tests {
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
         assert_eq!(topic, expected);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_smart_contract_view() -> Result<()> {
+        let config = rosetta_config_ethereum::config("dev")?;
+
+        let env = Env::new("smart-contract-view", config.clone()).await?;
+
+        let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let wallet = env.ephemeral_wallet()?;
+        wallet.faucet(faucet).await?;
+
+        let bytes = compile_snippet(
+            r#"
+            function identity(bool a) public view returns (bool) {
+                return a;
+            }
+        "#,
+        )?;
+        let response = wallet.eth_deploy_contract(bytes).await?;
+        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
+        let contract_address = receipt.result["contractAddress"].as_str().unwrap();
+
+        let response = wallet
+            .eth_view_call(
+                contract_address,
+                "function identity(bool a) returns (bool)",
+                &["true".into()],
+            )
+            .await?;
+        println!("{:?}", response);
+        let result: Vec<String> = serde_json::from_value(response.result)?;
+        assert_eq!(result[0], "true");
+
         Ok(())
     }
 }

@@ -18,7 +18,7 @@ pub struct Env {
 }
 
 impl Env {
-    pub async fn new(prefix: &'static str, mut config: BlockchainConfig) -> Result<Self> {
+    pub async fn new(prefix: &str, mut config: BlockchainConfig) -> Result<Self> {
         env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
         config.node_port = builder.random_port();
@@ -66,13 +66,13 @@ impl Env {
     }
 }
 
-struct EnvBuilder {
-    prefix: &'static str,
+struct EnvBuilder<'a> {
+    prefix: &'a str,
     docker: Docker,
 }
 
-impl EnvBuilder {
-    pub fn new(prefix: &'static str) -> Result<Self> {
+impl<'a> EnvBuilder<'a> {
+    pub fn new(prefix: &'a str) -> Result<Self> {
         let version = ApiVersion::new(1, Some(41), None);
         #[cfg(unix)]
         let docker = Docker::unix_versioned("/var/run/docker.sock", version);
