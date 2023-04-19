@@ -110,20 +110,6 @@ fn ok<T: serde::Serialize>(t: &T) -> tide::Result {
     Ok(r)
 }
 
-fn err(err: &anyhow::Error) -> tide::Result {
-    let error = crate::types::Error {
-        code: 500,
-        message: format!("{err}"),
-        description: None,
-        retriable: false,
-        details: None,
-    };
-    let r = Response::builder(500)
-        .body(Body::from_json(&error).unwrap())
-        .build();
-    Ok(r)
-}
-
 fn is_network_supported(network_identifier: &NetworkIdentifier, config: &BlockchainConfig) -> bool {
     network_identifier.blockchain == config.blockchain
         && network_identifier.network == config.network
@@ -219,7 +205,10 @@ async fn account_coins<T: BlockchainClient>(mut req: Request<State<T>>) -> tide:
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let block_identifier = req.state().current_block().await?;
+    let block_identifier = match req.state().current_block().await {
+        Ok(block_identifier) => block_identifier,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let address = Address::new(config.address_format, request.account_identifier.address);
     let coins = match req.state().coins(&address, &block_identifier).await {
         Ok(coins) => coins,
@@ -310,7 +299,10 @@ async fn block<T: BlockchainClient>(mut req: Request<State<T>>) -> tide::Result 
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let block = req.state().block(&request.block_identifier).await?;
+    let block = match req.state().block(&request.block_identifier).await {
+        Ok(block) => block,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = BlockResponse {
         block: Some(block),
         other_transactions: None,
@@ -324,10 +316,14 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<State<T>>) -> t
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let transaction = req
+    let transaction = match req
         .state()
         .block_transaction(&request.block_identifier, &request.transaction_identifier)
-        .await?;
+        .await
+    {
+        Ok(transaction) => transaction,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = BlockTransactionResponse { transaction };
     ok(&response)
 }
@@ -340,7 +336,7 @@ async fn search_transactions<T: BlockchainClient>(mut req: Request<State<T>>) ->
     }
     let response = match req.state().search(&request).await {
         Ok(response) => response,
-        Err(error) => return err(&error),
+        Err(err) => return Error::RpcError(err).to_result(),
     };
     ok(&response)
 }
@@ -351,7 +347,10 @@ async fn call<T: BlockchainClient>(mut req: Request<State<T>>) -> tide::Result {
     if !is_network_supported(&request.network_identifier, config) {
         return Error::UnsupportedNetwork.to_result();
     }
-    let call_result = req.state().call(&request).await?;
+    let call_result = match req.state().call(&request).await {
+        Ok(call_result) => call_result,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = CallResponse {
         result: call_result,
         idempotent: false,
