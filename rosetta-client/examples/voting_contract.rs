@@ -87,7 +87,7 @@ async fn vote(wallet: &Wallet, data: VoteOpts) {
     println!(
         "{:?}",
         wallet
-            .eth_view_call(&data.contract_address, function_signature)
+            .eth_view_call(&data.contract_address, function_signature, &[])
             .await
     );
 }

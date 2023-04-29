@@ -139,7 +139,7 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
 async fn contract_call(wallet: &Wallet, contract_address: &str) {
     let method_signature = "function get_votes_stats() external view returns (uint, uint)";
     let response = wallet
-        .eth_view_call(contract_address, method_signature)
+        .eth_view_call(contract_address, method_signature, &[])
         .await;
     println!("contract call response {:#?}\n", response);
 }
