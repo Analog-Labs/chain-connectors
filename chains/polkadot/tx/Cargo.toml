@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-tx-polkadot"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Polkadot transaction builder."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -11,6 +11,6 @@ anyhow = "1.0.69"
 blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
 parity-scale-codec = { version = "3.4.0", features = ["derive"] }
-rosetta-config-polkadot = { version = "0.1.0", path = "../config" }
-rosetta-core = { version = "0.1.0", path = "../../../rosetta-core" }
+rosetta-config-polkadot = { version = "0.2.5", path = "../config" }
+rosetta-core = { version = "0.2.5", path = "../../../rosetta-core" }
 serde_json = "1.0.94"

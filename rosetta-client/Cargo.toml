@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-client"
-version = "0.2.0"
+version = "0.2.5"
 edition = "2021"
 description = "Client library for interacting with connectors."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -14,12 +14,12 @@ futures = "0.3.26"
 getrandom = "0.2.8"
 hex = "0.4.3"
 log = "0.4.17"
-rosetta-config-bitcoin = { version = "0.1.0", path = "../chains/bitcoin/config" }
-rosetta-config-ethereum = { version = "0.1.0", path = "../chains/ethereum/config" }
-rosetta-config-polkadot = { version = "0.1.0", path = "../chains/polkadot/config" }
-rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
-rosetta-tx-ethereum = { version = "0.1.0", path = "../chains/ethereum/tx" }
-rosetta-tx-polkadot = { version = "0.1.0", path = "../chains/polkadot/tx" }
+rosetta-config-bitcoin = { version = "0.2.5", path = "../chains/bitcoin/config" }
+rosetta-config-ethereum = { version = "0.2.5", path = "../chains/ethereum/config" }
+rosetta-config-polkadot = { version = "0.2.5", path = "../chains/polkadot/config" }
+rosetta-core = { version = "0.2.5", path = "../rosetta-core" }
+rosetta-tx-ethereum = { version = "0.2.5", path = "../chains/ethereum/tx" }
+rosetta-tx-polkadot = { version = "0.2.5", path = "../chains/polkadot/tx" }
 serde = "1.0.153"
 serde_json = "1.0.94"
 surf = { version = "2.3.2", default-features = false }

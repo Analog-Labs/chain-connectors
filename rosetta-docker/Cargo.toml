@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-docker"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Generic rosetta server testing infrastructure based on docker."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -13,8 +13,8 @@ env_logger = "0.10.0"
 futures = "0.3.26"
 getrandom = "0.2.8"
 log = "0.4.17"
-rosetta-client = { version = "0.1.0", path = "../rosetta-client" }
-rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
+rosetta-client = { version = "0.2.5", path = "../rosetta-client" }
+rosetta-core = { version = "0.2.5", path = "../rosetta-core" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-no-tls"] }
 tokio = "1.26.0"
 

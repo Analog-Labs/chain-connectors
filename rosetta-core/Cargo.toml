@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-core"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Provides traits and definitions shared by the server and client crates."
 repository = "https://github.com/analog-labs/chain-connectors"

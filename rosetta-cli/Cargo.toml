@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-cli"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Rosetta CLI tool for interacting with connectors."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -11,5 +11,5 @@ anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.1.8", features = ["derive"] }
 env_logger = "0.10.0"
-rosetta-client = { version = "0.1.0", path = "../rosetta-client" }
+rosetta-client = { version = "0.2.5", path = "../rosetta-client" }
 surf = { version = "2.3.2", features = ["h1-client-rustls"], default-features = false }

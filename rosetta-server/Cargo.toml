@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-server"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Generic rosetta server implementation."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -17,8 +17,8 @@ femme = "2.2.1"
 futures = { version = "0.3.26", optional = true }
 hex = "0.4.3"
 log = "0.4.17"
-rosetta-core = { version = "0.1.0", path = "../rosetta-core" }
-rosetta-docker = { version = "0.1.0", path = "../rosetta-docker", optional = true }
+rosetta-core = { version = "0.2.5", path = "../rosetta-core" }
+rosetta-docker = { version = "0.2.5", path = "../rosetta-docker", optional = true }
 serde = "1.0.153"
 serde_json = "1.0.94"
 sled = "0.34.7"

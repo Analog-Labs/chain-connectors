@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-wallet"
-version = "0.1.0"
+version = "0.2.5"
 edition = "2021"
 description = "Command line wallet implemented using the rosetta client."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -11,6 +11,6 @@ anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.1.8", features = ["derive"] }
 futures = "0.3.26"
-rosetta-client = { version = "0.1.0", path = "../rosetta-client" }
+rosetta-client = { version = "0.2.5", path = "../rosetta-client" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 tracing-subscriber = "0.3.16"
