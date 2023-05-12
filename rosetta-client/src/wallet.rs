@@ -347,6 +347,14 @@ pub trait EthereumExt {
         params: &[String],
         amount: u128,
     ) -> Result<TransactionIdentifier>;
+    /// estimates gas of send call
+    async fn eth_send_call_estimate_gas(
+        &self,
+        contract_address: &str,
+        method_signature: &str,
+        params: &[String],
+        amount: u128,
+    ) -> Result<u128>;
     /// gets storage from ethereum contract
     async fn eth_storage(&self, contract_address: &str, storage_slot: &str)
         -> Result<CallResponse>;
@@ -378,6 +386,21 @@ impl EthereumExt for Wallet {
             self.tx
                 .method_call(contract_address, method_signature, params, amount)?;
         self.construct(metadata_params).await
+    }
+
+    async fn eth_send_call_estimate_gas(
+        &self,
+        contract_address: &str,
+        method_signature: &str,
+        params: &[String],
+        amount: u128,
+    ) -> Result<u128> {
+        let metadata_params =
+            self.tx
+                .method_call(contract_address, method_signature, params, amount)?;
+        let metadata = self.metadata(metadata_params).await?;
+        let metadata: rosetta_config_ethereum::EthereumMetadata = serde_json::from_value(metadata)?;
+        Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
     }
 
     async fn eth_view_call(

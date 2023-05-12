@@ -23,7 +23,7 @@ tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
 ethers-solc = "2.0.1"
 rosetta-client = { version = "0.2.5", path = "../../../rosetta-client" }
 rosetta-docker = { version = "0.2.5", path = "../../../rosetta-docker" }
-rosetta-server = { version = "0.1.0", path = "../../../rosetta-server", features = [
+rosetta-server = { version = "0.2.5", path = "../../../rosetta-server", features = [
     "tests",
 ] }
 sha3 = "0.10.6"
