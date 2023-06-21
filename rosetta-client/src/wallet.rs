@@ -22,6 +22,7 @@ use std::task::{Context, Poll};
 use surf::utils::async_trait;
 
 pub enum GenericTransactionBuilder {
+    Astar(rosetta_tx_astar::AstarTransactionBuilder),
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
 }
@@ -29,6 +30,7 @@ pub enum GenericTransactionBuilder {
 impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
+            "astar" => Self::Astar(Default::default()),
             "ethereum" => Self::Ethereum(Default::default()),
             "polkadot" => Self::Polkadot(Default::default()),
             _ => anyhow::bail!("unsupported blockchain"),
@@ -37,6 +39,7 @@ impl GenericTransactionBuilder {
 
     pub fn transfer(&self, address: &Address, amount: u128) -> Result<serde_json::Value> {
         Ok(match self {
+            Self::Astar(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
             Self::Ethereum(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
             Self::Polkadot(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
         })
@@ -50,6 +53,9 @@ impl GenericTransactionBuilder {
         amount: u128,
     ) -> Result<serde_json::Value> {
         Ok(match self {
+            Self::Astar(tx) => {
+                serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
+            }
             Self::Ethereum(tx) => {
                 serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
             }
@@ -61,6 +67,7 @@ impl GenericTransactionBuilder {
 
     pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<serde_json::Value> {
         Ok(match self {
+            Self::Astar(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
             Self::Ethereum(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
             Self::Polkadot(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
         })
@@ -74,6 +81,11 @@ impl GenericTransactionBuilder {
         secret_key: &SecretKey,
     ) -> Vec<u8> {
         match self {
+            Self::Astar(tx) => {
+                let metadata_params = serde_json::from_value(metadata_params).unwrap();
+                let metadata = serde_json::from_value(metadata).unwrap();
+                tx.create_and_sign(config, &metadata_params, &metadata, secret_key)
+            }
             Self::Ethereum(tx) => {
                 let metadata_params = serde_json::from_value(metadata_params).unwrap();
                 let metadata = serde_json::from_value(metadata).unwrap();
