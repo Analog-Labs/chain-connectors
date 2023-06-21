@@ -14,10 +14,12 @@ futures = "0.3.26"
 getrandom = "0.2.8"
 hex = "0.4.3"
 log = "0.4.17"
+rosetta-config-astar = { version = "0.2.5", path = "../chains/astar/config" }
 rosetta-config-bitcoin = { version = "0.2.5", path = "../chains/bitcoin/config" }
 rosetta-config-ethereum = { version = "0.2.5", path = "../chains/ethereum/config" }
 rosetta-config-polkadot = { version = "0.2.5", path = "../chains/polkadot/config" }
 rosetta-core = { version = "0.2.5", path = "../rosetta-core" }
+rosetta-tx-astar = { version = "0.2.5", path = "../chains/astar/tx" }
 rosetta-tx-ethereum = { version = "0.2.5", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.2.5", path = "../chains/polkadot/tx" }
 serde = "1.0.153"

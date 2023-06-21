@@ -4,9 +4,11 @@ volumes:
   bitcoin-volume:
   ethereum-volume:
   polkadot-volume:
+  astar-volume:
   bitcoin-connector-volume:
   ethereum-connector-volume:
   polkadot-connector-volume:
+  astar-connector-volume:
 
 services:
   bitcoin:
@@ -58,6 +60,23 @@ services:
     volumes:
     - "polkadot-volume:/polkadot"
 
+  astar:
+    image: "staketechnologies/astar-collator:latest"
+    command: "astar-collator --chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    expose:
+    - "9944"
+    user: root
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
+    deploy:
+      resources:
+        reservations:
+          memory: 1g
+    volumes:
+    - "astar-volume:/astar"
+
 
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
@@ -91,6 +110,18 @@ services:
     # TODO: need to do a proper health check
     restart: always
 
+  connector-astar:
+    image: "analoglabs/connector-astar"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr astar:9944 --path /data"
+    ports:
+    - "8083:8083"
+    depends_on:
+    - astar
+    volumes:
+    - "astar-connector-volume:/data"
+    # TODO: need to do a proper health check
+    restart: always
+
 
   explorer:
     image: "analoglabs/rosetta-explorer"
@@ -100,3 +131,4 @@ services:
     - connector-bitcoin
     - connector-ethereum
     - connector-polkadot
+    - connector-astar
