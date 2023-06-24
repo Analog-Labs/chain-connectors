@@ -40,7 +40,8 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     let opts = Opts::parse();
 
     log::info!("connecting to {}", &opts.node_addr);
-    let client = T::new(&opts.network, &opts.node_addr).await?;
+    let config = T::create_config(&opts.network)?;
+    let client = T::new(config, &opts.node_addr).await?;
     let indexer = Arc::new(Indexer::new(&opts.path, client)?);
 
     let cors = CorsMiddleware::new()

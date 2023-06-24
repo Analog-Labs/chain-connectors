@@ -9,4 +9,3 @@ license = "MIT"
 [dependencies]
 anyhow = "1.0.69"
 rosetta-core = { version = "0.2.5", path = "../../../rosetta-core" }
-serde = { version = "1.0.153", features = ["derive"] }
