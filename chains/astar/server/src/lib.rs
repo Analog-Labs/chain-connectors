@@ -102,7 +102,7 @@ impl BlockchainClient for AstarClient {
         public_key: &PublicKey,
         options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        self.metadata(public_key, options).await
+        self.client.metadata(public_key, options).await
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
@@ -130,7 +130,7 @@ impl BlockchainClient for AstarClient {
 mod tests {
     use super::*;
     use ethers_solc::artifacts::Source;
-    use ethers_solc::{CompilerInput, Solc};
+    use ethers_solc::{CompilerInput, EvmVersion, Solc};
     use rosetta_client::EthereumExt;
     use rosetta_docker::Env;
     use sha3::Digest;
@@ -184,8 +184,10 @@ mod tests {
         let source = format!("contract Contract {{ {source} }}");
         let mut sources = BTreeMap::new();
         sources.insert(Path::new("contract.sol").into(), Source::new(source));
-        let input = &CompilerInput::with_sources(sources)[0];
-        let output = solc.compile_exact(input)?;
+        let input = CompilerInput::with_sources(sources)[0]
+            .clone()
+            .evm_version(EvmVersion::Homestead);
+        let output = solc.compile_exact(&input)?;
         let file = output.contracts.get("contract.sol").unwrap();
         let contract = file.get("Contract").unwrap();
         let bytecode = contract
