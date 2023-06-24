@@ -66,7 +66,8 @@ impl BlockchainConfig {
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Send + Sync + 'static;
     type Metadata: Serialize;
-    async fn new(network: &str, addr: &str) -> Result<Self>;
+    fn create_config(network: &str) -> Result<BlockchainConfig>;
+    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
     async fn node_version(&self) -> Result<String>;

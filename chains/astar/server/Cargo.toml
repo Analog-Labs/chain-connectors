@@ -10,16 +10,24 @@ license = "MIT"
 anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1.66"
-hex = "0.4.3"
+ethers = "2.0.7"
 parity-scale-codec = "3.4.0"
 rosetta-config-astar = { version = "0.2.5", path = "../config" }
+rosetta-config-ethereum = { version = "0.2.5", path = "../../ethereum/config" }
 rosetta-server = { version = "0.2.5", path = "../../../rosetta-server" }
-scale-info = "2.3.1"
-serde = { version = "1.0.153", features = ["derive"] }
+rosetta-server-ethereum = { version = "0.2.5", path = "../../ethereum/server" }
 serde_json = "1.0.94"
+sp-core = { version = "16.0.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "18.0.0"
 subxt = "0.27.1"
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-rosetta-server = { version = "0.2.5", path = "../../../rosetta-server", features = ["tests"] }
+ethers-solc = "2.0.1"
+hex = "0.4.3"
+rosetta-client = { version = "0.2.5", path = "../../../rosetta-client" }
+rosetta-docker = { version = "0.2.5", path = "../../../rosetta-docker" }
+rosetta-server = { version = "0.2.5", path = "../../../rosetta-server", features = [
+    "tests",
+] }
+sha3 = "0.10.6"

@@ -32,8 +32,11 @@ impl BlockchainClient for EthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
 
-    async fn new(network: &str, addr: &str) -> Result<Self> {
-        let config = rosetta_config_ethereum::config(network)?;
+    fn create_config(network: &str) -> Result<BlockchainConfig> {
+        rosetta_config_ethereum::config(network)
+    }
+
+    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
         let genesis = client
             .get_block(0)

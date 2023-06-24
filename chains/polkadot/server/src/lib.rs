@@ -80,8 +80,11 @@ impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
 
-    async fn new(network: &str, addr: &str) -> Result<Self> {
-        let config = rosetta_config_polkadot::config(network)?;
+    fn create_config(network: &str) -> Result<BlockchainConfig> {
+        rosetta_config_polkadot::config(network)
+    }
+
+    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{addr}")).await?;
         let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier {

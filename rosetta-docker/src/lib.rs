@@ -43,7 +43,7 @@ impl Env {
 
     pub async fn node<T: BlockchainClient>(&self) -> Result<T> {
         let addr = format!("127.0.0.1:{}", self.config.node_port);
-        T::new(self.config.network, &addr).await
+        T::new(self.config.clone(), &addr).await
     }
 
     pub fn connector(&self) -> Result<Client> {

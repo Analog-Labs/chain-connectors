@@ -2,7 +2,6 @@
 members = [
     "chains/astar/config",
     "chains/astar/server",
-    "chains/astar/tx",
     "chains/bitcoin/config",
     "chains/bitcoin/server",
     "chains/ethereum/config",

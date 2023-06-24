@@ -20,8 +20,11 @@ impl BlockchainClient for BitcoinClient {
     type MetadataParams = ();
     type Metadata = ();
 
-    async fn new(network: &str, addr: &str) -> Result<Self> {
-        let config = rosetta_config_bitcoin::config(network)?;
+    fn create_config(network: &str) -> Result<BlockchainConfig> {
+        rosetta_config_bitcoin::config(network)
+    }
+
+    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = Client::new(
             addr.to_string(),
             Auth::UserPass("rosetta".into(), "rosetta".into()),
