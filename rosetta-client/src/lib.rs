@@ -52,6 +52,7 @@ pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig
     match blockchain {
         "bitcoin" => rosetta_config_bitcoin::config(network),
         "ethereum" => rosetta_config_ethereum::config(network),
+        "astar" => rosetta_config_astar::config(network),
         "polkadot" => rosetta_config_polkadot::config(network),
         _ => anyhow::bail!("unsupported blockchain"),
     }
