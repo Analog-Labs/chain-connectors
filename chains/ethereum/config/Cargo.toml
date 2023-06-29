@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-config-ethereum"
-version = "0.2.5"
+version = "0.4.0"
 edition = "2021"
 description = "Ethereum configuration."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -8,5 +8,5 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.69"
-rosetta-core = { version = "0.2.5", path = "../../../rosetta-core" }
+rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 serde = { version = "1.0.153", features = ["derive"] }

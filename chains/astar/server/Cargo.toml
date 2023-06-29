@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-server-astar"
-version = "0.2.5"
+version = "0.4.0"
 edition = "2021"
 description = "Astar rosetta server."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -12,10 +12,10 @@ async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1.66"
 ethers = "2.0.7"
 parity-scale-codec = "3.4.0"
-rosetta-config-astar = { version = "0.2.5", path = "../config" }
-rosetta-config-ethereum = { version = "0.2.5", path = "../../ethereum/config" }
-rosetta-server = { version = "0.2.5", path = "../../../rosetta-server" }
-rosetta-server-ethereum = { version = "0.2.5", path = "../../ethereum/server" }
+rosetta-config-astar = { version = "0.4.0", path = "../config" }
+rosetta-config-ethereum = { version = "0.4.0", path = "../../ethereum/config" }
+rosetta-server = { version = "0.4.0", path = "../../../rosetta-server" }
+rosetta-server-ethereum = { version = "0.4.0", path = "../../ethereum/server" }
 serde_json = "1.0.94"
 sp-core = { version = "16.0.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "18.0.0"
@@ -25,9 +25,9 @@ tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
 [dev-dependencies]
 ethers-solc = "2.0.1"
 hex = "0.4.3"
-rosetta-client = { version = "0.2.5", path = "../../../rosetta-client" }
-rosetta-docker = { version = "0.2.5", path = "../../../rosetta-docker" }
-rosetta-server = { version = "0.2.5", path = "../../../rosetta-server", features = [
+rosetta-client = { version = "0.4.0", path = "../../../rosetta-client" }
+rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker" }
+rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", features = [
     "tests",
 ] }
 sha3 = "0.10.6"

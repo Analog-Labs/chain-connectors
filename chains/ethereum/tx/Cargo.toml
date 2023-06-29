@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-tx-ethereum"
-version = "0.2.5"
+version = "0.4.0"
 edition = "2021"
 description = "Ethereum transaction builder."
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -10,7 +10,7 @@ license = "MIT"
 anyhow = "1.0.69"
 ethabi = "18.0.0"
 ethers-core = "2.0.0"
-rosetta-config-ethereum = { version = "0.2.5", path = "../config" }
-rosetta-core = { version = "0.2.5", path = "../../../rosetta-core" }
+rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
+rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 serde_json = "1.0.94"
 sha3 = "0.10.6"
