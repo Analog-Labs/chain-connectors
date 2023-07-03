@@ -35,6 +35,15 @@ jobs:
     - name: cargo clippy
       run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
 
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: cargo-deny check
+        uses: EmbarkStudios/cargo-deny-action@v1
+
   test:
     runs-on: ubuntu-latest
     steps:
