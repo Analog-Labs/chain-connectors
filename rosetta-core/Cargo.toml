@@ -2,9 +2,9 @@
 name = "rosetta-core"
 version = "0.4.0"
 edition = "2021"
-description = "Provides traits and definitions shared by the server and client crates."
-repository = "https://github.com/analog-labs/chain-connectors"
 license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Provides traits and definitions shared by the server and client crates."
 
 [dependencies]
 anyhow = "1.0.69"
