@@ -46,9 +46,12 @@ impl Env {
         T::new(self.config.clone(), &addr).await
     }
 
+    pub fn connector_url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.config.connector_port)
+    }
+
     pub fn connector(&self) -> Result<Client> {
-        let url = format!("http://127.0.0.1:{}", self.config.connector_port);
-        Client::new(&url)
+        Client::new(&self.connector_url())
     }
 
     pub fn ephemeral_wallet(&self) -> Result<Wallet> {
