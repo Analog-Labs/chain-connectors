@@ -36,7 +36,7 @@ jobs:
         components: clippy
 
     - name: cargo clippy
-      run: cargo clippy --workspace --examples --tests --all-features -- -D warnings
+      run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings
 
   cargo-deny:
     runs-on: ubuntu-latest
@@ -70,4 +70,4 @@ jobs:
       run: ./pull_nodes.sh
 
     - name: cargo test
-      run: cargo test --all-features --workspace
+      run: cargo test --locked --all-features --workspace
