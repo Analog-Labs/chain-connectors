@@ -8,10 +8,3 @@
 
 # Unneeded artifacts
 **/.DS_Store
-
-# IDE artifacts
-/.idea
-/.vscode
-
-# Why we remove Cargo.lock?
-/Cargo.lock
