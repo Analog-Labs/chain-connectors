@@ -32,7 +32,6 @@ _Replace the example steps below with actual steps to reproduce the bug you're r
 3. step 2
 4. bug...
 
-
 **Logs, Errors or Screenshots**
 
 _Please provide the text of any logs or errors that you experienced; if

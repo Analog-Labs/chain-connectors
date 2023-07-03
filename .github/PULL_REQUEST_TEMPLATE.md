@@ -1,6 +1,6 @@
 ## Description
 
-Summary of the change and which issue is fixed. Please also include relevant motivation and context. 
+Summary of the change and which issue is fixed. Please also include relevant motivation and context.
 
 Fixes # (issue)
 
@@ -21,9 +21,10 @@ Describe the tests that you ran to verify your changes. Please also list any rel
 - [ ] Test B
 
 **Test Configuration**:
-* Firmware version:
-* Hardware:
-* Toolchain:
+
+- Firmware version:
+- Hardware:
+- Toolchain:
 
 ## Code review prechecks:
 
@@ -32,5 +33,5 @@ Describe the tests that you ran to verify your changes. Please also list any rel
 - [ ] Inline comments have been added for each method
 - [ ] I have made corresponding changes to the documentation
 - [ ] Code changes introduces no new problems or warnings
-- [ ] Test cases have been added 
+- [ ] Test cases have been added
 - [ ] Dependent changes have been merged and published in downstream modules

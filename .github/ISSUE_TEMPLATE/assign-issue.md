@@ -18,10 +18,12 @@ assignees: ''
 - [ ] Feature 3
 
 **Tests instructions**
+
 - Unit tests
 - Integration tests
 
 **References Material**
+
 - Technical Specs
 - Related docs
 - Example code

@@ -2,9 +2,9 @@
 name = "rosetta-crypto"
 version = "0.4.0"
 edition = "2021"
-description = "Cryptographic primitives used by the rosetta client."
-repository = "https://github.com/analog-labs/chain-connectors"
 license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Cryptographic primitives used by the rosetta client."
 
 [dependencies]
 anyhow = "1.0.69"
