@@ -2,9 +2,9 @@
 name = "rosetta-docker"
 version = "0.4.1"
 edition = "2021"
-description = "Generic rosetta server testing infrastructure based on docker."
-repository = "https://github.com/analog-labs/chain-connectors"
 license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Generic rosetta server testing infrastructure based on docker."
 
 [dependencies]
 anyhow = "1.0.69"

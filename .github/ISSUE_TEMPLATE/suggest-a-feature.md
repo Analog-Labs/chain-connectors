@@ -8,16 +8,16 @@ assignees: ''
 ---
 
 **Motivation**
-*Describe the problem, need, or specific use-case that motivated you to make this suggestion.*
+_Describe the problem, need, or specific use-case that motivated you to make this suggestion._
 
 **Problem Statement**
-*Details here.*
+_Details here._
 
 **Suggested Solution**
-*Describe your suggested solution.*
+_Describe your suggested solution._
 
 **Alternatives**
-*Describe any alternative solutions or features you considered and why you believe your suggested solution is preferable.*
+_Describe any alternative solutions or features you considered and why you believe your suggested solution is preferable._
 
 **Additional Information**
-*Provide any additional information that you believe may help us evaluate your suggestion.*
+_Provide any additional information that you believe may help us evaluate your suggestion._
