@@ -18,6 +18,9 @@ jobs:
       with:
         components: rustfmt
 
+    - name: dprint check
+      uses: dprint/check@v2.2
+
     - name: cargo fmt
       run: cargo fmt --all -- --check
 
