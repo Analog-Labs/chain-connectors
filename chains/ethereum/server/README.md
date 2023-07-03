@@ -61,6 +61,7 @@ This method is used to fund an account with some amount of tokens in testnet. It
 This call is used to fetch nonce of account, It takes two arguments:
 `public_key`: This is the public key of sender.
 `options`: This is Params needed to create metadata. For ethereum chain it takes
+
 - `destination`: Address of receivier.
 - `amount`: Amount to be transfered to receiver.
 - `data`: encoded input data for call

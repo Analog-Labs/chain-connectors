@@ -60,6 +60,7 @@ This method is used to fund an account with some amount of tokens in testnet. It
 This call is used to fetch nonce of account, It takes two arguments:
 `public_key`: This is the public key of sender.
 `options`: This is Params needed to create metadata. For polkadot chain it takes
+
 - `pallet_name`: name of pallet.
 - `call_name`: function of pallet.
 - `call_args`: parameters of pallet.
