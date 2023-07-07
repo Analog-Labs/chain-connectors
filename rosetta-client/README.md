@@ -8,17 +8,26 @@ Ethereum:
    `./build_connectors.sh`
    if you are running on mac you might get gcc error. To solve it please do following.
 
-2. Run `rustup target add x86_64-unknown-linux-musl` in mac.
+2. Run `rustup target add x86_64-unknown-linux-musl` in intel macs or `rustup target add aarch64-unknown-linux-musl` for m1 macs.
 3. In `~/.cargo/config` add following
+
+Intel Macs
 
 ```
 [target.x86_64-unknown-linux-musl]
 linker = "x86_64-linux-musl-gcc"
 ```
 
-4. In `build_connectors.sh` replace `cargo build` with `TARGET_CC=x86_64-linux-musl-gcc cargo build`
+Apple Silicon
+
+```
+[target.aarch64-unknown-linux-musl]
+linker = "aarch64-linux-musl-gcc"
+```
+
+4. In `build_connectors.sh` replace `cargo build` with `TARGET_CC=x86_64-linux-musl-gcc cargo build` or `TARGET_CC=aarch64-linux-musl-gcc cargo build`
 5. Run `./build_connectors.sh`.
-6. After conenctors are build run `docker compose up`.
+6. After connectors are build run `docker compose up`.
 
 **Compiling voting contract**
 
@@ -28,7 +37,7 @@ linker = "x86_64-linux-musl-gcc"
 
 **Running voting_contract example**
 
-1. This example demonstrate how to interact with smart contract using Aanlog's wallet. We will deploy a basic contracts storing yes or no votes and displays total votes on voting.
+1. This example demonstrate how to interact with smart contract using Analog's wallet. We will deploy a basic contracts storing yes or no votes and displays total votes on voting.
 2. Run `cargo run --example voting_contract faucet`. to get some funds to deploy contract.
 3. To deploy contract run `cargo run --example voting_contract deploy`. You will get deployed contract address as output, make sure you copy it.
 4. To vote for yes run

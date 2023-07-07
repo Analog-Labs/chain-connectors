@@ -1,0 +1,54 @@
+use anyhow::Result;
+use rosetta_core::crypto::address::AddressFormat;
+use rosetta_core::crypto::Algorithm;
+use rosetta_core::BlockchainConfig;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+pub fn config(network: &str) -> Result<BlockchainConfig> {
+    anyhow::ensure!(network == "dev");
+    Ok(BlockchainConfig {
+        blockchain: "polygon-pos",
+        network: "dev",
+        algorithm: Algorithm::EcdsaRecoverableSecp256k1,
+        address_format: AddressFormat::Eip55,
+        coin: 1, // TODO: What this coin field means? is it the BIP44 id?
+        bip44: true,
+        utxo: false,
+        currency_unit: "wei",
+        currency_symbol: "MATIC",
+        currency_decimals: 18,
+        node_port: 8545,
+        node_image: "ethereum/client-go:v1.10.26", // TODO: use polygon image
+        node_command: Arc::new(|_network, port| {
+            vec![
+                "--dev".into(),
+                "--ipcdisable".into(),
+                "--http".into(),
+                "--http.addr=0.0.0.0".into(),
+                format!("--http.port={port}"),
+                "--http.vhosts=*".into(),
+                "--http.api=eth,debug,admin,txpool,web3".into(),
+            ]
+        }),
+        node_additional_ports: &[],
+        connector_port: 8081,
+        testnet: network == "dev",
+    })
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PolygonMetadataParams {
+    pub destination: Vec<u8>,
+    pub amount: [u64; 4],
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct PolygonMetadata {
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: [u64; 4],
+    pub max_fee_per_gas: [u64; 4],
+    pub gas_limit: [u64; 4],
+}

@@ -1,3 +1,4 @@
+FROM analoglabs/builder:latest AS builder
 FROM scratch
-COPY bin/rosetta-server-ethereum rosetta-server-ethereum
+COPY --from=builder /chain-connectors/bin/rosetta-server-ethereum rosetta-server-ethereum
 ENTRYPOINT ["/rosetta-server-ethereum"]

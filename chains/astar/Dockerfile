@@ -1,3 +1,4 @@
+FROM analoglabs/builder:latest AS builder
 FROM scratch
-COPY bin/rosetta-server-astar rosetta-server-astar
+COPY --from=builder /chain-connectors/bin/rosetta-server-astar rosetta-server-astar
 ENTRYPOINT ["/rosetta-server-astar"]
