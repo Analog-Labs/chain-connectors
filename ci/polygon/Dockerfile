@@ -20,10 +20,10 @@ RUN set -eux; \
 		libssl-dev libsasl2-dev cmake graphviz \
 		git curl time rhash ca-certificates \
 		python3 python3-pip lsof ruby ruby-bundler git-restore-mtime xz-utils unzip gnupg protobuf-compiler; \
-	# add non-root user
+# add non-root user
 	groupadd -g 1000 nonroot ; \
 	useradd -u 1000 -g 1000 -s /bin/bash -m nonroot ; \
-	# setup architecture specific variables
+# setup architecture specific variables
 	case "$dpkgArch" in \
 		amd64) \
             golangUrl='https://dl.google.com/go/go1.20.6.linux-amd64.tar.gz'; \
@@ -33,17 +33,17 @@ RUN set -eux; \
             golangUrl='https://dl.google.com/go/go1.20.6.linux-armv6l.tar.gz'; \
             goSha256='669902f5c8efefbd5d5fd078db01e34355af3693e48659b89593da7db367c488'; \
             nodejsArch='armv7l';; \
-		arm64)  \
+		arm64) \
             golangUrl='https://dl.google.com/go/go1.20.6.linux-arm64.tar.gz'; \
             goSha256='4e15ab37556e979181a1a1cc60f6d796932223a0f5351d7c83768b356f84429b'; \
             nodejsArch='arm64';; \
-		i386)  \
+		i386) \
             golangUrl='https://dl.google.com/go/go1.20.6.linux-386.tar.gz'; \
             goSha256='2e27c9db1defbf4d58e907f9843bf60a1ce229688f8463bf24d6a0a19dc949de'; \
             nodejsArch='x86';; \
 		*) echo >&2 "unsupported architecture: ${dpkgArch}"; exit 1 ;; \
 	esac; \
-    # gpg keys listed at https://github.com/nodejs/node#release-keys
+# gpg keys listed at https://github.com/nodejs/node#release-keys
     for key in \
         4ED778F539E3634C779C87C6D7062848A1AB005C \
         141F07595B7B3FFE74309A937405533BE57C7D57 \
@@ -60,7 +60,7 @@ RUN set -eux; \
         gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" || \
         gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key" ; \
     done; \
-    # Install NodeJS
+# Install NodeJS
     curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-$nodejsArch.tar.xz" && \
     curl -fsSLO --compressed "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc" && \
     gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc && \
@@ -70,7 +70,7 @@ RUN set -eux; \
     ln -s /usr/local/bin/node /usr/local/bin/nodejs && \
     node --version && \
     npm --version && \
-    # Install Yarn
+# Install Yarn
     curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz" && \
     curl -fsSLO --compressed "https://yarnpkg.com/downloads/$YARN_VERSION/yarn-v$YARN_VERSION.tar.gz.asc" && \
     gpg --batch --verify yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz && \
@@ -80,16 +80,16 @@ RUN set -eux; \
     ln -s /opt/yarn-v$YARN_VERSION/bin/yarnpkg /usr/local/bin/yarnpkg && \
     rm yarn-v$YARN_VERSION.tar.gz.asc yarn-v$YARN_VERSION.tar.gz && \
     yarn --version && \
-    # Install Go
+# Install Go
 	wget -O go.tgz.asc "$golangUrl.asc"; \
     wget -O go.tgz "$golangUrl" --progress=dot:giga; \
     echo "$goSha256 *go.tgz" | sha256sum -c -; \
-    \
-    # https://github.com/golang/go/issues/14739#issuecomment-324767697
+ \
+# https://github.com/golang/go/issues/14739#issuecomment-324767697
 	GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
-    # https://www.google.com/linuxrepositories/
+# https://www.google.com/linuxrepositories/
 	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 'EB4C 1BFD 4F04 2F6D DDCC  EC91 7721 F63B D38B 4796'; \
-    # let's also fetch the specific subkey of that key explicitly that we expect "go.tgz.asc" to be signed by, just to make sure we definitely have it
+# let's also fetch the specific subkey of that key explicitly that we expect "go.tgz.asc" to be signed by, just to make sure we definitely have it
 	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys '2F52 8D36 D67B 69ED F998  D857 78BD 6547 3CB3 BD13'; \
 	gpg --batch --verify go.tgz.asc go.tgz; \
     gpgconf --kill all; \
@@ -98,7 +98,7 @@ RUN set -eux; \
 	rm go.tgz; \
     go version && \
     mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 1777 "$GOPATH" && \
-	# apt clean up
+# apt clean up
 	apt-get autoremove -y; \
 	apt-get clean; \
 	rm -rf /var/lib/apt/lists/*
