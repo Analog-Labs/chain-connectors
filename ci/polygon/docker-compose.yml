@@ -27,7 +27,7 @@ services:
 
   heimdall0:
     build:
-      context: ../heimdall
+      context: ./code/heimdall
       dockerfile: Dockerfile
     image: local/heimdall
     container_name: heimdall0
@@ -54,7 +54,7 @@ services:
 
   bor0:
     build:
-      context: ../bor
+      context: ./code/bor
       dockerfile: Dockerfile
     image: local/bor
     container_name: bor0

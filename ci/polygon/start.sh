@@ -11,6 +11,9 @@ export HEIMDALL_ID=heimdall-15001
 # Start all nodes
 docker compose up -d
 
+# Wait for docker services bootstrap
+sleep 10
+
 # Wait for bor to start
 while true
 do

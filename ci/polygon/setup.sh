@@ -332,7 +332,7 @@ setup_genesis_contracts() {
 
   if [[ ! -d "$CodeDirectory/genesis-contracts" ]]; then
     echo "Cloning genesis-contracts repository"
-    exec_cmd "cd '$BaseDirectory/code'"
+    exec_cmd "cd '$CodeDirectory'"
     exec_cmd "git clone 'https://github.com/maticnetwork/genesis-contracts' --branch '$genesisContractsBranch' genesis-contracts"
     exec_cmd "cd '$CodeDirectory/genesis-contracts'"
     exec_cmd 'npm install --omit=dev'
@@ -340,7 +340,7 @@ setup_genesis_contracts() {
   else
     check_repository "$CodeDirectory/genesis-contracts" 'https://github.com/maticnetwork/genesis-contracts'
     echo "Updating genesis-contracts repository"
-    exec_cmd "cd '$BaseDirectory/code/genesis-contracts'"
+    exec_cmd "cd '$CodeDirectory/genesis-contracts'"
     exec_cmd "git checkout '$genesisContractsBranch'"
     exec_cmd 'npm install --omit=dev'
     exec_cmd 'git submodule update'
@@ -367,7 +367,7 @@ setup_genesis_contracts() {
   fi
 
   echo "Configure Block time"
-  local blockFile="$BaseDirectory/code/genesis-contracts/blocks.json"
+  local blockFile="$CodeDirectory/genesis-contracts/blocks.json"
   local blocksJson
   blocksJson="["
   for (( block=0; block < "${#blockNumber[@]}"; block++ )); do
@@ -404,6 +404,30 @@ setup_genesis_contracts() {
   exec_cmd "node generate-genesis.js --bor-chain-id '$BorChainId' --heimdall-chain-id '$HeimdallChainId'"
 }
 
+setup_contracts() {
+  if [[ ! -d "$CodeDirectory/contracts" ]]; then
+    echo "Cloning matic-contracts repository"
+    exec_cmd "cd '$CodeDirectory'"
+    exec_cmd "git clone 'https://github.com/maticnetwork/contracts.git' --branch '$contractsBranch' contracts"
+    exec_cmd "cd '$CodeDirectory/contracts'"
+  else
+    check_repository "$CodeDirectory/contracts" 'https://github.com/maticnetwork/contracts.git'
+    echo "Updating matic-contracts repository"
+    exec_cmd "cd '$CodeDirectory/contracts'"
+    exec_cmd "git checkout '$contractsBranch'"
+  fi
+  exec_cmd "npm install --omit=dev"
+
+  echo "Process templates"
+  exec_cmd "npm run template:process -- --bor-chain-id '$BorChainId'"
+
+  echo "Compile matic-contracts"
+  exec_cmd 'npm run truffle:compile'
+
+  echo "Copy genesis.json file"
+  exec_cmd "cp '$BaseDirectory/config/contractAddresses.json' '$CodeDirectory/contracts/contractAddresses.json'"
+}
+
 setup_bor() {
   echo "Prepare data directory"
   exec_cmd "cd '$BaseDirectory'"
@@ -421,4 +445,5 @@ build_heimdall
 build_bor
 #create_heimdall_testnet_files
 setup_genesis_contracts
+setup_contracts
 #setup_bor
