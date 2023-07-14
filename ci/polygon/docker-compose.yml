@@ -1,0 +1,259 @@
+version: "3.3"
+
+networks:
+  devnet-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+
+services:
+  ganache:
+    image: "trufflesuite/ganache:latest"
+    container_name: ganache
+    command: --chain.hardfork 'istanbul' --miner.blockTime '1' --database.dbPath '/root/data/ganache-db' --wallet.accounts '0xd1cce67d8b7a6a6e4a6e9663810c0e3d6f2b129e9f9c1c7a3a0329a0c866bd18,1000000000000000000000' --wallet.accounts '0x2d3aa66fbd20d266bd4c3f19408acbbcfe10e590a08df0d451a87c64d62a49ba,1000000000000000000000' --wallet.accounts '0xcdd6e8d7b21d1f2820c85a82510034e2b61cf195e8baface64fd5068d1d9c71b,1000000000000000000000' --miner.blockGasLimit '0xfffffffff' --miner.defaultGasPrice '0x1' --server.port 9545 --server.host '0.0.0.0'
+    networks:
+      - devnet-network
+    volumes:
+      - ./data:/root/data
+    ports:
+      - "9545:9545"
+
+  rabbit0:
+    image: "rabbitmq:3-management"
+    container_name: rabbit0
+    networks:
+      - devnet-network
+
+  heimdall0:
+    build:
+      context: ../heimdall
+      dockerfile: Dockerfile
+    image: local/heimdall
+    container_name: heimdall0
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/heimdall/logs && touch /root/heimdall/logs/heimdalld.log &
+      sleep 60 && heimdalld start --home /root/var/lib/heimdall \\
+          --chain=/root/var/lib/heimdall/config/genesis.json \\
+          --bridge --all \\
+          --rest-server > /root/heimdall/logs/heimdalld.log 2>&1 &
+      sleep 10 && tail -f /root/heimdall/logs/heimdalld.log
+      "
+    depends_on:
+      - rabbit0
+    networks:
+      - devnet-network
+    volumes:
+      - ./devnet/node0/heimdalld:/root/var/lib/heimdall
+    ports:
+      - "1317:1317"
+      - "26657:26657"
+
+
+  bor0:
+    build:
+      context: ../bor
+      dockerfile: Dockerfile
+    image: local/bor
+    container_name: bor0
+    depends_on:
+      - heimdall0
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/logs &&
+      mkdir -p /root/.bor/data/bor &&
+      cp /root/.bor/nodekey /root/.bor/data/bor/ &&
+      cp /root/.bor/static-nodes.json /root/.bor/data/bor/ &&
+      bor server \\
+        --chain=/root/.bor/genesis.json \\
+        --identity matic-cli \\
+        --datadir /root/.bor/data \\
+        --port 30303 \\
+        --bor.heimdall http://heimdall0:1317 \\
+        --http --http.addr '0.0.0.0' \\
+        --ws --ws.addr '0.0.0.0' --ws.port 8546 --ws.api 'eth,txpool,net,web3,bor' \\
+        --http.vhosts '*' \\
+        --http.corsdomain '*' \\
+        --ws.origins '*' \\
+        --http.port 8545 \\
+        --ipcpath /root/bor.ipc \\
+        --http.api 'personal,eth,net,web3,txpool,miner,admin,bor,debug' \\
+        --bor.logs=true \\
+        --syncmode 'full' \\
+        --miner.gaslimit '2000000000' \\
+        --txpool.nolocals \\
+        --txpool.accountslots '128' \\
+        --txpool.globalslots '20000' \\
+        --txpool.lifetime '0h16m0s' \\
+        --unlock 0xB8FE3Fd361b92C7a7BB7929CBA995486Ee0d8aAA \\
+        --miner.etherbase 0xB8FE3Fd361b92C7a7BB7929CBA995486Ee0d8aAA \\
+        --disable-bor-wallet=false \\
+        --keystore /root/.bor/keystore \\
+        --password /root/.bor/password.txt \\
+        --allow-insecure-unlock \\
+        --mine
+      "
+    networks:
+      devnet-network:
+        ipv4_address: 172.20.1.100
+    environment:
+      - HEIMDALL_URL=http://heimdall0:1317
+    volumes:
+      - ./devnet/node0/bor:/root/.bor
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+
+
+  rabbit1:
+    image: "rabbitmq:3-management"
+    container_name: rabbit1
+    networks:
+      - devnet-network
+
+  heimdall1:
+    image: local/heimdall
+    container_name: heimdall1
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/heimdall/logs && touch /root/heimdall/logs/heimdalld.log &
+      sleep 60 && heimdalld start --home /root/var/lib/heimdall \\
+          --chain=/root/var/lib/heimdall/config/genesis.json \\
+          --bridge --all \\
+          --rest-server > /root/heimdall/logs/heimdalld.log 2>&1 &
+      sleep 10 && tail -f /root/heimdall/logs/heimdalld.log
+      "
+    depends_on:
+      - rabbit1
+    networks:
+      - devnet-network
+    volumes:
+      - ./devnet/node1/heimdalld:/root/var/lib/heimdall
+
+  bor1:
+    image: local/bor
+    container_name: bor1
+    depends_on:
+      - heimdall1
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/logs &&
+      mkdir -p /root/.bor/data/bor &&
+      cp /root/.bor/nodekey /root/.bor/data/bor/ &&
+      cp /root/.bor/static-nodes.json /root/.bor/data/bor/ &&
+      bor server \\
+        --chain=/root/.bor/genesis.json \\
+        --identity matic-cli \\
+        --datadir /root/.bor/data \\
+        --port 30303 \\
+        --bor.heimdall http://heimdall1:1317 \\
+        --http --http.addr '0.0.0.0' \\
+        --ws --ws.addr '0.0.0.0' --ws.port 8546 --ws.api 'eth,txpool,net,web3,bor' \\
+        --http.vhosts '*' \\
+        --http.corsdomain '*' \\
+        --ws.origins '*' \\
+        --http.port 8545 \\
+        --ipcpath /root/bor.ipc \\
+        --http.api 'personal,eth,net,web3,txpool,miner,admin,bor,debug' \\
+        --bor.logs=true \\
+        --syncmode 'full' \\
+        --miner.gaslimit '2000000000' \\
+        --txpool.nolocals \\
+        --txpool.accountslots '128' \\
+        --txpool.globalslots '20000' \\
+        --txpool.lifetime '0h16m0s' \\
+        --unlock 0x872f0DEd1F24a4a4bbbdbA458066cc9Cd79B81aD \\
+        --miner.etherbase 0x872f0DEd1F24a4a4bbbdbA458066cc9Cd79B81aD \\
+        --disable-bor-wallet=false \\
+        --keystore /root/.bor/keystore \\
+        --password /root/.bor/password.txt \\
+        --allow-insecure-unlock \\
+        --mine
+      "
+    networks:
+      devnet-network:
+        ipv4_address: 172.20.1.101
+    environment:
+      - HEIMDALL_URL=http://heimdall1:1317
+    volumes:
+      - ./devnet/node1/bor:/root/.bor
+
+  rabbit2:
+    image: "rabbitmq:3-management"
+    container_name: rabbit2
+    networks:
+      - devnet-network
+
+  heimdall2:
+    image: local/heimdall
+    container_name: heimdall2
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/heimdall/logs && touch /root/heimdall/logs/heimdalld.log &
+      sleep 60 && heimdalld start --home /root/var/lib/heimdall \\
+          --chain=/root/var/lib/heimdall/config/genesis.json \\
+          --bridge --all \\
+          --rest-server > /root/heimdall/logs/heimdalld.log 2>&1 &
+      sleep 10 && tail -f /root/heimdall/logs/heimdalld.log
+      "
+    depends_on:
+      - rabbit2
+    networks:
+      - devnet-network
+    volumes:
+      - ./devnet/node2/heimdalld:/root/var/lib/heimdall
+
+  bor2:
+    image: local/bor
+    container_name: bor2
+    depends_on:
+      - heimdall2
+    entrypoint: bash
+    command: >
+      -c "
+      mkdir -p /root/logs &&
+      mkdir -p /root/.bor/data/bor &&
+      cp /root/.bor/nodekey /root/.bor/data/bor/ &&
+      cp /root/.bor/static-nodes.json /root/.bor/data/bor/ &&
+      bor server \\
+        --chain=/root/.bor/genesis.json \\
+        --identity matic-cli \\
+        --datadir /root/.bor/data \\
+        --port 30303 \\
+        --bor.heimdall http://heimdall2:1317 \\
+        --http --http.addr '0.0.0.0' \\
+        --ws --ws.addr '0.0.0.0' --ws.port 8546 --ws.api 'eth,txpool,net,web3,bor' \\
+        --http.vhosts '*' \\
+        --http.corsdomain '*' \\
+        --ws.origins '*' \\
+        --http.port 8545 \\
+        --ipcpath /root/bor.ipc \\
+        --http.api 'personal,eth,net,web3,txpool,miner,admin,bor,debug' \\
+        --bor.logs=true \\
+        --syncmode 'full' \\
+        --miner.gaslimit '2000000000' \\
+        --txpool.nolocals \\
+        --txpool.accountslots '128' \\
+        --txpool.globalslots '20000' \\
+        --txpool.lifetime '0h16m0s' \\
+        --unlock 0xf05D8f25B419Ef23A7dB232b53052C5eeB255441 \\
+        --miner.etherbase 0xf05D8f25B419Ef23A7dB232b53052C5eeB255441 \\
+        --disable-bor-wallet=false \\
+        --keystore /root/.bor/keystore \\
+        --password /root/.bor/password.txt \\
+        --allow-insecure-unlock \\
+        --mine
+      "
+    networks:
+      devnet-network:
+        ipv4_address: 172.20.1.102
+    environment:
+      - HEIMDALL_URL=http://heimdall2:1317
+    volumes:
+      - ./devnet/node2/bor:/root/.bor

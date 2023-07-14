@@ -5,10 +5,12 @@
 ## Configuration ##
 ###################
 # default parameters
-BaseDirectory=$(pwd)
+BaseDirectory="${1-$PWD}"
 LogFile="$BaseDirectory/config.log"
-BorDirectory="../bor"
-HeimdallDirectory="../heimdall"
+CodeDirectory="$BaseDirectory/code"
+BorDirectory="$CodeDirectory/bor"
+HeimdallDirectory="$CodeDirectory/heimdall"
+BackupFile="$CodeDirectory/polygon-config.tar.gz"
 
 NumOfBorValidators='3'
 NumOfBorArchiveNodes='0'
@@ -156,6 +158,10 @@ check_repository() {
 #########################
 ### CHECK DEPENDENCIES ##
 #########################
+if ! docker info > /dev/null 2>&1; then
+  die "This script uses docker, and it isn't running - please start docker and try again!"
+fi
+
 if ! command -v go &> /dev/null; then
     die "Golang not found, install it from https://golang.org/dl/"
 fi
@@ -169,6 +175,29 @@ if ! command -v jq &> /dev/null; then
     echo " For MacOs: brew install jq"
     echo "For Debian: apt-get install jq"
     exit 1
+fi
+
+# Check required config directories exists
+directory_exists "$BaseDirectory/config"
+directory_exists "$BaseDirectory/data"
+directory_exists "$BaseDirectory/devnet"
+
+exec_cmd "cd '$BaseDirectory'"
+
+# Create code directory if it doesn't exist
+if [[ ! -d "$CodeDirectory" ]]; then
+  exec_cmd "mkdir -p '$CodeDirectory'"
+fi
+
+# Checkout Bor and Heimdall code
+if [[ ! -d "$BorDirectory" ]]; then
+  exec_cmd "mkdir -p '$BorDirectory'"
+  exec_cmd "git clone 'https://github.com/maticnetwork/bor.git' --branch 'v0.4.0' --depth 1 '$BorDirectory'"
+fi
+
+if [[ ! -d "$HeimdallDirectory" ]]; then
+  exec_cmd "mkdir -p '$HeimdallDirectory'"
+  exec_cmd "git clone 'https://github.com/maticnetwork/heimdall.git' --branch 'v0.3.4' --depth 1 '$HeimdallDirectory'"
 fi
 
 # Check if the repository folders are valid
@@ -187,13 +216,20 @@ if [[ "$BaseDirectory" == "$HeimdallDirectory" ]]; then
     die "Cannot build from heimdall repository directory"
 fi
 
-# Cleanup
+# Cleanup previous execution
 if [[ -f "$LogFile" ]]; then
   rm "$LogFile"
 fi
-if [[ -d "$BaseDirectory/devnet" ]]; then
-  rm -rf "$BaseDirectory/devnet"
-  # die "The directory 'devnet' already exists in this directory, delete it before continue"
+
+# If the backup file exists, restore the config files
+if [[ -f "$BackupFile" ]]; then
+  exec_cmd 'rm -rf config data devnet'
+  exec_cmd "tar -xzvf '$BackupFile'"
+fi
+
+# If the backup doesn't exists, create it
+if [[ ! -f "$BaseDirectory/polygon-config.tar.gz" ]]; then
+  exec_cmd "tar -czvf '$BaseDirectory/polygon-config.tar.gz' config data devnet"
 fi
 
 #######################
@@ -280,23 +316,9 @@ create_heimdall_testnet_files() {
   done
 }
 
-setup_accounts() {
-  echo "Setup accounts"
-  local signerDumpData="./devnet/signer-dump.json"
-
-
-
-  # We need to accounts to sign
-  # The first accounts belongs to Bor validators, and the rest to Erigon validators
-
-  # Save accounts in memory using web3.eth.accounts.privateKeyToAccount(s.priv_key)
-}
-
 setup_genesis_contracts() {
   local defaultBalance
   defaultBalance='1000000000' # 1 Billion - Without 10^18
-
-#  rm -rf "$BaseDirectory/code"
 
   if [[ ! -d "$BaseDirectory/code" ]]; then
     exec_cmd 'mkdir -p ./code'
@@ -387,7 +409,6 @@ setup_bor() {
 }
 
 build_heimdall
-create_heimdall_testnet_files
-setup_accounts
+#create_heimdall_testnet_files
 setup_genesis_contracts
 setup_bor
