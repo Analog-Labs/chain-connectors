@@ -155,19 +155,19 @@ check_repository() {
   fi
 }
 
-#########################
-### CHECK DEPENDENCIES ##
-#########################
-if ! docker info > /dev/null 2>&1; then
-  die "This script uses docker, and it isn't running - please start docker and try again!"
-fi
-
+##########################
+### CHECK DEPENDENCIES ###
+##########################
 if ! command -v go &> /dev/null; then
     die "Golang not found, install it from https://golang.org/dl/"
 fi
 
 if ! command -v node &> /dev/null; then
     die "Nodejs not found, install it from https://nodejs.org/en"
+fi
+
+if ! command -v solc &> /dev/null; then
+    die "Solc v0.5.17 not found"
 fi
 
 if ! command -v jq &> /dev/null; then
@@ -232,9 +232,9 @@ if [[ ! -f "$BaseDirectory/polygon-config.tar.gz" ]]; then
   exec_cmd "tar -czvf '$BaseDirectory/polygon-config.tar.gz' config data devnet"
 fi
 
-#######################
-### HELPER FUNCTIONS ##
-#######################
+#############################
+### SETUP POLYGON TESTNET ###
+#############################
 build_heimdall() {
   if [[ -f "$HeimdallDirectory/build/heimdalld" ]] && [[ -f "$HeimdallDirectory/build/heimdallcli" ]]; then
     echo "Skipping Heimdall build..."
@@ -271,6 +271,13 @@ build_heimdall() {
   exec_cmd './build/heimdallcli version'
 
   echo "Heimdall built successfully!!"
+}
+
+build_bor() {
+  echo "Building Bor..."
+  exec_cmd "cd '$BorDirectory'"
+  exec_cmd 'make bor'
+  echo "Bor built successfully!!"
 }
 
 create_heimdall_testnet_files() {
@@ -317,30 +324,31 @@ create_heimdall_testnet_files() {
 }
 
 setup_genesis_contracts() {
+  echo "Setup genesis contracts"
   local defaultBalance
   defaultBalance='1000000000' # 1 Billion - Without 10^18
 
-  if [[ ! -d "$BaseDirectory/code" ]]; then
-    exec_cmd 'mkdir -p ./code'
-  fi
+  directory_exists "$CodeDirectory"
 
-  if [[ ! -d "$BaseDirectory/code/genesis-contracts" ]]; then
+  if [[ ! -d "$CodeDirectory/genesis-contracts" ]]; then
     echo "Cloning genesis-contracts repository"
     exec_cmd "cd '$BaseDirectory/code'"
     exec_cmd "git clone 'https://github.com/maticnetwork/genesis-contracts' --branch '$genesisContractsBranch' genesis-contracts"
-    exec_cmd "cd '$BaseDirectory/code/genesis-contracts'"
+    exec_cmd "cd '$CodeDirectory/genesis-contracts'"
     exec_cmd 'npm install --omit=dev'
     exec_cmd 'git submodule init && git submodule update'
   else
+    check_repository "$CodeDirectory/genesis-contracts" 'https://github.com/maticnetwork/genesis-contracts'
     echo "Updating genesis-contracts repository"
     exec_cmd "cd '$BaseDirectory/code/genesis-contracts'"
+    exec_cmd "git checkout '$genesisContractsBranch'"
     exec_cmd 'npm install --omit=dev'
     exec_cmd 'git submodule update'
   fi
 
   echo "Install dependencies for matic-contracts"
-  directory_exists "$BaseDirectory/code/genesis-contracts/matic-contracts"
-  exec_cmd "cd '$BaseDirectory/code/genesis-contracts/matic-contracts'"
+  directory_exists "$CodeDirectory/genesis-contracts/matic-contracts"
+  exec_cmd "cd '$CodeDirectory/genesis-contracts/matic-contracts'"
   exec_cmd "npm install --omit=dev"
 
   echo "Process templates"
@@ -351,11 +359,11 @@ setup_genesis_contracts() {
 
   echo "Prepare validators for genesis file"
   local signerDumpFile="$BaseDirectory/devnet/signer-dump.json"
-  local validatorsFile="$BaseDirectory/code/genesis-contracts/validators.json"
+  local validatorsFile="$CodeDirectory/genesis-contracts/validators.json"
   local jqFilter=". |= map({ \"address\": .address, \"stake\": $defaultStake, \"balance\": $defaultBalance })"
   exec_cmd "jq '$jqFilter' '$signerDumpFile' > '$validatorsFile'"
-  if [[ -f "$BaseDirectory/code/genesis-contracts/validators.js" ]]; then
-    exec_cmd "mv '$BaseDirectory/code/genesis-contracts/validators.js' '$BaseDirectory/code/genesis-contracts/validators.js.backup'"
+  if [[ -f "$CodeDirectory/genesis-contracts/validators.js" ]]; then
+    exec_cmd "mv '$CodeDirectory/genesis-contracts/validators.js' '$CodeDirectory/genesis-contracts/validators.js.backup'"
   fi
 
   echo "Configure Block time"
@@ -367,12 +375,12 @@ setup_genesis_contracts() {
   done
   blocksJson="$blocksJson]"
   exec_cmd "printf '%s' \"\$(echo '$blocksJson' | jq '.')\" > '$blockFile'"
-  if [[ -f "$BaseDirectory/code/genesis-contracts/blocks.js" ]]; then
-    exec_cmd "mv '$BaseDirectory/code/genesis-contracts/blocks.js' '$BaseDirectory/code/genesis-contracts/blocks.js.backup'"
+  if [[ -f "$CodeDirectory/genesis-contracts/blocks.js" ]]; then
+    exec_cmd "mv '$CodeDirectory/genesis-contracts/blocks.js' '$CodeDirectory/genesis-contracts/blocks.js.backup'"
   fi
 
   echo "Configure Sprint Size"
-  local sprintSizesFile="$BaseDirectory/code/genesis-contracts/sprintSizes.json"
+  local sprintSizesFile="$CodeDirectory/genesis-contracts/sprintSizes.json"
   local sprintSizesJson
   sprintSizesJson="["
   for (( block=0; block < "${#sprintSize[@]}"; block++ )); do
@@ -382,12 +390,12 @@ setup_genesis_contracts() {
 
   # Save file
   exec_cmd "printf '%s' \"\$(echo '$sprintSizesJson' | jq '.')\" > '$sprintSizesFile'"
-  if [[ -f "$BaseDirectory/code/genesis-contracts/sprintSizes.js" ]]; then
-    exec_cmd "mv '$BaseDirectory/code/genesis-contracts/sprintSizes.js' '$BaseDirectory/code/genesis-contracts/sprintSizes.js.backup'"
+  if [[ -f "$CodeDirectory/genesis-contracts/sprintSizes.js" ]]; then
+    exec_cmd "mv '$CodeDirectory/genesis-contracts/sprintSizes.js' '$CodeDirectory/genesis-contracts/sprintSizes.js.backup'"
   fi
 
   echo "Generate Bor validator set"
-  exec_cmd "cd '$BaseDirectory/code/genesis-contracts'"
+  exec_cmd "cd '$CodeDirectory/genesis-contracts'"
   # Generates the ./code/genesis-contracts/contracts/BorValidatorSet.sol file
   exec_cmd "node generate-borvalidatorset.js --bor-chain-id '$BorChainId' --heimdall-chain-id '$HeimdallChainId'"
 
@@ -405,10 +413,12 @@ setup_bor() {
   # Generates the ./matic-cli/src/setup/bor/templates/*.njk files
 
   echo "Prepare keystore and password.txt"
-  local keystoreFilename="UTC--$(date +'%Y-%m-%dT%H:%M:%S%z' | sed -re 's/:/-/gi')--$address"
+  local primaryAccount="$(jq --raw-output '.[0].address' "$BaseDirectory/devnet/signer-dump.json")"
+  local keystoreFilename="UTC--$(date +'%Y-%m-%dT%H:%M:%S%z' | sed -re 's/:/-/gi')--$primaryAccount"
 }
 
 build_heimdall
+build_bor
 #create_heimdall_testnet_files
 setup_genesis_contracts
-setup_bor
+#setup_bor
