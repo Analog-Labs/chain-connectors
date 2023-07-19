@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-REPO=https://github.com/Analog-Labs/chain-connectors
-REGISTRY_PATH=${REGISTRY_PATH:-analoglabs}
-DOCKER_IMAGE_NAME=base-ci-linux
-CONNECTOR_IMAGE_VERSION=0.4.0
+REGISTRY_PATH="${REGISTRY_PATH:-analoglabs}"
+VCS_REF="$(git rev-parse HEAD)"
+CONNECTOR_IMAGE_VERSION='0.4.0'
 
 # Check for 'uname' and abort if it is not available.
 uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
@@ -40,49 +39,59 @@ if ! rustup target list | grep -q "$rustTarget"; then
   rustup target add "$rustTarget"
 fi
 
-cargo build -p rosetta-server-bitcoin --target "$rustTarget" --release
-mkdir -p target/release/bitcoin/bin
+# Build all Connectors
+cargo build \
+  -p rosetta-server-bitcoin \
+  -p rosetta-server-polkadot \
+  -p rosetta-server-ethereum \
+  -p rosetta-server-astar \
+  --target "$rustTarget" \
+  --config "target.$rustTarget.linker='$muslLinker'" \
+  --config "env.CC_$rustTarget='$muslLinker'" \
+  --release
+
+# Move binaries
+mkdir -p target/release/{bitcoin,ethereum,polkadot,astar}/bin
 cp "target/$rustTarget/release/rosetta-server-bitcoin" target/release/bitcoin/bin
+cp "target/$rustTarget/release/rosetta-server-ethereum" target/release/ethereum/bin
+cp "target/$rustTarget/release/rosetta-server-polkadot" target/release/polkadot/bin
+cp "target/$rustTarget/release/rosetta-server-astar" target/release/astar/bin
+
+# Build Bitcoin Connector
 docker build target/release/bitcoin \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
-  --build-arg VCS_REF=$(git rev-parse HEAD) \
-  --build-arg BUILD_DATE=$(date +%Y%m%d) \
+  --build-arg "VCS_REF=$VCS_REF" \
+  --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$CONNECTOR_IMAGE_VERSION" \
   -f chains/bitcoin/Dockerfile \
   -t "analoglabs/connector-bitcoin:$CONNECTOR_IMAGE_VERSION" \
-  -t analoglabs/connector-bitcoin:latest \
+  -t analoglabs/connector-bitcoin:latest
 
-cargo build -p rosetta-server-ethereum --target "$rustTarget" --release
-mkdir -p target/release/ethereum/bin
-cp "target/$rustTarget/release/rosetta-server-ethereum" target/release/ethereum/bin
+# Build Ethereum Connector
 docker build target/release/ethereum \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
-  --build-arg VCS_REF=$(git rev-parse HEAD) \
-  --build-arg BUILD_DATE=$(date +%Y%m%d) \
+  --build-arg "VCS_REF=$VCS_REF" \
+  --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$CONNECTOR_IMAGE_VERSION" \
   -f chains/ethereum/Dockerfile \
   -t "analoglabs/connector-ethereum:$CONNECTOR_IMAGE_VERSION" \
   -t analoglabs/connector-ethereum
 
-cargo build -p rosetta-server-polkadot --target "$rustTarget" --release
-mkdir -p target/release/polkadot/bin
-cp "target/$rustTarget/release/rosetta-server-polkadot" target/release/polkadot/bin
+# Build Polkadot Connector
 docker build target/release/polkadot \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
-  --build-arg VCS_REF=$(git rev-parse HEAD) \
-  --build-arg BUILD_DATE=$(date +%Y%m%d) \
+  --build-arg "VCS_REF=$VCS_REF" \
+  --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$CONNECTOR_IMAGE_VERSION" \
   -f chains/polkadot/Dockerfile \
   -t "analoglabs/connector-polkadot:$CONNECTOR_IMAGE_VERSION" \
   -t analoglabs/connector-polkadot
 
-cargo build -p rosetta-server-astar --target "$rustTarget" --release
-mkdir -p target/release/astar/bin
-cp "target/$rustTarget/release/rosetta-server-astar" target/release/astar/bin
+# Build Astar Connector
 docker build target/release/astar \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
-  --build-arg VCS_REF=$(git rev-parse HEAD) \
-  --build-arg BUILD_DATE=$(date +%Y%m%d) \
+  --build-arg "VCS_REF=$VCS_REF" \
+  --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$CONNECTOR_IMAGE_VERSION" \
   -f chains/astar/Dockerfile \
   -t "analoglabs/connector-astar:$CONNECTOR_IMAGE_VERSION" \
