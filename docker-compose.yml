@@ -44,7 +44,7 @@ services:
     - "ethereum-volume:/root"
 
   polkadot:
-    platform: linux/x86_64
+    platform: linux/amd64
     image: "parity/polkadot:v0.9.37"
     command: "--chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
@@ -62,7 +62,7 @@ services:
     - "polkadot-volume:/polkadot"
 
   astar:
-    platform: linux/x86_64
+    platform: linux/amd64
     image: "staketechnologies/astar-collator:latest"
     command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
@@ -126,7 +126,7 @@ services:
     restart: always
 
   explorer:
-    platform: linux/x86_64
+    platform: linux/amd64
     image: "analoglabs/rosetta-explorer:latest"
     ports:
       - "3000:3000"
