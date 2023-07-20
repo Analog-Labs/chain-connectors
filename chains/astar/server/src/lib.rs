@@ -71,8 +71,8 @@ impl BlockchainClient for AstarClient {
             pub value: u128,
         }
 
-        let addr = &self.addr;
-        let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{addr}")).await?;
+        let addr = self.addr.as_str();
+        let client = OnlineClient::<PolkadotConfig>::from_url(addr).await?;
 
         // convert address
         let address: H160 = address.address().parse()?;

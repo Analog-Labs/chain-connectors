@@ -85,7 +85,7 @@ impl BlockchainClient for PolkadotClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{addr}")).await?;
+        let client = OnlineClient::<PolkadotConfig>::from_url(addr).await?;
         let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier {
             index: 0,
