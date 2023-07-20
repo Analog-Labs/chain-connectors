@@ -27,9 +27,19 @@ services:
     volumes:
     - "bitcoin-volume:/home/bitcoin/.bitcoin"
 
+  connector-bitcoin:
+    image: "analoglabs/connector-bitcoin:${IMAGE_TAG:-latest}"
+    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443 --path /data"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - bitcoin
+    volumes:
+      - "bitcoin-connector-volume:/data"
+
   ethereum:
     image: "ethereum/client-go:v1.10.26"
-    command: "--dev --dev.period 5 --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
+    command: "--dev --ipcdisable --dev.period 14 --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"
     ulimits:
@@ -43,10 +53,20 @@ services:
     volumes:
     - "ethereum-volume:/root"
 
+  connector-ethereum:
+    image: "analoglabs/connector-ethereum:${IMAGE_TAG:-latest}"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545 --path /data"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - ethereum
+    volumes:
+      - "ethereum-connector-volume:/data"
+
   polkadot:
     platform: linux/amd64
     image: "parity/polkadot:v0.9.37"
-    command: "--chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    command: "--chain dev --rpc-cors all --ws-port 9944 --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9944"
     user: root
@@ -61,10 +81,22 @@ services:
     volumes:
     - "polkadot-volume:/polkadot"
 
+  connector-polkadot:
+    image: "analoglabs/connector-polkadot:${IMAGE_TAG:-latest}"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944 --path /data"
+    ports:
+      - "8082:8082"
+    depends_on:
+      - polkadot
+    volumes:
+      - "polkadot-connector-volume:/data"
+    # TODO: need to do a proper health check
+    restart: always
+
   astar:
     platform: linux/amd64
     image: "staketechnologies/astar-collator:latest"
-    command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /astar"
     expose:
     - "9994"
     - "9995"
@@ -80,48 +112,15 @@ services:
     volumes:
     - "astar-volume:/astar"
 
-
-  connector-bitcoin:
-    image: "analoglabs/connector-bitcoin:0.4.0"
-    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443 --path /data"
-    ports:
-    - "8080:8080"
-    depends_on:
-    - bitcoin
-    volumes:
-    - "bitcoin-connector-volume:/data"
-
-  connector-ethereum:
-    image: "analoglabs/connector-ethereum:0.4.0"
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545 --path /data"
-    ports:
-    - "8081:8081"
-    depends_on:
-    - ethereum
-    volumes:
-    - "ethereum-connector-volume:/data"
-
-  connector-polkadot:
-    image: "analoglabs/connector-polkadot:0.4.0"
-    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944 --path /data"
-    ports:
-    - "8082:8082"
-    depends_on:
-    - polkadot
-    volumes:
-    - "polkadot-connector-volume:/data"
-    # TODO: need to do a proper health check
-    restart: always
-
   connector-astar:
-    image: "analoglabs/connector-astar:0.4.0"
+    image: "analoglabs/connector-astar:${IMAGE_TAG:-latest}"
     command: "--network dev --addr 0.0.0.0:8083 --node-addr astar:9994 --path /data"
     ports:
-    - "8083:8083"
+      - "8083:8083"
     depends_on:
-    - astar
+      - astar
     volumes:
-    - "astar-connector-volume:/data"
+      - "astar-connector-volume:/data"
     # TODO: need to do a proper health check
     restart: always
 

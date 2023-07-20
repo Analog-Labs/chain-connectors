@@ -11,7 +11,7 @@ LABEL summary="Layer 1 image with all dependencies for Rust compilation." \
       version="1.0.0" \
       description="libssl-dev, clang, libclang-dev, libsasl2-dev, lld, cmake, make, git, pkg-config \
 curl, jq, time, lsof, rhash, rust stable, rust nightly, sccache, cargo-udeps, cargo-tarpaulin" \
-      one.analog.image.vendor="Analog.one" \
+      one.analog.image.vendor="Analog One Foundation" \
       one.analog.image.source="https://github.com/Analog-Labs/chain-connectors/blob/${VCS_REF}/\
 ci/dockerfiles/base-ci-linux/Dockerfile" \
       one.analog.image.documentation="https://github.com/Analog-Labs/chain-connectors/blob/${VCS_REF}/\

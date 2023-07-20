@@ -18,33 +18,12 @@ This repo contains the following modules:
 
 ## Getting started
 
-<!--This section needs to be refined -->
-
-To get started with the Rosetta SDK, you must ensure you have [installed the latest version of Docker](https://www.docker.com/get-started/).\
-Run the following command to download chain-connectors:
-
-```
-$ git clone https://github.com/Analog-Labs/chain-connectors.git
-```
-
-You can also download the latest pre-built Docker image release from GitHub by running the following command:
-
-```
-curl -sSfL https://raw.githubusercontent.com/Analog-Labs/chain-connectors/master/install.sh | sh -s
-```
-
-After cloning this repo, simply run the following command:
-
-```
-make build-local
-```
+To get started with the Rosetta SDK, ensure you have the latest version of [Rust](https://rustup.rs/) and [Docker](https://www.docker.com/get-started/) installed.
 
 ### Connector deployment
 
 <!-- This section needs to describe how operators will deploy their connectors.-->
 <!--I am assuming here is where we initiate the rosetta-server and rosetta-client.-->
-
-### Install CLI tools
 
 Install the CLI tools by running the commands below:
 
@@ -137,6 +116,36 @@ You can override the default URL in rosetta-cli and rosetta-wallet with the â€œâ
 ## Update AWS deployment
 
 Create a new tag, push to master and use it to create a new github release.
+
+## Building Docker Images
+
+### 1. Install dependencies
+
+The docker images requires musl for cross-compilation, so you need to install the following dependencies:
+
+#### 1.1 MacOS
+
+if you're on macos, install [musl-cross](https://github.com/FiloSottile/homebrew-musl-cross) for enable musl-target cross-compilation:
+
+```shell
+brew install filosottile/musl-cross/musl-cross --with-aarch64
+```
+
+#### 1.2 Debian/Ubuntu
+
+if you're on debian/ubuntu, install [musl-tools](https://packages.debian.org/sid/musl-tools) for enable musl-target cross-compilation:
+
+```shell
+apt-get install musl-tools
+```
+
+#### 2. Build Docker Images
+
+After install the dependencies, simply run the following command:
+
+```shell
+./build_connectors.sh
+```
 
 ## Contributing
 
