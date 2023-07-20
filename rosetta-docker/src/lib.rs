@@ -60,10 +60,7 @@ impl Env {
     }
 
     pub async fn node<T: BlockchainClient>(&self) -> Result<T> {
-        let addr = format!(
-            "{}://127.0.0.1:{}",
-            self.config.node_uri.scheme, self.config.node_uri.port
-        );
+        let addr = self.config.node_uri.with_host("127.0.0.1").to_string();
         T::new(self.config.clone(), &addr).await
     }
 
