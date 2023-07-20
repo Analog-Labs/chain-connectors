@@ -31,15 +31,12 @@ impl<'a> NodeUri<'a> {
             .scheme()
             .map(|scheme| scheme.as_str())
             .ok_or(NodeUriError::InvalidScheme)?;
-        let authority = uri
-            .authority()
-            .map(|authority| authority)
-            .ok_or(NodeUriError::InvalidHost)?;
+        let authority = uri.authority().ok_or(NodeUriError::InvalidHost)?;
         let port = authority
             .port()
-            .map(|port| port.parse::<u16>().ok())
-            .flatten()
-            .ok_or(NodeUriError::InvalidPort)?;
+            .ok_or(NodeUriError::InvalidPort)?
+            .parse::<u16>()
+            .map_err(|_| NodeUriError::InvalidPort)?;
         let host = authority.host().as_str();
         let userinfo = authority.userinfo().map(|userinfo| userinfo.as_str());
 
