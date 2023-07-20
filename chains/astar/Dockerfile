@@ -1,3 +1,15 @@
 FROM scratch
+
+# metadata
+LABEL summary="Analog’s connectors for astar parachain" \
+      name="${REGISTRY_PATH}/connector-astar" \
+      version="${IMAGE_VERSION}" \
+      description="Astar chain connector" \
+      one.analog.image.vendor="Analog One Foundation" \
+      one.analog.image.source="https://github.com/Analog-Labs/chain-connectors/blob/${VCS_REF}/\
+chains/astar/Dockerfile" \
+      one.analog.image.revision="${VCS_REF}" \
+      one.analog.image.created="${BUILD_DATE}"
+
 COPY bin/rosetta-server-astar rosetta-server-astar
 ENTRYPOINT ["/rosetta-server-astar"]
