@@ -1,7 +1,8 @@
 use anyhow::Result;
-use rosetta_core::crypto::address::AddressFormat;
-use rosetta_core::crypto::Algorithm;
-use rosetta_core::BlockchainConfig;
+use rosetta_core::{
+    crypto::{address::AddressFormat, Algorithm},
+    BlockchainConfig, NodeUri,
+};
 use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
@@ -17,7 +18,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "planck",
         currency_symbol: "ASTR",
         currency_decimals: 18,
-        node_port: 9944,
+        node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
         node_image: "staketechnologies/astar-collator:latest",
         node_command: Arc::new(|network, port| {
             vec![

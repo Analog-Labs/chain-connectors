@@ -25,9 +25,9 @@ impl Env {
     pub async fn new(prefix: &str, mut config: BlockchainConfig) -> Result<Self> {
         env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
-        config.node_port = builder.random_port();
+        config.node_uri.port = builder.random_port();
         config.connector_port = builder.random_port();
-        log::info!("node: {}", config.node_port);
+        log::info!("node: {}", config.node_uri.port);
         log::info!("connector: {}", config.connector_port);
         builder
             .stop_container(&builder.connector_name(&config))
@@ -60,7 +60,10 @@ impl Env {
     }
 
     pub async fn node<T: BlockchainClient>(&self) -> Result<T> {
-        let addr = format!("127.0.0.1:{}", self.config.node_port);
+        let addr = format!(
+            "{}://127.0.0.1:{}",
+            self.config.node_uri.scheme, self.config.node_uri.port
+        );
         T::new(self.config.clone(), &addr).await
     }
 
@@ -230,14 +233,14 @@ impl<'a> EnvBuilder<'a> {
         let mut opts = ContainerCreateOpts::builder()
             .name(&name)
             .image(config.node_image)
-            .command((config.node_command)(config.network, config.node_port))
+            .command((config.node_command)(config.network, config.node_uri.port))
             .auto_remove(true)
             .attach_stdout(true)
             .attach_stderr(true)
-            .publish(PublishPort::tcp(config.node_port as _))
+            .publish(PublishPort::tcp(config.node_uri.port as _))
             .expose(
-                PublishPort::tcp(config.node_port as _),
-                config.node_port as _,
+                PublishPort::tcp(config.node_uri.port as _),
+                config.node_uri.port as _,
             );
         for port in config.node_additional_ports {
             let port = *port as u32;
@@ -262,7 +265,7 @@ impl<'a> EnvBuilder<'a> {
             .command(vec![
                 format!("--network={}", config.network),
                 format!("--addr=0.0.0.0:{}", config.connector_port),
-                format!("--node-addr={}:{}", link, config.node_port),
+                format!("--node-addr={}", config.node_uri.with_host(link)),
                 "--path=/data".into(),
             ])
             .auto_remove(true)
