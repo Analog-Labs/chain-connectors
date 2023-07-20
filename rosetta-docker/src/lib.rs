@@ -327,7 +327,7 @@ async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
     RetryIf::spawn(
         retry_strategy,
         || async move {
-            match surf::get(&url).await {
+            match surf::get(url).await {
                 Ok(_) => Ok(()),
                 Err(err) => {
                     if health(container).await.is_err() {
