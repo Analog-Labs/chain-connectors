@@ -48,7 +48,6 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
 
     let client = {
         // TODO: Allow configuring the retry strategy and retry count
-        // Retry connecting to the node
         let retry_strategy = ExponentialBackoff::from_millis(2)
             .factor(100)
             .max_delay(Duration::from_secs(5))
