@@ -9,6 +9,10 @@ use futures::stream::StreamExt;
 use rosetta_client::{Client, Signer, Wallet};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::time::Duration;
+use tokio_retry::{
+    strategy::{jitter, ExponentialBackoff},
+    RetryIf,
+};
 
 pub struct Env {
     config: BlockchainConfig,
@@ -31,8 +35,22 @@ impl Env {
         builder.stop_container(&builder.node_name(&config)).await?;
         builder.delete_network(&builder.network_name()).await?;
         let network = builder.create_network().await?;
-        let node = builder.run_node(&config, &network).await?;
-        let connector = builder.run_connector(&config, &network).await?;
+        let node = match builder.run_node(&config, &network).await {
+            Ok(node) => node,
+            Err(e) => {
+                network.delete().await?;
+                return Err(e);
+            }
+        };
+        let connector = match builder.run_connector(&config, &network).await {
+            Ok(connector) => connector,
+            Err(e) => {
+                let opts = ContainerStopOpts::builder().build();
+                let _ = node.stop(&opts).await;
+                network.delete().await?;
+                return Err(e);
+            }
+        };
         Ok(Self {
             config,
             network,
@@ -77,6 +95,7 @@ struct EnvBuilder<'a> {
 impl<'a> EnvBuilder<'a> {
     pub fn new(prefix: &'a str) -> Result<Self> {
         let version = ApiVersion::new(1, Some(41), None);
+        // TODO: Support custom connections #138
         #[cfg(unix)]
         let docker = Docker::unix_versioned("/var/run/docker.sock", version);
         #[cfg(not(unix))]
@@ -225,7 +244,7 @@ impl<'a> EnvBuilder<'a> {
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build(), network).await?;
-        //wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
+        // wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
         tokio::time::sleep(Duration::from_secs(30)).await;
         Ok(container)
     }
@@ -239,7 +258,7 @@ impl<'a> EnvBuilder<'a> {
         let link = self.node_name(config);
         let opts = ContainerCreateOpts::builder()
             .name(&name)
-            .image(format!("analoglabs/connector-{}", config.blockchain))
+            .image(format!("analoglabs/connector-{}:latest", config.blockchain))
             .command(vec![
                 format!("--network={}", config.network),
                 format!("--addr=0.0.0.0:{}", config.connector_port),
@@ -255,8 +274,20 @@ impl<'a> EnvBuilder<'a> {
             )
             .build();
         let container = self.run_container(name, &opts, network).await?;
-        wait_for_http(&format!("http://127.0.0.1:{}", config.connector_port)).await?;
-        Ok(container)
+
+        match wait_for_http(
+            &format!("http://127.0.0.1:{}", config.connector_port),
+            &container,
+        )
+        .await
+        {
+            Ok(()) => Ok(container),
+            Err(err) => {
+                log::error!("connector failed to start: {}", err);
+                let _ = container.stop(&ContainerStopOpts::builder().build()).await;
+                Err(err)
+            }
+        }
     }
 }
 
@@ -286,17 +317,30 @@ async fn health(container: &Container) -> Result<Option<Health>> {
     }))
 }
 
-async fn wait_for_http(url: &str) -> Result<()> {
-    loop {
-        match surf::get(url).await {
-            Ok(_) => {
-                break;
+async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
+    let retry_strategy = ExponentialBackoff::from_millis(2)
+        .factor(100)
+        .max_delay(Duration::from_secs(10))
+        .map(jitter) // add jitter to delays
+        .take(20); // limit to 20 retries
+
+    RetryIf::spawn(
+        retry_strategy,
+        || async move {
+            match surf::get(url).await {
+                Ok(_) => Ok(()),
+                Err(err) => {
+                    if health(container).await.is_err() {
+                        return Err("container exited".to_string());
+                    }
+                    log::error!("url: {} error: {}", url, err);
+                    Err(err.to_string())
+                }
             }
-            Err(err) => {
-                log::error!("{}", err);
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
-        }
-    }
-    Ok(())
+        },
+        // Retry Condition
+        |error_message: &String| !error_message.starts_with("container exited"),
+    )
+    .await
+    .map_err(|err| anyhow::format_err!("{}", err))
 }
