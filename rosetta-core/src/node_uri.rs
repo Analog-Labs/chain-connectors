@@ -14,12 +14,23 @@ pub enum NodeUriError {
     InvalidHost,
 }
 
+/// The URI is structured as follows:
+///
+/// ```notrust
+/// abc://username:password@example.com:1234/path/data?key=value&key2=value2#fragid1
+/// |-|  |----------------| |---------| |--||--------| |-------------------| |-----|
+///  |            |              |       |      |               |              |
+/// scheme    userinfo         host    port   path            query         fragment
+/// ```
 #[derive(Clone)]
 pub struct NodeUri<'a> {
     pub scheme: &'a str,
     pub userinfo: Option<&'a str>,
     pub host: &'a str,
     pub port: u16,
+    pub path: &'a str,
+    pub query: Option<&'a str>,
+    pub fragment: Option<&'a str>,
 }
 
 impl<'a> NodeUri<'a> {
@@ -45,6 +56,9 @@ impl<'a> NodeUri<'a> {
             userinfo,
             host,
             port,
+            path: uri.path().as_str(),
+            query: uri.query().map(|query| query.as_str()),
+            fragment: uri.fragment().map(|fragment| fragment.as_str()),
         })
     }
 
@@ -54,20 +68,35 @@ impl<'a> NodeUri<'a> {
             userinfo: self.userinfo,
             host,
             port: self.port,
+            path: self.path,
+            query: self.query,
+            fragment: self.fragment,
         }
     }
 }
 
 impl Display for NodeUri<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // scheme://
+        write!(f, "{}://", self.scheme)?;
+
+        // userinfo@
         if let Some(userinfo) = self.userinfo {
-            write!(
-                f,
-                "{}://{}@{}:{}",
-                self.scheme, userinfo, self.host, self.port
-            )
-        } else {
-            write!(f, "{}://{}:{}", self.scheme, self.host, self.port)
+            write!(f, "{}@", userinfo)?;
         }
+
+        // host:port/path
+        write!(f, "{}:{}{}", self.host, self.port, self.path)?;
+
+        // ?query
+        if let Some(query) = self.query {
+            write!(f, "?{}", query)?;
+        }
+
+        // #fragment
+        if let Some(fragment) = self.fragment {
+            write!(f, "#{}", fragment)?;
+        }
+        Ok(())
     }
 }
