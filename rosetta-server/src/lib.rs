@@ -18,6 +18,10 @@ use std::time::Duration;
 use tide::http::headers::HeaderValue;
 use tide::security::{CorsMiddleware, Origin};
 use tide::{Body, Request, Response};
+use tokio_retry::{
+    strategy::{jitter, ExponentialBackoff},
+    Retry,
+};
 
 pub use rosetta_core::*;
 
@@ -41,7 +45,27 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
 
     log::info!("connecting to {}", &opts.node_addr);
     let config = T::create_config(&opts.network)?;
-    let client = T::new(config, &opts.node_addr).await?;
+
+    let client = {
+        // TODO: Allow configuring the retry strategy and retry count
+        // Retry connecting to the node
+        let retry_strategy = ExponentialBackoff::from_millis(2)
+            .factor(100)
+            .max_delay(Duration::from_secs(5))
+            .map(jitter) // add jitter to delays
+            .take(30); // limit to 30 retries
+        Retry::spawn(retry_strategy, || async {
+            match T::new(config.clone(), &opts.node_addr).await {
+                Ok(client) => Ok(client),
+                Err(err) => {
+                    log::error!("{}", err);
+                    Err(err)
+                }
+            }
+        })
+        .await?
+    };
+
     let indexer = Arc::new(Indexer::new(&opts.path, client)?);
 
     let cors = CorsMiddleware::new()
