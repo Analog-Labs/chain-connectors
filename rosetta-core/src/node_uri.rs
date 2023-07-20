@@ -2,7 +2,7 @@ use fluent_uri::Uri;
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum NodeUriError {
     #[error("Invalid uri")]
     InvalidUri,
@@ -22,7 +22,7 @@ pub enum NodeUriError {
 ///  |            |              |       |      |               |              |
 /// scheme    userinfo         host    port   path            query         fragment
 /// ```
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct NodeUri<'a> {
     pub scheme: &'a str,
     pub userinfo: Option<&'a str>,
@@ -42,13 +42,19 @@ impl<'a> NodeUri<'a> {
             .scheme()
             .map(|scheme| scheme.as_str())
             .ok_or(NodeUriError::InvalidScheme)?;
+        if scheme.is_empty() {
+            return Err(NodeUriError::InvalidScheme);
+        }
         let authority = uri.authority().ok_or(NodeUriError::InvalidHost)?;
+        let host = authority.host().as_str();
+        if host.is_empty() {
+            return Err(NodeUriError::InvalidHost);
+        }
         let port = authority
             .port()
             .ok_or(NodeUriError::InvalidPort)?
             .parse::<u16>()
             .map_err(|_| NodeUriError::InvalidPort)?;
-        let host = authority.host().as_str();
         let userinfo = authority.userinfo().map(|userinfo| userinfo.as_str());
 
         Ok(Self {
@@ -98,5 +104,73 @@ impl Display for NodeUri<'_> {
             write!(f, "#{}", fragment)?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_simple_uri_works() {
+        let uri = NodeUri::parse("http://127.0.0.1:18443").unwrap();
+        assert_eq!(uri.scheme, "http");
+        assert_eq!(uri.userinfo, None);
+        assert_eq!(uri.host, "127.0.0.1");
+        assert_eq!(uri.port, 18443);
+        assert_eq!(uri.path, "");
+        assert_eq!(uri.query, None);
+        assert_eq!(uri.fragment, None);
+        assert_eq!(uri.to_string(), "http://127.0.0.1:18443");
+    }
+
+    #[test]
+    fn parse_complex_uri_works() {
+        let uri_str =
+            "wss://username:password@some-random-host:12345/path/to?key=value&key2=value2#fragment";
+        let uri = NodeUri::parse(uri_str).unwrap();
+        assert_eq!(uri.scheme, "wss");
+        assert_eq!(uri.userinfo, Some("username:password"));
+        assert_eq!(uri.host, "some-random-host");
+        assert_eq!(uri.port, 12345);
+        assert_eq!(uri.path, "/path/to");
+        assert_eq!(uri.query, Some("key=value&key2=value2"));
+        assert_eq!(uri.fragment, Some("fragment"));
+        assert_eq!(uri.to_string(), uri_str);
+    }
+
+    #[test]
+    fn validate_uri() {
+        let uri_str = "http:// :8080";
+        let uri = NodeUri::parse(uri_str);
+        assert_eq!(uri, Err(NodeUriError::InvalidUri));
+    }
+
+    #[test]
+    fn validate_scheme() {
+        let uri_str = "//127.0.0.1:12345";
+        let uri = NodeUri::parse(uri_str);
+        assert_eq!(uri, Err(NodeUriError::InvalidScheme));
+    }
+
+    #[test]
+    fn validate_host() {
+        let uri_str = "wss://";
+        let uri = NodeUri::parse(uri_str);
+        assert_eq!(uri, Err(NodeUriError::InvalidHost));
+    }
+
+    #[test]
+    fn validate_port() {
+        let uris = [
+            "wss://username:password@some-random-host/path/to?key=value&key2=value2#fragment",
+            "http://127.0.0.1/path/to",
+            "http://127.0.0.1:123456",
+            "http://127.0.0.1:999999",
+        ];
+        for uri_str in uris {
+            let uri = NodeUri::parse(uri_str);
+            assert_eq!(uri, Err(NodeUriError::InvalidPort));
+        }
     }
 }
