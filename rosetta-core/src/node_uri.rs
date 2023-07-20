@@ -48,11 +48,11 @@ impl<'a> NodeUri<'a> {
         })
     }
 
-    pub fn with_host<'b, 'c: 'b, S: Into<&'c str>>(&'b self, host: S) -> NodeUri<'b> {
+    pub fn with_host<'b, 'c: 'b>(&'b self, host: &'c str) -> NodeUri<'b> {
         NodeUri {
             scheme: self.scheme,
             userinfo: self.userinfo,
-            host: host.into(),
+            host,
             port: self.port,
         }
     }
