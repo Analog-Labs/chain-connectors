@@ -338,6 +338,7 @@ async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
                 }
             }
         },
+        // Retry Condition
         |error_message: &String| !error_message.starts_with("container exited"),
     )
     .await
