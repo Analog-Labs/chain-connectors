@@ -7,7 +7,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{BlockchainClient, BlockchainConfig, NodeUri};
+use rosetta_server::{BlockchainClient, BlockchainConfig};
 use rosetta_server_ethereum::EthereumClient;
 use serde_json::Value;
 
@@ -27,13 +27,14 @@ impl BlockchainClient for AstarClient {
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         // TODO: Fix this hack, need to support multiple addresses per node
-        let mut ethereum_rpc_uri = NodeUri::parse(addr)?;
-        ethereum_rpc_uri.scheme = if ethereum_rpc_uri.scheme == "ws" {
-            "http"
+        let ethereum_uri = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
+            format!("http://{addr_without_scheme}")
+        } else if let Some(addr_without_scheme) = addr.strip_prefix("wss://") {
+            format!("https://{addr_without_scheme}")
         } else {
-            "https"
+            addr.to_string()
         };
-        let client = EthereumClient::new(config, ethereum_rpc_uri.to_string().as_str()).await?;
+        let client = EthereumClient::new(config, ethereum_uri.as_str()).await?;
         Ok(Self {
             client,
             addr: addr.into(),
