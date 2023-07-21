@@ -51,7 +51,7 @@ cargo build \
   --target "$rustTarget" \
   --config "target.$rustTarget.linker='$muslLinker'" \
   --config "env.CC_$rustTarget='$muslLinker'" \
-  --release
+  --release || exit 1
 
 # Move binaries
 mkdir -p target/release/{bitcoin,ethereum,polkadot,astar}/bin
@@ -62,40 +62,36 @@ cp "target/$rustTarget/release/rosetta-server-astar" target/release/astar/bin
 
 # Build Bitcoin Connector
 docker build target/release/bitcoin \
+  -f chains/bitcoin/Dockerfile \
+  -t "analoglabs/connector-bitcoin:$IMAGE_TAG" \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
-  --no-cache \
-  -f chains/bitcoin/Dockerfile \
-  -t "analoglabs/connector-bitcoin:$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
 
 # Build Ethereum Connector
 docker build target/release/ethereum \
+  -f chains/ethereum/Dockerfile \
+  -t "analoglabs/connector-ethereum:$IMAGE_TAG" \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
-  --no-cache \
-  -f chains/ethereum/Dockerfile \
-  -t "analoglabs/connector-ethereum:$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
 
 # Build Polkadot Connector
 docker build target/release/polkadot \
+  -f chains/polkadot/Dockerfile \
+  -t "analoglabs/connector-polkadot:$IMAGE_TAG" \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
-  --no-cache \
-  -f chains/polkadot/Dockerfile \
-  -t "analoglabs/connector-polkadot:$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
 
 # Build Astar Connector
 docker build target/release/astar \
+  -f chains/astar/Dockerfile \
+  -t "analoglabs/connector-astar:$IMAGE_TAG" \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
-  --no-cache \
-  -f chains/astar/Dockerfile \
-  -t "analoglabs/connector-astar:$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
