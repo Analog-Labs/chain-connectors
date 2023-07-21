@@ -17,6 +17,7 @@ rosetta-client = { version = "0.4.0", path = "../rosetta-client" }
 rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-no-tls"] }
 tokio = "1.26.0"
+tokio-retry = "0.3"
 
 [dev-dependencies]
 tokio = { version = "1.26.0", features = ["macros"] }
