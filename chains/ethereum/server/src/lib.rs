@@ -106,6 +106,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_transaction(tx, None)
             .await?
+            .confirmations(2)
             .await?
             .unwrap()
             .transaction_hash
@@ -154,6 +155,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_raw_transaction(Bytes(tx))
             .await?
+            .confirmations(2)
             .await?
             .context("Failed to get transaction receipt")?
             .transaction_hash

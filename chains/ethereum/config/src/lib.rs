@@ -23,6 +23,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         node_command: Arc::new(|_network, port| {
             vec![
                 "--dev".into(),
+                "--dev.period=2".into(),
                 "--ipcdisable".into(),
                 "--http".into(),
                 "--http.addr=0.0.0.0".into(),
