@@ -4,9 +4,9 @@ set -e
 # Check for 'git' and abort if it is not available.
 git --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'git' to get commit hash and tag."; exit 1; }
 
-REGISTRY_PATH="${REGISTRY_PATH:-docker.io/analoglabs}"
+REGISTRY_PATH="docker.io/analoglabs"
 VCS_REF="$(git rev-parse HEAD)"
-IMAGE_TAG="$(git describe --tags | sed 's/^v//')"
+IMAGE_TAG="latest"
 
 # Check for 'uname' and abort if it is not available.
 uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
@@ -66,9 +66,9 @@ docker build target/release/bitcoin \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache \
   -f chains/bitcoin/Dockerfile \
-  -t "analoglabs/connector-bitcoin:$IMAGE_TAG" \
-  -t analoglabs/connector-bitcoin:latest
+  -t "analoglabs/connector-bitcoin:$IMAGE_TAG"
 
 # Build Ethereum Connector
 docker build target/release/ethereum \
@@ -76,9 +76,9 @@ docker build target/release/ethereum \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache \
   -f chains/ethereum/Dockerfile \
-  -t "analoglabs/connector-ethereum:$IMAGE_TAG" \
-  -t analoglabs/connector-ethereum
+  -t "analoglabs/connector-ethereum:$IMAGE_TAG"
 
 # Build Polkadot Connector
 docker build target/release/polkadot \
@@ -86,9 +86,9 @@ docker build target/release/polkadot \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache \
   -f chains/polkadot/Dockerfile \
-  -t "analoglabs/connector-polkadot:$IMAGE_TAG" \
-  -t analoglabs/connector-polkadot
+  -t "analoglabs/connector-polkadot:$IMAGE_TAG"
 
 # Build Astar Connector
 docker build target/release/astar \
@@ -96,6 +96,6 @@ docker build target/release/astar \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
   --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache \
   -f chains/astar/Dockerfile \
-  -t "analoglabs/connector-astar:$IMAGE_TAG" \
-  -t analoglabs/connector-astar
+  -t "analoglabs/connector-astar:$IMAGE_TAG"
