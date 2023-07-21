@@ -67,7 +67,8 @@ docker build target/release/bitcoin \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache
 
 # Build Ethereum Connector
 docker build target/release/ethereum \
@@ -76,7 +77,8 @@ docker build target/release/ethereum \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache
 
 # Build Polkadot Connector
 docker build target/release/polkadot \
@@ -85,7 +87,8 @@ docker build target/release/polkadot \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache
 
 # Build Astar Connector
 docker build target/release/astar \
@@ -94,4 +97,5 @@ docker build target/release/astar \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
-  --build-arg "IMAGE_VERSION=$IMAGE_TAG"
+  --build-arg "IMAGE_VERSION=$IMAGE_TAG" \
+  --no-cache
