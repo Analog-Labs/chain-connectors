@@ -69,5 +69,6 @@ jobs:
     - name: Pull nodes
       run: ./pull_nodes.sh
 
+    # TODO: Remove the `--no-fail-fast` flag once #141 is fixed
     - name: cargo test
-      run: cargo test --locked --all-features --workspace
+      run: cargo test --locked --all-features --workspace --no-fail-fast
