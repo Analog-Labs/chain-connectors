@@ -70,4 +70,4 @@ jobs:
       run: ./pull_nodes.sh
 
     - name: cargo test
-      run: cargo test --locked --all-features --workspace
+      run: cargo test --locked --all-features --workspace --no-fail-fast
