@@ -63,7 +63,7 @@ cp "target/$rustTarget/release/rosetta-server-astar" target/release/astar/bin
 # Build Bitcoin Connector
 docker build target/release/bitcoin \
   -f chains/bitcoin/Dockerfile \
-  -t "analoglabs/connector-bitcoin:$IMAGE_TAG" \
+  -t analoglabs/connector-bitcoin \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
@@ -73,7 +73,7 @@ docker build target/release/bitcoin \
 # Build Ethereum Connector
 docker build target/release/ethereum \
   -f chains/ethereum/Dockerfile \
-  -t "analoglabs/connector-ethereum:$IMAGE_TAG" \
+  -t analoglabs/connector-ethereum \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
@@ -83,7 +83,7 @@ docker build target/release/ethereum \
 # Build Polkadot Connector
 docker build target/release/polkadot \
   -f chains/polkadot/Dockerfile \
-  -t "analoglabs/connector-polkadot:$IMAGE_TAG" \
+  -t analoglabs/connector-polkadot \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
@@ -93,7 +93,7 @@ docker build target/release/polkadot \
 # Build Astar Connector
 docker build target/release/astar \
   -f chains/astar/Dockerfile \
-  -t "analoglabs/connector-astar:$IMAGE_TAG" \
+  -t analoglabs/connector-astar \
   --build-arg "REGISTRY_PATH=$REGISTRY_PATH" \
   --build-arg "VCS_REF=$VCS_REF" \
   --build-arg "BUILD_DATE=$(date +%Y%m%d)" \
