@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rosetta_core::crypto::address::{AddressFormat, Ss58AddressFormatRegistry};
 use rosetta_core::crypto::Algorithm;
-use rosetta_core::BlockchainConfig;
+use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -30,7 +30,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "planck",
         currency_symbol: if kusama { "KSM" } else { "DOT" },
         currency_decimals: if kusama { 12 } else { 10 },
-        node_port: 9944,
+        node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
         node_image: "parity/polkadot:v0.9.37",
         node_command: Arc::new(|network, port| {
             vec![

@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token};
 use ethers::prelude::*;
+use ethers::providers::{Http, Middleware, Provider};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::Encodable;
 use proof::verify_proof;
@@ -37,7 +38,7 @@ impl BlockchainClient for EthereumClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
+        let client = Arc::new(Provider::<Http>::try_from(addr)?);
         let genesis = client
             .get_block(0)
             .await?

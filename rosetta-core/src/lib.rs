@@ -1,3 +1,5 @@
+mod node_uri;
+
 use crate::crypto::address::{Address, AddressFormat};
 use crate::crypto::{Algorithm, PublicKey, SecretKey};
 use crate::types::{
@@ -11,6 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
 
+pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
 pub use rosetta_types as types;
 
@@ -28,7 +31,7 @@ pub struct BlockchainConfig {
     pub currency_unit: &'static str,
     pub currency_symbol: &'static str,
     pub currency_decimals: u32,
-    pub node_port: u16,
+    pub node_uri: NodeUri<'static>,
     pub node_image: &'static str,
     pub node_command: NodeCommand,
     pub node_additional_ports: &'static [u16],
@@ -54,7 +57,7 @@ impl BlockchainConfig {
     }
 
     pub fn node_url(&self) -> String {
-        format!("http://rosetta.analog.one:{}", self.node_port)
+        self.node_uri.with_host("rosetta.analog.one").to_string()
     }
 
     pub fn connector_url(&self) -> String {

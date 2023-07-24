@@ -26,7 +26,15 @@ impl BlockchainClient for AstarClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = EthereumClient::new(config, addr).await?;
+        // TODO: Fix this hack, need to support multiple addresses per node
+        let ethereum_uri = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
+            format!("http://{addr_without_scheme}")
+        } else if let Some(addr_without_scheme) = addr.strip_prefix("wss://") {
+            format!("https://{addr_without_scheme}")
+        } else {
+            addr.to_string()
+        };
+        let client = EthereumClient::new(config, ethereum_uri.as_str()).await?;
         Ok(Self {
             client,
             addr: addr.into(),
@@ -71,8 +79,7 @@ impl BlockchainClient for AstarClient {
             pub value: u128,
         }
 
-        let addr = &self.addr;
-        let client = OnlineClient::<PolkadotConfig>::from_url(format!("ws://{addr}")).await?;
+        let client = OnlineClient::<PolkadotConfig>::from_url(&self.addr).await?;
 
         // convert address
         let address: H160 = address.address().parse()?;
