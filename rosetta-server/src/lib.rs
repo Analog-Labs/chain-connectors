@@ -59,8 +59,6 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
         .await?
     };
 
-    let indexer = Arc::new(client);
-
     let cors = CorsMiddleware::new()
         .allow_methods("POST".parse::<HeaderValue>().unwrap())
         .allow_origin(Origin::from("*"))
@@ -68,7 +66,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
     app.with(cors);
-    app.at("/").nest(server(indexer.clone()));
+    app.at("/").nest(server(Arc::new(client)));
 
     log::info!("listening on {}", &opts.addr);
     app.listen(opts.addr).await?;
