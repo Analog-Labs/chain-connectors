@@ -58,10 +58,9 @@ services:
 
   astar:
     image: "staketechnologies/astar-collator:v5.15.0"
-    command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    command: "astar-collator --chain dev --rpc-port=9994 --rpc-cors=all --rpc-external --alice --tmp --enable-evm-rpc --base-path /astar"
     expose:
     - "9994"
-    - "9995"
     user: root
     ulimits:
       nofile:
