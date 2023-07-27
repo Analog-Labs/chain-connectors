@@ -5,6 +5,12 @@ use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+// Generate an interface that we can use from the node's metadata.
+pub mod metadata {
+    #[subxt::subxt(runtime_metadata_path = "res/polkadot-v9430.scale")]
+    pub mod dev {}
+}
+
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     let (network, kusama) = match network {
         "dev" => ("dev", false),

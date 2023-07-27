@@ -138,11 +138,6 @@ impl BlockchainClient for AstarClient {
     }
 
     async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
-        // let existential_deposit = self.ws_client.constants().at(&astar_metadata::constants()
-        //     .balances()
-        //     .existential_deposit())?;
-        // let value = value.checked_add(existential_deposit).ok_or_else(|| anyhow::anyhow!("value overflow"))?;
-
         // convert address
         let dest = {
             let address: H160 = address.address().parse()?;
@@ -191,35 +186,6 @@ impl BlockchainClient for AstarClient {
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
         self.client.block_transaction(block_identifier, tx).await
-        // if let Some(transaction) = self.client.block_transaction(block_identifier, tx).await {
-        //     return Ok(transaction);
-        // }
-        // let block_hash = self.ws_client
-        //     .rpc()
-        //     .block_hash(Some(BlockNumber::from(block_identifier.index)))
-        //     .await?
-        //     .ok_or_else(|| anyhow::anyhow!("no block hash found"))?;
-        //
-        // let transaction_hash = tx.hash.parse()?;
-        // let body = self
-        //     .ws_client
-        //     .blocks()
-        //     .at(block_hash)
-        //     .await?
-        //     .body()
-        //     .await?;
-        //
-        // body.extrinsics().find().find(|extrinsic| {
-        //     extrinsic.unwrap().
-        // });
-        //
-        // let extrinsic = body
-        //     .extrinsics()
-        //     .find(|extrinsic| {
-        //         <PolkadotConfig as Config>::Hasher::hash_of(&extrinsic.bytes()) == transaction_hash
-        //     })
-        //     .context("transaction not found")?;
-        // crate::block::get_transaction(self.config(), &extrinsic).await
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
