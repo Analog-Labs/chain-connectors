@@ -5,10 +5,6 @@ volumes:
   ethereum-volume:
   polkadot-volume:
   astar-volume:
-  bitcoin-connector-volume:
-  ethereum-connector-volume:
-  polkadot-connector-volume:
-  astar-connector-volume:
 
 services:
   bitcoin:
@@ -81,46 +77,37 @@ services:
 
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
-    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443 --path /data"
+    command: "--network regtest --addr 0.0.0.0:8080 --node-addr http://bitcoin:18443"
     ports:
     - "8080:8080"
     depends_on:
     - bitcoin
-    volumes:
-    - "bitcoin-connector-volume:/data"
 
   connector-ethereum:
     image: "analoglabs/connector-ethereum"
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545 --path /data"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr http://ethereum:8545"
     ports:
     - "8081:8081"
     depends_on:
     - ethereum
-    volumes:
-    - "ethereum-connector-volume:/data"
 
   connector-polkadot:
     image: "analoglabs/connector-polkadot"
-    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944 --path /data"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr ws://polkadot:9944"
     ports:
     - "8082:8082"
     depends_on:
     - polkadot
-    volumes:
-    - "polkadot-connector-volume:/data"
     # TODO: need to do a proper health check
     restart: always
 
   connector-astar:
     image: "analoglabs/connector-astar"
-    command: "--network dev --addr 0.0.0.0:8083 --node-addr astar:9994 --path /data"
+    command: "--network dev --addr 0.0.0.0:8083 --node-addr ws://astar:9994"
     ports:
     - "8083:8083"
     depends_on:
     - astar
-    volumes:
-    - "astar-connector-volume:/data"
-    # TODO: need to do a proper health check
     restart: always
 
 

@@ -14,8 +14,6 @@ mod ss58;
 
 pub use ss58::{Ss58AddressFormat, Ss58AddressFormatRegistry};
 
-/// Error format
-
 /// Address format.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AddressFormat {
