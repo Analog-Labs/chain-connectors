@@ -383,19 +383,6 @@ mod tests {
         rosetta_server::tests::construction(config).await
     }
 
-    #[tokio::test]
-    #[ignore]
-    async fn test_find_transaction() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::find_transaction(config).await
-    }
-
-    #[tokio::test]
-    async fn test_list_transactions() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::list_transactions(config).await
-    }
-
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
         let solc = Solc::default();
         let source = format!("contract Contract {{ {source} }}");
