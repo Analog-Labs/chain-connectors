@@ -31,15 +31,18 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: if kusama { "KSM" } else { "DOT" },
         currency_decimals: if kusama { 12 } else { 10 },
         node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
-        node_image: "parity/polkadot:v0.9.37",
+        node_image: "parity/polkadot:v1.0.0",
         node_command: Arc::new(|network, port| {
+            let chain = if network == "dev" {
+                "--dev".to_string()
+            } else {
+                format!("--chain={network}")
+            };
             vec![
-                format!("--chain={network}"),
-                "--rpc-cors=all".into(),
-                "--ws-external".into(),
-                format!("--ws-port={port}"),
+                chain,
+                "--rpc-external".into(),
+                format!("--rpc-port={port}"),
                 "--alice".into(),
-                "--tmp".into(),
             ]
         }),
         node_additional_ports: &[],

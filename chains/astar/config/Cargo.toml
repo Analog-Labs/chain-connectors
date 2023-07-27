@@ -9,3 +9,4 @@ description = "Polkadot configuration."
 [dependencies]
 anyhow = "1.0.69"
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
+subxt = "0.29.0"
