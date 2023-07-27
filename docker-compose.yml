@@ -109,14 +109,3 @@ services:
     depends_on:
     - astar
     restart: always
-
-
-  explorer:
-    image: "analoglabs/rosetta-explorer"
-    ports:
-    - "3000:3000"
-    depends_on:
-    - connector-bitcoin
-    - connector-ethereum
-    - connector-polkadot
-    - connector-astar

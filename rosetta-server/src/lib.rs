@@ -1,4 +1,3 @@
-use crate::indexer::Indexer;
 use anyhow::Result;
 use clap::Parser;
 use rosetta_core::crypto::address::Address;
@@ -23,8 +22,6 @@ use tokio_retry::{
 };
 
 pub use rosetta_core::*;
-
-mod indexer;
 
 #[derive(Parser)]
 struct Opts {
@@ -62,7 +59,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
         .await?
     };
 
-    let indexer = Arc::new(Indexer::new(client)?);
+    let indexer = Arc::new(client);
 
     let cors = CorsMiddleware::new()
         .allow_methods("POST".parse::<HeaderValue>().unwrap())
@@ -79,7 +76,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     Ok(())
 }
 
-type State<T> = Arc<Indexer<T>>;
+type State<T> = Arc<T>;
 
 fn server<T: BlockchainClient>(client: State<T>) -> tide::Server<State<T>> {
     let config = client.config();
