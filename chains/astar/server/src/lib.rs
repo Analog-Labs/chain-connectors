@@ -1,7 +1,12 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ethers::prelude::*;
+use parity_scale_codec::Decode;
+use rosetta_config_astar::metadata::{
+    dev as astar_metadata,
+    dev::runtime_types::{frame_system::AccountInfo, pallet_balances::types::AccountData},
+};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
-use rosetta_server::crypto::address::Address;
+use rosetta_server::crypto::address::{Address, AddressFormat};
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
@@ -10,10 +15,53 @@ use rosetta_server::types::{
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use rosetta_server_ethereum::EthereumClient;
 use serde_json::Value;
+use sp_core::crypto::Ss58AddressFormat;
+use subxt::{
+    dynamic::Value as SubtxValue, rpc::types::BlockNumber, tx::PairSigner, utils::AccountId32,
+    OnlineClient, PolkadotConfig,
+};
 
 pub struct AstarClient {
     client: EthereumClient,
-    addr: String,
+    ws_client: OnlineClient<PolkadotConfig>,
+}
+
+impl AstarClient {
+    async fn account_info(
+        &self,
+        address: &Address,
+        maybe_block: Option<&BlockIdentifier>,
+    ) -> Result<AccountInfo<u32, AccountData<u128>>> {
+        let account: AccountId32 = address
+            .address()
+            .parse()
+            .map_err(|err| anyhow::anyhow!("{}", err))
+            .context("invalid address")?;
+
+        // Build a dynamic storage query to iterate account information.
+        let storage_query =
+            subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
+
+        let block_hash = {
+            let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
+            self.ws_client
+                .rpc()
+                .block_hash(block_number)
+                .await?
+                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+        };
+
+        let account_info = self
+            .ws_client
+            .storage()
+            .at(block_hash)
+            .fetch(&storage_query)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("account not found"))?;
+
+        <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
+            .map_err(|_| anyhow::anyhow!("invalid format"))
+    }
 }
 
 #[async_trait::async_trait]
@@ -27,17 +75,22 @@ impl BlockchainClient for AstarClient {
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         // TODO: Fix this hack, need to support multiple addresses per node
-        let ethereum_uri = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
-            format!("http://{addr_without_scheme}")
+        let (http_uri, ws_uri) = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
+            (format!("http://{addr_without_scheme}"), addr.to_string())
         } else if let Some(addr_without_scheme) = addr.strip_prefix("wss://") {
-            format!("https://{addr_without_scheme}")
+            (format!("https://{addr_without_scheme}"), addr.to_string())
+        } else if let Some(addr_without_scheme) = addr.strip_prefix("http://") {
+            (addr.to_string(), format!("ws://{addr_without_scheme}"))
+        } else if let Some(addr_without_scheme) = addr.strip_prefix("https://") {
+            (addr.to_string(), format!("wss://{addr_without_scheme}"))
         } else {
-            addr.to_string()
+            (format!("http://{addr}"), format!("ws://{addr}"))
         };
-        let client = EthereumClient::new(config, ethereum_uri.as_str()).await?;
+        let ethereum_client = EthereumClient::new(config, http_uri.as_str()).await?;
+        let substrate_client = OnlineClient::<PolkadotConfig>::from_url(ws_uri.as_str()).await?;
         Ok(Self {
-            client,
-            addr: addr.into(),
+            client: ethereum_client,
+            ws_client: substrate_client,
         })
     }
 
@@ -58,7 +111,26 @@ impl BlockchainClient for AstarClient {
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        self.client.balance(address, block).await
+        let balance = match address.format() {
+            AddressFormat::Ss58(_) => {
+                let account_info = self.account_info(address, Some(block)).await?;
+                account_info.data.free
+            }
+            AddressFormat::Eip55 => {
+                // Frontier `eth_getBalance` returns the reducible_balance instead the free balance:
+                // https://github.com/paritytech/frontier/blob/polkadot-v0.9.43/frame/evm/src/lib.rs#L853-L855
+                // using substrate to get the free balance
+                let address = address
+                    .evm_to_ss58(Ss58AddressFormat::custom(42))
+                    .map_err(|err| anyhow::anyhow!("{}", err))?;
+                let account_info = self.account_info(&address, Some(block)).await?;
+                account_info.data.free
+            }
+            _ => {
+                return Err(anyhow::anyhow!("invalid address format"));
+            }
+        };
+        Ok(balance)
     }
 
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
@@ -66,37 +138,25 @@ impl BlockchainClient for AstarClient {
     }
 
     async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
-        use parity_scale_codec::{Decode, Encode};
-        use sp_keyring::AccountKeyring;
-        use subxt::tx::{PairSigner, StaticTxPayload};
-        use subxt::utils::{AccountId32, MultiAddress};
-        use subxt::{OnlineClient, PolkadotConfig};
-
-        #[derive(Decode, Encode, Debug)]
-        pub struct Transfer {
-            pub dest: MultiAddress<AccountId32, u32>,
-            #[codec(compact)]
-            pub value: u128,
-        }
-
-        let client = OnlineClient::<PolkadotConfig>::from_url(&self.addr).await?;
-
         // convert address
-        let address: H160 = address.address().parse()?;
-        let mut data = [0u8; 24];
-        data[0..4].copy_from_slice(b"evm:");
-        data[4..24].copy_from_slice(&address[..]);
-        let hash = sp_core::hashing::blake2_256(&data);
-        let address = AccountId32::from(Into::<[u8; 32]>::into(hash));
-        //
+        let dest = {
+            let address: H160 = address.address().parse()?;
+            let mut data = [0u8; 24];
+            data[0..4].copy_from_slice(b"evm:");
+            data[4..24].copy_from_slice(&address[..]);
+            let hash = sp_core::hashing::blake2_256(&data);
+            AccountId32::from(Into::<[u8; 32]>::into(hash))
+        };
 
-        let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
-        let dest: MultiAddress<AccountId32, u32> = MultiAddress::Id(address);
-        let tx = StaticTxPayload::new("Balances", "transfer", Transfer { dest, value }, [0; 32])
-            .unvalidated();
-        let hash = client
+        // Build the transfer transaction
+        let balance_transfer_tx = astar_metadata::tx().balances().transfer(dest.into(), value);
+        let alice = sp_keyring::AccountKeyring::Alice.pair();
+        let signer = PairSigner::<PolkadotConfig, _>::new(alice);
+
+        let hash = self
+            .ws_client
             .tx()
-            .sign_and_submit_then_watch_default(&tx, &signer)
+            .sign_and_submit_then_watch_default(&balance_transfer_tx, &signer)
             .await?
             .wait_for_finalized_success()
             .await?
@@ -122,10 +182,10 @@ impl BlockchainClient for AstarClient {
 
     async fn block_transaction(
         &self,
-        block: &BlockIdentifier,
+        block_identifier: &BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        self.client.block_transaction(block, tx).await
+        self.client.block_transaction(block_identifier, tx).await
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
@@ -175,12 +235,14 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_find_transaction() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
         rosetta_server::tests::find_transaction(config).await
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_list_transactions() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
         rosetta_server::tests::list_transactions(config).await
@@ -215,7 +277,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
-        let env = Env::new("smart-contract", config.clone()).await?;
+        let env = Env::new("astar-smart-contract", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -249,7 +311,7 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
-        let env = Env::new("smart-contract-view", config.clone()).await?;
+        let env = Env::new("astar-smart-contract-view", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;

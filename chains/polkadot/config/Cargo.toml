@@ -10,3 +10,4 @@ description = "Polkadot configuration."
 anyhow = "1.0.69"
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 serde = { version = "1.0.153", features = ["derive"] }
+subxt = "0.30"

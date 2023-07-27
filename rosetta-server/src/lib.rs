@@ -451,10 +451,19 @@ impl Error {
 pub mod tests {
     use super::*;
     use futures::stream::StreamExt;
+    use nanoid::nanoid;
     use rosetta_docker::Env;
 
+    fn env_id() -> String {
+        nanoid!(
+            10,
+            &['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f',]
+        )
+    }
+
     pub async fn network_list(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("network-list", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-network-list"), config.clone()).await?;
 
         let client = env.connector()?;
         let networks = client.network_list().await?;
@@ -468,7 +477,8 @@ pub mod tests {
     }
 
     pub async fn network_options<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("network-options", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-network-options"), config.clone()).await?;
 
         let client = env.node::<T>().await?;
         let version = client.node_version().await?;
@@ -482,7 +492,8 @@ pub mod tests {
     }
 
     pub async fn network_status<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("network-status", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-network-status"), config.clone()).await?;
 
         let client = env.node::<T>().await?;
         let genesis = client.genesis_block().clone();
@@ -498,7 +509,8 @@ pub mod tests {
     }
 
     pub async fn account(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("account", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-account"), config.clone()).await?;
 
         let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -513,7 +525,8 @@ pub mod tests {
     }
 
     pub async fn construction(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("construction", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-construction"), config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);
@@ -530,7 +543,8 @@ pub mod tests {
     }
 
     pub async fn find_transaction(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("find-transaction", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-find-transaction"), config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);
@@ -548,7 +562,8 @@ pub mod tests {
     }
 
     pub async fn list_transactions(config: BlockchainConfig) -> Result<()> {
-        let env = Env::new("list-transactions", config.clone()).await?;
+        let env_id = env_id();
+        let env = Env::new(&format!("{env_id}-list-transactions"), config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);

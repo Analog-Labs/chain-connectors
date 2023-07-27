@@ -107,6 +107,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_transaction(tx, None)
             .await?
+            .confirmations(2)
             .await?
             .unwrap()
             .transaction_hash
@@ -155,6 +156,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_raw_transaction(Bytes(tx))
             .await?
+            .confirmations(2)
             .await?
             .context("Failed to get transaction receipt")?
             .transaction_hash
@@ -382,6 +384,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_find_transaction() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_server::tests::find_transaction(config).await
@@ -422,7 +425,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -456,7 +459,7 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract-view", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract-view", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;

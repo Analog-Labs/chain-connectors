@@ -44,8 +44,8 @@ services:
     - "ethereum-volume:/root"
 
   polkadot:
-    image: "parity/polkadot:v0.9.37"
-    command: "--chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    image: "parity/polkadot:v1.0.0"
+    command: "--dev --rpc-external --rpc-port=9944 --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9944"
     user: root
@@ -61,7 +61,7 @@ services:
     - "polkadot-volume:/polkadot"
 
   astar:
-    image: "staketechnologies/astar-collator:latest"
+    image: "staketechnologies/astar-collator:v5.15.0"
     command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9994"

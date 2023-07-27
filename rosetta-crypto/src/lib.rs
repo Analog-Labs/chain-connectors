@@ -14,6 +14,7 @@ pub mod address;
 pub mod bip32;
 pub use bip39;
 pub mod bip44;
+mod error;
 
 /// Signing algorithm.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
