@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rosetta_core::crypto::address::AddressFormat;
 use rosetta_core::crypto::Algorithm;
-use rosetta_core::BlockchainConfig;
+use rosetta_core::{BlockchainConfig, NodeUri};
 use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
@@ -17,7 +17,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "satoshi",
         currency_symbol: "tBTC",
         currency_decimals: 8,
-        node_port: 18443,
+        node_uri: NodeUri::parse("http://127.0.0.1:18443")?,
         node_image: "ruimarinho/bitcoin-core:23",
         node_command: Arc::new(|_network, port| {
             vec![

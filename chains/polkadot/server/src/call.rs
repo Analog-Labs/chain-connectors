@@ -6,11 +6,12 @@ use scale_info::{
 };
 use serde_json::Value;
 use serde_json::{Map, Value as SerdeValue};
-use subxt::dynamic::Value as SubxtValue;
-use subxt::ext::frame_metadata::StorageEntryType;
-use subxt::ext::scale_value::scale::TypeId;
-use subxt::ext::scale_value::{self, BitSequence, ValueDef};
-use subxt::{OnlineClient, PolkadotConfig as GenericConfig};
+use subxt::{
+    dynamic::Value as SubxtValue,
+    ext::scale_value::{self, scale::TypeId, BitSequence, ValueDef},
+    metadata::types::StorageEntryType,
+    OnlineClient, PolkadotConfig as GenericConfig,
+};
 
 pub fn dynamic_constant_req(
     subxt: &OnlineClient<GenericConfig>,
@@ -32,13 +33,17 @@ pub async fn dynamic_storage_req(
 ) -> Result<Value> {
     let metadata = subxt.metadata();
     let types = metadata.types();
-    let pallet = metadata.pallet(pallet_name)?;
+    let pallet = metadata
+        .pallet_by_name(pallet_name)
+        .ok_or_else(|| anyhow::anyhow!("pallet not found"))?;
+    let storage_metadata = pallet
+        .storage()
+        .and_then(|s| s.entry_by_name(storage_name))
+        .ok_or_else(|| anyhow::anyhow!("storage not found"))?;
 
-    let storage_metadata = pallet.storage(storage_name)?;
-
-    let storage_type = storage_metadata.ty.clone();
+    let storage_type = storage_metadata.entry_type().clone();
     let type_id = match storage_type {
-        StorageEntryType::Map { key, .. } => Some(key.id),
+        StorageEntryType::Map { key_ty, .. } => Some(key_ty),
         _ => None,
     };
     let params = if let Some(id) = type_id {
@@ -61,7 +66,7 @@ pub async fn dynamic_storage_req(
 
     let data = subxt
         .storage()
-        .at(None)
+        .at_latest()
         .await?
         .fetch_or_default(&storage_address)
         .await?;

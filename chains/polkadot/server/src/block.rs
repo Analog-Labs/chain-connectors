@@ -5,17 +5,18 @@ use rosetta_server::types::{
 };
 use rosetta_server::BlockchainConfig;
 use serde_json::{json, Value};
-use subxt::blocks::Extrinsic;
-use subxt::config::Hasher;
-use subxt::events::EventDetails;
-use subxt::ext::scale_value::scale::TypeId;
-use subxt::ext::scale_value::{Composite, Primitive, ValueDef};
-use subxt::utils::H256;
-use subxt::{Config, OnlineClient};
+use subxt::{
+    blocks::ExtrinsicDetails,
+    config::Hasher,
+    events::EventDetails,
+    ext::scale_value::{scale::TypeId, Composite, Primitive, ValueDef},
+    utils::H256,
+    Config, OnlineClient,
+};
 
 pub async fn get_transaction<T: Config<Hash = H256>>(
     config: &BlockchainConfig,
-    extrinsic: &Extrinsic<'_, T, OnlineClient<T>>,
+    extrinsic: &ExtrinsicDetails<T, OnlineClient<T>>,
 ) -> Result<Transaction> {
     let events = extrinsic.events().await?;
     let mut operations = vec![];
@@ -24,8 +25,8 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
         let event_parsed_data = get_operation_data(config, &event)?;
 
         let mut fields = vec![];
-        for field in event.event_metadata().fields().iter() {
-            fields.push(json!({"name": field.name(), "type": field.type_name()}));
+        for field in event.event_metadata().variant.fields.iter() {
+            fields.push(json!({"name": field.name, "type": field.type_name}));
         }
         let op_metadata = Value::Array(fields);
 
@@ -92,9 +93,9 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
     })
 }
 
-fn get_operation_data(
+fn get_operation_data<T: Config<Hash = H256>>(
     config: &BlockchainConfig,
-    event: &EventDetails,
+    event: &EventDetails<T>,
 ) -> Result<TransactionOperationStatus> {
     let pallet_name = event.pallet_name();
     let event_name = event.variant_name();

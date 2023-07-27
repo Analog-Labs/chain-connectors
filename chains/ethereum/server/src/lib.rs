@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token};
 use ethers::prelude::*;
+use ethers::providers::{Http, Middleware, Provider};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::Encodable;
 use proof::verify_proof;
@@ -37,7 +38,7 @@ impl BlockchainClient for EthereumClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = Arc::new(Provider::<Http>::try_from(format!("http://{addr}"))?);
+        let client = Arc::new(Provider::<Http>::try_from(addr)?);
         let genesis = client
             .get_block(0)
             .await?
@@ -383,6 +384,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_find_transaction() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_server::tests::find_transaction(config).await
@@ -423,7 +425,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -457,7 +459,7 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract-view", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract-view", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;

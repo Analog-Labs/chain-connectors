@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rosetta_core::crypto::address::AddressFormat;
 use rosetta_core::crypto::Algorithm;
-use rosetta_core::BlockchainConfig;
+use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -18,12 +18,12 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "wei",
         currency_symbol: "ETH",
         currency_decimals: 18,
-        node_port: 8545,
+        node_uri: NodeUri::parse("http://127.0.0.1:8545")?,
         node_image: "ethereum/client-go:v1.10.26",
         node_command: Arc::new(|_network, port| {
             vec![
                 "--dev".into(),
-                "--dev.period=2".into(),
+                "--dev.period=1".into(),
                 "--ipcdisable".into(),
                 "--http".into(),
                 "--http.addr=0.0.0.0".into(),

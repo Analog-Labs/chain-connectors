@@ -1,12 +1,20 @@
 //! Support for various blockchain address formats.
 use crate::bip32::DerivedPublicKey;
+use crate::error::AddressError;
 use crate::PublicKey;
+use ethers::types::H160;
+use sp_core::{
+    crypto::{AccountId32, Ss58Codec},
+    hashing::blake2_256,
+};
 
 mod bech32;
 mod eip55;
 mod ss58;
 
 pub use ss58::{Ss58AddressFormat, Ss58AddressFormatRegistry};
+
+/// Error format
 
 /// Address format.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -52,6 +60,41 @@ impl Address {
             AddressFormat::Ss58(format) => ss58::ss58_encode(format, public_key),
         };
         Self::new(format, address)
+    }
+
+    /// Converts an EVM address to its corresponding SS58 address.
+    /// reference: https://github.com/polkadot-js/common/blob/v12.3.2/packages/util-crypto/src/address/evmToAddress.ts
+    pub fn evm_to_ss58(&self, ss58format: Ss58AddressFormat) -> Result<Self, AddressError> {
+        if self.format != AddressFormat::Eip55 {
+            return Err(AddressError::InvalidAddressFormat);
+        }
+        let address: H160 = self
+            .address
+            .parse()
+            .map_err(|_| AddressError::FailedToDecodeAddress)?;
+        let mut data = [0u8; 24];
+        data[0..4].copy_from_slice(b"evm:");
+        data[4..24].copy_from_slice(&address[..]);
+        let hash = blake2_256(&data);
+        Ok(Self {
+            format: AddressFormat::Ss58(ss58format),
+            address: ss58::ss58_encode(ss58format, &hash),
+        })
+    }
+
+    /// Converts an SS58 address to its corresponding EVM address.
+    /// reference: https://github.com/polkadot-js/common/blob/v12.3.2/packages/util-crypto/src/address/addressToEvm.ts#L13
+    pub fn ss58_to_evm(&self) -> Result<Self, AddressError> {
+        if !matches!(self.format, AddressFormat::Ss58(_)) {
+            return Err(AddressError::InvalidAddressFormat);
+        }
+        let ss58_addr = <AccountId32 as Ss58Codec>::from_string(&self.address)
+            .map_err(|_| AddressError::FailedToDecodeAddress)?;
+        let bytes: [u8; 32] = ss58_addr.into();
+        Ok(Self {
+            format: AddressFormat::Eip55,
+            address: hex::encode(&bytes[0..20]),
+        })
     }
 
     /// Returns the format of the address.
