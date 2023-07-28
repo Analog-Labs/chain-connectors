@@ -58,7 +58,7 @@ services:
 
   astar:
     image: "staketechnologies/astar-collator:v5.15.0"
-    command: "astar-collator --chain dev --rpc-port=9994 --rpc-cors=all --rpc-external --alice --tmp --enable-evm-rpc --base-path /astar"
+    command: "astar-collator --chain dev --rpc-port=9994 --rpc-cors=all --rpc-external --alice --enable-evm-rpc --base-path /astar"
     expose:
     - "9994"
     user: root
