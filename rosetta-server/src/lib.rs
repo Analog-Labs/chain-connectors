@@ -1,4 +1,3 @@
-use crate::indexer::Indexer;
 use anyhow::Result;
 use clap::Parser;
 use rosetta_core::crypto::address::Address;
@@ -9,10 +8,9 @@ use rosetta_core::types::{
     BlockTransactionResponse, CallRequest, CallResponse, ConstructionMetadataRequest,
     ConstructionMetadataResponse, ConstructionSubmitRequest, MetadataRequest, NetworkIdentifier,
     NetworkListResponse, NetworkOptionsResponse, NetworkRequest, NetworkStatusResponse,
-    SearchTransactionsRequest, TransactionIdentifier, TransactionIdentifierResponse, Version,
+    TransactionIdentifier, TransactionIdentifierResponse, Version,
 };
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tide::http::headers::HeaderValue;
@@ -25,8 +23,6 @@ use tokio_retry::{
 
 pub use rosetta_core::*;
 
-mod indexer;
-
 #[derive(Parser)]
 struct Opts {
     #[clap(long)]
@@ -35,8 +31,6 @@ struct Opts {
     addr: SocketAddr,
     #[clap(long)]
     node_addr: String,
-    #[clap(long)]
-    path: PathBuf,
 }
 
 pub async fn main<T: BlockchainClient>() -> Result<()> {
@@ -65,8 +59,6 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
         .await?
     };
 
-    let indexer = Arc::new(Indexer::new(&opts.path, client)?);
-
     let cors = CorsMiddleware::new()
         .allow_methods("POST".parse::<HeaderValue>().unwrap())
         .allow_origin(Origin::from("*"))
@@ -74,16 +66,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     let mut app = tide::new();
     app.with(tide::log::LogMiddleware::new());
     app.with(cors);
-    app.at("/").nest(server(indexer.clone()));
-
-    tokio::task::spawn(async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(10)).await;
-            if let Err(err) = indexer.sync().await {
-                log::error!("{}", err);
-            }
-        }
-    });
+    app.at("/").nest(server(Arc::new(client)));
 
     log::info!("listening on {}", &opts.addr);
     app.listen(opts.addr).await?;
@@ -91,7 +74,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     Ok(())
 }
 
-type State<T> = Arc<Indexer<T>>;
+type State<T> = Arc<T>;
 
 fn server<T: BlockchainClient>(client: State<T>) -> tide::Server<State<T>> {
     let config = client.config();
@@ -113,7 +96,6 @@ fn server<T: BlockchainClient>(client: State<T>) -> tide::Server<State<T>> {
     app.at("/network/list").post(network_list);
     app.at("/network/options").post(network_options);
     app.at("/network/status").post(network_status);
-    app.at("/search/transactions").post(search_transactions);
     // unsupported
     app.at("/mempool").post(unsupported);
     app.at("/mempool/transaction").post(unsupported);
@@ -352,19 +334,6 @@ async fn block_transaction<T: BlockchainClient>(mut req: Request<State<T>>) -> t
     ok(&response)
 }
 
-async fn search_transactions<T: BlockchainClient>(mut req: Request<State<T>>) -> tide::Result {
-    let request: SearchTransactionsRequest = req.body_json().await?;
-    let config = req.state().config();
-    if !is_network_supported(&request.network_identifier, config) {
-        return Error::UnsupportedNetwork.to_result();
-    }
-    let response = match req.state().search(&request).await {
-        Ok(response) => response,
-        Err(err) => return Error::RpcError(err).to_result(),
-    };
-    ok(&response)
-}
-
 async fn call<T: BlockchainClient>(mut req: Request<State<T>>) -> tide::Result {
     let request: CallRequest = req.body_json().await?;
     let config = req.state().config();
@@ -450,7 +419,6 @@ impl Error {
 #[cfg(feature = "tests")]
 pub mod tests {
     use super::*;
-    use futures::stream::StreamExt;
     use nanoid::nanoid;
     use rosetta_docker::Env;
 
@@ -537,67 +505,6 @@ pub mod tests {
         alice.transfer(bob.account(), value).await?;
         let amount = bob.balance().await?;
         assert_eq!(amount.value, value.to_string());
-
-        env.shutdown().await?;
-        Ok(())
-    }
-
-    pub async fn find_transaction(config: BlockchainConfig) -> Result<()> {
-        let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-find-transaction"), config.clone()).await?;
-
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let value = u128::pow(10, config.currency_decimals);
-        let alice = env.ephemeral_wallet()?;
-        alice.faucet(faucet).await?;
-
-        let bob = env.ephemeral_wallet()?;
-        let tx_id = alice.transfer(bob.account(), value).await?;
-
-        let tx = alice.transaction(tx_id.clone()).await?;
-        assert_eq!(tx.transaction.transaction_identifier, tx_id);
-
-        env.shutdown().await?;
-        Ok(())
-    }
-
-    pub async fn list_transactions(config: BlockchainConfig) -> Result<()> {
-        let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-list-transactions"), config.clone()).await?;
-
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let value = u128::pow(10, config.currency_decimals);
-        let alice = env.ephemeral_wallet()?;
-        alice.faucet(faucet).await?;
-
-        let bob = env.ephemeral_wallet()?;
-        alice.transfer(bob.account(), value).await?;
-        alice.transfer(bob.account(), value).await?;
-        alice.transfer(bob.account(), value).await?;
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        let mut stream = bob.transactions(1);
-        let mut count = 0;
-        while let Some(res) = stream.next().await {
-            let transactions = res?;
-            assert_eq!(transactions.len(), 1);
-            assert_eq!(stream.total_count(), Some(3));
-            count += 1;
-            assert!(count <= 3);
-        }
-        assert_eq!(count, 3);
-
-        let mut stream = bob.transactions(10);
-        let mut count = 0;
-        while let Some(res) = stream.next().await {
-            let transactions = res?;
-            assert_eq!(transactions.len(), 3);
-            assert_eq!(stream.total_count(), Some(3));
-            count += 1;
-            assert!(count <= 1);
-        }
-        assert_eq!(count, 1);
 
         env.shutdown().await?;
         Ok(())
