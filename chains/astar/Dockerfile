@@ -17,4 +17,8 @@ chains/astar/Dockerfile" \
       one.analog.image.created="${BUILD_DATE}"
 
 COPY bin/rosetta-server-astar rosetta-server-astar
+
+# check if executable works in this container
+RUN ["/rosetta-server-astar", "--help"]
+
 ENTRYPOINT ["/rosetta-server-astar"]

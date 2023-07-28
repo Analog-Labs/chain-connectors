@@ -17,4 +17,8 @@ chains/polkadot/Dockerfile" \
       one.analog.image.created="${BUILD_DATE}"
 
 COPY bin/rosetta-server-polkadot rosetta-server-polkadot
+
+# check if executable works in this container
+RUN ["/rosetta-server-polkadot", "--help"]
+
 ENTRYPOINT ["/rosetta-server-polkadot"]

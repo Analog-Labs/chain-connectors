@@ -42,16 +42,37 @@ if ! rustup target list | grep -q "$rustTarget"; then
   rustup target add "$rustTarget"
 fi
 
+# Detect host operating system
+case $(uname -s) in
+  # macOS
+  Darwin)
+    buildArgs=(
+      --release
+      --target "$rustTarget"
+      --config "target.$rustTarget.linker='$muslLinker'"
+      --config "env.CC_$rustTarget='$muslLinker'"
+    )
+    ;;
+  # Linux
+  Linux)
+    buildArgs=(
+      --release
+      --target "$rustTarget"
+    )
+    ;;
+  *)
+    echo >&2 "ERROR - unsupported or unidentified operating system: $(uname -s)"
+    exit 1
+    ;;
+esac
+
 # Build all Connectors
 cargo build \
   -p rosetta-server-bitcoin \
   -p rosetta-server-polkadot \
   -p rosetta-server-ethereum \
   -p rosetta-server-astar \
-  --target "$rustTarget" \
-  --config "target.$rustTarget.linker='$muslLinker'" \
-  --config "env.CC_$rustTarget='$muslLinker'" \
-  --release || exit 1
+  "${buildArgs[@]}" || exit 1
 
 # Move binaries
 mkdir -p target/release/{bitcoin,ethereum,polkadot,astar}/bin

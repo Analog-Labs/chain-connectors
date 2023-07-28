@@ -17,4 +17,8 @@ chains/bitcoin/Dockerfile" \
       one.analog.image.created="${BUILD_DATE}"
 
 COPY bin/rosetta-server-bitcoin rosetta-server-bitcoin
+
+# check if executable works in this container
+RUN ["/rosetta-server-bitcoin", "--help"]
+
 ENTRYPOINT ["/rosetta-server-bitcoin"]

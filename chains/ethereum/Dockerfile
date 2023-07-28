@@ -17,4 +17,8 @@ chains/ethereum/Dockerfile" \
       one.analog.image.created="${BUILD_DATE}"
 
 COPY bin/rosetta-server-ethereum rosetta-server-ethereum
+
+# check if executable works in this container
+RUN ["/rosetta-server-ethereum", "--help"]
+
 ENTRYPOINT ["/rosetta-server-ethereum"]
