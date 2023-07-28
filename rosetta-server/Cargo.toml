@@ -7,7 +7,7 @@ repository = "https://github.com/analog-labs/chain-connectors"
 description = "Generic rosetta server implementation."
 
 [features]
-tests = ["futures", "rosetta-docker"]
+tests = ["futures", "rosetta-docker", "nanoid"]
 
 [dependencies]
 anyhow = "1.0.69"
@@ -17,11 +17,11 @@ femme = "2.2.1"
 futures = { version = "0.3.26", optional = true }
 hex = "0.4.3"
 log = "0.4.17"
+nanoid = { version = "0.4.0", optional = true }
 rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
 rosetta-docker = { version = "0.4.0", path = "../rosetta-docker", optional = true }
 serde = "1.0.153"
 serde_json = "1.0.94"
-sled = "0.34.7"
 tide = { version = "0.16.0", default-features = false, features = ["h1-server", "logger"] }
 tokio = { version = "1.26.0", features = ["full"] }
 tokio-retry = "0.3"

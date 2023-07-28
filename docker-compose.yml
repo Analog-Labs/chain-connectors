@@ -5,10 +5,6 @@ volumes:
   ethereum-volume:
   polkadot-volume:
   astar-volume:
-  bitcoin-connector-volume:
-  ethereum-connector-volume:
-  polkadot-connector-volume:
-  astar-connector-volume:
 
 services:
   bitcoin:
@@ -44,8 +40,8 @@ services:
     - "ethereum-volume:/root"
 
   polkadot:
-    image: "parity/polkadot:v0.9.37"
-    command: "--chain dev --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    image: "parity/polkadot:v1.0.0"
+    command: "--dev --rpc-external --rpc-port=9944 --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9944"
     user: root
@@ -61,11 +57,10 @@ services:
     - "polkadot-volume:/polkadot"
 
   astar:
-    image: "staketechnologies/astar-collator:latest"
-    command: "astar-collator --chain dev --ws-port 9994 --rpc-port 9995 --rpc-cors all --ws-external --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    image: "staketechnologies/astar-collator:v5.15.0"
+    command: "astar-collator --chain dev --rpc-port=9994 --rpc-cors=all --rpc-external --alice --tmp --enable-evm-rpc --base-path /astar"
     expose:
     - "9994"
-    - "9995"
     user: root
     ulimits:
       nofile:
@@ -81,55 +76,35 @@ services:
 
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
-    command: "--network regtest --addr 0.0.0.0:8080 --node-addr bitcoin:18443 --path /data"
+    command: "--network regtest --addr 0.0.0.0:8080 --node-addr http://bitcoin:18443"
     ports:
     - "8080:8080"
     depends_on:
     - bitcoin
-    volumes:
-    - "bitcoin-connector-volume:/data"
 
   connector-ethereum:
     image: "analoglabs/connector-ethereum"
-    command: "--network dev --addr 0.0.0.0:8081 --node-addr ethereum:8545 --path /data"
+    command: "--network dev --addr 0.0.0.0:8081 --node-addr http://ethereum:8545"
     ports:
     - "8081:8081"
     depends_on:
     - ethereum
-    volumes:
-    - "ethereum-connector-volume:/data"
 
   connector-polkadot:
     image: "analoglabs/connector-polkadot"
-    command: "--network dev --addr 0.0.0.0:8082 --node-addr polkadot:9944 --path /data"
+    command: "--network dev --addr 0.0.0.0:8082 --node-addr ws://polkadot:9944"
     ports:
     - "8082:8082"
     depends_on:
     - polkadot
-    volumes:
-    - "polkadot-connector-volume:/data"
     # TODO: need to do a proper health check
     restart: always
 
   connector-astar:
     image: "analoglabs/connector-astar"
-    command: "--network dev --addr 0.0.0.0:8083 --node-addr astar:9994 --path /data"
+    command: "--network dev --addr 0.0.0.0:8083 --node-addr ws://astar:9994"
     ports:
     - "8083:8083"
     depends_on:
     - astar
-    volumes:
-    - "astar-connector-volume:/data"
-    # TODO: need to do a proper health check
     restart: always
-
-
-  explorer:
-    image: "analoglabs/rosetta-explorer"
-    ports:
-    - "3000:3000"
-    depends_on:
-    - connector-bitcoin
-    - connector-ethereum
-    - connector-polkadot
-    - connector-astar

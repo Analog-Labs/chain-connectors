@@ -107,6 +107,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_transaction(tx, None)
             .await?
+            .confirmations(2)
             .await?
             .unwrap()
             .transaction_hash
@@ -155,6 +156,7 @@ impl BlockchainClient for EthereumClient {
             .client
             .send_raw_transaction(Bytes(tx))
             .await?
+            .confirmations(2)
             .await?
             .context("Failed to get transaction receipt")?
             .transaction_hash
@@ -381,18 +383,6 @@ mod tests {
         rosetta_server::tests::construction(config).await
     }
 
-    #[tokio::test]
-    async fn test_find_transaction() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::find_transaction(config).await
-    }
-
-    #[tokio::test]
-    async fn test_list_transactions() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::list_transactions(config).await
-    }
-
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
         let solc = Solc::default();
         let source = format!("contract Contract {{ {source} }}");
@@ -422,7 +412,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -456,7 +446,7 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("smart-contract-view", config.clone()).await?;
+        let env = Env::new("ethereum-smart-contract-view", config.clone()).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;

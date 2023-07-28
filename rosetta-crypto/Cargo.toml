@@ -13,6 +13,7 @@ blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
 ecdsa = { version = "0.16.0", features = ["arithmetic"] }
 ed25519-dalek = "1.0.1"
+ethers = "2.0.7"
 hex = "0.4.3"
 hmac = "0.12.1"
 k256 = "0.13.0"
@@ -22,8 +23,10 @@ rust-bip39 = "1.0.0"
 schnorrkel = "0.10.2"
 sha2 = "0.10.6"
 sha3 = "0.10.6"
+sp-core = { version = "21.0.0", default-features = false, features = ["blake2", "std"] }
 ss58-registry = "1.39.0"
 substrate-bip39 = "0.4.4"
+thiserror = "1.0"
 
 [dev-dependencies]
 bs58 = "0.4.0"

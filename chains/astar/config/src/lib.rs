@@ -5,6 +5,12 @@ use rosetta_core::{
 };
 use std::sync::Arc;
 
+// Generate an interface that we can use from the node's metadata.
+pub mod metadata {
+    #[subxt::subxt(runtime_metadata_path = "res/astar-dev.scale")]
+    pub mod dev {}
+}
+
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     anyhow::ensure!(network == "dev");
     Ok(BlockchainConfig {
@@ -19,14 +25,14 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: "ASTR",
         currency_decimals: 18,
         node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
-        node_image: "staketechnologies/astar-collator:latest",
+        node_image: "staketechnologies/astar-collator:v5.15.0",
         node_command: Arc::new(|network, port| {
             vec![
                 "astar-collator".into(),
                 format!("--chain={network}"),
                 "--rpc-cors=all".into(),
-                "--ws-external".into(),
-                format!("--ws-port={port}"),
+                "--rpc-external".into(),
+                format!("--rpc-port={port}"),
                 "--alice".into(),
                 "--tmp".into(),
                 "--enable-evm-rpc".into(),
