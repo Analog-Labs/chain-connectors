@@ -23,6 +23,9 @@ use tokio_retry::{
 
 pub use rosetta_core::*;
 
+#[cfg(feature = "ws")]
+pub mod jsonrpsee_client;
+
 #[derive(Parser)]
 struct Opts {
     #[clap(long)]

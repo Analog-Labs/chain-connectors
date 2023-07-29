@@ -16,7 +16,7 @@ hex = "0.4.3"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server" }
 serde = "1.0.153"
-serde_json = "1.0.94"
+serde_json = "1.0"
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]

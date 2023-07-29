@@ -9,7 +9,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{BlockchainClient, BlockchainConfig};
+use rosetta_server::{BlockchainClient, BlockchainConfig, jsonrpsee_client::default_client};
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use std::time::Duration;
@@ -79,7 +79,10 @@ impl BlockchainClient for PolkadotClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = OnlineClient::<PolkadotConfig>::from_url(addr).await?;
+        let client = {
+            let ws_client = default_client(addr).await?;
+            OnlineClient::<PolkadotConfig>::from_rpc_client(std::sync::Arc::new(ws_client)).await?
+        };
         let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier {
             index: 0,
