@@ -3,6 +3,9 @@ ARG IMAGE_VERSION
 ARG VCS_REF
 ARG BUILD_DATE
 
+FROM alpine:latest AS certs
+RUN apk --update add ca-certificates
+
 FROM scratch
 
 # metadata
@@ -16,9 +19,11 @@ chains/ethereum/Dockerfile" \
       one.analog.image.revision="${VCS_REF}" \
       one.analog.image.created="${BUILD_DATE}"
 
-COPY bin/rosetta-server-ethereum rosetta-server-ethereum
+ENV PATH=/bin
+COPY bin/rosetta-server-ethereum /bin/rosetta-server-ethereum
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # check if executable works in this container
-RUN ["/rosetta-server-ethereum", "--help"]
+RUN ["/bin/rosetta-server-ethereum", "--help"]
 
-ENTRYPOINT ["/rosetta-server-ethereum"]
+ENTRYPOINT ["/bin/rosetta-server-ethereum"]
