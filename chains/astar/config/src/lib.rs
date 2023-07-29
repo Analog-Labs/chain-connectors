@@ -12,7 +12,6 @@ pub mod metadata {
 }
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
-    anyhow::ensure!(network == "dev");
     Ok(BlockchainConfig {
         blockchain: "astar",
         network: "dev",
