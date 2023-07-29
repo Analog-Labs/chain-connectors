@@ -10,7 +10,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
     let config = match network {
         "dev" | "mainnet" => BlockchainConfig {
             blockchain: "ethereum",
-            network,
+            network: if network == "dev" { "dev" } else { "mainnet" },
             algorithm: Algorithm::EcdsaRecoverableSecp256k1,
             address_format: AddressFormat::Eip55,
             coin: if network == "mainnet" { 60 } else { 1 },
