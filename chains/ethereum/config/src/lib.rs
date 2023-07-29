@@ -81,7 +81,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             // https://github.com/AstarNetwork/Astar/blob/v5.15.0/bin/collator/src/command.rs#L965-L967
             node_uri: NodeUri::parse("http://127.0.0.1:9945")?,
             node_image: "staketechnologies/astar-collator:v5.15.0",
-            node_command: Arc::new(|network, port| {
+            node_command: Arc::new(|_network, port| {
                 vec![
                     "astar-collator".into(),
                     format!("--chain=astar"),
