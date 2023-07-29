@@ -3,7 +3,7 @@ ARG IMAGE_VERSION
 ARG VCS_REF
 ARG BUILD_DATE
 
-FROM alpine:latest as certs
+FROM alpine:latest AS certs
 RUN apk --update add ca-certificates
 
 FROM scratch
