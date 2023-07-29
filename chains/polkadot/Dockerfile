@@ -3,6 +3,9 @@ ARG IMAGE_VERSION
 ARG VCS_REF
 ARG BUILD_DATE
 
+FROM alpine:latest as certs
+RUN apk --update add ca-certificates
+
 FROM scratch
 
 # metadata
@@ -16,9 +19,11 @@ chains/polkadot/Dockerfile" \
       one.analog.image.revision="${VCS_REF}" \
       one.analog.image.created="${BUILD_DATE}"
 
-COPY bin/rosetta-server-polkadot rosetta-server-polkadot
+ENV PATH=/bin
+COPY bin/rosetta-server-polkadot /bin/rosetta-server-polkadot
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # check if executable works in this container
-RUN ["/rosetta-server-polkadot", "--help"]
+RUN ["/bin/rosetta-server-polkadot", "--help"]
 
-ENTRYPOINT ["/rosetta-server-polkadot"]
+ENTRYPOINT ["/bin/rosetta-server-polkadot"]

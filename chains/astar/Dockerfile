@@ -3,6 +3,9 @@ ARG IMAGE_VERSION
 ARG VCS_REF
 ARG BUILD_DATE
 
+FROM alpine:latest as certs
+RUN apk --update add ca-certificates
+
 FROM scratch
 
 # metadata
@@ -16,9 +19,11 @@ chains/astar/Dockerfile" \
       one.analog.image.revision="${VCS_REF}" \
       one.analog.image.created="${BUILD_DATE}"
 
-COPY bin/rosetta-server-astar rosetta-server-astar
+ENV PATH=/bin
+COPY bin/rosetta-server-astar /bin/rosetta-server-astar
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 # check if executable works in this container
-RUN ["/rosetta-server-astar", "--help"]
+RUN ["/bin/rosetta-server-astar", "--help"]
 
-ENTRYPOINT ["/rosetta-server-astar"]
+ENTRYPOINT ["/bin/rosetta-server-astar"]
