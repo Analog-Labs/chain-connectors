@@ -1,4 +1,5 @@
 use anyhow::Result;
+use rosetta_config_astar::config as astar_config;
 use rosetta_core::crypto::address::AddressFormat;
 use rosetta_core::crypto::Algorithm;
 use rosetta_core::{BlockchainConfig, NodeUri};
@@ -6,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
-    anyhow::ensure!(network == "dev");
     let config = match network {
         "dev" | "mainnet" => BlockchainConfig {
             blockchain: "ethereum",
@@ -44,39 +44,9 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             connector_port: 8081,
             testnet: network == "dev",
         },
-        "astar" => BlockchainConfig {
-            blockchain: "astar",
-            // Astar networks are listed here:
-            // https://github.com/AstarNetwork/Astar/blob/v5.15.0/bin/collator/src/command.rs#L56-L69
-            network: "astar",
-            algorithm: Algorithm::EcdsaRecoverableSecp256k1,
-            address_format: AddressFormat::Eip55,
-            coin: 810,
-            bip44: true,
-            utxo: false,
-            currency_unit: "planck",
-            currency_symbol: "ASTR",
-            currency_decimals: 18,
-            // The default RPC port is 9945
-            // https://github.com/AstarNetwork/Astar/blob/v5.15.0/bin/collator/src/command.rs#L965-L967
-            node_uri: NodeUri::parse("http://127.0.0.1:9945")?,
-            node_image: "staketechnologies/astar-collator:v5.15.0",
-            node_command: Arc::new(|_network, port| {
-                vec![
-                    "astar-collator".into(),
-                    format!("--chain=astar"),
-                    "--rpc-cors=all".into(),
-                    "--rpc-external".into(),
-                    format!("--rpc-port={port}"),
-                    "--alice".into(),
-                    "--enable-evm-rpc".into(),
-                ]
-            }),
-            node_additional_ports: &[],
-            connector_port: 8083,
-            testnet: false,
-        },
-        _ => anyhow::bail!("unsupported network: {}", network),
+        // Try to load the network config from astar
+        "astar-local" => astar_config("dev")?,
+        network => astar_config(network)?,
     };
     Ok(config)
 }

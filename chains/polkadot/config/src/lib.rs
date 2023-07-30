@@ -4,6 +4,7 @@ use rosetta_core::crypto::Algorithm;
 use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use subxt::ext::sp_core::crypto::Ss58AddressFormat;
 
 // Generate an interface that we can use from the node's metadata.
 pub mod metadata {
@@ -11,49 +12,143 @@ pub mod metadata {
     pub mod dev {}
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PolkadotNetworkProperties {
+    blockchain: &'static str,
+    network: &'static str,
+    symbol: &'static str,
+    bip44_id: u32,
+    decimals: u32,
+    ss58_format: Ss58AddressFormat,
+}
+
+impl TryFrom<&str> for PolkadotNetworkProperties {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
+        // To see all available blockchains and networks, see:
+        // https://github.com/paritytech/polkadot/blob/v1.0.0/cli/src/command.rs#L93-L145
+        // All blockchains in polkadot have "dev", "local" and "staging" variants
+
+        // "dev" and "polkadot-dev" are the same
+        let chain = if value == "dev" {
+            "polkadot-dev"
+        } else {
+            value
+        };
+
+        // Split blockchain and network
+        let (blockchain, network) = chain.split_once('-').unwrap_or((chain, ""));
+
+        // Convert blockchain to &'static str
+        let blockchain = match blockchain {
+            "polkadot" => "polkadot",
+            "kusama" => "kusama",
+            "rococo" => "rococo",
+            "westend" => "westend",
+            "wococo" => "wococo",
+            "versi" => "versi",
+            _ => anyhow::bail!("unsupported blockchain: {}", blockchain),
+        };
+
+        // Convert network to &'static str
+        let network = match network {
+            "" => "mainnet",
+            "dev" => "dev",
+            "local" => "local",
+            "staging" => "staging",
+            _ => anyhow::bail!("unsupported network: {blockchain}-{network}"),
+        };
+
+        // Get blockchain parameters
+        let (symbol, bip44_id, decimals, ss58_format) = match (blockchain, network) {
+            // Polkadot mainnet and dev networks
+            ("polkadot", "mainnet") => ("DOT", 354, 10, Ss58AddressFormatRegistry::PolkadexAccount),
+            ("polkadot", _) => ("DOT", 1, 10, Ss58AddressFormatRegistry::PolkadexAccount),
+
+            // Kusama mainnet and dev networks
+            ("kusama", "mainnet") => ("KSM", 434, 12, Ss58AddressFormatRegistry::KusamaAccount),
+            ("kusama", _) => ("KSM", 1, 12, Ss58AddressFormatRegistry::KusamaAccount),
+
+            // Rococo
+            ("rococo", _) => ("ROC", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
+
+            // Westend
+            ("westend", _) => ("WND", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
+
+            // Wococo
+            ("wococo", _) => ("WOCO", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
+
+            // Versi
+            ("versi", _) => ("VRS", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
+
+            _ => anyhow::bail!("unsupported network: {network}"),
+        };
+
+        Ok(Self {
+            blockchain,
+            network,
+            symbol,
+            bip44_id,
+            decimals,
+            ss58_format: ss58_format.into(),
+        })
+    }
+}
+
+impl PolkadotNetworkProperties {
+    // TODO: What is considered testnet? only local chains, or public testnets as well?
+    pub fn is_testnet(&self) -> bool {
+        self.network != "mainnet"
+    }
+
+    pub fn is_live(&self) -> bool {
+        matches!(self.network, "mainnet" | "staging")
+    }
+}
+
 pub fn config(network: &str) -> Result<BlockchainConfig> {
-    let (network, kusama) = match network {
-        "dev" => ("dev", false),
-        "kusama" => ("kusama", true),
-        "polkadot" => ("polkadot", false),
-        _ => anyhow::bail!("unsupported network"),
-    };
+    let properties = PolkadotNetworkProperties::try_from(network)?;
+
+    let blockchain = properties.blockchain;
     Ok(BlockchainConfig {
-        blockchain: "polkadot",
-        network,
+        blockchain: properties.blockchain,
+        network: properties.network,
         algorithm: Algorithm::Sr25519,
-        address_format: AddressFormat::Ss58(
-            if kusama {
-                Ss58AddressFormatRegistry::PolkadotAccount
-            } else {
-                Ss58AddressFormatRegistry::KusamaAccount
-            }
-            .into(),
-        ),
-        coin: 1,
+        address_format: AddressFormat::Ss58(properties.ss58_format),
+        coin: properties.bip44_id,
         bip44: false,
         utxo: false,
         currency_unit: "planck",
-        currency_symbol: if kusama { "KSM" } else { "DOT" },
-        currency_decimals: if kusama { 12 } else { 10 },
+        currency_symbol: properties.symbol,
+        currency_decimals: properties.decimals,
         node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
         node_image: "parity/polkadot:v1.0.0",
-        node_command: Arc::new(|network, port| {
-            let chain = if network == "dev" {
-                "--dev".to_string()
-            } else {
-                format!("--chain={network}")
+        node_command: Arc::new(move |network, port| {
+            let chain = match network {
+                "mainnet" => blockchain.to_string(),
+                _ => format!("{blockchain}-{network}"),
             };
-            vec![
-                chain,
-                "--rpc-external".into(),
-                format!("--rpc-port={port}"),
-                "--alice".into(),
-            ]
+            match network {
+                "dev" | "local" => vec![
+                    format!("--chain={chain}"),
+                    format!("--rpc-port={port}"),
+                    "--rpc-external".into(),
+                    "--force-authoring".into(),
+                    "--rpc-cors=all".into(),
+                    "--alice".into(),
+                    "--tmp".into(),
+                ],
+                _ => vec![
+                    format!("--chain={chain}"),
+                    format!("--rpc-port={port}"),
+                    "--rpc-external".into(),
+                ],
+            }
         }),
         node_additional_ports: &[],
         connector_port: 8082,
-        testnet: network == "dev",
+        testnet: properties.is_testnet(),
     })
 }
 
