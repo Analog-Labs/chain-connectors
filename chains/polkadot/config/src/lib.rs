@@ -63,8 +63,8 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
         // Get blockchain parameters
         let (symbol, bip44_id, decimals, ss58_format) = match (blockchain, network) {
             // Polkadot mainnet and dev networks
-            ("polkadot", "mainnet") => ("DOT", 354, 10, Ss58AddressFormatRegistry::PolkadexAccount),
-            ("polkadot", _) => ("DOT", 1, 10, Ss58AddressFormatRegistry::PolkadexAccount),
+            ("polkadot", "mainnet") => ("DOT", 354, 10, Ss58AddressFormatRegistry::PolkadotAccount),
+            ("polkadot", _) => ("DOT", 1, 10, Ss58AddressFormatRegistry::PolkadotAccount),
 
             // Kusama mainnet and dev networks
             ("kusama", "mainnet") => ("KSM", 434, 12, Ss58AddressFormatRegistry::KusamaAccount),
@@ -138,11 +138,14 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
                     "--rpc-cors=all".into(),
                     "--alice".into(),
                     "--tmp".into(),
+                    "--allow-private-ip".into(),
+                    "--no-mdns".into(),
                 ],
                 _ => vec![
                     format!("--chain={chain}"),
                     format!("--rpc-port={port}"),
                     "--rpc-external".into(),
+                    "--rpc-cors=all".into(),
                 ],
             }
         }),
