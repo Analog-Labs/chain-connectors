@@ -4896,6 +4896,7 @@ name = "rosetta-config-ethereum"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "rosetta-config-astar",
  "rosetta-core",
  "serde",
 ]

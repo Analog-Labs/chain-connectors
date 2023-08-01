@@ -4,9 +4,13 @@ version = "0.4.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
-description = "Polkadot configuration."
+description = "Astar configuration."
+
+[features]
+default = ["astar-metadata"]
+astar-metadata = ["subxt"]
 
 [dependencies]
 anyhow = "1.0"
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
-subxt = { version = "0.30", default-features=false, features=["substrate-compat", "native"] }
+subxt = { version = "0.30", default-features = false, features = ["substrate-compat", "native"], optional = true }
