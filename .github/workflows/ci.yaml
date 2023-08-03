@@ -1,22 +1,23 @@
 on:
   push:
     branches:
-    - master
+    - fix/self-hosted-runner
   pull_request:
 
 name: rosetta-wallet
 
 jobs:
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
 
     - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
+      uses: actions-rs/toolchain@v1
       with:
-        components: rustfmt
+        components: rustfmt, clippy
+        targets: x86_64-unknown-linux-musl
 
     - name: dprint check
       uses: dprint/check@v2.2
