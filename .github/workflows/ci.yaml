@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-    - fix/self-hosted-runner
+    - master
   pull_request:
 
 name: rosetta-wallet
