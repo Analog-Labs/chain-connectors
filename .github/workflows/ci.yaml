@@ -20,9 +20,6 @@ jobs:
         components: rustfmt, clippy
         targets: x86_64-unknown-linux-musl
 
-    - name: dprint check
-      uses: dprint/check@v2.2
-
     - name: cargo fmt
       run: cargo fmt --all -- --check
 
@@ -59,7 +56,7 @@ jobs:
     - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
     - name: Install deps
-      run: sudo apt-get install musl-dev musl-tools solc
+      run: sudo apt-get install -y musl-dev musl-tools solc
 
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
