@@ -20,6 +20,12 @@ jobs:
         components: rustfmt, clippy
         targets: x86_64-unknown-linux-musl
 
+    - name: Install dprint
+      run: cargo install --locked dprint
+
+    - name: Dprint check
+      run: dprint check
+
     - name: cargo fmt
       run: cargo fmt --all -- --check
 
