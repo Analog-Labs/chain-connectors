@@ -1,17 +1,19 @@
-use subxt::{
-    error::RpcError,
-    rpc::{RpcClientT, RawValue, RpcFuture, RpcSubscription},
-};
 use futures::stream::{StreamExt, TryStreamExt};
 use jsonrpsee::{
-    core::{client::{ClientBuilder, Client, ClientT, SubscriptionClientT, SubscriptionKind}, traits::ToRpcParams, Error as JsonRpseeError},
+    core::{
+        client::{Client, ClientT, SubscriptionClientT, SubscriptionKind},
+        traits::ToRpcParams,
+        Error as JsonRpseeError,
+    },
     types::SubscriptionId,
-    client_transport::ws::{Uri, WsTransportClientBuilder},
+};
+use subxt::{
+    error::RpcError,
+    rpc::{RawValue, RpcClientT, RpcFuture, RpcSubscription},
 };
 
 pub struct Params(Option<Box<RawValue>>);
-
-pub struct ClientWrapper(pub Client);
+pub struct RpcClient(pub Client);
 
 impl ToRpcParams for Params {
     fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
@@ -19,7 +21,7 @@ impl ToRpcParams for Params {
     }
 }
 
-impl RpcClientT for ClientWrapper {
+impl RpcClientT for RpcClient {
     fn request_raw<'a>(
         &'a self,
         method: &'a str,
@@ -46,8 +48,8 @@ impl RpcClientT for ClientWrapper {
                 Params(params),
                 unsub,
             )
-                .await
-                .map_err(|e| RpcError::ClientError(Box::new(e)))?;
+            .await
+            .map_err(|e| RpcError::ClientError(Box::new(e)))?;
 
             let id = match stream.kind() {
                 SubscriptionKind::Subscription(SubscriptionId::Str(id)) => {
@@ -62,18 +64,4 @@ impl RpcClientT for ClientWrapper {
             Ok(RpcSubscription { stream, id })
         })
     }
-}
-
-pub async fn default_client(url: &str) -> anyhow::Result<ClientWrapper> {
-    let uri: Uri = url.parse()?;
-    let (sender, receiver) = WsTransportClientBuilder::default()
-        .use_webpki_rustls()
-        .build(uri)
-        .await
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
-    let client = ClientBuilder::default()
-        .max_buffer_capacity_per_subscription(4096)
-        // .max_notifs_per_subscription(4096)
-        .build_with_tokio(sender, receiver);
-    Ok(ClientWrapper(client))
 }

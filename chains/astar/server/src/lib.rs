@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use anyhow::{Context, Result};
 use ethers::prelude::*;
 use parity_scale_codec::Decode;
@@ -13,10 +12,14 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{BlockchainClient, BlockchainConfig, jsonrpsee_client::default_client};
+use rosetta_server::{
+    ws::default_client,
+    BlockchainClient, BlockchainConfig,
+};
 use rosetta_server_ethereum::EthereumClient;
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
+use std::sync::Arc;
 use subxt::{
     dynamic::Value as SubtxValue, rpc::types::BlockNumber, tx::PairSigner, utils::AccountId32,
     OnlineClient, PolkadotConfig,
@@ -87,12 +90,13 @@ impl BlockchainClient for AstarClient {
         } else {
             (format!("http://{addr}"), format!("ws://{addr}"))
         };
-        let ethereum_client = EthereumClient::new(config, http_uri.as_str()).await?;
         let substrate_client = {
-            let client = default_client(ws_uri.as_str()).await?;
+            let client = default_client(ws_uri.as_str(), None).await?;
+            log::info!("Connected to {}", ws_uri.as_str());
             OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
             // OnlineClient::<PolkadotConfig>::from_url().await?
         };
+        let ethereum_client = EthereumClient::new(config, http_uri.as_str()).await?;
         Ok(Self {
             client: ethereum_client,
             ws_client: substrate_client,
