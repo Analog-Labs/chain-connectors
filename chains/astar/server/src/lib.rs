@@ -12,10 +12,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{
-    ws::default_client,
-    BlockchainClient, BlockchainConfig,
-};
+use rosetta_server::{ws::default_client, BlockchainClient, BlockchainConfig};
 use rosetta_server_ethereum::EthereumClient;
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
@@ -94,7 +91,6 @@ impl BlockchainClient for AstarClient {
             let client = default_client(ws_uri.as_str(), None).await?;
             log::info!("Connected to {}", ws_uri.as_str());
             OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
-            // OnlineClient::<PolkadotConfig>::from_url().await?
         };
         let ethereum_client = EthereumClient::new(config, http_uri.as_str()).await?;
         Ok(Self {

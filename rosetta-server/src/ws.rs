@@ -2,7 +2,7 @@ mod config;
 mod jsonrpsee_client;
 mod tungstenite_jsonrpsee;
 
-pub use config::{WsTransportClient, RpcClientConfig};
+pub use config::{RpcClientConfig, WsTransportClient};
 pub use jsonrpsee::client_transport::ws::WsHandshakeError;
 use jsonrpsee::core::client::{Client, ClientBuilder};
 pub use jsonrpsee_client::RpcClient;
@@ -63,7 +63,7 @@ async fn build_socketto_client(uri: &str) -> Result<Client, WsHandshakeError> {
         uri = {
             let mut parts = uri.clone().into_parts();
             parts.authority = Some(new_authority);
-            Uri::from_parts(parts).unwrap_or_else(|_| uri)
+            Uri::from_parts(parts).unwrap_or(uri)
         };
     }
 
