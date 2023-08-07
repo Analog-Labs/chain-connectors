@@ -33,9 +33,6 @@ case "$(uname -m)" in
         ;;
 esac
 
-# Check if the musl linker is installed
-# "$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
-
 # Check if the rust target is installed
 if ! rustup target list | grep -q "$rustTarget"; then
   echo "Installing the musl target with rustup '$rustTarget'"
@@ -46,6 +43,9 @@ fi
 case $(uname -s) in
   # macOS
   Darwin)
+    # Check if the musl linker is installed
+    "$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
+
     buildArgs=(
       --release
       --target "$rustTarget"

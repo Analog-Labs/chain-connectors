@@ -8,7 +8,7 @@ name: rosetta-wallet
 
 jobs:
   rustfmt:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -30,7 +30,7 @@ jobs:
       run: cargo fmt --all -- --check
 
   clippy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
@@ -45,7 +45,7 @@ jobs:
       run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings
 
   cargo-deny:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -54,7 +54,7 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v1
 
   test:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
