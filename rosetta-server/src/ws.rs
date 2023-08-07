@@ -1,3 +1,4 @@
+#![cfg(feature = "ws")]
 mod config;
 mod jsonrpsee_client;
 mod tungstenite_jsonrpsee;
