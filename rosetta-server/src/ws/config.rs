@@ -1,3 +1,8 @@
+use core::{num::NonZeroUsize, time::Duration};
+use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
+use jsonrpsee::core::client::ClientBuilder;
+pub use jsonrpsee::core::client::IdKind;
+
 /// Ten megabytes.
 pub const TEN_MB_SIZE_BYTES: usize = 10 * 1024 * 1024;
 
@@ -19,7 +24,7 @@ pub enum WsTransportClient {
 }
 
 /// Common configuration for Socketto and Tungstenite clients.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub struct RpcClientConfig {
     /// Supported WebSocket transport clients.
     pub client: WsTransportClient,
@@ -56,17 +61,86 @@ pub struct RpcClientConfig {
     ///
     /// OBS: not supported for Socketto client.
     pub accept_unmasked_frames: bool,
+
+    /// JSON-RPC timeout for the RPC request. Defaults to 60sec.
+    pub rpc_request_timeout: Duration,
+
+    /// JSON-RPC max concurrent requests (default is 256).
+    pub rpc_max_concurrent_requests: usize,
+
+    /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the subscription will be dropped (default is 1024).
+    /// You may prevent the subscription from being dropped by polling often enough Subscription::next() such that it can keep with the rate as server produces new items on the subscription.
+    pub rpc_max_buffer_capacity_per_subscription: NonZeroUsize,
+
+    /// JSON-RPC request object id data type. (default is IdKind::Number)
+    pub rpc_id_kind: IdKind,
+
+    /// Max length for logging for requests and responses.
+    /// Entries bigger than this limit will be truncated.
+    /// (default is 4096)
+    pub rpc_max_log_length: u32,
+
+    /// Set the interval at which pings frames are submitted (disabled by default).
+    ///
+    /// Periodically submitting pings at a defined interval has mainly two benefits:
+    ///  - Directly, it acts as a "keep-alive" alternative in the WebSocket world.
+    ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to messages.
+    ///
+    /// The underlying implementation does not make any assumptions about at which intervals pongs are received.
+    ///
+    /// Note: The interval duration is restarted when
+    ///  - a frontend command is submitted
+    ///  - a reply is received from the backend
+    ///  - the interval duration expires
+    pub rpc_ping_interval: Option<Duration>,
 }
 
 impl Default for RpcClientConfig {
     fn default() -> Self {
         Self {
+            // Default WS Transport config.
             client: WsTransportClient::Auto,
             write_buffer_size: 128 * 1024,
             max_write_buffer_size: usize::MAX,
             max_message_size: Some(TEN_MB_SIZE_BYTES),
             max_frame_size: Some(16 << 20),
             accept_unmasked_frames: false,
+
+            // Default JSON-RPC config.
+            rpc_request_timeout: Duration::from_secs(60),
+            rpc_max_concurrent_requests: 256,
+            rpc_max_buffer_capacity_per_subscription: unsafe { NonZeroUsize::new_unchecked(1024) },
+            rpc_id_kind: IdKind::Number,
+            rpc_max_log_length: 4096,
+            rpc_ping_interval: None,
         }
+    }
+}
+
+impl From<&RpcClientConfig> for ClientBuilder {
+    fn from(config: &RpcClientConfig) -> Self {
+        let mut builder = ClientBuilder::new()
+            .request_timeout(config.rpc_request_timeout)
+            .max_concurrent_requests(config.rpc_max_concurrent_requests)
+            .max_buffer_capacity_per_subscription(
+                config.rpc_max_buffer_capacity_per_subscription.get(),
+            )
+            .id_format(config.rpc_id_kind)
+            .set_max_logging_length(config.rpc_max_log_length);
+        if let Some(ping_internal) = config.rpc_ping_interval {
+            builder = builder.ping_interval(ping_internal);
+        }
+        builder
+    }
+}
+
+impl From<&RpcClientConfig> for WsTransportClientBuilder {
+    fn from(config: &RpcClientConfig) -> Self {
+        let message_size = config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES) as u32;
+        WsTransportClientBuilder::default()
+            .use_webpki_rustls()
+            .max_request_size(message_size)
+            .max_response_size(message_size)
+            .max_redirections(5)
     }
 }

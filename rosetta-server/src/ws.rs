@@ -13,26 +13,27 @@ pub async fn default_client(
     config: Option<RpcClientConfig>,
 ) -> Result<RpcClient, WsHandshakeError> {
     let config = config.unwrap_or_default();
+    let rpc_client_builder = ClientBuilder::from(&config);
 
     let client = match config.client {
         WsTransportClient::Auto => {
             log::info!("Connecting using Socketto...");
-            match build_socketto_client(url).await {
+            match build_socketto_client(rpc_client_builder.clone(), url, &config).await {
                 Ok(client) => client,
                 Err(error) => {
                     log::warn!("Socketto failed: {}", error);
-                    log::trace!("Connecting using Tungstenite...");
-                    build_tungstenite_client(url, RpcClientConfig::default()).await?
+                    log::trace!("Retrying to connect using Tungstenite.");
+                    build_tungstenite_client(rpc_client_builder, url, &config).await?
                 }
             }
         }
         WsTransportClient::Socketto => {
-            let client = build_socketto_client(url).await?;
+            let client = build_socketto_client(rpc_client_builder, url, &config).await?;
             log::info!("Connected to {} using Socketto", url);
             client
         }
         WsTransportClient::Tungstenite => {
-            let client = build_tungstenite_client(url, RpcClientConfig::default()).await?;
+            let client = build_tungstenite_client(rpc_client_builder, url, &config).await?;
             log::info!("Connected to {} using Tungstenite", url);
             client
         }
@@ -40,7 +41,12 @@ pub async fn default_client(
     Ok(RpcClient(client))
 }
 
-async fn build_socketto_client(uri: &str) -> Result<Client, WsHandshakeError> {
+/// Creates a default jsonrpsee client using socketto.
+async fn build_socketto_client(
+    builder: ClientBuilder,
+    uri: &str,
+    config: &RpcClientConfig,
+) -> Result<Client, WsHandshakeError> {
     use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
     use tokio_tungstenite::tungstenite::http::uri::{Authority, Uri};
 
@@ -67,19 +73,16 @@ async fn build_socketto_client(uri: &str) -> Result<Client, WsHandshakeError> {
         };
     }
 
-    let (sender, receiver) = WsTransportClientBuilder::default()
-        .use_webpki_rustls()
-        .build(uri)
-        .await?;
-    let client = ClientBuilder::default()
-        .max_buffer_capacity_per_subscription(4096)
-        .build_with_tokio(sender, receiver);
+    let (sender, receiver) = WsTransportClientBuilder::from(config).build(uri).await?;
+    let client = builder.build_with_tokio(sender, receiver);
     Ok(client)
 }
 
+/// Creates a default jsonrpsee client using tungstenite.
 async fn build_tungstenite_client(
+    builder: ClientBuilder,
     url: &str,
-    config: RpcClientConfig,
+    config: &RpcClientConfig,
 ) -> Result<Client, WsHandshakeError> {
     use tide::http::url::Url;
 
@@ -94,8 +97,6 @@ async fn build_tungstenite_client(
             _ => WsHandshakeError::Url(e.to_string().into()),
         })?;
     let (sender, receiver) = client.split();
-    let client = ClientBuilder::default()
-        .max_buffer_capacity_per_subscription(4096)
-        .build_with_tokio(sender, receiver);
+    let client = builder.build_with_tokio(sender, receiver);
     Ok(client)
 }
