@@ -8,38 +8,44 @@ name: rosetta-wallet
 
 jobs:
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
 
     - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
+      uses: actions-rs/toolchain@v1
       with:
-        components: rustfmt
+        toolchain: stable
+        components: rustfmt, clippy
+        targets: x86_64-unknown-linux-musl
 
-    - name: dprint check
-      uses: dprint/check@v2.2
+    - name: Install dprint
+      run: cargo install --locked dprint
+
+    - name: Dprint check
+      run: dprint check
 
     - name: cargo fmt
       run: cargo fmt --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
 
     - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
+      uses: actions-rs/toolchain@v1
       with:
+        toolchain: stable
         components: clippy
 
     - name: cargo clippy
       run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings
 
   cargo-deny:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -48,20 +54,21 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v1
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v3
 
     - run: sudo add-apt-repository ppa:ethereum/ethereum
-    - run: sudo apt-get update
+    - run: sudo apt-get update -y
     - name: Install deps
-      run: sudo apt-get install musl-dev musl-tools solc
+      run: sudo apt-get install -y musl-dev musl-tools solc
 
     - name: Install rust toolchain
-      uses: hecrj/setup-rust-action@v1
+      uses: actions-rs/toolchain@v1
       with:
-        targets: x86_64-unknown-linux-musl
+        toolchain: stable
+        target: x86_64-unknown-linux-musl
 
     - name: Build connectors
       run: ./build_connectors.sh
