@@ -21,7 +21,7 @@ pub async fn default_client(
                 Ok(client) => client,
                 Err(error) => {
                     log::warn!("Socketto failed: {}", error);
-                    log::info!("Connecting using Tungstenite...");
+                    log::trace!("Connecting using Tungstenite...");
                     build_tungstenite_client(url, RpcClientConfig::default()).await?
                 }
             }

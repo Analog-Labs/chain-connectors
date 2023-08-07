@@ -22,7 +22,7 @@ rosetta-server-ethereum = { version = "0.4.0", path = "../../ethereum/server" }
 serde_json = "1.0"
 sp-core = { version = "21.0.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "24.0.0"
-subxt = { version = "0.30", default-features = false, features = ["substrate-compat"] }
+subxt = { version = "0.31", default-features = false, features = ["substrate-compat"] }
 tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]

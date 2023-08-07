@@ -1,7 +1,9 @@
 use super::config::RpcClientConfig;
 use async_trait::async_trait;
-use futures::stream::{SplitSink, SplitStream, StreamExt};
-use futures::SinkExt;
+use futures::{
+    stream::{SplitSink, SplitStream, StreamExt},
+    SinkExt,
+};
 use jsonrpsee::core::client::{ReceivedMessage, TransportReceiverT, TransportSenderT};
 use tide::http::url::Url;
 use tokio::net::TcpStream;
@@ -39,8 +41,8 @@ impl TungsteniteClient {
         let config = WebSocketConfig::from(&config);
         let (ws_stream, response) = connect_async_with_config(url, Some(config), false).await?;
         let (send, receive) = ws_stream.split();
-        log::info!(
-            "Connected to the server using Tungstenite. Response HTTP code: {}",
+        log::trace!(
+            "Successfully connected to the server using Tungstenite. Handshake HTTP code: {}",
             response.status()
         );
 
@@ -115,7 +117,7 @@ impl TransportReceiverT for Receiver {
     async fn receive(&mut self) -> Result<ReceivedMessage, Self::Error> {
         loop {
             let Some(result) = self.inner.next().await else {
-                continue;
+                return Err(WsError::ConnectionClosed);
             };
 
             match result? {
