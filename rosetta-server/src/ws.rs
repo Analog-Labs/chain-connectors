@@ -18,7 +18,7 @@ pub async fn default_client(
     let client = match config.client {
         WsTransportClient::Auto => {
             log::info!("Connecting using Socketto...");
-            match build_socketto_client(rpc_client_builder.clone(), url, &config).await {
+            match build_socketto_client(rpc_client_builder, url, &config).await {
                 Ok(client) => client,
                 Err(error) => {
                     log::warn!("Socketto failed: {}", error);
