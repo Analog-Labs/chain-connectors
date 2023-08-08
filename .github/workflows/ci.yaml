@@ -31,10 +31,11 @@ jobs:
 
     - name: Run ShellCheck
       uses: ludeeus/action-shellcheck@master
+      env:
+        SHELLCHECK_OPTS: --enable=all --shell=bash
       with:
         severity: style
         scandir: './scripts'
-        SHELLCHECK_OPTS: --enable=all --shell=bash
 
   clippy:
     runs-on: ubuntu-latest
