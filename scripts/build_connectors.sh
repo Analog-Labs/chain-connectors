@@ -132,7 +132,7 @@ check_label() {
 
   local cmd
   cmd="docker inspect -f '{{ index .ContainerConfig.Labels \"$label\" }}' $imageCID"
-  cmd="[[ \"\$($cmd)\" == \"$value\" ]]"
+  cmd="[[ \"\$($cmd)\" == \"$value\" ]] || { echo \"wrong value: \$($cmd)\"; exit 1; }"
   exec_cmd "    - label '$label'" "$cmd"
 }
 
@@ -157,9 +157,7 @@ build_image() {
   # Workaround for removing multi-stage intermediary images
   # Reference: https://stackoverflow.com/a/55082473
   buildId="$(hexdump -vn16 -e'4/4 "%08X" 1 "\n"' /dev/urandom)"
-
   buildDate="$(date +%Y%m%d)"
-
   printf -- '- %s\n' "$blockchain"
 
   # Build connector image
