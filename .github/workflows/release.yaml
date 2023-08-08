@@ -46,7 +46,7 @@ jobs:
         targets: x86_64-unknown-linux-musl
 
     - name: Build connector Docker images
-      run: ./build_connectors.sh
+      run: ./scripts/build_connectors.sh
 
     - name: Push connector images to Dockerhub
-      run: ./push_connectors.sh ${{ needs.set-tags.outputs.commit_hash8 }}
+      run: ./scripts/push_connectors.sh ${{ needs.set-tags.outputs.commit_hash8 }}

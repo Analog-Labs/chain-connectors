@@ -71,10 +71,10 @@ jobs:
         target: x86_64-unknown-linux-musl
 
     - name: Build connectors
-      run: ./build_connectors.sh
+      run: ./scripts/build_connectors.sh
 
     - name: Pull nodes
-      run: ./pull_nodes.sh
+      run: ./scripts/pull_nodes.sh
 
     - name: cargo test
       run: cargo test --locked --all-features --workspace
