@@ -19,7 +19,8 @@ docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please st
 rustup -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'rustup' for compile the binaries"; exit 1; }
 
 # Detect host architecture
-case "$(uname -m)" in
+hostArch="$(uname -m)"
+case "${hostArch}" in
     x86_64)
         rustTarget='x86_64-unknown-linux-musl'
         muslLinker='x86_64-linux-musl-gcc'
@@ -29,40 +30,42 @@ case "$(uname -m)" in
         muslLinker='aarch64-linux-musl-gcc'
         ;;
     *)
-        echo >&2 "ERROR - unsupported architecture: $(uname -m)"
+        echo >&2 "ERROR - unsupported architecture: ${hostArch}"
         exit 1
         ;;
 esac
 
 # Check if the rust target is installed
-if ! rustup target list | grep -q "$rustTarget"; then
-  echo "Installing the musl target with rustup '$rustTarget'"
-  rustup target add "$rustTarget"
+rustTargetList="$(rustup target list)"
+if ! echo "${rustTargetList}" | grep -q "${rustTarget}"; then
+  echo "Installing the musl target with rustup '${rustTarget}'"
+  rustup target add "${rustTarget}"
 fi
 
 # Detect host operating system
-case $(uname -s) in
+hostOS="$(uname -s)"
+case "${hostOS}" in
   # macOS
   Darwin)
     # Check if the musl linker is installed
-    "$muslLinker" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '$muslLinker' linker for compile"; exit 1; }
+    "${muslLinker}" --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires '${muslLinker}' linker for compile"; exit 1; }
 
     buildArgs=(
       --release
-      --target "$rustTarget"
-      --config "target.$rustTarget.linker='$muslLinker'"
-      --config "env.CC_$rustTarget='$muslLinker'"
+      --target "${rustTarget}"
+      --config "target.${rustTarget}.linker='${muslLinker}'"
+      --config "env.CC_${rustTarget}='${muslLinker}'"
     )
     ;;
   # Linux
   Linux)
     buildArgs=(
       --release
-      --target "$rustTarget"
+      --target "${rustTarget}"
     )
     ;;
   *)
-    echo >&2 "ERROR - unsupported or unidentified operating system: $(uname -s)"
+    echo >&2 "ERROR - unsupported or unidentified operating system: ${hostOS}"
     exit 1
     ;;
 esac
@@ -77,19 +80,19 @@ cargo build \
 
 # Move binaries
 mkdir -p target/release/{bitcoin,ethereum,polkadot,astar}/bin
-cp "target/$rustTarget/release/rosetta-server-bitcoin" target/release/bitcoin/bin
-cp "target/$rustTarget/release/rosetta-server-ethereum" target/release/ethereum/bin
-cp "target/$rustTarget/release/rosetta-server-polkadot" target/release/polkadot/bin
-cp "target/$rustTarget/release/rosetta-server-astar" target/release/astar/bin
+cp "target/${rustTarget}/release/rosetta-server-bitcoin" target/release/bitcoin/bin
+cp "target/${rustTarget}/release/rosetta-server-ethereum" target/release/ethereum/bin
+cp "target/${rustTarget}/release/rosetta-server-polkadot" target/release/polkadot/bin
+cp "target/${rustTarget}/release/rosetta-server-astar" target/release/astar/bin
 
 ######################
 ## Helper Functions ##
 ######################
 
 # Setup console colors
-if test -t 1 && which tput >/dev/null 2>&1; then
+if test -t 1 && command -v tput >/dev/null 2>&1; then
     ncolors=$(tput colors)
-    if test -n "$ncolors" && test "$ncolors" -ge 8; then
+    if test -n "${ncolors}" && test "${ncolors}" -ge 8; then
         bold_color=$(tput bold)
         green_color=$(tput setaf 2)
         warn_color=$(tput setaf 3)
@@ -103,7 +106,7 @@ fi
 
 # Print the command in yellow, and the output in red
 print_failed_command() {
-  printf >&2 "$bold_color$warn_color%s$reset_color\n$error_color%s$reset_color\n" "$1" "$2"
+  printf >&2 "${bold_color}${warn_color}%s${reset_color}\n${error_color}%s${reset_color}\n" "$1" "$2"
 }
 
 # Execute a command and only print it if it fails
@@ -112,11 +115,11 @@ exec_cmd() {
   local cmdOutput
   if eval "cmdOutput=\$( { $2 ;} 2>&1 )" > /dev/null; then
     # Success
-    echo "$bold_color${green_color}OK$reset_color"
+    echo "${bold_color}${green_color}OK${reset_color}"
   else
     # Failure
-    echo "$bold_color${error_color}FAILED$reset_color"
-    print_failed_command "$2" "$cmdOutput"
+    echo "${bold_color}${error_color}FAILED${reset_color}"
+    print_failed_command "$2" "${cmdOutput}"
     exit 1
   fi
 }
@@ -131,9 +134,9 @@ check_label() {
   value="$3"
 
   local cmd
-  cmd="docker inspect -f '{{ index .ContainerConfig.Labels \"$label\" }}' $imageCID"
-  cmd="[[ \"\$($cmd)\" == \"$value\" ]] || { echo \"wrong value: \$($cmd)\"; exit 1; }"
-  exec_cmd "    - label '$label'" "$cmd"
+  cmd="docker inspect -f '{{ index .Config.Labels \"${label}\" }}' ${imageCID}"
+  cmd="[[ \"\$(${cmd})\" == \"${value}\" ]] || { echo \"wrong value: \$(${cmd})\"; exit 1; }"
+  exec_cmd "    - label '${label}'" "${cmd}"
 }
 
 # Build connector docker images and delete intermediary images
@@ -147,56 +150,58 @@ build_image() {
   local cmd
 
   blockchain="$1"
-  imageTag="analoglabs/connector-$blockchain:$IMAGE_TAG"
+  imageTag="analoglabs/connector-${blockchain}:${IMAGE_TAG}"
 
   # Docker doesn't remove the old image automatically,
   # So we manually remove it later if the build succeed
   # Reference: https://stackoverflow.com/a/52477584
-  oldImageId="$(docker images -qa --no-trunc "$imageTag" 2> /dev/null)"
+  oldImageId="$(docker images -qa --no-trunc "${imageTag}" 2> /dev/null)"
 
   # Workaround for removing multi-stage intermediary images
   # Reference: https://stackoverflow.com/a/55082473
   buildId="$(hexdump -vn16 -e'4/4 "%08X" 1 "\n"' /dev/urandom)"
   buildDate="$(date +%Y%m%d)"
-  printf -- '- %s\n' "$blockchain"
+  printf -- '- %s\n' "${blockchain}"
 
   # Build connector image
   cmd=(
-    docker build "target/release/$blockchain"
-       -f "chains/$blockchain/Dockerfile"
-       -t "$imageTag"
-       --build-arg "BUILD_ID=$buildId"
-       --build-arg "REGISTRY_PATH=$REGISTRY_PATH"
-       --build-arg "VCS_REF=$VCS_REF"
-       --build-arg "BUILD_DATE=$buildDate"
-       --build-arg "IMAGE_VERSION=$IMAGE_TAG"
+    docker buildx build "target/release/${blockchain}"
+       -f "chains/${blockchain}/Dockerfile"
+       -t "${imageTag}"
+       --build-arg "BUILD_ID=${buildId}"
+       --build-arg "REGISTRY_PATH=${REGISTRY_PATH}"
+       --build-arg "VCS_REF=${VCS_REF}"
+       --build-arg "BUILD_DATE=${buildDate}"
+       --build-arg "IMAGE_VERSION=${IMAGE_TAG}"
        --force-rm
        --no-cache
   )
-  exec_cmd "[1] building $imageTag image" "${cmd[*]}"
+  exec_cmd "[1] building ${imageTag} image" "${cmd[*]}"
 
   # Delete intermediary multi-stage images
   # Ref: https://stackoverflow.com/a/55082473
   cmd=(
     docker image prune -f \
         --filter 'label=stage=certs' \
-        --filter "label=build=$buildId"
+        --filter "label=build=${buildId}"
   )
   exec_cmd '[2] deleting intermediary images' "${cmd[*]}"
 
   # Check image labels
-  printf '  [3] checking '%s' labels...\n' "$imageTag"
-  newImageId="$(docker images -qa "$imageTag" 2> /dev/null)"
-  check_label "$newImageId" 'name' "$REGISTRY_PATH/connector-$blockchain"
-  check_label "$newImageId" 'version' "$IMAGE_TAG"
-  check_label "$newImageId" 'one.analog.image.created' "$buildDate"
-  check_label "$newImageId" 'one.analog.image.revision' "$VCS_REF"
-  check_label "$newImageId" 'one.analog.image.source' "$SOURCE_BASE_URL/blob/$VCS_REF/chains/$blockchain/Dockerfile"
-  check_label "$newImageId" 'one.analog.image.vendor' "Analog One Foundation"
+  printf '  [3] checking '%s' labels...\n' "${imageTag}"
+  newImageId="$(docker images -qa "${imageTag}" 2> /dev/null)"
+  check_label "${newImageId}" 'name' "${REGISTRY_PATH}/connector-${blockchain}"
+  check_label "${newImageId}" 'version' "${IMAGE_TAG}"
+  check_label "${newImageId}" 'one.analog.image.created' "${buildDate}"
+  check_label "${newImageId}" 'one.analog.image.revision' "${VCS_REF}"
+  check_label "${newImageId}" 'one.analog.image.source' "${SOURCE_BASE_URL}/blob/${VCS_REF}/chains/${blockchain}/Dockerfile"
+  check_label "${newImageId}" 'one.analog.image.vendor' "Analog One Foundation"
 
   # Delete old image if it is dangling
-  if [[ "$(docker image inspect -f '{{ .RepoTags }}' "$oldImageId" 2> /dev/null)" == "[]" ]]; then
-    cmd=(docker rmi "$oldImageId")
+  local imageTags
+  imageTags="$(docker image inspect -f '{{ .RepoTags }}' "${oldImageId}" 2> /dev/null)"
+  if [[ "${imageTags}" == "[]" ]]; then
+    cmd=(docker rmi "${oldImageId}")
     exec_cmd '[4] deleting old dangling image' "${cmd[*]}"
   fi
   printf '\n'
