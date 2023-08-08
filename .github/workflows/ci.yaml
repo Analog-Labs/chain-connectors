@@ -29,6 +29,9 @@ jobs:
     - name: cargo fmt
       run: cargo fmt --all -- --check
 
+    - name: Run ShellCheck
+      uses: ludeeus/action-shellcheck@master
+
   clippy:
     runs-on: ubuntu-latest
     steps:
