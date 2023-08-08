@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # First arg is the Docker image tag on all images
 tag=$1
