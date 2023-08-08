@@ -198,9 +198,7 @@ build_image() {
   check_label "${newImageId}" 'one.analog.image.vendor' "Analog One Foundation"
 
   # Delete old image if it is dangling
-  local imageTags
-  imageTags="$(docker image inspect -f '{{ .RepoTags }}' "${oldImageId}" 2> /dev/null)"
-  if [[ "${imageTags}" == "[]" ]]; then
+  if [[ "$(docker image inspect -f '{{ .RepoTags }}' "${oldImageId}" 2> /dev/null || true)" == "[]" ]]; then
     cmd=(docker rmi "${oldImageId}")
     exec_cmd '[4] deleting old dangling image' "${cmd[*]}"
   fi
