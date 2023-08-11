@@ -1,12 +1,17 @@
+FROM alpine:latest AS certs
+
+ARG BUILD_ID="polkadot-certs"
+LABEL stage="certs" \
+      build="$BUILD_ID"
+
+RUN apk --update add ca-certificates
+
+FROM scratch
+
 ARG REGISTRY_PATH
 ARG IMAGE_VERSION
 ARG VCS_REF
 ARG BUILD_DATE
-
-FROM alpine:latest AS certs
-RUN apk --update add ca-certificates
-
-FROM scratch
 
 # metadata
 LABEL summary="Analog’s connectors for polkadot network" \

@@ -5,7 +5,7 @@ Ethereum:
 **Setting up nodes**
 
 1. First you need to build connectors for that you can run
-   `./build_connectors.sh`
+   `./scripts/build_connectors.sh`
    if you are running on mac you might get gcc error. To solve it please do following.
 
 2. Run `rustup target add x86_64-unknown-linux-musl` in mac.
@@ -17,7 +17,7 @@ linker = "x86_64-linux-musl-gcc"
 ```
 
 4. In `build_connectors.sh` replace `cargo build` with `TARGET_CC=x86_64-linux-musl-gcc cargo build`
-5. Run `./build_connectors.sh`.
+5. Run `./scripts/build_connectors.sh`.
 6. After conenctors are build run `docker compose up`.
 
 **Compiling voting contract**
