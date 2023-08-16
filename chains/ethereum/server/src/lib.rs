@@ -439,6 +439,7 @@ mod tests {
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
         assert_eq!(topic, expected);
+        env.shutdown().await?;
         Ok(())
     }
 
@@ -470,10 +471,9 @@ mod tests {
                 &["true".into()],
             )
             .await?;
-        println!("{:?}", response);
         let result: Vec<String> = serde_json::from_value(response.result)?;
         assert_eq!(result[0], "true");
-
+        env.shutdown().await?;
         Ok(())
     }
 }
