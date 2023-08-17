@@ -364,13 +364,18 @@ pub trait EthereumExt {
         amount: u128,
     ) -> Result<u128>;
     /// gets storage from ethereum contract
-    async fn eth_storage(&self, contract_address: &str, storage_slot: &str)
-        -> Result<CallResponse>;
+    async fn eth_storage(
+        &self,
+        contract_address: &str,
+        storage_slot: &str,
+        block_identifier: Option<PartialBlockIdentifier>,
+    ) -> Result<CallResponse>;
     /// gets storage proof from ethereum contract
     async fn eth_storage_proof(
         &self,
         contract_address: &str,
         storage_slot: &str,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse>;
     /// gets transaction receipt of specific hash
     async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse>;
@@ -426,18 +431,20 @@ impl EthereumExt for Wallet {
         &self,
         contract_address: &str,
         storage_slot: &str,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-storage", contract_address, storage_slot);
-        self.call(method, &json!({}), None).await
+        self.call(method, &json!({}), block_identifier).await
     }
 
     async fn eth_storage_proof(
         &self,
         contract_address: &str,
         storage_slot: &str,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-storage_proof", contract_address, storage_slot);
-        self.call(method, &json!({}), None).await
+        self.call(method, &json!({}), block_identifier).await
     }
 
     async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse> {

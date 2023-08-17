@@ -1,5 +1,4 @@
 use clap::Parser;
-use rosetta_client::types::BlockIdentifier;
 use rosetta_client::{
     create_wallet,
     types::{AccountIdentifier, Block, PartialBlockIdentifier},
@@ -50,9 +49,9 @@ async fn rosetta_wallet_methods(contract_address: &str) {
     block_transaction(&wallet, block_response).await;
     method_call(&wallet, contract_address).await;
     contract_call(&wallet, contract_address, None).await;
-    storage_yes_votes(&wallet, contract_address).await;
-    storage_no_votes(&wallet, contract_address).await;
-    stroage_proof(&wallet, contract_address).await;
+    storage_yes_votes(&wallet, contract_address, None).await;
+    storage_no_votes(&wallet, contract_address, None).await;
+    storage_proof(&wallet, contract_address, None).await;
 }
 
 fn account(wallet: &Wallet) {
@@ -140,7 +139,7 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
 async fn contract_call(
     wallet: &Wallet,
     contract_address: &str,
-    block_identifier: Option<BlockIdentifier>,
+    block_identifier: Option<PartialBlockIdentifier>,
 ) {
     let method_signature = "function get_votes_stats() external view returns (uint, uint)";
     let response = wallet
@@ -149,25 +148,25 @@ async fn contract_call(
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage_yes_votes(wallet: &Wallet, contract_address: &str) {
+async fn storage_yes_votes(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
     // 0th position of storage in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
-    let response = wallet.eth_storage(contract_address, storage_slot).await;
+    let response = wallet.eth_storage(contract_address, storage_slot, block_identifier).await;
     println!("storage 0th response {:#?}", response);
 }
 
-async fn storage_no_votes(wallet: &Wallet, contract_address: &str) {
+async fn storage_no_votes(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
     // 0th position of storage in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000001";
-    let response = wallet.eth_storage(contract_address, storage_slot).await;
+    let response = wallet.eth_storage(contract_address, storage_slot, block_identifier).await;
     println!("storage 1th response {:#?}", response);
 }
 
-async fn stroage_proof(wallet: &Wallet, contract_address: &str) {
+async fn storage_proof(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
     // 0th position of storage_proof in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
     let response = wallet
-        .eth_storage_proof(contract_address, storage_slot)
+        .eth_storage_proof(contract_address, storage_slot, block_identifier)
         .await;
     println!("storage proof 0th index response {:#?}", response);
 }

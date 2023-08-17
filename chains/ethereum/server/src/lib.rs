@@ -275,7 +275,7 @@ impl BlockchainClient for EthereumClient {
                     .as_ref()
                     .map(|block_identifier| -> Result<BlockId> {
                         if let Some(block_hash) = block_identifier.hash.as_ref() {
-                            return BlockId::from_str(&block_hash)
+                            return BlockId::from_str(block_hash)
                                 .map_err(|e| anyhow::format_err!("{e}"));
                         } else if let Some(block_number) = block_identifier.index {
                             return Ok(BlockId::Number(BlockNumber::Number(U64::from(
