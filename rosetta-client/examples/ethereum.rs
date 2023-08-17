@@ -148,21 +148,37 @@ async fn contract_call(
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage_yes_votes(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
+async fn storage_yes_votes(
+    wallet: &Wallet,
+    contract_address: &str,
+    block_identifier: Option<PartialBlockIdentifier>,
+) {
     // 0th position of storage in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
-    let response = wallet.eth_storage(contract_address, storage_slot, block_identifier).await;
+    let response = wallet
+        .eth_storage(contract_address, storage_slot, block_identifier)
+        .await;
     println!("storage 0th response {:#?}", response);
 }
 
-async fn storage_no_votes(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
+async fn storage_no_votes(
+    wallet: &Wallet,
+    contract_address: &str,
+    block_identifier: Option<PartialBlockIdentifier>,
+) {
     // 0th position of storage in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000001";
-    let response = wallet.eth_storage(contract_address, storage_slot, block_identifier).await;
+    let response = wallet
+        .eth_storage(contract_address, storage_slot, block_identifier)
+        .await;
     println!("storage 1th response {:#?}", response);
 }
 
-async fn storage_proof(wallet: &Wallet, contract_address: &str, block_identifier: Option<PartialBlockIdentifier>) {
+async fn storage_proof(
+    wallet: &Wallet,
+    contract_address: &str,
+    block_identifier: Option<PartialBlockIdentifier>,
+) {
     // 0th position of storage_proof in contract
     let storage_slot = "0000000000000000000000000000000000000000000000000000000000000000";
     let response = wallet

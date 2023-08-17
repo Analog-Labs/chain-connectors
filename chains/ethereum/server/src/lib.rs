@@ -250,6 +250,21 @@ impl BlockchainClient for EthereumClient {
         let method_or_position = call_details[1];
         let call_type = call_details[2];
 
+        let block_id = req
+            .block_identifier
+            .as_ref()
+            .map(|block_identifier| -> Result<BlockId> {
+                if let Some(block_hash) = block_identifier.hash.as_ref() {
+                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"));
+                } else if let Some(block_number) = block_identifier.index {
+                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(
+                        block_number,
+                    ))));
+                };
+                bail!("invalid block identifier")
+            })
+            .transpose()?;
+
         let params = &req.parameters;
         match call_type.to_lowercase().as_str() {
             "call" => {
@@ -269,22 +284,6 @@ impl BlockchainClient for EthereumClient {
                     data: Some(data.into()),
                     ..Default::default()
                 };
-
-                let block_id = req
-                    .block_identifier
-                    .as_ref()
-                    .map(|block_identifier| -> Result<BlockId> {
-                        if let Some(block_hash) = block_identifier.hash.as_ref() {
-                            return BlockId::from_str(block_hash)
-                                .map_err(|e| anyhow::format_err!("{e}"));
-                        } else if let Some(block_number) = block_identifier.index {
-                            return Ok(BlockId::Number(BlockNumber::Number(U64::from(
-                                block_number,
-                            ))));
-                        };
-                        anyhow::bail!("invalid block identifier")
-                    })
-                    .transpose()?;
 
                 let tx = &tx.into();
                 let received_data = self.client.call(tx, block_id).await?;
@@ -311,9 +310,11 @@ impl BlockchainClient for EthereumClient {
 
                 let location = H256::from_str(method_or_position)?;
 
+                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
                 let block_num = params["block_number"]
                     .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()));
+                    .map(|block_num| BlockId::Number(block_num.into()))
+                    .or(block_id);
 
                 let storage_check = self
                     .client
@@ -326,9 +327,11 @@ impl BlockchainClient for EthereumClient {
 
                 let location = H256::from_str(method_or_position)?;
 
+                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
                 let block_num = params["block_number"]
                     .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()));
+                    .map(|block_num| BlockId::Number(block_num.into()))
+                    .or(block_id);
 
                 let proof_data = self
                     .client
@@ -361,6 +364,9 @@ impl BlockchainClient for EthereumClient {
                 let tx_hash = H256::from_str(contract_address)?;
                 let receipt = self.client.get_transaction_receipt(tx_hash).await?;
                 let result = serde_json::to_value(&receipt)?;
+                if block_id.is_some() {
+                    bail!("block identifier is ignored for transaction receipt");
+                }
                 return Ok(result);
             }
             _ => {
