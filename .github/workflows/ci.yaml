@@ -84,5 +84,8 @@ jobs:
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
 
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
+
     - name: cargo test
       run: cargo test --locked --all-features --workspace
