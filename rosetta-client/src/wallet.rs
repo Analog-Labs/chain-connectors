@@ -195,11 +195,17 @@ impl Wallet {
     /// Extension of rosetta-api does multiple things
     /// 1. fetching storage
     /// 2. calling extrinsic/contract
-    pub async fn call(&self, method: String, params: &serde_json::Value) -> Result<CallResponse> {
+    pub async fn call(
+        &self,
+        method: String,
+        params: &serde_json::Value,
+        block_identifier: Option<BlockIdentifier>,
+    ) -> Result<CallResponse> {
         let req = CallRequest {
             network_identifier: self.config.network(),
             method,
             parameters: params.clone(),
+            block_identifier,
         };
         let response = self.client.call(&req).await?;
         Ok(response)
@@ -339,6 +345,7 @@ pub trait EthereumExt {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
+        block_identifier: Option<BlockIdentifier>,
     ) -> Result<CallResponse>;
     /// calls contract send call function
     async fn eth_send_call(
@@ -409,9 +416,10 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
+        block_identifier: Option<BlockIdentifier>,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-call", contract_address, method_signature);
-        self.call(method, &json!(params)).await
+        self.call(method, &json!(params), block_identifier).await
     }
 
     async fn eth_storage(
@@ -420,7 +428,7 @@ impl EthereumExt for Wallet {
         storage_slot: &str,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-storage", contract_address, storage_slot);
-        self.call(method, &json!({})).await
+        self.call(method, &json!({}), None).await
     }
 
     async fn eth_storage_proof(
@@ -429,12 +437,12 @@ impl EthereumExt for Wallet {
         storage_slot: &str,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-storage_proof", contract_address, storage_slot);
-        self.call(method, &json!({})).await
+        self.call(method, &json!({}), None).await
     }
 
     async fn eth_transaction_receipt(&self, tx_hash: &str) -> Result<CallResponse> {
         let call_method = format!("{}--transaction_receipt", tx_hash);
-        self.call(call_method, &json!({})).await
+        self.call(call_method, &json!({}), None).await
     }
 }
 

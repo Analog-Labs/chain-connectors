@@ -1,4 +1,5 @@
 use clap::Parser;
+use rosetta_client::types::BlockIdentifier;
 use rosetta_client::{
     create_wallet,
     types::{AccountIdentifier, Block, PartialBlockIdentifier},
@@ -48,7 +49,7 @@ async fn rosetta_wallet_methods(contract_address: &str) {
     let block_response = block(&wallet).await;
     block_transaction(&wallet, block_response).await;
     method_call(&wallet, contract_address).await;
-    contract_call(&wallet, contract_address).await;
+    contract_call(&wallet, contract_address, None).await;
     storage_yes_votes(&wallet, contract_address).await;
     storage_no_votes(&wallet, contract_address).await;
     stroage_proof(&wallet, contract_address).await;
@@ -136,10 +137,14 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("{:?}", wallet.balance().await);
 }
 
-async fn contract_call(wallet: &Wallet, contract_address: &str) {
+async fn contract_call(
+    wallet: &Wallet,
+    contract_address: &str,
+    block_identifier: Option<BlockIdentifier>,
+) {
     let method_signature = "function get_votes_stats() external view returns (uint, uint)";
     let response = wallet
-        .eth_view_call(contract_address, method_signature, &[])
+        .eth_view_call(contract_address, method_signature, &[], block_identifier)
         .await;
     println!("contract call response {:#?}\n", response);
 }

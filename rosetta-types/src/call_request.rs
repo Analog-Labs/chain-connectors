@@ -20,6 +20,8 @@ pub struct CallRequest {
     /// Parameters is some network-specific argument for a method. It is up to the caller to determine which parameters to provide when invoking `/call`.
     #[serde(rename = "parameters")]
     pub parameters: serde_json::Value,
+    #[serde(rename = "block_identifier", skip_serializing_if = "Option::is_none")]
+    pub block_identifier: Option<crate::BlockIdentifier>,
 }
 
 impl CallRequest {
@@ -28,11 +30,13 @@ impl CallRequest {
         network_identifier: crate::NetworkIdentifier,
         method: String,
         parameters: serde_json::Value,
+        block_identifier: Option<crate::BlockIdentifier>,
     ) -> CallRequest {
         CallRequest {
             network_identifier,
             method,
             parameters,
+            block_identifier,
         }
     }
 }

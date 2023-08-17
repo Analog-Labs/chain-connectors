@@ -325,6 +325,7 @@ mod tests {
                 contract_address,
                 "function identity(bool a) returns (bool)",
                 &["true".into()],
+                None,
             )
             .await?;
         println!("{:?}", response);

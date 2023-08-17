@@ -258,8 +258,20 @@ impl BlockchainClient for EthereumClient {
                     ..Default::default()
                 };
 
+                let block_id = if let Some(block_identifier) = &req.block_identifier {
+                    let block_id = if !block_identifier.hash.is_empty() {
+                        BlockId::from_str(&block_identifier.hash)
+                            .map_err(|e| anyhow::format_err!("{e}"))?
+                    } else {
+                        BlockId::Number(BlockNumber::Number(U64::from(block_identifier.index)))
+                    };
+                    Some(block_id)
+                } else {
+                    None
+                };
+
                 let tx = &tx.into();
-                let received_data = self.client.call(tx, None).await?;
+                let received_data = self.client.call(tx, block_id).await?;
 
                 struct Detokenizer {
                     tokens: Vec<Token>,
@@ -469,6 +481,7 @@ mod tests {
                 contract_address,
                 "function identity(bool a) returns (bool)",
                 &["true".into()],
+                None,
             )
             .await?;
         let result: Vec<String> = serde_json::from_value(response.result)?;
