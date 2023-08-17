@@ -15,6 +15,12 @@ pub struct BitcoinClient {
     genesis_block: BlockIdentifier,
 }
 
+/// Bitcoin community has adopted 6 blocks as a standard confirmation period.
+/// That is, once a transaction is included in a block in the blockchain which is followed up by at least 6 additional blocks
+/// the transaction is called “confirmed.” While this was chosen somewhat arbitrarily, it is a reasonably safe value in practice
+/// as the only time this would have left users vulnerable to double-spending was the atypical March 2013 fork.
+const CONFIRMATION_PERIOD: u64 = 6;
+
 #[async_trait::async_trait]
 impl BlockchainClient for BitcoinClient {
     type MetadataParams = ();
@@ -61,6 +67,19 @@ impl BlockchainClient for BitcoinClient {
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_count().await?;
+        let hash = self.client.get_block_hash(index).await?;
+        Ok(BlockIdentifier {
+            index,
+            hash: hex::encode(hash.as_ref()),
+        })
+    }
+
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        let index = self
+            .client
+            .get_block_count()
+            .await?
+            .saturating_sub(CONFIRMATION_PERIOD);
         let hash = self.client.get_block_hash(index).await?;
         Ok(BlockIdentifier {
             index,

@@ -115,6 +115,10 @@ impl BlockchainClient for AstarClient {
         self.client.current_block().await
     }
 
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        self.client.finalized_block().await
+    }
+
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let balance = match address.format() {
             AddressFormat::Ss58(_) => {
@@ -295,6 +299,7 @@ mod tests {
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
         assert_eq!(topic, expected);
+        env.shutdown().await?;
         Ok(())
     }
 
@@ -324,12 +329,13 @@ mod tests {
                 contract_address,
                 "function identity(bool a) returns (bool)",
                 &["true".into()],
+                None,
             )
             .await?;
         println!("{:?}", response);
         let result: Vec<String> = serde_json::from_value(response.result)?;
         assert_eq!(result[0], "true");
-
+        env.shutdown().await?;
         Ok(())
     }
 }

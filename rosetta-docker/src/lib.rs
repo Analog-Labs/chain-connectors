@@ -78,7 +78,7 @@ impl Env {
         Wallet::new(self.config.clone(), &signer, client)
     }
 
-    pub async fn shutdown(&self) -> Result<()> {
+    pub async fn shutdown(self) -> Result<()> {
         let opts = ContainerStopOpts::builder().build();
         self.connector.stop(&opts).await?;
         self.node.stop(&opts).await?;
@@ -243,10 +243,7 @@ impl<'a> EnvBuilder<'a> {
             let port = *port as u32;
             opts = opts.expose(PublishPort::tcp(port), port);
         }
-        let container = self.run_container(name, &opts.build(), network).await?;
-        // wait_for_http(&format!("http://127.0.0.1:{}", config.node_port)).await?;
-        tokio::time::sleep(Duration::from_secs(30)).await;
-        Ok(container)
+        self.run_container(name, &opts.build(), network).await
     }
 
     async fn run_connector(

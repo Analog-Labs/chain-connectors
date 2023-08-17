@@ -122,6 +122,22 @@ impl BlockchainClient for PolkadotClient {
         })
     }
 
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        let finalized_head = self.client.rpc().finalized_head().await?;
+        let block = self
+            .client
+            .rpc()
+            .block(Some(finalized_head))
+            .await?
+            .context("no finalized block")?;
+        let index = block.block.header.number as _;
+        let hash = block.block.header.hash();
+        Ok(BlockIdentifier {
+            index,
+            hash: hex::encode(hash.as_ref()),
+        })
+    }
+
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let account_info = self.account_info(address, Some(block)).await?;
         Ok(account_info.data.free)

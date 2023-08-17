@@ -78,6 +78,9 @@ jobs:
         toolchain: stable
         target: x86_64-unknown-linux-musl
 
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
+
     - name: Build connectors
       run: ./scripts/build_connectors.sh
 

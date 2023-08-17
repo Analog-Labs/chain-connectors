@@ -79,6 +79,18 @@ impl BlockchainClient for EthereumClient {
         })
     }
 
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        let block = self
+            .client
+            .get_block(BlockId::Number(BlockNumber::Finalized))
+            .await?
+            .context("missing block")?;
+        Ok(BlockIdentifier {
+            index: block.number.context("Block is pending")?.as_u64(),
+            hash: hex::encode(block.hash.as_ref().unwrap()),
+        })
+    }
+
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let block = hex::decode(&block.hash)?
             .try_into()
@@ -238,6 +250,21 @@ impl BlockchainClient for EthereumClient {
         let method_or_position = call_details[1];
         let call_type = call_details[2];
 
+        let block_id = req
+            .block_identifier
+            .as_ref()
+            .map(|block_identifier| -> Result<BlockId> {
+                if let Some(block_hash) = block_identifier.hash.as_ref() {
+                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"));
+                } else if let Some(block_number) = block_identifier.index {
+                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(
+                        block_number,
+                    ))));
+                };
+                bail!("invalid block identifier")
+            })
+            .transpose()?;
+
         let params = &req.parameters;
         match call_type.to_lowercase().as_str() {
             "call" => {
@@ -259,7 +286,7 @@ impl BlockchainClient for EthereumClient {
                 };
 
                 let tx = &tx.into();
-                let received_data = self.client.call(tx, None).await?;
+                let received_data = self.client.call(tx, block_id).await?;
 
                 struct Detokenizer {
                     tokens: Vec<Token>,
@@ -283,9 +310,11 @@ impl BlockchainClient for EthereumClient {
 
                 let location = H256::from_str(method_or_position)?;
 
+                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
                 let block_num = params["block_number"]
                     .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()));
+                    .map(|block_num| BlockId::Number(block_num.into()))
+                    .or(block_id);
 
                 let storage_check = self
                     .client
@@ -298,9 +327,11 @@ impl BlockchainClient for EthereumClient {
 
                 let location = H256::from_str(method_or_position)?;
 
+                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
                 let block_num = params["block_number"]
                     .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()));
+                    .map(|block_num| BlockId::Number(block_num.into()))
+                    .or(block_id);
 
                 let proof_data = self
                     .client
@@ -333,6 +364,9 @@ impl BlockchainClient for EthereumClient {
                 let tx_hash = H256::from_str(contract_address)?;
                 let receipt = self.client.get_transaction_receipt(tx_hash).await?;
                 let result = serde_json::to_value(&receipt)?;
+                if block_id.is_some() {
+                    bail!("block identifier is ignored for transaction receipt");
+                }
                 return Ok(result);
             }
             _ => {
@@ -439,6 +473,7 @@ mod tests {
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
         assert_eq!(topic, expected);
+        env.shutdown().await?;
         Ok(())
     }
 
@@ -468,12 +503,12 @@ mod tests {
                 contract_address,
                 "function identity(bool a) returns (bool)",
                 &["true".into()],
+                None,
             )
             .await?;
-        println!("{:?}", response);
         let result: Vec<String> = serde_json::from_value(response.result)?;
         assert_eq!(result[0], "true");
-
+        env.shutdown().await?;
         Ok(())
     }
 }

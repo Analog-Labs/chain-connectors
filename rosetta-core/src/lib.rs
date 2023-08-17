@@ -75,6 +75,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     fn genesis_block(&self) -> &BlockIdentifier;
     async fn node_version(&self) -> Result<String>;
     async fn current_block(&self) -> Result<BlockIdentifier>;
+    async fn finalized_block(&self) -> Result<BlockIdentifier>;
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128>;
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
