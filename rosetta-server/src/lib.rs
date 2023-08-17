@@ -170,7 +170,10 @@ async fn network_status<T: BlockchainClient>(mut req: Request<State<T>>) -> tide
         Ok(current_block_identifier) => current_block_identifier,
         Err(err) => return Error::RpcError(err).to_result(),
     };
-    let latest_finalized_block_identifier = req.state().finalized_block().await.ok();
+    let latest_finalized_block_identifier = match req.state().finalized_block().await {
+        Ok(latest_finalized_block_identifier) => latest_finalized_block_identifier,
+        Err(err) => return Error::RpcError(err).to_result(),
+    };
     let response = NetworkStatusResponse {
         current_block_identifier,
         current_block_timestamp: 0,

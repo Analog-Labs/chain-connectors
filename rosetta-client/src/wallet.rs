@@ -143,10 +143,10 @@ impl Wallet {
         &self.account
     }
 
-    /// Returns the current block identifier.
+    /// Returns the latest finalized block identifier.
     pub async fn status(&self) -> Result<BlockIdentifier> {
         let status = self.client.network_status(self.config.network()).await?;
-        Ok(status.current_block_identifier)
+        Ok(status.latest_finalized_block_identifier)
     }
 
     /// Returns the balance of the wallet.
