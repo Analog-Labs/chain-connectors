@@ -21,7 +21,7 @@ pub struct CallRequest {
     #[serde(rename = "parameters")]
     pub parameters: serde_json::Value,
     #[serde(rename = "block_identifier", skip_serializing_if = "Option::is_none")]
-    pub block_identifier: Option<crate::BlockIdentifier>,
+    pub block_identifier: Option<crate::PartialBlockIdentifier>,
 }
 
 impl CallRequest {
@@ -30,7 +30,7 @@ impl CallRequest {
         network_identifier: crate::NetworkIdentifier,
         method: String,
         parameters: serde_json::Value,
-        block_identifier: Option<crate::BlockIdentifier>,
+        block_identifier: Option<crate::PartialBlockIdentifier>,
     ) -> CallRequest {
         CallRequest {
             network_identifier,

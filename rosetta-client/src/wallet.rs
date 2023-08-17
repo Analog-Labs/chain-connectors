@@ -199,7 +199,7 @@ impl Wallet {
         &self,
         method: String,
         params: &serde_json::Value,
-        block_identifier: Option<BlockIdentifier>,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse> {
         let req = CallRequest {
             network_identifier: self.config.network(),
@@ -345,7 +345,7 @@ pub trait EthereumExt {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
-        block_identifier: Option<BlockIdentifier>,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse>;
     /// calls contract send call function
     async fn eth_send_call(
@@ -416,7 +416,7 @@ impl EthereumExt for Wallet {
         contract_address: &str,
         method_signature: &str,
         params: &[String],
-        block_identifier: Option<BlockIdentifier>,
+        block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<CallResponse> {
         let method = format!("{}-{}-call", contract_address, method_signature);
         self.call(method, &json!(params), block_identifier).await
