@@ -258,17 +258,19 @@ impl BlockchainClient for EthereumClient {
                     ..Default::default()
                 };
 
-                let block_id = if let Some(block_identifier) = &req.block_identifier {
-                    let block_id = if !block_identifier.hash.is_empty() {
-                        BlockId::from_str(&block_identifier.hash)
-                            .map_err(|e| anyhow::format_err!("{e}"))?
-                    } else {
-                        BlockId::Number(BlockNumber::Number(U64::from(block_identifier.index)))
-                    };
-                    Some(block_id)
-                } else {
-                    None
-                };
+                let block_id = req
+                    .block_identifier
+                    .as_ref()
+                    .map(|block_identifier| -> Result<BlockId> {
+                        let block_id = if !block_identifier.hash.is_empty() {
+                            BlockId::from_str(&block_identifier.hash)
+                                .map_err(|e| anyhow::format_err!("{e}"))?
+                        } else {
+                            BlockId::Number(BlockNumber::Number(U64::from(block_identifier.index)))
+                        };
+                        Ok(block_id)
+                    })
+                    .transpose()?;
 
                 let tx = &tx.into();
                 let received_data = self.client.call(tx, block_id).await?;
