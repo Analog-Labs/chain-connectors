@@ -79,6 +79,18 @@ impl BlockchainClient for EthereumClient {
         })
     }
 
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        let block = self
+            .client
+            .get_block(BlockId::Number(BlockNumber::Finalized))
+            .await?
+            .context("missing block")?;
+        Ok(BlockIdentifier {
+            index: block.number.context("Block is pending")?.as_u64(),
+            hash: hex::encode(block.hash.as_ref().unwrap()),
+        })
+    }
+
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let block = hex::decode(&block.hash)?
             .try_into()

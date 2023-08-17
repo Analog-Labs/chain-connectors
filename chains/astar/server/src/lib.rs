@@ -115,6 +115,10 @@ impl BlockchainClient for AstarClient {
         self.client.current_block().await
     }
 
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        self.client.finalized_block().await
+    }
+
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let balance = match address.format() {
             AddressFormat::Ss58(_) => {

@@ -15,6 +15,8 @@ pub struct BitcoinClient {
     genesis_block: BlockIdentifier,
 }
 
+const CONFIRMATION_PERIOD: u64 = 6;
+
 #[async_trait::async_trait]
 impl BlockchainClient for BitcoinClient {
     type MetadataParams = ();
@@ -61,6 +63,19 @@ impl BlockchainClient for BitcoinClient {
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_count().await?;
+        let hash = self.client.get_block_hash(index).await?;
+        Ok(BlockIdentifier {
+            index,
+            hash: hex::encode(hash.as_ref()),
+        })
+    }
+
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        let index = self
+            .client
+            .get_block_count()
+            .await?
+            .saturating_sub(CONFIRMATION_PERIOD);
         let hash = self.client.get_block_hash(index).await?;
         Ok(BlockIdentifier {
             index,

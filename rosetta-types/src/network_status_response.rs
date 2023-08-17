@@ -26,6 +26,11 @@ pub struct NetworkStatusResponse {
         skip_serializing_if = "Option::is_none"
     )]
     pub oldest_block_identifier: Option<crate::BlockIdentifier>,
+    #[serde(
+        rename = "latest_finalized_block_identifier",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub latest_finalized_block_identifier: Option<crate::BlockIdentifier>,
     #[serde(rename = "sync_status", skip_serializing_if = "Option::is_none")]
     pub sync_status: Option<crate::SyncStatus>,
     #[serde(rename = "peers", skip_serializing_if = "Option::is_none")]
@@ -38,12 +43,14 @@ impl NetworkStatusResponse {
         current_block_identifier: crate::BlockIdentifier,
         current_block_timestamp: i64,
         genesis_block_identifier: crate::BlockIdentifier,
+        latest_finalized_block_identifier: Option<crate::BlockIdentifier>,
     ) -> NetworkStatusResponse {
         NetworkStatusResponse {
             current_block_identifier,
             current_block_timestamp,
             genesis_block_identifier: Some(genesis_block_identifier),
             oldest_block_identifier: None,
+            latest_finalized_block_identifier,
             sync_status: None,
             peers: None,
         }
