@@ -24,7 +24,7 @@ services:
     - "bitcoin-volume:/home/bitcoin/.bitcoin"
 
   ethereum:
-    image: "ethereum/client-go:v1.10.26"
+    image: "ethereum/client-go:v1.12.2"
     command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
     expose:
     - "8545"

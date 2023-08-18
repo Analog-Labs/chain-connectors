@@ -20,7 +20,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             currency_symbol: "ETH",
             currency_decimals: 18,
             node_uri: NodeUri::parse("http://127.0.0.1:8545")?,
-            node_image: "ethereum/client-go:v1.10.26",
+            node_image: "ethereum/client-go:v1.12.2",
             node_command: Arc::new(|network, port| {
                 let mut params = if network == "dev" {
                     vec![
