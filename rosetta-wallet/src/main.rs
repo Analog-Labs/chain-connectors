@@ -1,3 +1,4 @@
+use anyhow::Context;
 use anyhow::Result;
 use clap::Parser;
 use ethers_solc::{artifacts::Source, CompilerInput, Solc};
@@ -6,7 +7,6 @@ use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIden
 use rosetta_client::EthereumExt;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use anyhow::Context;
 
 #[derive(Parser)]
 pub struct Opts {
