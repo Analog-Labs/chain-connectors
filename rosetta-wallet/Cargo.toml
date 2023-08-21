@@ -10,9 +10,10 @@ description = "Command line wallet implemented using the rosetta client."
 anyhow = "1.0.69"
 async-std = { version = "1.12.0", features = ["attributes"] }
 clap = { version = "4.1.8", features = ["derive"] }
+fs = "0.0.5"
 futures = "0.3.26"
+hex = "0.4.3"
 rosetta-client = { version = "0.4.0", path = "../rosetta-client" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 tracing-subscriber = "0.3.16"
-hex = "0.4.3"
-fs = "0.0.5"
+
