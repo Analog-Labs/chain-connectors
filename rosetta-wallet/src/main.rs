@@ -94,17 +94,17 @@ async fn main() -> Result<()> {
         }
         Command::DeployContract(DeployContractOpts { bin_path }) => {
             match wallet.config().blockchain {
-                "bitcoin" => {
-                    anyhow::bail!("Not implemented");
-                }
-                _ => {
-                    let compiled_contract_str = read_to_string(bin_path.to_string())?;
+                "astar" | "ethereum" => {
+                    let compiled_contract_str = read_to_string(&bin_path)?;
                     let compiled_contract_bin = compiled_contract_str
                         .strip_suffix('\n')
                         .unwrap_or(&compiled_contract_str);
                     let bytes = hex::decode(compiled_contract_bin).unwrap();
                     let response = wallet.eth_deploy_contract(bytes.to_vec()).await?;
                     println!("Deploy contract response {:?}", response);
+                }
+                _ => {
+                    anyhow::bail!("Not implemented");
                 }
             }
         }
