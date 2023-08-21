@@ -1,10 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
+use ethers_solc::{CompilerInput, artifacts::Source, Solc};
 use futures::stream::StreamExt;
 use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
 use rosetta_client::EthereumExt;
-use std::fs::read_to_string;
-use std::path::PathBuf;
+use std::collections::BTreeMap;
+use std::path::{PathBuf, Path};
 
 #[derive(Parser)]
 pub struct Opts {
@@ -26,7 +27,6 @@ pub enum Command {
     Account,
     Balance,
     DeployContract(DeployContractOpts),
-    EthTransactionReceipt(EthTransactionReceiptOpts),
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
     Transaction(TransactionOpts),
@@ -61,13 +61,8 @@ pub struct MethodCallOpts {
 }
 
 #[derive(Parser)]
-pub struct EthTransactionReceiptOpts {
-    pub tx_hash: String,
-}
-
-#[derive(Parser)]
 pub struct DeployContractOpts {
-    pub bin_path: String,
+    pub contract_path: String,
 }
 
 #[async_std::main]
@@ -92,30 +87,21 @@ async fn main() -> Result<()> {
             let balance = wallet.balance().await?;
             println!("{}", rosetta_client::amount_to_string(&balance)?);
         }
-        Command::DeployContract(DeployContractOpts { bin_path }) => {
+        Command::DeployContract(DeployContractOpts { contract_path }) => {
             match wallet.config().blockchain {
                 "astar" | "ethereum" => {
-                    let compiled_contract_str = read_to_string(&bin_path)?;
-                    let compiled_contract_bin = compiled_contract_str
-                        .strip_suffix('\n')
-                        .unwrap_or(&compiled_contract_str);
-                    let bytes = hex::decode(compiled_contract_bin).unwrap();
-                    let response = wallet.eth_deploy_contract(bytes.to_vec()).await?;
-                    println!("Deploy contract response {:?}", response);
+                    let bytes = compile_file(&contract_path)?;
+                    let response = wallet.eth_deploy_contract(bytes).await?;
+                    let tx_receipt = wallet
+                        .eth_transaction_receipt(&response.hash)
+                        .await?;
+                    let contract_address = tx_receipt.result["contractAddress"]
+                        .as_str()
+                        .ok_or(anyhow::anyhow!("Unable to get contract address"))?;
+                    println!("Deploy contract address {:?}", contract_address);
                 }
                 _ => {
                     anyhow::bail!("Not implemented");
-                }
-            }
-        }
-        Command::EthTransactionReceipt(EthTransactionReceiptOpts { tx_hash }) => {
-            match wallet.config().blockchain {
-                "bitcoin" => {
-                    anyhow::bail!("Not implemented");
-                }
-                _ => {
-                    let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-                    println!("Receipt: {:?}", receipt);
                 }
             }
         }
@@ -233,4 +219,27 @@ fn print_transaction(tx: &BlockTransaction) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn compile_file(path: &str) -> Result<Vec<u8>> {
+    let solc = Solc::default();
+    let mut sources = BTreeMap::new();
+    sources.insert(Path::new(path).into(), Source::read(path).unwrap());
+    let input = &CompilerInput::with_sources(sources)[0];
+    let output = solc.compile_exact(input)?;
+    let file = output.contracts.get(path).unwrap();
+    let (key, _) = file.first_key_value().unwrap();
+    let contract = file.get(key).unwrap();
+    let bytecode = contract
+        .evm
+        .as_ref()
+        .unwrap()
+        .bytecode
+        .as_ref()
+        .unwrap()
+        .object
+        .as_bytes()
+        .unwrap()
+        .to_vec();
+    Ok(bytecode)
 }
