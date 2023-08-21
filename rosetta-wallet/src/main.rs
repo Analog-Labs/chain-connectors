@@ -3,6 +3,7 @@ use clap::Parser;
 use futures::stream::StreamExt;
 use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
 use rosetta_client::EthereumExt;
+use std::fs::read_to_string;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -24,6 +25,8 @@ pub enum Command {
     Pubkey,
     Account,
     Balance,
+    DeployContract(DeployContractOpts),
+    EthTransactionReceipt(EthTransactionReceiptOpts),
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
     Transaction(TransactionOpts),
@@ -57,6 +60,16 @@ pub struct MethodCallOpts {
     pub amount: u128,
 }
 
+#[derive(Parser)]
+pub struct EthTransactionReceiptOpts {
+    pub tx_hash: String,
+}
+
+#[derive(Parser)]
+pub struct DeployContractOpts {
+    pub bin_path: String,
+}
+
 #[async_std::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
@@ -78,6 +91,33 @@ async fn main() -> Result<()> {
         Command::Balance => {
             let balance = wallet.balance().await?;
             println!("{}", rosetta_client::amount_to_string(&balance)?);
+        }
+        Command::DeployContract(DeployContractOpts { bin_path }) => {
+            match wallet.config().blockchain {
+                "bitcoin" => {
+                    anyhow::bail!("Not implemented");
+                }
+                _ => {
+                    let compiled_contract_str = read_to_string(format!("{}", bin_path))?;
+                    let compiled_contract_bin = compiled_contract_str
+                        .strip_suffix('\n')
+                        .unwrap_or(&compiled_contract_str);
+                    let bytes = hex::decode(compiled_contract_bin).unwrap();
+                    let response = wallet.eth_deploy_contract(bytes.to_vec()).await?;
+                    println!("Deploy contract response {:?}", response);
+                }
+            }
+        }
+        Command::EthTransactionReceipt(EthTransactionReceiptOpts { tx_hash }) => {
+            match wallet.config().blockchain {
+                "bitcoin" => {
+                    anyhow::bail!("Not implemented");
+                }
+                _ => {
+                    let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+                    println!("Receipt: {:?}", receipt);
+                }
+            }
         }
         Command::Transfer(TransferOpts { account, amount }) => {
             let amount =

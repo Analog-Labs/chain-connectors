@@ -14,3 +14,5 @@ futures = "0.3.26"
 rosetta-client = { version = "0.4.0", path = "../rosetta-client" }
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls"] }
 tracing-subscriber = "0.3.16"
+hex = "0.4.3"
+fs = "0.0.5"
