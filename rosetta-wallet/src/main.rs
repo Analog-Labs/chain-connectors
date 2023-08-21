@@ -6,6 +6,7 @@ use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIden
 use rosetta_client::EthereumExt;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use anyhow::Context;
 
 #[derive(Parser)]
 pub struct Opts {
@@ -231,13 +232,13 @@ fn compile_file(path: &str) -> Result<Vec<u8>> {
     let bytecode = contract
         .evm
         .as_ref()
-        .ok_or(anyhow::anyhow!("Evm not found"))?
+        .context("evm not found")?
         .bytecode
         .as_ref()
-        .ok_or(anyhow::anyhow!("Bytecode not founds"))?
+        .context("bytecode not found")?
         .object
         .as_bytes()
-        .ok_or(anyhow::anyhow!("Could not convert to bytes"))?
+        .context("could not convert to bytes")?
         .to_vec();
     Ok(bytecode)
 }
