@@ -231,13 +231,13 @@ fn compile_file(path: &str) -> Result<Vec<u8>> {
     let bytecode = contract
         .evm
         .as_ref()
-        .unwrap()
+        .ok_or(anyhow::anyhow!("Evm not found"))?
         .bytecode
         .as_ref()
-        .unwrap()
+        .ok_or(anyhow::anyhow!("Bytecode not founds"))?
         .object
         .as_bytes()
-        .unwrap()
+        .ok_or(anyhow::anyhow!("Could not convert to bytes"))?
         .to_vec();
     Ok(bytecode)
 }
