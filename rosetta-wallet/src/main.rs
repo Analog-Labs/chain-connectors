@@ -98,7 +98,7 @@ async fn main() -> Result<()> {
                     anyhow::bail!("Not implemented");
                 }
                 _ => {
-                    let compiled_contract_str = read_to_string(format!("{}", bin_path))?;
+                    let compiled_contract_str = read_to_string(bin_path.to_string())?;
                     let compiled_contract_bin = compiled_contract_str
                         .strip_suffix('\n')
                         .unwrap_or(&compiled_contract_str);
