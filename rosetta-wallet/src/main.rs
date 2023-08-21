@@ -1,11 +1,11 @@
 use anyhow::Result;
 use clap::Parser;
-use ethers_solc::{CompilerInput, artifacts::Source, Solc};
+use ethers_solc::{artifacts::Source, CompilerInput, Solc};
 use futures::stream::StreamExt;
 use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
 use rosetta_client::EthereumExt;
 use std::collections::BTreeMap;
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 pub struct Opts {
@@ -92,9 +92,7 @@ async fn main() -> Result<()> {
                 "astar" | "ethereum" => {
                     let bytes = compile_file(&contract_path)?;
                     let response = wallet.eth_deploy_contract(bytes).await?;
-                    let tx_receipt = wallet
-                        .eth_transaction_receipt(&response.hash)
-                        .await?;
+                    let tx_receipt = wallet.eth_transaction_receipt(&response.hash).await?;
                     let contract_address = tx_receipt.result["contractAddress"]
                         .as_str()
                         .ok_or(anyhow::anyhow!("Unable to get contract address"))?;
