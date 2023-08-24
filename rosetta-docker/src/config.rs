@@ -65,8 +65,6 @@ pub fn docker_endpoint() -> String {
     docker_config_dir()
         .ok()
         .and_then(|config| endpoint_from_config(config).ok())
-        // .map(|config| endpoint_from_config(config).ok())
-        // .flatten()
         .unwrap_or_else(|| DEFAULT_DOCKER_ENDPOINT.to_string())
 }
 
