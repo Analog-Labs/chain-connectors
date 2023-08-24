@@ -2,7 +2,10 @@ mod config;
 
 use anyhow::Result;
 use docker_api::conn::TtyChunk;
-use docker_api::opts::{ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, NetworkCreateOpts, NetworkListOpts, PublishPort};
+use docker_api::opts::{
+    ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort,
+    LogsOpts, NetworkCreateOpts, NetworkListOpts, PublishPort,
+};
 use docker_api::{ApiVersion, Container, Docker, Network};
 use futures::stream::StreamExt;
 use rosetta_client::{Client, Signer, Wallet};
