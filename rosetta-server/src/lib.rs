@@ -25,6 +25,7 @@ pub use rosetta_core::*;
 
 #[cfg(feature = "ws")]
 pub mod ws;
+mod ws_server;
 
 #[derive(Parser)]
 struct Opts {
