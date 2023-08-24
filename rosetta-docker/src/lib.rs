@@ -1,9 +1,8 @@
+mod config;
+
 use anyhow::Result;
 use docker_api::conn::TtyChunk;
-use docker_api::opts::{
-    ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, LogsOpts,
-    NetworkCreateOpts, NetworkListOpts, PublishPort,
-};
+use docker_api::opts::{ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, NetworkCreateOpts, NetworkListOpts, PublishPort};
 use docker_api::{ApiVersion, Container, Docker, Network};
 use futures::stream::StreamExt;
 use rosetta_client::{Client, Signer, Wallet};
@@ -94,12 +93,9 @@ struct EnvBuilder<'a> {
 
 impl<'a> EnvBuilder<'a> {
     pub fn new(prefix: &'a str) -> Result<Self> {
-        let version = ApiVersion::new(1, Some(41), None);
-        // TODO: Support custom connections #138
-        #[cfg(unix)]
-        let docker = Docker::unix_versioned("/var/run/docker.sock", version);
-        #[cfg(not(unix))]
-        let docker = Docker::tcp_versioned("127.0.0.1:8080", version)?;
+        let version = ApiVersion::new(1, Some(42), None);
+        let endpoint = config::docker_endpoint();
+        let docker = Docker::new_versioned(endpoint, version)?;
         Ok(Self { prefix, docker })
     }
 
@@ -237,7 +233,7 @@ impl<'a> EnvBuilder<'a> {
             .publish(PublishPort::tcp(config.node_uri.port as _))
             .expose(
                 PublishPort::tcp(config.node_uri.port as _),
-                config.node_uri.port as _,
+                HostPort::new(config.node_uri.port as u32),
             );
         for port in config.node_additional_ports {
             let port = *port as u32;
@@ -266,7 +262,7 @@ impl<'a> EnvBuilder<'a> {
             .attach_stderr(true)
             .expose(
                 PublishPort::tcp(config.connector_port as _),
-                config.connector_port as _,
+                HostPort::new(config.connector_port as u32),
             )
             .build();
         let container = self.run_container(name, &opts, network).await?;
