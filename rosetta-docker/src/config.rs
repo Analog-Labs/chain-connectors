@@ -64,8 +64,9 @@ pub fn docker_endpoint() -> String {
     // otherwise return the default endpoint
     docker_config_dir()
         .ok()
-        .map(|config| endpoint_from_config(config).ok())
-        .flatten()
+        .and_then(|config| endpoint_from_config(config).ok())
+        // .map(|config| endpoint_from_config(config).ok())
+        // .flatten()
         .unwrap_or_else(|| DEFAULT_DOCKER_ENDPOINT.to_string())
 }
 
@@ -86,9 +87,8 @@ pub fn docker_config_dir() -> anyhow::Result<PathBuf> {
     };
 
     // Try to find the config directory from the `DOCKER_CONFIG` environment variable
-    if let Some(config) = env_vars::non_empty_var(DOCKER_CONFIG)
-        .map(|path| PathBuf::from_str(&path).ok())
-        .flatten()
+    if let Some(config) =
+        env_vars::non_empty_var(DOCKER_CONFIG).and_then(|path| PathBuf::from_str(&path).ok())
     {
         return directory_exists(config);
     }
@@ -120,8 +120,7 @@ pub fn endpoint_from_config(config_dir: PathBuf) -> anyhow::Result<String> {
         .parse::<serde_json::Value>()
         .context("config.json is not a valid json")?
         .get("currentContext")
-        .map(|value| value.as_str())
-        .flatten()
+        .and_then(|value| value.as_str())
         .map(str::to_string)
         .unwrap_or_else(|| "default".to_string());
 
