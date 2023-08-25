@@ -17,12 +17,12 @@ mod eth_types;
 mod proof;
 mod utils;
 
-pub enum GenericEthereumClient {
+pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
     Ws(EthereumClient<Ws>),
 }
 
-impl GenericEthereumClient {
+impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
         let addr = addr.as_ref();
         if addr.starts_with("ws://") || addr.starts_with("wss://") {
@@ -38,7 +38,7 @@ impl GenericEthereumClient {
 }
 
 #[async_trait::async_trait]
-impl BlockchainClient for GenericEthereumClient {
+impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
 
@@ -47,62 +47,62 @@ impl BlockchainClient for GenericEthereumClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        GenericEthereumClient::new(config, addr).await
+        MaybeWsEthereumClient::new(config, addr).await
     }
 
     fn config(&self) -> &BlockchainConfig {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.config(),
-            GenericEthereumClient::Ws(ws_client) => ws_client.config(),
+            MaybeWsEthereumClient::Http(http_client) => http_client.config(),
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.config(),
         }
     }
 
     fn genesis_block(&self) -> &BlockIdentifier {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.genesis_block(),
-            GenericEthereumClient::Ws(ws_client) => ws_client.genesis_block(),
+            MaybeWsEthereumClient::Http(http_client) => http_client.genesis_block(),
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.genesis_block(),
         }
     }
 
     async fn node_version(&self) -> Result<String> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.node_version().await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.node_version().await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.node_version().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.node_version().await,
         }
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.current_block().await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.current_block().await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.current_block().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.current_block().await,
         }
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.finalized_block().await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.finalized_block().await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.finalized_block().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.finalized_block().await,
         }
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.balance(address, block).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.balance(address, block).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.balance(address, block).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.balance(address, block).await,
         }
     }
 
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.coins(address, block).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.coins(address, block).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.coins(address, block).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.coins(address, block).await,
         }
     }
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.faucet(address, param).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.faucet(address, param).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.faucet(address, param).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.faucet(address, param).await,
         }
     }
 
@@ -112,24 +112,24 @@ impl BlockchainClient for GenericEthereumClient {
         options: &Self::MetadataParams,
     ) -> Result<EthereumMetadata> {
         match self {
-            GenericEthereumClient::Http(http_client) => {
+            MaybeWsEthereumClient::Http(http_client) => {
                 http_client.metadata(public_key, options).await
             }
-            GenericEthereumClient::Ws(ws_client) => ws_client.metadata(public_key, options).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.metadata(public_key, options).await,
         }
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.submit(transaction).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.submit(transaction).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.submit(transaction).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.submit(transaction).await,
         }
     }
 
     async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.block(block_identifier).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.block(block_identifier).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.block(block_identifier).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block(block_identifier).await,
         }
     }
 
@@ -139,17 +139,17 @@ impl BlockchainClient for GenericEthereumClient {
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
         match self {
-            GenericEthereumClient::Http(http_client) => {
+            MaybeWsEthereumClient::Http(http_client) => {
                 http_client.block_transaction(block, tx).await
             }
-            GenericEthereumClient::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
         }
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
         match self {
-            GenericEthereumClient::Http(http_client) => http_client.call(req).await,
-            GenericEthereumClient::Ws(ws_client) => ws_client.call(req).await,
+            MaybeWsEthereumClient::Http(http_client) => http_client.call(req).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.call(req).await,
         }
     }
 }
@@ -174,13 +174,13 @@ mod tests {
     #[tokio::test]
     async fn test_network_options() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::network_options::<GenericEthereumClient>(config).await
+        rosetta_server::tests::network_options::<MaybeWsEthereumClient>(config).await
     }
 
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::network_status::<GenericEthereumClient>(config).await
+        rosetta_server::tests::network_status::<MaybeWsEthereumClient>(config).await
     }
 
     #[tokio::test]
