@@ -75,24 +75,11 @@ impl BlockchainClient for AstarClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        // TODO: Fix this hack, need to support multiple addresses per node
-        let (http_uri, ws_uri) = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
-            (format!("http://{addr_without_scheme}"), addr.to_string())
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("wss://") {
-            (format!("https://{addr_without_scheme}"), addr.to_string())
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("http://") {
-            (addr.to_string(), format!("ws://{addr_without_scheme}"))
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("https://") {
-            (addr.to_string(), format!("wss://{addr_without_scheme}"))
-        } else {
-            (format!("http://{addr}"), format!("ws://{addr}"))
-        };
         let substrate_client = {
-            let client = default_client(ws_uri.as_str(), None).await?;
-            log::info!("Connected to {}", ws_uri.as_str());
+            let client = default_client(addr, None).await?;
             OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
         };
-        let ethereum_client = MaybeWsEthereumClient::new(config, http_uri.as_str()).await?;
+        let ethereum_client = MaybeWsEthereumClient::new(config, addr).await?;
         Ok(Self {
             client: ethereum_client,
             ws_client: substrate_client,
