@@ -48,8 +48,8 @@ async fn build_socketto_client(
     url: &str,
     config: &RpcClientConfig,
 ) -> Result<Client, WsHandshakeError> {
-    use tide::http::url::Url;
     use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
+    use tide::http::url::Url;
 
     let url = url
         .parse::<Url>()

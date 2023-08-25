@@ -25,7 +25,6 @@ pub use rosetta_core::*;
 
 #[cfg(feature = "ws")]
 pub mod ws;
-mod ws_server;
 
 #[derive(Parser)]
 struct Opts {
@@ -35,6 +34,10 @@ struct Opts {
     addr: SocketAddr,
     #[clap(long)]
     node_addr: String,
+}
+
+pub async fn custom_main() -> Result<()> {
+    Ok(())
 }
 
 pub async fn main<T: BlockchainClient>() -> Result<()> {

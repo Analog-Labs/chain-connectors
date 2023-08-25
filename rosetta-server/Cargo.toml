@@ -11,19 +11,14 @@ default = []
 native-tls = ["tokio-tungstenite/native-tls", "jsonrpsee/client-ws-transport-native-tls"]
 webpki-tls = ["tokio-tungstenite/rustls-tls-webpki-roots", "jsonrpsee/client-ws-transport-webpki-tls"]
 ws = ["jsonrpsee", "subxt", "futures", "futures/std"]
-ws-server = ["jsonrpsee", "subxt", "futures", "futures/std", "async-tungstenite", "async-dup", "async-std", "base64", "futures-util", "sha1"]
 tests = ["futures", "rosetta-docker", "nanoid"]
 
 [dependencies]
 anyhow = "1.0.69"
 async-trait = "0.1.66"
-async-dup = { version = "1.2.2", optional = true }
-async-std = { version = "1.12.0", optional = true }
-base64 = { version = "0.21.2", optional = true }
 clap = { version = "4.1.8", features = ["derive"] }
 femme = "2.2.1"
 futures = { version = "0.3.26", optional = true }
-futures-util = { version = "0.3.28", optional = true }
 hex = "0.4.3"
 jsonrpsee = { version = "0.20.0", default-features = false, features = ["ws-client"], optional = true }
 log = "0.4.17"
@@ -36,9 +31,7 @@ subxt = { version = "0.31", default-features = false, features = ["substrate-com
 tide = { version = "0.16.0", default-features = false, features = ["h1-server", "logger"] }
 tokio = { version = "1.26.0", features = ["full"] }
 tokio-retry = "0.3"
-async-tungstenite = { version = "0.23.0", default-features = false, features = ["handshake"], optional = true }
 tokio-tungstenite = { version = "0.20.0", default-features = false, features = ["handshake", "connect"] }
-sha1 = { version = "0.10.5", optional = true }
 
 [build-dependencies]
 anyhow = "1.0.69"
