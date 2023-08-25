@@ -7,7 +7,7 @@ repository = "https://github.com/analog-labs/chain-connectors"
 description = "Cryptographic primitives used by the rosetta client."
 
 [dependencies]
-anyhow = "1.0.69"
+anyhow = "1.0"
 bech32 = "0.9.1"
 blake2-rfc = "0.2.18"
 bs58 = "0.4.0"
