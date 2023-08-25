@@ -36,10 +36,6 @@ struct Opts {
     node_addr: String,
 }
 
-pub async fn custom_main() -> Result<()> {
-    Ok(())
-}
-
 pub async fn main<T: BlockchainClient>() -> Result<()> {
     femme::start();
     let opts = Opts::parse();
