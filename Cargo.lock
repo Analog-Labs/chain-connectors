@@ -1196,9 +1196,9 @@ checksum = "21a53c0a4d288377e7415b53dcfc3c04da5cdc2cc95c8d5ac178b58f0b861ad6"
 
 [[package]]
 name = "containers-api"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef94b0ff8338282b35bafb408eb0a3e53ba05bdb3b36840589ab9a67a6682593"
+checksum = "74a6c297451ce82117ff9090e5174bf18f86e6bcbfbfc3820246abbc4f44fa16"
 dependencies = [
  "chrono",
  "flate2",
@@ -1736,9 +1736,9 @@ checksum = "212d0f5754cb6769937f4501cc0e67f4f4483c8d2c3e1e922ee9edbe4ab4c7c0"
 
 [[package]]
 name = "docker-api"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64181526a363e08b4097d205c012310b8b8caa54bd94cbc60f586c8a268fb744"
+checksum = "4576e993f4ef4805931a835b7afe71dec6cbd096e9b08bbd8e8f03e1940b2745"
 dependencies = [
  "asynchronous-codec",
  "base64 0.13.1",
@@ -4951,13 +4951,17 @@ name = "rosetta-docker"
 version = "0.4.1"
 dependencies = [
  "anyhow",
+ "dirs",
  "docker-api",
  "env_logger",
  "futures",
  "getrandom 0.2.10",
+ "hex 0.4.3",
  "log",
  "rosetta-client",
  "rosetta-core",
+ "serde_json",
+ "sha2 0.10.7",
  "surf",
  "tokio",
  "tokio-retry",

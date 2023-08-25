@@ -17,7 +17,7 @@ rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server" }
 serde = "1.0"
 serde_json = "1.0"
-tokio = { version = "1.26", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 url = "2.4.0"
 
 [dev-dependencies]

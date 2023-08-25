@@ -296,7 +296,7 @@ where
                 for token in detokenizer.tokens {
                     result.push(token.to_string());
                 }
-                return Ok(serde_json::to_value(result)?);
+                Ok(serde_json::to_value(result)?)
             }
             "storage" => {
                 //process storage call
@@ -314,7 +314,7 @@ where
                     .client
                     .get_storage_at(from, location, block_num)
                     .await?;
-                return Ok(Value::String(format!("{storage_check:#?}",)));
+                Ok(Value::String(format!("{storage_check:#?}",)))
             }
             "storage_proof" => {
                 let from = H160::from_str(contract_address)?;
@@ -349,10 +349,10 @@ where
 
                 let result = serde_json::to_value(&proof_data)?;
 
-                return Ok(json!({
+                Ok(json!({
                     "proof": result,
                     "isValid": is_valid
-                }));
+                }))
             }
             "transaction_receipt" => {
                 let tx_hash = H256::from_str(contract_address)?;
@@ -361,7 +361,7 @@ where
                 if block_id.is_some() {
                     bail!("block identifier is ignored for transaction receipt");
                 }
-                return Ok(result);
+                Ok(result)
             }
             _ => {
                 bail!("request type not supported")

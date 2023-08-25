@@ -7,7 +7,7 @@ repository = "https://github.com/analog-labs/chain-connectors"
 description = "Ethereum transaction builder."
 
 [dependencies]
-anyhow = "1.0.69"
+anyhow = "1.0"
 ethabi = "18.0.0"
 ethers-core = "2.0.0"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
