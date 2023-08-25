@@ -69,6 +69,7 @@ impl AstarClient {
 impl BlockchainClient for AstarClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
+    type EventStream<'a> = <MaybeWsEthereumClient as BlockchainClient>::EventStream<'a>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_astar::config(network)
@@ -186,6 +187,10 @@ impl BlockchainClient for AstarClient {
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
         self.client.call(req).await
+    }
+
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        self.client.listen().await
     }
 }
 

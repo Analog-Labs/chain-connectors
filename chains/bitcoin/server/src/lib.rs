@@ -25,6 +25,7 @@ const CONFIRMATION_PERIOD: u64 = 6;
 impl BlockchainClient for BitcoinClient {
     type MetadataParams = ();
     type Metadata = ();
+    type EventStream<'a> = rosetta_server::EmptyEventStream;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_bitcoin::config(network)

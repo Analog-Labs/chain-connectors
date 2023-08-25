@@ -73,6 +73,7 @@ impl PolkadotClient {
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
+    type EventStream<'a> = rosetta_server::EmptyEventStream;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_polkadot::config(network)

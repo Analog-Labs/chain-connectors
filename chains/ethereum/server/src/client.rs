@@ -1,4 +1,4 @@
-use crate::proof::verify_proof;
+use crate::{event_stream::EthereumEventStream, proof::verify_proof};
 use anyhow::{bail, Context, Result};
 use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token};
@@ -367,5 +367,15 @@ where
                 bail!("request type not supported")
             }
         }
+    }
+}
+
+impl<P> EthereumClient<P>
+where
+    P: PubsubClient,
+{
+    pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
+        let new_head_subscription = self.client.subscribe_blocks().await?;
+        Ok(EthereumEventStream::new(new_head_subscription))
     }
 }

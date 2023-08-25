@@ -14,8 +14,11 @@ use url::Url;
 
 mod client;
 mod eth_types;
+mod event_stream;
 mod proof;
 mod utils;
+
+pub use event_stream::EthereumEventStream;
 
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
@@ -41,6 +44,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
+    type EventStream<'a> = EthereumEventStream<'a, Ws>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)
@@ -150,6 +154,16 @@ impl BlockchainClient for MaybeWsEthereumClient {
         match self {
             MaybeWsEthereumClient::Http(http_client) => http_client.call(req).await,
             MaybeWsEthereumClient::Ws(ws_client) => ws_client.call(req).await,
+        }
+    }
+
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        match self {
+            MaybeWsEthereumClient::Http(_) => Ok(None),
+            MaybeWsEthereumClient::Ws(ws_client) => {
+                let subscription = ws_client.listen().await?;
+                Ok(Some(subscription))
+            }
         }
     }
 }
