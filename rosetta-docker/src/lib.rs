@@ -11,10 +11,7 @@ use futures::stream::StreamExt;
 use rosetta_client::{Client, Signer, Wallet};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::time::Duration;
-use tokio_retry::{
-    strategy::{jitter, ExponentialBackoff},
-    RetryIf,
-};
+use tokio_retry::{strategy::ExponentialBackoff, RetryIf};
 
 pub struct Env {
     config: BlockchainConfig,
@@ -96,7 +93,7 @@ struct EnvBuilder<'a> {
 
 impl<'a> EnvBuilder<'a> {
     pub fn new(prefix: &'a str) -> Result<Self> {
-        let version = ApiVersion::new(1, Some(42), None);
+        let version = ApiVersion::new(1, Some(41), None);
         let endpoint = config::docker_endpoint();
         let docker = Docker::new_versioned(endpoint, version)?;
         Ok(Self { prefix, docker })
@@ -242,7 +239,28 @@ impl<'a> EnvBuilder<'a> {
             let port = *port as u32;
             opts = opts.expose(PublishPort::tcp(port), port);
         }
-        self.run_container(name, &opts.build(), network).await
+        let container = self.run_container(name, &opts.build(), network).await?;
+
+        // TODO: replace this by a proper healthcheck
+        let maybe_error = if matches!(config.node_uri.scheme, "http" | "https" | "ws" | "wss") {
+            wait_for_http(
+                &format!("http://127.0.0.1:{}", config.node_uri.port),
+                &container,
+            )
+            .await
+            .err()
+        } else {
+            // Wait 15 seconds to guarantee the node didn't crash
+            tokio::time::sleep(Duration::from_secs(15)).await;
+            health(&container).await.err()
+        };
+
+        if let Some(err) = maybe_error {
+            log::error!("node failed to start: {}", err);
+            let _ = container.stop(&ContainerStopOpts::default()).await;
+            return Err(err);
+        }
+        Ok(container)
     }
 
     async fn run_connector(
@@ -279,7 +297,7 @@ impl<'a> EnvBuilder<'a> {
             Ok(()) => Ok(container),
             Err(err) => {
                 log::error!("connector failed to start: {}", err);
-                let _ = container.stop(&ContainerStopOpts::builder().build()).await;
+                let _ = container.stop(&ContainerStopOpts::default()).await;
                 Err(err)
             }
         }
@@ -315,9 +333,14 @@ async fn health(container: &Container) -> Result<Option<Health>> {
 async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
     let retry_strategy = ExponentialBackoff::from_millis(2)
         .factor(100)
-        .max_delay(Duration::from_secs(10))
-        .map(jitter) // add jitter to delays
+        .max_delay(Duration::from_secs(2))
         .take(20); // limit to 20 retries
+
+    #[derive(Debug)]
+    enum RetryError {
+        Retry(anyhow::Error),
+        ContainerExited(anyhow::Error),
+    }
 
     RetryIf::spawn(
         retry_strategy,
@@ -325,17 +348,21 @@ async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
             match surf::get(url).await {
                 Ok(_) => Ok(()),
                 Err(err) => {
-                    if health(container).await.is_err() {
-                        return Err("container exited".to_string());
+                    // Check if the container exited
+                    let health_status = health(container).await;
+                    if matches!(health_status, Err(_) | Ok(Some(Health::Unhealthy))) {
+                        return Err(RetryError::ContainerExited(err.into_inner()));
                     }
-                    log::error!("url: {} error: {}", url, err);
-                    Err(err.to_string())
+                    Err(RetryError::Retry(err.into_inner()))
                 }
             }
         },
         // Retry Condition
-        |error_message: &String| !error_message.starts_with("container exited"),
+        |error: &RetryError| matches!(error, RetryError::Retry(_)),
     )
     .await
-    .map_err(|err| anyhow::format_err!("{}", err))
+    .map_err(|err| match err {
+        RetryError::Retry(error) => error,
+        RetryError::ContainerExited(error) => error,
+    })
 }

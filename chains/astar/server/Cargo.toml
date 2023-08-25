@@ -7,13 +7,13 @@ repository = "https://github.com/analog-labs/chain-connectors"
 description = "Astar rosetta server."
 
 [dependencies]
-anyhow = "1.0.69"
+anyhow = "1.0"
 async-std = { version = "1.12.0", features = ["tokio1"] }
-async-trait = "0.1.66"
+async-trait = "0.1"
 ethers = "2.0.7"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 hex = "0.4.3"
-log = "0.4.17"
+log = "0.4"
 parity-scale-codec = "3.4.0"
 rosetta-config-astar = { version = "0.4.0", path = "../config" }
 rosetta-config-ethereum = { version = "0.4.0", path = "../../ethereum/config" }
@@ -23,7 +23,7 @@ serde_json = "1.0"
 sp-core = { version = "21.0.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "24.0.0"
 subxt = { version = "0.31", default-features = false, features = ["substrate-compat"] }
-tokio = { version = "1.26.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
 ethers-solc = "2.0.1"
