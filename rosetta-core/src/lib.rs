@@ -8,10 +8,14 @@ use crate::types::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
+pub use futures_util::future;
+pub use futures_util::stream;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
+
+use futures_util::stream::Empty;
 
 pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
@@ -65,10 +69,34 @@ impl BlockchainConfig {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BlockOrIdentifier {
+    Identifier(BlockIdentifier),
+    Block(Block),
+}
+
+/// Event produced by a handler.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ClientEvent {
+    /// New header was appended to the chain, or a chain reorganization occur.
+    NewHead(BlockOrIdentifier),
+
+    /// A new block was finalized.
+    NewFinalized(BlockOrIdentifier),
+
+    /// Close the connection for the given reason.
+    Close(String),
+}
+
+/// An empty event stream. Use this if the blockchain doesn't support events.
+pub type EmptyEventStream = Empty<ClientEvent>;
+
 #[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Send + Sync + 'static;
     type Metadata: Serialize;
+    type EventStream<'a>: stream::Stream<Item = ClientEvent> + Send + Unpin + 'a;
+
     fn create_config(network: &str) -> Result<BlockchainConfig>;
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
@@ -92,6 +120,11 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         tx: &TransactionIdentifier,
     ) -> Result<Transaction>;
     async fn call(&self, req: &CallRequest) -> Result<Value>;
+
+    /// Return a stream of events, return None if the blockchain doesn't support events.
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        Ok(None)
+    }
 }
 
 pub trait RosettaAlgorithm {

@@ -13,7 +13,7 @@ use rosetta_server::types::{
     TransactionIdentifier,
 };
 use rosetta_server::{ws::default_client, BlockchainClient, BlockchainConfig};
-use rosetta_server_ethereum::EthereumClient;
+use rosetta_server_ethereum::MaybeWsEthereumClient;
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ use subxt::{
 };
 
 pub struct AstarClient {
-    client: EthereumClient,
+    client: MaybeWsEthereumClient,
     ws_client: OnlineClient<PolkadotConfig>,
 }
 
@@ -69,30 +69,18 @@ impl AstarClient {
 impl BlockchainClient for AstarClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
+    type EventStream<'a> = <MaybeWsEthereumClient as BlockchainClient>::EventStream<'a>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_astar::config(network)
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        // TODO: Fix this hack, need to support multiple addresses per node
-        let (http_uri, ws_uri) = if let Some(addr_without_scheme) = addr.strip_prefix("ws://") {
-            (format!("http://{addr_without_scheme}"), addr.to_string())
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("wss://") {
-            (format!("https://{addr_without_scheme}"), addr.to_string())
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("http://") {
-            (addr.to_string(), format!("ws://{addr_without_scheme}"))
-        } else if let Some(addr_without_scheme) = addr.strip_prefix("https://") {
-            (addr.to_string(), format!("wss://{addr_without_scheme}"))
-        } else {
-            (format!("http://{addr}"), format!("ws://{addr}"))
-        };
         let substrate_client = {
-            let client = default_client(ws_uri.as_str(), None).await?;
-            log::info!("Connected to {}", ws_uri.as_str());
+            let client = default_client(addr, None).await?;
             OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
         };
-        let ethereum_client = EthereumClient::new(config, http_uri.as_str()).await?;
+        let ethereum_client = MaybeWsEthereumClient::new(config, addr).await?;
         Ok(Self {
             client: ethereum_client,
             ws_client: substrate_client,
@@ -199,6 +187,10 @@ impl BlockchainClient for AstarClient {
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
         self.client.call(req).await
+    }
+
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        self.client.listen().await
     }
 }
 

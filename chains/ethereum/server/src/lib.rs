@@ -1,11 +1,6 @@
-use anyhow::{bail, Context, Result};
-use ethabi::token::{LenientTokenizer, Tokenizer};
-use ethers::abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token};
-use ethers::prelude::*;
-use ethers::providers::{Http, Middleware, Provider};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::Encodable;
-use proof::verify_proof;
+use anyhow::Result;
+use client::EthereumClient;
+use ethers::providers::{Http, Ws};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -14,212 +9,132 @@ use rosetta_server::types::{
     TransactionIdentifier,
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
-use serde_json::{json, Value};
-use std::str::FromStr;
-use std::sync::Arc;
+use serde_json::Value;
+use url::Url;
 
+mod client;
 mod eth_types;
+mod event_stream;
 mod proof;
 mod utils;
 
-pub struct EthereumClient {
-    config: BlockchainConfig,
-    client: Arc<Provider<Http>>,
-    genesis_block: BlockIdentifier,
+pub use event_stream::EthereumEventStream;
+
+pub enum MaybeWsEthereumClient {
+    Http(EthereumClient<Http>),
+    Ws(EthereumClient<Ws>),
+}
+
+impl MaybeWsEthereumClient {
+    pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
+        let addr = addr.as_ref();
+        if addr.starts_with("ws://") || addr.starts_with("wss://") {
+            let ws_connection = Ws::connect(addr).await?;
+            let client = EthereumClient::new(config, ws_connection).await?;
+            Ok(Self::Ws(client))
+        } else {
+            let http_connection = Http::new(Url::parse(addr)?);
+            let client = EthereumClient::new(config, http_connection).await?;
+            Ok(Self::Http(client))
+        }
+    }
 }
 
 #[async_trait::async_trait]
-impl BlockchainClient for EthereumClient {
+impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
+    type EventStream<'a> = EthereumEventStream<'a, Ws>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = Arc::new(Provider::<Http>::try_from(addr)?);
-        let genesis = client
-            .get_block(0)
-            .await?
-            .context("Failed to get genesis block")?;
-        let genesis_block = BlockIdentifier {
-            index: 0,
-            hash: hex::encode(genesis.hash.as_ref().unwrap()),
-        };
-        Ok(Self {
-            config,
-            client,
-            genesis_block,
-        })
+        MaybeWsEthereumClient::new(config, addr).await
     }
 
     fn config(&self) -> &BlockchainConfig {
-        &self.config
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.config(),
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.config(),
+        }
     }
 
     fn genesis_block(&self) -> &BlockIdentifier {
-        &self.genesis_block
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.genesis_block(),
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.genesis_block(),
+        }
     }
 
     async fn node_version(&self) -> Result<String> {
-        Ok(self.client.client_version().await?)
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.node_version().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.node_version().await,
+        }
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
-        let index = self.client.get_block_number().await?.as_u64();
-        let block = self
-            .client
-            .get_block(index)
-            .await?
-            .context("missing block")?;
-        Ok(BlockIdentifier {
-            index,
-            hash: hex::encode(block.hash.as_ref().unwrap()),
-        })
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.current_block().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.current_block().await,
+        }
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        if let Some(block) = self
-            .client
-            .get_block(BlockId::Number(BlockNumber::Finalized))
-            .await?
-        {
-            Ok(BlockIdentifier {
-                index: block.number.context("Block is pending")?.as_u64(),
-                hash: hex::encode(block.hash.as_ref().unwrap()),
-            })
-        } else {
-            Ok(self.genesis_block.clone())
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.finalized_block().await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.finalized_block().await,
         }
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        let block = hex::decode(&block.hash)?
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("invalid block hash"))?;
-        let address: H160 = address.address().parse()?;
-        Ok(self
-            .client
-            .get_balance(address, Some(BlockId::Hash(H256(block))))
-            .await?
-            .as_u128())
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.balance(address, block).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.balance(address, block).await,
+        }
     }
 
-    async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        anyhow::bail!("not a utxo chain");
+    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.coins(address, block).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.coins(address, block).await,
+        }
     }
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        // first account will be the coinbase account on a dev net
-        let coinbase = self.client.get_accounts().await?[0];
-        let address: H160 = address.address().parse()?;
-        let tx = TransactionRequest::new()
-            .to(address)
-            .value(param)
-            .from(coinbase);
-        Ok(self
-            .client
-            .send_transaction(tx, None)
-            .await?
-            .confirmations(2)
-            .await?
-            .unwrap()
-            .transaction_hash
-            .0
-            .to_vec())
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.faucet(address, param).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.faucet(address, param).await,
+        }
     }
 
     async fn metadata(
         &self,
         public_key: &PublicKey,
         options: &Self::MetadataParams,
-    ) -> Result<Self::Metadata> {
-        let from: H160 = public_key
-            .to_address(self.config().address_format)
-            .address()
-            .parse()?;
-        let to: Option<NameOrAddress> = if options.destination.len() >= 20 {
-            Some(H160::from_slice(&options.destination).into())
-        } else {
-            None
-        };
-        let chain_id = self.client.get_chainid().await?;
-        let nonce = self.client.get_transaction_count(from, None).await?;
-        let (max_fee_per_gas, max_priority_fee_per_gas) =
-            self.client.estimate_eip1559_fees(None).await?;
-        let tx = Eip1559TransactionRequest {
-            from: Some(from),
-            to,
-            value: Some(U256(options.amount)),
-            data: Some(options.data.clone().into()),
-            ..Default::default()
-        };
-        let gas_limit = self.client.estimate_gas(&tx.into(), None).await?;
-        Ok(EthereumMetadata {
-            chain_id: chain_id.as_u64(),
-            nonce: nonce.as_u64(),
-            max_priority_fee_per_gas: max_priority_fee_per_gas.0,
-            max_fee_per_gas: max_fee_per_gas.0,
-            gas_limit: gas_limit.0,
-        })
+    ) -> Result<EthereumMetadata> {
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => {
+                http_client.metadata(public_key, options).await
+            }
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.metadata(public_key, options).await,
+        }
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
-        let tx = transaction.to_vec().into();
-        Ok(self
-            .client
-            .send_raw_transaction(Bytes(tx))
-            .await?
-            .confirmations(2)
-            .await?
-            .context("Failed to get transaction receipt")?
-            .transaction_hash
-            .0
-            .to_vec())
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.submit(transaction).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.submit(transaction).await,
+        }
     }
 
     async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
-        let block_id = if let Some(hash) = block_identifier.hash.as_ref() {
-            BlockId::Hash(H256::from_str(hash)?)
-        } else {
-            let index = if let Some(index) = block_identifier.index {
-                BlockNumber::Number(U64::from(index))
-            } else {
-                BlockNumber::Latest
-            };
-            BlockId::Number(index)
-        };
-        let block = self
-            .client
-            .get_block_with_txs(block_id)
-            .await?
-            .context("block not found")?;
-        let block_number = block.number.context("Unable to fetch block number")?;
-        let block_hash = block.hash.context("Unable to fetch block hash")?;
-        let mut transactions = vec![];
-        let block_reward_transaction =
-            crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
-        transactions.push(block_reward_transaction);
-        for transaction in &block.transactions {
-            let transaction =
-                crate::utils::get_transaction(&self.client, self.config(), &block, transaction)
-                    .await?;
-            transactions.push(transaction);
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.block(block_identifier).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block(block_identifier).await,
         }
-        Ok(Block {
-            block_identifier: BlockIdentifier {
-                index: block_number.as_u64(),
-                hash: hex::encode(block_hash),
-            },
-            parent_block_identifier: BlockIdentifier {
-                index: block_number.as_u64().saturating_sub(1),
-                hash: hex::encode(block.parent_hash),
-            },
-            timestamp: block.timestamp.as_u64() as i64,
-            transactions,
-            metadata: None,
-        })
     }
 
     async fn block_transaction(
@@ -227,153 +142,27 @@ impl BlockchainClient for EthereumClient {
         block: &BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        let tx_id = H256::from_str(&tx.hash)?;
-        let block = self
-            .client
-            .get_block(BlockId::Hash(H256::from_str(&block.hash)?))
-            .await?
-            .context("block not found")?;
-        let transaction = self
-            .client
-            .get_transaction(tx_id)
-            .await?
-            .context("transaction not found")?;
-        let transaction =
-            crate::utils::get_transaction(&self.client, self.config(), &block, &transaction)
-                .await?;
-        Ok(transaction)
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => {
+                http_client.block_transaction(block, tx).await
+            }
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
+        }
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
-        let call_details = req.method.split('-').collect::<Vec<&str>>();
-        if call_details.len() != 3 {
-            anyhow::bail!("Invalid length of call request params");
+        match self {
+            MaybeWsEthereumClient::Http(http_client) => http_client.call(req).await,
+            MaybeWsEthereumClient::Ws(ws_client) => ws_client.call(req).await,
         }
-        let contract_address = call_details[0];
-        let method_or_position = call_details[1];
-        let call_type = call_details[2];
+    }
 
-        let block_id = req
-            .block_identifier
-            .as_ref()
-            .map(|block_identifier| -> Result<BlockId> {
-                if let Some(block_hash) = block_identifier.hash.as_ref() {
-                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"));
-                } else if let Some(block_number) = block_identifier.index {
-                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(
-                        block_number,
-                    ))));
-                };
-                bail!("invalid block identifier")
-            })
-            .transpose()?;
-
-        let params = &req.parameters;
-        match call_type.to_lowercase().as_str() {
-            "call" => {
-                //process constant call
-                let contract_address = H160::from_str(contract_address)?;
-
-                let function = HumanReadableParser::parse_function(method_or_position)?;
-                let params: Vec<String> = serde_json::from_value(params.clone())?;
-                let mut tokens = Vec::with_capacity(params.len());
-                for (ty, arg) in function.inputs.iter().zip(params) {
-                    tokens.push(LenientTokenizer::tokenize(&ty.kind, &arg)?);
-                }
-                let data = function.encode_input(&tokens)?;
-
-                let tx = Eip1559TransactionRequest {
-                    to: Some(contract_address.into()),
-                    data: Some(data.into()),
-                    ..Default::default()
-                };
-
-                let tx = &tx.into();
-                let received_data = self.client.call(tx, block_id).await?;
-
-                struct Detokenizer {
-                    tokens: Vec<Token>,
-                }
-                impl Detokenize for Detokenizer {
-                    fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
-                        Ok(Self { tokens })
-                    }
-                }
-                let detokenizer: Detokenizer =
-                    decode_function_data(&function, received_data, false)?;
-                let mut result = Vec::with_capacity(tokens.len());
-                for token in detokenizer.tokens {
-                    result.push(token.to_string());
-                }
-                return Ok(serde_json::to_value(result)?);
-            }
-            "storage" => {
-                //process storage call
-                let from = H160::from_str(contract_address)?;
-
-                let location = H256::from_str(method_or_position)?;
-
-                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
-                let block_num = params["block_number"]
-                    .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()))
-                    .or(block_id);
-
-                let storage_check = self
-                    .client
-                    .get_storage_at(from, location, block_num)
-                    .await?;
-                return Ok(Value::String(format!("{storage_check:#?}",)));
-            }
-            "storage_proof" => {
-                let from = H160::from_str(contract_address)?;
-
-                let location = H256::from_str(method_or_position)?;
-
-                // TODO: remove the params["block_number"], use block_identifier instead, leaving it here for compatibility
-                let block_num = params["block_number"]
-                    .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()))
-                    .or(block_id);
-
-                let proof_data = self
-                    .client
-                    .get_proof(from, vec![location], block_num)
-                    .await?;
-
-                //process verfiicatin of proof
-                let storage_hash = proof_data.storage_hash;
-                let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
-
-                let key = &storage_proof.key;
-                let key_hash = keccak256(key);
-                let encoded_val = storage_proof.value.rlp_bytes().to_vec();
-
-                let is_valid = verify_proof(
-                    &storage_proof.proof,
-                    storage_hash.as_bytes(),
-                    &key_hash.to_vec(),
-                    &encoded_val,
-                );
-
-                let result = serde_json::to_value(&proof_data)?;
-
-                return Ok(json!({
-                    "proof": result,
-                    "isValid": is_valid
-                }));
-            }
-            "transaction_receipt" => {
-                let tx_hash = H256::from_str(contract_address)?;
-                let receipt = self.client.get_transaction_receipt(tx_hash).await?;
-                let result = serde_json::to_value(&receipt)?;
-                if block_id.is_some() {
-                    bail!("block identifier is ignored for transaction receipt");
-                }
-                return Ok(result);
-            }
-            _ => {
-                bail!("request type not supported")
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        match self {
+            MaybeWsEthereumClient::Http(_) => Ok(None),
+            MaybeWsEthereumClient::Ws(ws_client) => {
+                let subscription = ws_client.listen().await?;
+                Ok(Some(subscription))
             }
         }
     }
@@ -399,13 +188,13 @@ mod tests {
     #[tokio::test]
     async fn test_network_options() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::network_options::<EthereumClient>(config).await
+        rosetta_server::tests::network_options::<MaybeWsEthereumClient>(config).await
     }
 
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::network_status::<EthereumClient>(config).await
+        rosetta_server::tests::network_status::<MaybeWsEthereumClient>(config).await
     }
 
     #[tokio::test]

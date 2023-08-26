@@ -19,7 +19,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             currency_unit: "wei",
             currency_symbol: "ETH",
             currency_decimals: 18,
-            node_uri: NodeUri::parse("http://127.0.0.1:8545")?,
+            node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws")?,
             node_image: "ethereum/client-go:v1.12.2",
             node_command: Arc::new(|network, port| {
                 let mut params = if network == "dev" {
@@ -36,7 +36,14 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
                     "--http.addr=0.0.0.0".into(),
                     format!("--http.port={port}"),
                     "--http.vhosts=*".into(),
+                    "--http.corsdomain=*".into(),
                     "--http.api=eth,debug,admin,txpool,web3".into(),
+                    "--ws".into(),
+                    "--ws.addr=0.0.0.0".into(),
+                    format!("--ws.port={port}"),
+                    "--ws.origins=*".into(),
+                    "--ws.api=eth,debug,admin,txpool,web3".into(),
+                    "--ws.rpcprefix=/ws".into(),
                 ]);
                 params
             }),

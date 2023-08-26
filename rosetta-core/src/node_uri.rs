@@ -79,6 +79,18 @@ impl<'a> NodeUri<'a> {
             fragment: self.fragment,
         }
     }
+
+    pub fn with_scheme<'b, 'c: 'b>(&'b self, scheme: &'c str) -> NodeUri<'b> {
+        NodeUri {
+            scheme,
+            userinfo: self.userinfo,
+            host: self.host,
+            port: self.port,
+            path: self.path,
+            query: self.query,
+            fragment: self.fragment,
+        }
+    }
 }
 
 impl Display for NodeUri<'_> {

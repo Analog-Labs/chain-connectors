@@ -7,7 +7,7 @@ use crate::eth_types::{
 use anyhow::{bail, Context, Result};
 use ethers::{prelude::*, utils::to_checksum};
 use ethers::{
-    providers::{Http, Middleware, Provider},
+    providers::Middleware,
     types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
 };
 use rosetta_server::types as rosetta_types;
@@ -19,8 +19,8 @@ use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
 
-pub async fn get_transaction<T>(
-    client: &Provider<Http>,
+pub async fn get_transaction<P: JsonRpcClient, T>(
+    client: &Provider<P>,
     config: &BlockchainConfig,
     block: &Block<T>,
     tx: &Transaction,
@@ -171,7 +171,10 @@ fn get_fee_operations<T>(
     Ok(operations)
 }
 
-async fn get_transaction_trace(hash: &H256, client: &Provider<Http>) -> Result<Trace> {
+async fn get_transaction_trace<P: JsonRpcClient>(
+    hash: &H256,
+    client: &Provider<P>,
+) -> Result<Trace> {
     let params = json!([
         hash,
         {
@@ -356,8 +359,8 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
     Ok(operations)
 }
 
-pub async fn block_reward_transaction(
-    client: &Provider<Http>,
+pub async fn block_reward_transaction<P: JsonRpcClient>(
+    client: &Provider<P>,
     config: &BlockchainConfig,
     block: &Block<Transaction>,
 ) -> Result<rosetta_types::Transaction> {

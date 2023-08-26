@@ -244,7 +244,11 @@ impl<'a> EnvBuilder<'a> {
         // TODO: replace this by a proper healthcheck
         let maybe_error = if matches!(config.node_uri.scheme, "http" | "https" | "ws" | "wss") {
             wait_for_http(
-                &format!("http://127.0.0.1:{}", config.node_uri.port),
+                config
+                    .node_uri
+                    .with_scheme("http") // any ws endpoint is also a http endpoint
+                    .with_host("127.0.0.1")
+                    .to_string(),
                 &container,
             )
             .await
@@ -330,7 +334,8 @@ async fn health(container: &Container) -> Result<Option<Health>> {
     }))
 }
 
-async fn wait_for_http(url: &str, container: &Container) -> Result<()> {
+async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<()> {
+    let url = url.as_ref();
     let retry_strategy = ExponentialBackoff::from_millis(2)
         .factor(100)
         .max_delay(Duration::from_secs(2))

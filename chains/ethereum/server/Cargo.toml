@@ -8,16 +8,20 @@ description = "Ethereum rosetta server."
 
 [dependencies]
 anyhow = "1.0"
-async-std = { version = "1.12.0", features = ["tokio1"] }
+arc-swap = "1.6"
+async-std = { version = "1.12", features = ["tokio1"] }
 async-trait = "0.1"
 ethabi = "18.0.0"
-ethers = "2.0.2"
+ethers = { version = "2.0", default-features = true, features = ["ws", "abigen", "rustls"] }
 hex = "0.4.3"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server" }
+log = "0.4"
+pin-project = "1.1"
 serde = "1.0"
 serde_json = "1.0"
 tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
+url = "2.4.0"
 
 [dev-dependencies]
 ethers-solc = "2.0.1"
