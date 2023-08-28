@@ -10,9 +10,9 @@ description = "Provides traits and definitions shared by the server and client c
 anyhow = "1.0"
 async-trait = "0.1"
 fluent-uri = "0.1.4"
+futures-util = "0.3"
 rosetta-crypto = { version = "0.4.0", path = "../rosetta-crypto" }
 rosetta-types = { version = "0.4.0", path = "../rosetta-types" }
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
-futures-util = "0.3"

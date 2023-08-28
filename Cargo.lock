@@ -5053,6 +5053,7 @@ dependencies = [
  "ethabi",
  "ethers",
  "ethers-solc",
+ "futures-timer",
  "hex 0.4.3",
  "log",
  "pin-project",
