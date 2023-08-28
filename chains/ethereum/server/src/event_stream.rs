@@ -48,13 +48,13 @@ where
                     let Some(number) = block.number else {
                         log::error!("block number is missing");
                         self.failures += 1;
-                        continue
+                        continue;
                     };
 
                     let Some(hash) = block.hash else {
                         log::error!("block hash is missing");
                         self.failures += 1;
-                        continue
+                        continue;
                     };
 
                     self.failures = 0;

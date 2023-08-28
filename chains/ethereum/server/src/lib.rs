@@ -1,6 +1,6 @@
 use anyhow::Result;
 use client::EthereumClient;
-use ethers::providers::{Http, Ws};
+use ethers::providers::Http;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -17,19 +17,22 @@ mod eth_types;
 mod event_stream;
 mod proof;
 mod utils;
+mod ws_provider;
+
+use ws_provider::ExtendedWs;
 
 pub use event_stream::EthereumEventStream;
 
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
-    Ws(EthereumClient<Ws>),
+    Ws(EthereumClient<ExtendedWs>),
 }
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
         let addr = addr.as_ref();
         if addr.starts_with("ws://") || addr.starts_with("wss://") {
-            let ws_connection = Ws::connect(addr).await?;
+            let ws_connection = ExtendedWs::connect(addr).await?;
             let client = EthereumClient::new(config, ws_connection).await?;
             Ok(Self::Ws(client))
         } else {
@@ -44,7 +47,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, Ws>;
+    type EventStream<'a> = EthereumEventStream<'a, ExtendedWs>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)

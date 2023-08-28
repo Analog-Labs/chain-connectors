@@ -184,7 +184,13 @@ where
         let block = self
             .client
             .get_block_with_txs(block_id)
-            .await?
+            .await
+            .map_err(|error| {
+                anyhow::anyhow!(
+                    "Failed to get block with transactions: {}",
+                    error.to_string()
+                )
+            })?
             .context("block not found")?;
         let block_number = block.number.context("Unable to fetch block number")?;
         let block_hash = block.hash.context("Unable to fetch block hash")?;
