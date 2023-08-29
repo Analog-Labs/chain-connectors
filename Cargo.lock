@@ -3292,8 +3292,10 @@ checksum = "8002beb64691edce321fc16cdba91916b10d798f9d480a05467b0ee98463c03b"
 dependencies = [
  "jsonrpsee-client-transport 0.20.0",
  "jsonrpsee-core 0.20.0",
+ "jsonrpsee-proc-macros",
  "jsonrpsee-types 0.20.0",
  "jsonrpsee-ws-client",
+ "tracing",
 ]
 
 [[package]]
@@ -3399,6 +3401,19 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "jsonrpsee-proc-macros"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "985d4a3753a08aaf120429924567795b2764c5c691489316a7fd076178e708b4"
+dependencies = [
+ "heck",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5054,7 +5069,9 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "futures-timer",
+ "futures-util",
  "hex 0.4.3",
+ "jsonrpsee 0.20.0",
  "log",
  "pin-project",
  "rosetta-client",
@@ -5064,6 +5081,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
+ "thiserror",
  "tokio",
  "url",
 ]

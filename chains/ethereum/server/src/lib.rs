@@ -8,7 +8,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{BlockchainClient, BlockchainConfig};
+use rosetta_server::{BlockchainClient, BlockchainConfig, EmptyEventStream};
 use serde_json::Value;
 use url::Url;
 
@@ -19,24 +19,24 @@ mod proof;
 mod utils;
 mod ws_provider;
 
-use ws_provider::ExtendedWs;
+use ws_provider::JsonRpseeClient;
 
 pub use event_stream::EthereumEventStream;
 
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
-    Ws(EthereumClient<ExtendedWs>),
+    Ws(EthereumClient<JsonRpseeClient>),
 }
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
-        let addr = addr.as_ref();
-        if addr.starts_with("ws://") || addr.starts_with("wss://") {
-            let ws_connection = ExtendedWs::connect(addr).await?;
+        let uri = Url::parse(addr.as_ref())?;
+        if uri.scheme() == "ws" || uri.scheme() == "wss" {
+            let ws_connection = JsonRpseeClient::connect(uri).await?;
             let client = EthereumClient::new(config, ws_connection).await?;
             Ok(Self::Ws(client))
         } else {
-            let http_connection = Http::new(Url::parse(addr)?);
+            let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection).await?;
             Ok(Self::Http(client))
         }
@@ -47,7 +47,8 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, ExtendedWs>;
+    // type EventStream<'a> = EthereumEventStream<'a, JsonRpseeClient>;
+    type EventStream<'a> = EmptyEventStream;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)
@@ -160,15 +161,15 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-        match self {
-            MaybeWsEthereumClient::Http(_) => Ok(None),
-            MaybeWsEthereumClient::Ws(ws_client) => {
-                let subscription = ws_client.listen().await?;
-                Ok(Some(subscription))
-            }
-        }
-    }
+    // async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+    //     match self {
+    //         MaybeWsEthereumClient::Http(_) => Ok(None),
+    //         MaybeWsEthereumClient::Ws(ws_client) => {
+    //             let subscription = ws_client.listen().await?;
+    //             Ok(Some(subscription))
+    //         }
+    //     }
+    // }
 }
 
 #[cfg(test)]
