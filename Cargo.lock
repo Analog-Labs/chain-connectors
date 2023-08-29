@@ -5065,6 +5065,7 @@ dependencies = [
  "arc-swap",
  "async-std",
  "async-trait",
+ "dashmap",
  "ethabi",
  "ethers",
  "ethers-solc",
