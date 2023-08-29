@@ -1,20 +1,19 @@
+use crate::{error::Error, params::RpcParams};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use dashmap::DashMap;
 use ethers::prelude::*;
 use ethers::providers::JsonRpcClient;
-use ethers::providers::JsonRpcError;
 use ethers::types::U256;
 use futures_timer::Delay;
 use futures_util::future::BoxFuture;
 use futures_util::{FutureExt, Stream};
 use jsonrpsee::core::client::{Subscription, SubscriptionClientT, SubscriptionKind};
 use jsonrpsee::{
-    client_transport::ws::{WsHandshakeError, WsTransportClientBuilder},
+    client_transport::ws::WsTransportClientBuilder,
     core::{
         client::{Client, ClientBuilder, ClientT},
         error::Error as JsonRpseeError,
-        traits::ToRpcParams,
     },
     rpc_params,
 };
@@ -22,133 +21,12 @@ use pin_project::pin_project;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::value::RawValue;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use url::Url;
-
-#[derive(Debug, thiserror::Error)]
-pub enum RpcClientError {
-    /// Thrown if the response could not be parsed
-    #[error("{original}")]
-    JsonRpcError {
-        original: JsonRpseeError,
-        message: Option<JsonRpcError>,
-    },
-
-    /// Failed to parse the data.
-    #[error(transparent)]
-    ParseError(#[from] serde_json::Error),
-
-    /// Error that can happen during the WebSocket handshake.
-    #[error("WS Handshake failed: {0}")]
-    HandshakeFailed(WsHandshakeError),
-
-    /// The background task has been terminated.
-    #[error("The background task been terminated because: {0}; restart required")]
-    RestartNeeded(String),
-
-    /// The client is reconnecting
-    #[error("The client is restarting the background task")]
-    Reconnecting,
-}
-
-impl From<JsonRpseeError> for RpcClientError {
-    fn from(error: JsonRpseeError) -> Self {
-        match error {
-            JsonRpseeError::Call(call) => {
-                let code = call.code() as i64;
-                let data = call
-                    .data()
-                    .and_then(|raw_value| serde_json::value::to_value(raw_value).ok());
-                let message = call.message().to_string();
-                Self::JsonRpcError {
-                    original: JsonRpseeError::Call(call),
-                    message: Some(JsonRpcError {
-                        code,
-                        message,
-                        data,
-                    }),
-                }
-            }
-            JsonRpseeError::ParseError(serde_error) => Self::ParseError(serde_error),
-            JsonRpseeError::RestartNeeded(reason) => Self::RestartNeeded(reason),
-            error => {
-                let message = format!("{}", &error);
-                Self::JsonRpcError {
-                    original: error,
-                    message: Some(JsonRpcError {
-                        code: 9999,
-                        message,
-                        data: None,
-                    }),
-                }
-            }
-        }
-    }
-}
-
-impl From<WsHandshakeError> for RpcClientError {
-    fn from(error: WsHandshakeError) -> Self {
-        Self::HandshakeFailed(error)
-    }
-}
-
-impl From<RpcClientError> for ProviderError {
-    fn from(error: RpcClientError) -> Self {
-        match error {
-            RpcClientError::ParseError(error) => ProviderError::SerdeJson(error),
-            RpcClientError::HandshakeFailed(error) => ProviderError::CustomError(error.to_string()),
-            error => ProviderError::JsonRpcClientError(Box::new(error)),
-        }
-    }
-}
-
-impl RpcError for RpcClientError {
-    fn as_error_response(&self) -> Option<&JsonRpcError> {
-        match self {
-            RpcClientError::JsonRpcError { message, .. } => message.as_ref(),
-            _ => None,
-        }
-    }
-
-    fn as_serde_error(&self) -> Option<&serde_json::Error> {
-        match self {
-            Self::ParseError(error) => Some(error),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Params(Option<Box<RawValue>>);
-
-impl Params {
-    pub fn from_serializable<T>(params: &T) -> Result<Self, serde_json::Error>
-    where
-        T: Serialize,
-    {
-        let params = serde_json::value::to_raw_value(params)?;
-        Ok(Self(Some(params)))
-    }
-}
-
-impl ToRpcParams for Params {
-    fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
-        Ok(self.0)
-    }
-}
-
-impl Display for Params {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Some(v) => Display::fmt(v.as_ref(), f),
-            None => f.write_str("null"),
-        }
-    }
-}
 
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
@@ -162,7 +40,7 @@ pub struct JsonRpseeClient {
 }
 
 impl JsonRpseeClient {
-    pub async fn connect(uri: Url) -> Result<Self, RpcClientError> {
+    pub async fn connect(uri: Url) -> Result<Self, Error> {
         let (tx, rx) = WsTransportClientBuilder::default()
             .build(uri.clone())
             .await?;
@@ -174,14 +52,22 @@ impl JsonRpseeClient {
         })
     }
 
+    pub fn client(&self) -> Result<Arc<Client>, Error> {
+        let Some(client) = self.client.load().clone() else {
+            log::error!("Requested failed, client is reconnecting...");
+            return Err(Error::Reconnecting);
+        };
+        Ok(client)
+    }
+
     // TODO: reconnect in a different thread, otherwise the request will block
-    pub async fn reconnect(&self) -> Result<(), RpcClientError> {
+    pub async fn reconnect(&self) -> Result<(), Error> {
         // Check if is connected
         let Ok(client) = self.client() else {
             return Ok(());
         };
 
-        if client.is_connected() && is_connected(client.as_ref()).await {
+        if is_connected(client.as_ref()).await {
             self.client.store(Some(client));
             return Ok(());
         }
@@ -217,32 +103,24 @@ impl JsonRpseeClient {
         Ok(())
     }
 
-    pub fn client(&self) -> Result<Arc<Client>, RpcClientError> {
-        let Some(client) = self.client.load().clone() else {
-            log::error!("Requested failed, client is reconnecting...");
-            return Err(RpcClientError::Reconnecting);
-        };
-        Ok(client)
-    }
-
-    pub async fn request<R>(&self, method: &str, params: Params) -> Result<R, RpcClientError>
+    pub async fn request<R>(&self, method: &str, params: RpcParams) -> Result<R, Error>
     where
         R: DeserializeOwned + Send,
     {
         let client = self.client()?;
-        let result = client.request::<R, Params>(method, params).await;
+        let result = client.request::<R, RpcParams>(method, params).await;
 
         match result {
             Err(JsonRpseeError::RestartNeeded(reason)) => {
                 log::error!("Requested failed, WS Connection is close: {reason}");
                 self.reconnect().await?;
-                Err(RpcClientError::Reconnecting)
+                Err(Error::Reconnecting)
             }
-            result => result.map_err(RpcClientError::from),
+            result => result.map_err(Error::from),
         }
     }
 
-    pub async fn subscribe<R>(&self, params: Params) -> Result<R, RpcClientError>
+    pub async fn subscribe<R>(&self, params: RpcParams) -> Result<R, Error>
     where
         R: DeserializeOwned + Send,
     {
@@ -259,9 +137,9 @@ impl JsonRpseeClient {
             Err(JsonRpseeError::RestartNeeded(reason)) => {
                 log::error!("Subscription failed, WS Connection is close: {reason}");
                 self.reconnect().await?;
-                return Err(RpcClientError::Reconnecting);
+                return Err(Error::Reconnecting);
             }
-            result => result.map_err(RpcClientError::from)?,
+            result => result.map_err(Error::from)?,
         };
 
         // The ethereum subscription id must be an U256
@@ -278,7 +156,7 @@ impl JsonRpseeClient {
         // Unsubscribe in case of error
         let Some((subscription_id, result)) = maybe_id else {
             stream.unsubscribe().await?;
-            return Err(RpcClientError::JsonRpcError {
+            return Err(Error::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
@@ -291,14 +169,14 @@ impl JsonRpseeClient {
 
 #[async_trait]
 impl JsonRpcClient for JsonRpseeClient {
-    type Error = RpcClientError;
+    type Error = Error;
 
     async fn request<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
     where
         T: Debug + Serialize + Send + Sync,
         R: DeserializeOwned + Send,
     {
-        let params = Params::from_serializable(&params)?;
+        let params = RpcParams::from_serializable(&params)?;
 
         log::info!("{method} {params}");
         match method {
@@ -407,9 +285,9 @@ impl PubsubClient for JsonRpseeClient {
     type NotificationStream = SubscriptionStream;
 
     /// Add a subscription to this transport
-    fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, RpcClientError> {
+    fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {
         let Some((id, stream)) = self.subscriptions.remove(&id.into()) else {
-            return Err(RpcClientError::JsonRpcError {
+            return Err(Error::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
@@ -424,8 +302,13 @@ impl PubsubClient for JsonRpseeClient {
     }
 }
 
-pub async fn is_connected(provider: &Client) -> bool {
-    let result = provider
+pub async fn is_connected(client: &Client) -> bool {
+    if !client.is_connected() {
+        return false;
+    }
+
+    // Do a simple request to check if the RPC node is functional
+    let result = client
         .request::<U64, _>("eth_blockNumber", rpc_params![])
         .await;
     !matches!(

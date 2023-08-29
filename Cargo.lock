@@ -4990,6 +4990,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-ethereum-rpc-client"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "dashmap",
+ "ethabi",
+ "ethers",
+ "futures-timer",
+ "futures-util",
+ "jsonrpsee 0.20.0",
+ "log",
+ "pin-project",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "rosetta-server"
 version = "0.4.0"
 dependencies = [
@@ -5078,6 +5099,7 @@ dependencies = [
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-docker",
+ "rosetta-ethereum-rpc-client",
  "rosetta-server",
  "serde",
  "serde_json",

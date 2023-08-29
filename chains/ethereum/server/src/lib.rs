@@ -18,23 +18,22 @@ mod eth_types;
 mod event_stream;
 mod proof;
 mod utils;
-mod ws_provider;
 
-use ws_provider::JsonRpseeClient;
+use rosetta_ethereum_rpc_client::Client;
 
 pub use event_stream::EthereumEventStream;
 
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
-    Ws(EthereumClient<JsonRpseeClient>),
+    Ws(EthereumClient<Client>),
 }
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
-            let ws_connection = JsonRpseeClient::connect(uri).await?;
+            let ws_connection = Client::connect(uri).await?;
             let client = EthereumClient::new(config, ws_connection).await?;
             Ok(Self::Ws(client))
         } else {
@@ -49,7 +48,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, JsonRpseeClient>;
+    type EventStream<'a> = EthereumEventStream<'a, Client>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)

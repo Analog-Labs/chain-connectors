@@ -1,0 +1,24 @@
+[package]
+name = "rosetta-ethereum-rpc-client"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Provider wrapper for jsonrpsee."
+
+[dependencies]
+arc-swap = "1.6"
+async-trait = "0.1"
+dashmap = "5.5.0"
+ethabi = "18.0.0"
+ethers = { version = "2.0", default-features = true, features = ["ws", "abigen", "rustls"] }
+futures-timer = "3.0"
+futures-util = "0.3"
+jsonrpsee = { version = "0.20.0", default-features = false, features = ["ws-client", "macros", "client-ws-transport-native-tls"] }
+log = "0.4"
+pin-project = "1.1"
+serde = "1.0"
+serde_json = "1.0"
+thiserror = "1.0"
+tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
+url = "2.4.0"
