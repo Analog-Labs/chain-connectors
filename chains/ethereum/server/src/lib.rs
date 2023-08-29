@@ -1,6 +1,7 @@
 use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
+use futures_util::StreamExt;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -8,7 +9,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
-use rosetta_server::{BlockchainClient, BlockchainConfig, EmptyEventStream};
+use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use url::Url;
 
@@ -23,6 +24,7 @@ use ws_provider::JsonRpseeClient;
 
 pub use event_stream::EthereumEventStream;
 
+#[derive(Clone)]
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
     Ws(EthereumClient<JsonRpseeClient>),
@@ -47,15 +49,27 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    // type EventStream<'a> = EthereumEventStream<'a, JsonRpseeClient>;
-    type EventStream<'a> = EmptyEventStream;
+    type EventStream<'a> = EthereumEventStream<'a, JsonRpseeClient>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        MaybeWsEthereumClient::new(config, addr).await
+        let client = MaybeWsEthereumClient::new(config, addr).await?;
+        let new_client = client.clone();
+        tokio::task::spawn(async move {
+            let client = new_client;
+            let mut stream = client.listen().await.unwrap().unwrap();
+            loop {
+                let Some(event) = stream.next().await else {
+                    log::info!("Stream closed");
+                    break;
+                };
+                log::info!("Received event: {:?}", event);
+            }
+        });
+        Ok(client)
     }
 
     fn config(&self) -> &BlockchainConfig {
@@ -161,15 +175,15 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    // async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-    //     match self {
-    //         MaybeWsEthereumClient::Http(_) => Ok(None),
-    //         MaybeWsEthereumClient::Ws(ws_client) => {
-    //             let subscription = ws_client.listen().await?;
-    //             Ok(Some(subscription))
-    //         }
-    //     }
-    // }
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        match self {
+            MaybeWsEthereumClient::Http(_) => Ok(None),
+            MaybeWsEthereumClient::Ws(ws_client) => {
+                let subscription = ws_client.listen().await?;
+                Ok(Some(subscription))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
