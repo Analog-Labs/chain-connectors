@@ -118,7 +118,7 @@ impl RpcError for RpcClientError {
 pub struct Params(Option<Box<RawValue>>);
 
 impl Params {
-    pub fn from_serializable<T>(params: &T) -> Result<Self, JsonRpseeError>
+    pub fn from_serializable<T>(params: &T) -> Result<Self, serde_json::Error>
     where
         T: Serialize,
     {
