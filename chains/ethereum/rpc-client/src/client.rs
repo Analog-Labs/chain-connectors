@@ -12,7 +12,8 @@ use serde::Serialize;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
-// Websocket Client that supports reconnecting
+// Adapter Client for JsonRpcClient trait
+#[repr(transparent)]
 pub struct EthClientAdapter<C> {
     pub(crate) client: C,
 }

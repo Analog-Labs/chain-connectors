@@ -23,7 +23,7 @@ use std::{
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
-// Client that supports subscriptions
+/// Client adapter that supports subscriptions
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
     pub(crate) eth_subscriptions: Arc<DashMap<U256, Subscription<serde_json::Value>>>,
