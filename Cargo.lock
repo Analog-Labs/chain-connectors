@@ -4993,13 +4993,11 @@ dependencies = [
 name = "rosetta-ethereum-rpc-client"
 version = "0.1.0"
 dependencies = [
- "arc-swap",
  "async-trait",
  "dashmap",
  "ethabi",
  "ethers",
  "futures",
- "futures-timer",
  "futures-util",
  "jsonrpsee 0.20.0",
  "pin-project",
@@ -5008,7 +5006,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "url",
 ]
 
 [[package]]

@@ -1,4 +1,5 @@
 #![cfg(feature = "ws")]
+mod auto_reconnect;
 mod config;
 mod jsonrpsee_client;
 mod tungstenite_jsonrpsee;

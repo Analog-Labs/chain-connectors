@@ -12,8 +12,19 @@ use subxt::{
     rpc::{RawValue, RpcClientT, RpcFuture, RpcSubscription},
 };
 
+#[derive(Clone)]
 pub struct Params(Option<Box<RawValue>>);
 pub struct RpcClient(pub Client);
+
+impl Params {
+    pub fn new<P>(params: P) -> Result<Self, JsonRpseeError>
+    where
+        P: ToRpcParams,
+    {
+        let params = params.to_rpc_params()?;
+        Ok(Self(params))
+    }
+}
 
 impl ToRpcParams for Params {
     fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
