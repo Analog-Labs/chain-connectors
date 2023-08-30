@@ -26,7 +26,7 @@ const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 // Client that supports subscriptions
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
-    pub(crate) subscriptions: Arc<DashMap<U256, Subscription<serde_json::Value>>>,
+    pub(crate) eth_subscriptions: Arc<DashMap<U256, Subscription<serde_json::Value>>>,
 }
 
 impl<C> Debug for EthPubsubAdapter<C>
@@ -36,7 +36,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PubsubAdapter")
             .field("adapter", &self.adapter)
-            .field("subscriptions", &self.subscriptions.len())
+            .field("subscriptions", &self.eth_subscriptions.len())
             .finish()
     }
 }
@@ -48,7 +48,7 @@ where
     fn clone(&self) -> Self {
         Self {
             adapter: self.adapter.clone(),
-            subscriptions: self.subscriptions.clone(),
+            eth_subscriptions: self.eth_subscriptions.clone(),
         }
     }
 }
@@ -74,7 +74,7 @@ where
     pub fn new(client: C) -> Self {
         Self {
             adapter: EthClientAdapter::new(client),
-            subscriptions: Arc::new(DashMap::new()),
+            eth_subscriptions: Arc::new(DashMap::new()),
         }
     }
 
@@ -111,7 +111,7 @@ where
             });
         };
 
-        let _ = self.subscriptions.insert(subscription_id, stream);
+        let _ = self.eth_subscriptions.insert(subscription_id, stream);
         Ok(result)
     }
 }
@@ -144,7 +144,7 @@ where
 
     /// Add a subscription to this transport
     fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {
-        let Some((id, stream)) = self.subscriptions.remove(&id.into()) else {
+        let Some((id, stream)) = self.eth_subscriptions.remove(&id.into()) else {
             return Err(Error::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
