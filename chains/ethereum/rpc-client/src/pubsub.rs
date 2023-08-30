@@ -1,28 +1,35 @@
-use crate::client::ClientAdapter;
+use crate::client::EthClientAdapter;
+use crate::prelude::ToRpcParams;
 use crate::subscription::SubscriptionStream;
 use crate::{error::Error, params::RpcParams};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use ethers::providers::{JsonRpcClient, PubsubClient};
 use ethers::types::U256;
+use jsonrpsee::core::client::BatchResponse;
+use jsonrpsee::core::params::BatchRequestBuilder;
 use jsonrpsee::core::{
-    client::{Subscription, SubscriptionClientT, SubscriptionKind},
+    client::{ClientT, Subscription, SubscriptionClientT, SubscriptionKind},
     error::Error as JsonRpseeError,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::fmt::{Debug, Formatter};
+use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
 
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
 // Client that supports subscriptions
-pub struct PubsubAdapter<C> {
-    pub(crate) adapter: ClientAdapter<C>,
-    pub(crate) subscriptions: DashMap<U256, Subscription<serde_json::Value>>,
+pub struct EthPubsubAdapter<C> {
+    pub(crate) adapter: EthClientAdapter<C>,
+    pub(crate) subscriptions: Arc<DashMap<U256, Subscription<serde_json::Value>>>,
 }
 
-impl<C> Debug for PubsubAdapter<C>
+impl<C> Debug for EthPubsubAdapter<C>
 where
     C: Debug,
 {
@@ -34,14 +41,40 @@ where
     }
 }
 
-impl<C> PubsubAdapter<C>
+impl<C> Clone for EthPubsubAdapter<C>
+where
+    C: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            adapter: self.adapter.clone(),
+            subscriptions: self.subscriptions.clone(),
+        }
+    }
+}
+
+impl<C> Deref for EthPubsubAdapter<C> {
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        self.adapter.deref()
+    }
+}
+
+impl<C> DerefMut for EthPubsubAdapter<C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.adapter.deref_mut()
+    }
+}
+
+impl<C> EthPubsubAdapter<C>
 where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
     pub fn new(client: C) -> Self {
         Self {
-            adapter: ClientAdapter::new(client),
-            subscriptions: DashMap::new(),
+            adapter: EthClientAdapter::new(client),
+            subscriptions: Arc::new(DashMap::new()),
         }
     }
 
@@ -84,7 +117,7 @@ where
 }
 
 #[async_trait]
-impl<C> JsonRpcClient for PubsubAdapter<C>
+impl<C> JsonRpcClient for EthPubsubAdapter<C>
 where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
@@ -103,7 +136,7 @@ where
     }
 }
 
-impl<C> PubsubClient for PubsubAdapter<C>
+impl<C> PubsubClient for EthPubsubAdapter<C>
 where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
@@ -127,18 +160,62 @@ where
     }
 }
 
-// pub async fn is_connected<C>(client: &C) -> bool
-// where
-//     C: ClientT,
-// {
-//     // Do a simple request to check if the RPC node is functional
-//     let result = client
-//         .request::<U64, _>("eth_blockNumber", rpc_params![])
-//         .await;
-//     !matches!(
-//         result,
-//         Err(JsonRpseeError::RestartNeeded(_)
-//             | JsonRpseeError::AlreadyStopped
-//             | JsonRpseeError::Transport(_))
-//     )
-// }
+#[async_trait]
+impl<C> ClientT for EthPubsubAdapter<C>
+where
+    C: SubscriptionClientT + Debug + Send + Sync,
+{
+    async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), JsonRpseeError>
+    where
+        Params: ToRpcParams + Send,
+    {
+        ClientT::notification(self, method, params).await
+    }
+
+    async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, JsonRpseeError>
+    where
+        R: DeserializeOwned,
+        Params: ToRpcParams + Send,
+    {
+        ClientT::request(self, method, params).await
+    }
+
+    async fn batch_request<'a, R>(
+        &self,
+        batch: BatchRequestBuilder<'a>,
+    ) -> Result<BatchResponse<'a, R>, JsonRpseeError>
+    where
+        R: DeserializeOwned + Debug + 'a,
+    {
+        ClientT::batch_request(self, batch).await
+    }
+}
+
+#[async_trait]
+impl<C> SubscriptionClientT for EthPubsubAdapter<C>
+where
+    C: SubscriptionClientT + Debug + Send + Sync,
+{
+    async fn subscribe<'a, Notif, Params>(
+        &self,
+        subscribe_method: &'a str,
+        params: Params,
+        unsubscribe_method: &'a str,
+    ) -> Result<Subscription<Notif>, JsonRpseeError>
+    where
+        Params: ToRpcParams + Send,
+        Notif: DeserializeOwned,
+    {
+        SubscriptionClientT::subscribe(self, subscribe_method, params, unsubscribe_method).await
+    }
+
+    async fn subscribe_to_method<'a, Notif>(
+        &self,
+        method: &'a str,
+    ) -> Result<Subscription<Notif>, JsonRpseeError>
+    where
+        Notif: DeserializeOwned,
+    {
+        SubscriptionClientT::subscribe_to_method(self, method).await
+    }
+}

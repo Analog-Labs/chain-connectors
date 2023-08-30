@@ -1,18 +1,23 @@
 use crate::{error::Error, params::RpcParams};
 use async_trait::async_trait;
 use ethers::providers::JsonRpcClient;
-use jsonrpsee::core::client::ClientT;
+use jsonrpsee::core::{
+    client::{BatchResponse, ClientT},
+    params::BatchRequestBuilder,
+    traits::ToRpcParams,
+    Error as JsonRpseeError,
+};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 // Websocket Client that supports reconnecting
-pub struct ClientAdapter<C> {
+pub struct EthClientAdapter<C> {
     pub(crate) client: C,
 }
 
-impl<C> ClientAdapter<C>
+impl<C> EthClientAdapter<C>
 where
     C: ClientT + Debug + Send + Sync,
 {
@@ -30,7 +35,7 @@ where
     }
 }
 
-impl<C> Debug for ClientAdapter<C>
+impl<C> Debug for EthClientAdapter<C>
 where
     C: Debug,
 {
@@ -41,7 +46,7 @@ where
     }
 }
 
-impl<C> Clone for ClientAdapter<C>
+impl<C> Clone for EthClientAdapter<C>
 where
     C: Clone,
 {
@@ -52,19 +57,19 @@ where
     }
 }
 
-impl<C> AsMut<C> for ClientAdapter<C> {
+impl<C> AsMut<C> for EthClientAdapter<C> {
     fn as_mut(&mut self) -> &mut C {
         &mut self.client
     }
 }
 
-impl<C> AsRef<C> for ClientAdapter<C> {
+impl<C> AsRef<C> for EthClientAdapter<C> {
     fn as_ref(&self) -> &C {
         &self.client
     }
 }
 
-impl<C> Deref for ClientAdapter<C> {
+impl<C> Deref for EthClientAdapter<C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
@@ -72,14 +77,14 @@ impl<C> Deref for ClientAdapter<C> {
     }
 }
 
-impl<C> DerefMut for ClientAdapter<C> {
+impl<C> DerefMut for EthClientAdapter<C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
     }
 }
 
 #[async_trait]
-impl<C> JsonRpcClient for ClientAdapter<C>
+impl<C> JsonRpcClient for EthClientAdapter<C>
 where
     C: ClientT + Debug + Send + Sync,
 {
@@ -94,5 +99,36 @@ where
         ClientT::request::<R, RpcParams>(&self.client, method, params)
             .await
             .map_err(Error::from)
+    }
+}
+
+#[async_trait]
+impl<C> ClientT for EthClientAdapter<C>
+where
+    C: ClientT + Debug + Send + Sync,
+{
+    async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), JsonRpseeError>
+    where
+        Params: ToRpcParams + Send,
+    {
+        ClientT::notification(self, method, params).await
+    }
+
+    async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, JsonRpseeError>
+    where
+        R: DeserializeOwned,
+        Params: ToRpcParams + Send,
+    {
+        ClientT::request(self, method, params).await
+    }
+
+    async fn batch_request<'a, R>(
+        &self,
+        batch: BatchRequestBuilder<'a>,
+    ) -> Result<BatchResponse<'a, R>, JsonRpseeError>
+    where
+        R: DeserializeOwned + Debug + 'a,
+    {
+        ClientT::batch_request(self, batch).await
     }
 }

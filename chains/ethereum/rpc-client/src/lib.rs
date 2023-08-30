@@ -4,8 +4,8 @@ mod params;
 mod pubsub;
 mod subscription;
 
-pub use client::ClientAdapter;
-pub use pubsub::PubsubAdapter;
+pub use client::EthClientAdapter;
+pub use pubsub::EthPubsubAdapter;
 pub use subscription::SubscriptionStream;
 
 pub mod prelude {
