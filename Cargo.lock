@@ -4998,15 +4998,16 @@ dependencies = [
  "dashmap",
  "ethabi",
  "ethers",
+ "futures",
  "futures-timer",
  "futures-util",
  "jsonrpsee 0.20.0",
- "log",
  "pin-project",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+ "tracing",
  "url",
 ]
 

@@ -15,6 +15,7 @@ use jsonrpsee::core::{
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::ops::{Deref, DerefMut};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     fmt::{Debug, Formatter},
     sync::Arc,
@@ -23,10 +24,47 @@ use std::{
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
+#[derive(Debug)]
+pub(crate) enum SubscriptionState {
+    Pending(Subscription<serde_json::Value>),
+    Subscribed(Arc<AtomicBool>),
+    Unsubscribed,
+}
+
+impl SubscriptionState {
+    fn subscribe(&mut self, id: U256) -> Option<SubscriptionStream> {
+        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        match old_state {
+            SubscriptionState::Pending(stream) => {
+                let unsubscribe = Arc::new(AtomicBool::new(false));
+                *self = SubscriptionState::Subscribed(unsubscribe.clone());
+                Some(SubscriptionStream::new(id, stream, unsubscribe))
+            }
+            SubscriptionState::Subscribed(unsubscribe) => {
+                *self = SubscriptionState::Subscribed(unsubscribe);
+                None
+            }
+            SubscriptionState::Unsubscribed => None,
+        }
+    }
+
+    async fn unsubscribe(&mut self) -> Result<(), JsonRpseeError> {
+        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        match old_state {
+            SubscriptionState::Pending(stream) => stream.unsubscribe().await,
+            SubscriptionState::Subscribed(unsubscribe) => {
+                unsubscribe.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+            SubscriptionState::Unsubscribed => Ok(()),
+        }
+    }
+}
+
 /// Client adapter that supports subscriptions
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
-    pub(crate) eth_subscriptions: Arc<DashMap<U256, Subscription<serde_json::Value>>>,
+    pub(crate) eth_subscriptions: Arc<DashMap<U256, SubscriptionState>>,
 }
 
 impl<C> Debug for EthPubsubAdapter<C>
@@ -112,8 +150,30 @@ where
             });
         };
 
-        let _ = self.eth_subscriptions.insert(subscription_id, stream);
+        let _ = self
+            .eth_subscriptions
+            .insert(subscription_id, SubscriptionState::Pending(stream));
         Ok(result)
+    }
+
+    pub async fn eth_unsubscribe<R>(&self, params: RpcParams) -> Result<R, Error>
+    where
+        R: DeserializeOwned + Send,
+    {
+        let subscription_id = params
+            .deserialize_as::<U256>()
+            .map_err(Error::from)
+            .map_err(|_| JsonRpseeError::InvalidSubscriptionId)?;
+
+        let Some(mut state) = self.eth_subscriptions.get_mut(&subscription_id) else {
+            return Err(Error::JsonRpsee {
+                original: JsonRpseeError::InvalidSubscriptionId,
+                message: None,
+            });
+        };
+        state.unsubscribe().await?;
+
+        serde_json::from_value::<R>(serde_json::value::Value::Bool(true)).map_err(Error::from)
     }
 }
 
@@ -132,6 +192,7 @@ where
         let params = RpcParams::from_serializable(&params)?;
         match method {
             ETHEREUM_SUBSCRIBE_METHOD => self.eth_subscribe(params).await,
+            ETHEREUM_UNSUBSCRIBE_METHOD => self.eth_unsubscribe(params).await,
             _ => ClientT::request(self, method, params)
                 .await
                 .map_err(Error::from),
@@ -147,19 +208,29 @@ where
 
     /// Add a subscription to this transport
     fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {
-        let Some((id, stream)) = self.eth_subscriptions.remove(&id.into()) else {
+        let id = id.into();
+        let Some(mut state) = self.eth_subscriptions.get_mut(&id) else {
             return Err(Error::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
         };
 
-        Ok(SubscriptionStream::new(id, stream))
+        state.subscribe(id).ok_or_else(|| Error::JsonRpsee {
+            original: JsonRpseeError::InvalidSubscriptionId,
+            message: None,
+        })
     }
 
     /// Remove a subscription from this transport
     fn unsubscribe<T: Into<U256>>(&self, _id: T) -> Result<(), Self::Error> {
-        Ok(())
+        self.eth_subscriptions
+            .remove(&_id.into())
+            .map(|_| ())
+            .ok_or_else(|| Error::JsonRpsee {
+                original: JsonRpseeError::InvalidSubscriptionId,
+                message: None,
+            })
     }
 }
 
