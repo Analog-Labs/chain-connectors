@@ -25,15 +25,6 @@ where
     pub fn new(client: C) -> Self {
         Self { client }
     }
-
-    pub async fn eth_request<R>(&self, method: &str, params: RpcParams) -> Result<R, Error>
-    where
-        R: DeserializeOwned + Send,
-    {
-        ClientT::request::<R, RpcParams>(&self.client, method, params)
-            .await
-            .map_err(Error::from)
-    }
 }
 
 impl<C> Debug for EthClientAdapter<C>

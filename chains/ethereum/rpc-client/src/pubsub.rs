@@ -78,9 +78,10 @@ where
         }
     }
 
-    pub async fn eth_subscribe<R>(&self, params: RpcParams) -> Result<R, Error>
+    pub async fn eth_subscribe<R, P>(&self, params: P) -> Result<R, Error>
     where
         R: DeserializeOwned + Send,
+        P: ToRpcParams + Send,
     {
         let stream = SubscriptionClientT::subscribe::<serde_json::Value, _>(
             self.adapter.as_ref(),
@@ -131,7 +132,9 @@ where
         let params = RpcParams::from_serializable(&params)?;
         match method {
             ETHEREUM_SUBSCRIBE_METHOD => self.eth_subscribe(params).await,
-            _ => self.adapter.eth_request(method, params).await,
+            _ => ClientT::request(self, method, params)
+                .await
+                .map_err(Error::from),
         }
     }
 }
