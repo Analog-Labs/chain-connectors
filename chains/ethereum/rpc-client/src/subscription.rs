@@ -1,5 +1,3 @@
-use crate::{error::Error, EthClient};
-use ethers::providers::PubsubClient;
 use ethers::types::U256;
 use futures_util::future::BoxFuture;
 use futures_util::{FutureExt, Stream, StreamExt};
@@ -102,26 +100,5 @@ impl Stream for SubscriptionStream {
                 }
             }
         }
-    }
-}
-
-impl PubsubClient for EthClient {
-    type NotificationStream = SubscriptionStream;
-
-    /// Add a subscription to this transport
-    fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {
-        let Some((id, stream)) = self.subscriptions.remove(&id.into()) else {
-            return Err(Error::JsonRpsee {
-                original: JsonRpseeError::InvalidSubscriptionId,
-                message: None,
-            });
-        };
-
-        Ok(SubscriptionStream::new(id, stream))
-    }
-
-    /// Remove a subscription from this transport
-    fn unsubscribe<T: Into<U256>>(&self, _id: T) -> Result<(), Self::Error> {
-        Ok(())
     }
 }

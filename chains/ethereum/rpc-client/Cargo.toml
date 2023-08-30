@@ -14,7 +14,7 @@ ethabi = "18.0.0"
 ethers = { version = "2.0", default-features = true, features = ["ws", "abigen", "rustls"] }
 futures-timer = "3.0"
 futures-util = "0.3"
-jsonrpsee = { version = "0.20.0", default-features = false, features = ["ws-client", "macros", "client-ws-transport-native-tls"] }
+jsonrpsee = { version = "0.20.0", default-features = false, features = ["macros"] }
 log = "0.4"
 pin-project = "1.1"
 serde = "1.0"
