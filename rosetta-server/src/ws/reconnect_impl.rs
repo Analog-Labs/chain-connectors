@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::{auto_reconnect::Reconnect, error::CloneableError, extension::Extended};
+use super::{error::CloneableError, extension::Extended, reconnect::Reconnect};
 use arc_swap::ArcSwap;
 use futures_util::{
     future::{BoxFuture, Shared},
@@ -42,8 +42,13 @@ impl<C> AsRef<C> for ClientState<C> {
     }
 }
 
+/// The connection status of the client.
 pub enum ConnectionStatus<C> {
+    /// The client is idle and ready to receive requests.
     Idle(ClientId),
+
+    /// The client is reconnecting.
+    /// This stores a shared future which will resolves when the reconnect completes.
     Reconnecting(ReconnectAttempt<C>),
 }
 
@@ -123,13 +128,13 @@ where
             match this.state.take() {
                 Some(ClientReadyState::Ready(result)) => return Poll::Ready(result),
                 Some(ClientReadyState::Reconnecting {
-                    client_id: attempt,
+                    client_id,
                     shared,
                     mut future,
                 }) => {
                     match future.poll_unpin(cx) {
                         Poll::Ready(result) => {
-                            // Release the is_connecting lock
+                            // Release the pending lock
                             let mut guard = match shared.connection_status.write() {
                                 Ok(guard) => guard,
                                 Err(error) => {
@@ -143,20 +148,22 @@ where
 
                             // Checks if the client needs to be updated
                             let should_update = match connection_status {
-                                ConnectionStatus::Idle(count) => attempt > count,
+                                ConnectionStatus::Idle(current_client_id) => {
+                                    client_id > current_client_id
+                                }
                                 ConnectionStatus::Reconnecting(future) => {
                                     // Store the new client
-                                    if attempt >= future.client_id {
+                                    if client_id >= future.client_id {
                                         true
                                     } else {
-                                        panic!("two reconnects at the same time, ignoring the older one (this is a bug)");
+                                        panic!("two reconnects at the same time (this is a bug)");
                                     }
                                 }
                             };
 
                             if should_update {
                                 // Update the connection status
-                                *guard = ConnectionStatus::Idle(attempt);
+                                *guard = ConnectionStatus::Idle(client_id);
 
                                 // Store the new client
                                 if let Ok(client) = &result {
@@ -356,7 +363,7 @@ where
     type RestartNeededFuture<'a> = ReconnectAttempt<C> where Self: 'a;
     type ReconnectFuture<'a> = ReconnectAttempt<C> where Self: 'a;
 
-    fn client(&self) -> Self::ReadyFuture<'_> {
+    fn ready(&self) -> Self::ReadyFuture<'_> {
         self.acquire_client()
     }
 

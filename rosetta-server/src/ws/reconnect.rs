@@ -13,6 +13,8 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
+/// Reconnect trait.
+/// This trait exposes callbacks which are called when the server returns a RestartNeeded error.
 pub trait Reconnect<C>: 'static + Send + Sync
 where
     C: ClientT + Send + Sync,
@@ -31,14 +33,17 @@ where
     where
         Self: 'a;
 
-    fn client(&self) -> Self::ReadyFuture<'_>;
+    /// Return a reference to the client.
+    /// This method is called before every request.
+    /// Here is the right place to block the requests until the client reconnects.
+    fn ready(&self) -> Self::ReadyFuture<'_>;
 
-    /// The client returned a RestartNeeded error.
+    /// Callback called when the client returns a RestartNeeded error.
     /// # Params
     /// - `client` - The client which returned the RestartNeeded error.
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_>;
 
-    /// Reconnect to the server and return a new client.
+    /// Force Reconnect to the server and return a new client.
     fn reconnect(&self) -> Self::ReconnectFuture<'_>;
 }
 
@@ -71,7 +76,7 @@ where
     where
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::client(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await?;
         let params = RpcParams::new(params)?;
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
@@ -88,7 +93,7 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::client(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await?;
         let params = RpcParams::new(params)?;
         let error = match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
             Ok(r) => return Ok(r),
@@ -111,7 +116,7 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        let client = Reconnect::client(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await?;
         let error = match ClientT::batch_request(client.as_ref(), batch.clone()).await {
             Ok(r) => return Ok(r),
             Err(error) => error,
@@ -143,7 +148,7 @@ where
         Params: ToRpcParams + Send,
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::client(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await?;
         let params = RpcParams::new(params)?;
         let error = match SubscriptionClientT::subscribe::<Notif, _>(
             client.as_ref(),
@@ -179,7 +184,7 @@ where
     where
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::client(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await?;
         let error = match SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await {
             Ok(subscription) => return Ok(subscription),
             Err(error) => error,
