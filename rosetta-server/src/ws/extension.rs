@@ -4,79 +4,83 @@ use jsonrpsee::core::params::BatchRequestBuilder;
 use jsonrpsee::core::{client::ClientT, traits::ToRpcParams, Error};
 use serde::de::DeserializeOwned;
 use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
 
 /// Extension helper for `ClientT` and `SubscriptionClientT`
 pub struct Extended<C, T> {
-    pub(crate) client: C,
-    pub(crate) data: T,
+    _marker: PhantomData<C>,
+    pub(crate) state: T,
 }
 
 #[allow(dead_code)]
 impl<C, T> Extended<C, T>
 where
     C: Send + Sync,
-    T: Send + Sync,
+    T: AsRef<C> + Send + Sync,
 {
-    pub fn new(client: C, data: T) -> Self {
-        Self { client, data }
+    pub fn new(state: T) -> Self {
+        Self {
+            _marker: PhantomData,
+            state,
+        }
     }
 
     pub fn client(&self) -> &C {
-        &self.client
+        self.state.as_ref()
     }
 
-    pub fn data(&self) -> &T {
-        &self.data
+    pub fn state(&self) -> &T {
+        &self.state
     }
 
-    pub fn into_inner(self) -> (C, T) {
-        (self.client, self.data)
+    pub fn state_mut(&mut self) -> &mut T {
+        &mut self.state
+    }
+
+    pub fn into_inner(self) -> T {
+        self.state
     }
 }
 
 impl<C, T> Clone for Extended<C, T>
 where
-    C: Clone + Send + Sync,
-    T: Clone + Send + Sync,
+    T: Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            client: self.client.clone(),
-            data: self.data.clone(),
+            _marker: self._marker,
+            state: self.state.clone(),
         }
     }
 }
 
 impl<C, T> Debug for Extended<C, T>
 where
-    C: Debug + Send + Sync,
-    T: Debug + Send + Sync,
+    T: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Extended")
-            .field("client", &self.client)
-            .field("data", &self.data)
+            .field("_marker", &self._marker)
+            .field("state", &self.state)
             .finish()
     }
 }
 
 impl<C, T> AsRef<C> for Extended<C, T>
 where
-    C: Send + Sync,
-    T: Send + Sync,
+    T: AsRef<C>,
 {
     fn as_ref(&self) -> &C {
-        &self.client
+        self.state.as_ref()
     }
 }
 
 impl<C, T> AsMut<C> for Extended<C, T>
 where
-    C: Send + Sync,
-    T: Send + Sync,
+    T: AsMut<C>,
 {
     fn as_mut(&mut self) -> &mut C {
-        &mut self.client
+        self.state.as_mut()
     }
 }
 
@@ -84,13 +88,13 @@ where
 impl<C, T> ClientT for Extended<C, T>
 where
     C: ClientT + Send + Sync,
-    T: Send + Sync,
+    T: AsRef<C> + Send + Sync,
 {
     async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), Error>
     where
         Params: ToRpcParams + Send,
     {
-        ClientT::notification::<Params>(&self.client, method, params).await
+        ClientT::notification::<Params>(self.client(), method, params).await
     }
 
     async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, Error>
@@ -98,7 +102,7 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        ClientT::request::<R, Params>(&self.client, method, params).await
+        ClientT::request::<R, Params>(self.client(), method, params).await
     }
 
     async fn batch_request<'a, R>(
@@ -108,7 +112,7 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        ClientT::batch_request::<R>(&self.client, batch).await
+        ClientT::batch_request::<R>(self.client(), batch).await
     }
 }
 
@@ -116,7 +120,7 @@ where
 impl<C, T> SubscriptionClientT for Extended<C, T>
 where
     C: SubscriptionClientT + Send + Sync,
-    T: Send + Sync,
+    T: AsRef<C> + Send + Sync,
 {
     async fn subscribe<'a, Notif, Params>(
         &self,
@@ -129,7 +133,7 @@ where
         Notif: DeserializeOwned,
     {
         SubscriptionClientT::subscribe::<Notif, Params>(
-            &self.client,
+            self.client(),
             subscribe_method,
             params,
             unsubscribe_method,
@@ -144,6 +148,6 @@ where
     where
         Notif: DeserializeOwned,
     {
-        SubscriptionClientT::subscribe_to_method(&self.client, method).await
+        SubscriptionClientT::subscribe_to_method(self.client(), method).await
     }
 }
