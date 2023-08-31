@@ -13,8 +13,8 @@ use std::sync::RwLock;
 use std::task::{Context, Poll};
 use std::{future::Future, sync::Arc};
 
-pub type ClientWithIdentifier<C> = Extended<C, u32>;
-pub type ClientRef<C> = Arc<ClientWithIdentifier<C>>;
+pub type Client<C> = Extended<C, u32>;
+pub type ClientRef<C> = Arc<Client<C>>;
 
 pub enum ClientReadyState<C, Fut> {
     Ready(Result<ClientRef<C>, Error>),
@@ -138,7 +138,7 @@ pub struct DefaultStrategy<C, B> {
     builder: B,
     reconnects_count: AtomicU32,
     is_reconnecting: RwLock<Option<ReconnectAttempt<C>>>,
-    client: ArcSwapOption<ClientWithIdentifier<C>>,
+    client: ArcSwapOption<Client<C>>,
 }
 
 impl<C, Fut, B> DefaultStrategy<C, B>
@@ -149,7 +149,7 @@ where
 {
     pub async fn connect(builder: B) -> Result<Self, Error> {
         let client = (builder.clone())().await?;
-        let client = ClientWithIdentifier::new(client, 0);
+        let client = Client::new(client, 0);
         Ok(Self {
             builder,
             reconnects_count: AtomicU32::new(0),
@@ -209,7 +209,7 @@ where
             let future = (self.builder.clone())().map(move |value| {
                 value
                     .map(|client| {
-                        let client = ClientWithIdentifier::new(client, attempt);
+                        let client = Client::new(client, attempt);
                         Arc::new(client)
                     })
                     .map_err(CloneableError::from)
@@ -224,7 +224,7 @@ where
     }
 }
 
-impl<C, Fut, B> Reconnect<ClientWithIdentifier<C>> for DefaultStrategy<C, B>
+impl<C, Fut, B> Reconnect<Client<C>> for DefaultStrategy<C, B>
 where
     C: SubscriptionClientT + Send + Sync + 'static,
     Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
