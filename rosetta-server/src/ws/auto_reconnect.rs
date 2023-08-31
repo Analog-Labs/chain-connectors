@@ -25,6 +25,12 @@ where
 
     fn client(&self) -> Self::ReadyFuture<'_>;
 
+    /// The client returned a RestartNeeded error.
+    /// # Params
+    /// - `client` - The client which returned the RestartNeeded error.
+    fn restart_needed(&self, client: Self::ClientRef) -> Self::ReconnectFuture<'_>;
+
+    /// Reconnect to the server and return a new client.
     fn reconnect(&self) -> Self::ReconnectFuture<'_>;
 }
 
@@ -62,7 +68,7 @@ where
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
             Err(Error::RestartNeeded(_)) => {
-                let client = Reconnect::reconnect(&self.client).await?;
+                let client = Reconnect::restart_needed(&self.client, client).await?;
                 ClientT::notification(client.as_ref(), method, params).await
             }
             Err(error) => Err(error),
@@ -74,18 +80,16 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        let (error, params) = {
-            let client = Reconnect::client(&self.client).await?;
-            let params = RpcParams::new(params)?;
-            match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
-                Ok(r) => return Ok(r),
-                Err(error) => (error, params),
-            }
+        let client = Reconnect::client(&self.client).await?;
+        let params = RpcParams::new(params)?;
+        let error = match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
+            Ok(r) => return Ok(r),
+            Err(error) => error,
         };
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::reconnect(&self.client).await?;
+                let client = Reconnect::restart_needed(&self.client, client).await?;
                 ClientT::request::<R, _>(client.as_ref(), method, params).await
             }
             error => Err(error),
@@ -99,17 +103,15 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        let error = {
-            let client = Reconnect::client(&self.client).await?;
-            match ClientT::batch_request(client.as_ref(), batch.clone()).await {
-                Ok(r) => return Ok(r),
-                Err(error) => error,
-            }
+        let client = Reconnect::client(&self.client).await?;
+        let error = match ClientT::batch_request(client.as_ref(), batch.clone()).await {
+            Ok(r) => return Ok(r),
+            Err(error) => error,
         };
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::reconnect(&self.client).await?;
+                let client = Reconnect::restart_needed(&self.client, client).await?;
                 ClientT::batch_request(client.as_ref(), batch).await
             }
             error => Err(error),

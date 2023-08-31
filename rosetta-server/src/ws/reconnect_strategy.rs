@@ -8,7 +8,7 @@ use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
 use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
 use std::task::{Context, Poll};
 use std::{future::Future, sync::Arc};
@@ -144,7 +144,7 @@ pub struct DefaultStrategy<C, B> {
 impl<C, Fut, B> DefaultStrategy<C, B>
 where
     C: SubscriptionClientT + Send + Sync,
-    Fut: Future<Output = Result<C, Error>> + Send + Sync,
+    Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
     B: FnOnce() -> Fut + Send + Sync + Clone,
 {
     pub async fn connect(builder: B) -> Result<Self, Error> {
@@ -186,6 +186,42 @@ where
             .ok_or_else(|| Error::Custom("Client is reconnecting...".to_string()));
         ClientReadyFuture::ready(result)
     }
+
+    pub fn reconnect_attempt(&self, attempt: u32) -> ReconnectAttempt<C> {
+        // Make sure only one thread is handling the reconnect
+        let mut guard = match self.is_reconnecting.write() {
+            Ok(guard) => guard,
+            Err(error) => {
+                return ReconnectAttempt::failure(Error::Custom(format!(
+                    "Fatal error, client lock was poisoned: {error}"
+                )))
+            }
+        };
+
+        // If the client is already reconnecting, return the current attempt
+        if let Some(reconnect_attempt) = guard.as_ref() {
+            return reconnect_attempt.clone();
+        }
+
+        // Create a new reconnect attempt
+        let reconnect_future = {
+            let attempt = attempt;
+            let future = (self.builder.clone())().map(move |value| {
+                value
+                    .map(|client| {
+                        let client = ClientWithIdentifier::new(client, attempt);
+                        Arc::new(client)
+                    })
+                    .map_err(CloneableError::from)
+            });
+            ReconnectAttempt::new(attempt, Box::pin(future))
+        };
+
+        // Store the reconnect attempt
+        guard.replace(reconnect_future.clone());
+
+        reconnect_future
+    }
 }
 
 impl<C, Fut, B> Reconnect<ClientWithIdentifier<C>> for DefaultStrategy<C, B>
@@ -202,32 +238,20 @@ where
         self.acquire_client()
     }
 
-    fn reconnect(&self) -> Self::ReconnectFuture<'_> {
-        // Load the current reconnect attempt
-        let current_attempt = self
-            .reconnects_count
-            .load(std::sync::atomic::Ordering::SeqCst)
-            + 1;
+    fn restart_needed(&self, client: ClientRef<C>) -> Self::ReconnectFuture<'_> {
+        // The current reconnect attempt
+        let current_attempt = client.data + 1;
 
-        // Make sure only one thread is handling the reconnect
-        let _guard = match self.is_reconnecting.write() {
-            Ok(guard) => guard,
-            Err(error) => {
-                return ReconnectAttempt::failure(Error::Custom(format!(
-                    "Fatal error, client lock was poisoned: {error}"
-                )))
-            }
+        self.reconnect_attempt(current_attempt)
+    }
+
+    fn reconnect(&self) -> Self::ReconnectFuture<'_> {
+        // The current reconnect attempt
+        let reconnect_attempt = match self.client.load().clone() {
+            Some(client) => client.data + 1,
+            None => self.reconnects_count.load(Ordering::SeqCst) + 1,
         };
 
-        let future = (self.builder.clone())().map(move |value| {
-            value
-                .map(|client| {
-                    let client = ClientWithIdentifier::new(client, current_attempt);
-                    Arc::new(client)
-                })
-                .map_err(CloneableError::from)
-        });
-
-        ReconnectAttempt::new(current_attempt, Box::pin(future))
+        self.reconnect_attempt(reconnect_attempt)
     }
 }
