@@ -1,18 +1,22 @@
 #![allow(dead_code)]
 use super::{auto_reconnect::Reconnect, error::CloneableError, extension::Extended};
 use arc_swap::ArcSwap;
-use futures_util::future::BoxFuture;
-use futures_util::future::Shared;
-use futures_util::FutureExt;
+use futures_util::{
+    future::{BoxFuture, Shared},
+    FutureExt,
+};
 use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
-use std::convert::AsRef;
-use std::fmt::{Debug, Formatter};
-use std::ops::Deref;
-use std::pin::Pin;
-use std::sync::RwLock;
-use std::task::{Context, Poll};
-use std::{future::Future, sync::Arc};
+use std::{
+    convert::AsRef,
+    fmt::{Debug, Formatter},
+    future::Future,
+    ops::Deref,
+    pin::Pin,
+    sync::Arc,
+    sync::RwLock,
+    task::{Context, Poll},
+};
 
 pub type Client<C> = Extended<C, ClientState<C>>;
 pub type ClientRef<C> = Arc<Client<C>>;
