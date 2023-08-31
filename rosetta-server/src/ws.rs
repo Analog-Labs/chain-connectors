@@ -1,10 +1,10 @@
 #![cfg(feature = "ws")]
 mod auto_reconnect;
 mod config;
+mod error;
 mod extension;
 mod jsonrpsee_client;
-// mod reconnect_strategy;
-mod error;
+mod reconnect_strategy;
 mod tungstenite_jsonrpsee;
 
 pub use config::{RpcClientConfig, WsTransportClient};

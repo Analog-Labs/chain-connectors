@@ -2,10 +2,26 @@ use jsonrpsee::{core::Error, types::InvalidRequestId};
 
 /// A version of `Error` that implements `Clone`.
 #[derive(Debug)]
-pub struct CloneableError(pub Error);
+pub struct CloneableError {
+    inner: Error,
+}
+
+impl CloneableError {
+    /// Returns the inner error.
+    pub fn into_inner(self) -> Error {
+        self.inner
+    }
+}
+
+impl From<Error> for CloneableError {
+    fn from(error: Error) -> Self {
+        Self { inner: error }
+    }
+}
+
 impl Clone for CloneableError {
     fn clone(&self) -> Self {
-        let error = match &self.0 {
+        let error = match &self.inner {
             Error::Call(call) => Error::Call(call.clone()),
             Error::Transport(error) => Error::Transport(anyhow::format_err!("{error:?}")),
             Error::InvalidResponse(error) => Error::InvalidResponse(error.clone()),
@@ -39,6 +55,6 @@ impl Clone for CloneableError {
             Error::HttpNotImplemented => Error::HttpNotImplemented,
             Error::EmptyBatchRequest => Error::EmptyBatchRequest,
         };
-        Self(error)
+        Self { inner: error }
     }
 }

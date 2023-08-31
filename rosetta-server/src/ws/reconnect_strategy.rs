@@ -1,9 +1,10 @@
-use super::{auto_reconnect::Reconnect, extension::Extended};
+#![allow(dead_code)]
+use super::{auto_reconnect::Reconnect, error::CloneableError, extension::Extended};
 use arc_swap::ArcSwapOption;
 use futures_util::future::BoxFuture;
 use futures_util::future::Shared;
 use futures_util::FutureExt;
-use jsonrpsee::core::{client::SubscriptionClientT, error::{Error, InvalidRequestId}};
+use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU32;
@@ -24,11 +25,25 @@ pub struct ClientReadyFuture<C> {
     state: Option<ClientReadyState<C>>,
 }
 
+impl<C> ClientReadyFuture<C> {
+    pub fn ready(result: Result<ClientRef<C>, Error>) -> Self {
+        Self {
+            state: Some(ClientReadyState::Ready(result)),
+        }
+    }
+
+    pub fn reconnecting(future: BoxFuture<'static, Result<ClientRef<C>, Error>>) -> Self {
+        Self {
+            state: Some(ClientReadyState::Reconnecting(future)),
+        }
+    }
+}
+
 impl<C> Future for ClientReadyFuture<C> {
     type Output = Result<ClientRef<C>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
+        let this = self.project();
         match this.state.take() {
             Some(ClientReadyState::Ready(result)) => Poll::Ready(result),
             Some(ClientReadyState::Reconnecting(mut reconnect_attempt)) => {
@@ -45,14 +60,28 @@ impl<C> Future for ClientReadyFuture<C> {
 #[derive(Debug, Clone)]
 pub struct ReconnectAttempt<C> {
     pub attempt: u32,
-    pub future: Shared<BoxFuture<'static, Result<Option<ClientRef<C>>, Error>>>,
+    pub future: Shared<BoxFuture<'static, Result<ClientRef<C>, CloneableError>>>,
 }
 
 impl<C> ReconnectAttempt<C> {
-    pub fn new(attempt: u32, future: BoxFuture<'static, Result<ClientRef<C>, Error>>) -> Self {
+    pub fn new(
+        attempt: u32,
+        future: BoxFuture<'static, Result<ClientRef<C>, CloneableError>>,
+    ) -> Self {
         Self {
             attempt,
             future: future.shared(),
+        }
+    }
+
+    pub fn failure(error: Error) -> Self {
+        Self {
+            attempt: 0,
+            future: async move {
+                Result::<ClientRef<C>, CloneableError>::Err(CloneableError::from(error))
+            }
+            .boxed()
+            .shared(),
         }
     }
 }
@@ -62,7 +91,15 @@ impl<C> Future for ReconnectAttempt<C> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
-        Future::poll(Pin::new(&mut this.future), cx)
+        match Future::poll(Pin::new(&mut this.future), cx) {
+            Poll::Ready(result) => {
+                let result = result
+                    .map(Option::Some)
+                    .map_err(|error| error.clone().into_inner());
+                Poll::Ready(result)
+            }
+            Poll::Pending => Poll::Pending,
+        }
     }
 }
 
@@ -105,7 +142,7 @@ where
             .load()
             .clone()
             .ok_or_else(|| Error::Custom("Client is reconnecting...".to_string()));
-        ClientReadyFuture::Ready(result)
+        ClientReadyFuture::ready(result)
     }
 }
 
@@ -131,16 +168,22 @@ where
             + 1;
 
         // Make sure only one thread is handling the reconnect
-        let guard = self
-            .is_reconnecting
-            .write()
-            .map_err(|_| Error::Custom("Fatal error: client lock was poisoned".to_string()))?;
+        let _guard = match self.is_reconnecting.write() {
+            Ok(guard) => guard,
+            Err(error) => {
+                return ReconnectAttempt::failure(Error::Custom(format!(
+                    "Fatal error, client lock was poisoned: {error}"
+                )))
+            }
+        };
 
         let future = (self.builder.clone())().map(move |value| {
-            value.map(|client| {
-                let client = ClientWithIdentifier::new(client, current_attempt);
-                Some(Arc::new(client))
-            })
+            value
+                .map(|client| {
+                    let client = ClientWithIdentifier::new(client, current_attempt);
+                    Arc::new(client)
+                })
+                .map_err(CloneableError::from)
         });
 
         ReconnectAttempt::new(current_attempt, Box::pin(future))

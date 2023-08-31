@@ -5013,6 +5013,7 @@ name = "rosetta-server"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "arc-swap",
  "async-trait",
  "clap",
  "femme",
@@ -5022,6 +5023,7 @@ dependencies = [
  "jsonrpsee 0.20.0",
  "log",
  "nanoid",
+ "pin-project",
  "rosetta-core",
  "rosetta-docker",
  "serde",

@@ -10,7 +10,7 @@ description = "Generic rosetta server implementation."
 default = []
 native-tls = ["tokio-tungstenite/native-tls", "jsonrpsee/client-ws-transport-native-tls"]
 webpki-tls = ["tokio-tungstenite/rustls-tls-webpki-roots", "jsonrpsee/client-ws-transport-webpki-tls"]
-ws = ["dep:jsonrpsee", "dep:subxt", "dep:futures", "futures/std", "dep:arc-swap"]
+ws = ["dep:jsonrpsee", "dep:subxt", "dep:futures", "futures/std", "dep:arc-swap", "dep:pin-project"]
 tests = ["dep:futures", "dep:rosetta-docker", "dep:nanoid"]
 
 [dependencies]
