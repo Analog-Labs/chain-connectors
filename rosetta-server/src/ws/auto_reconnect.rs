@@ -2,7 +2,11 @@ use super::jsonrpsee_client::Params as RpcParams;
 use async_trait::async_trait;
 use jsonrpsee::core::client::BatchResponse;
 use jsonrpsee::core::params::BatchRequestBuilder;
-use jsonrpsee::core::{client::ClientT, traits::ToRpcParams, Error};
+use jsonrpsee::core::{
+    client::{ClientT, Subscription, SubscriptionClientT},
+    traits::ToRpcParams,
+    Error,
+};
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::future::Future;
@@ -119,53 +123,70 @@ where
     }
 }
 
-// #[async_trait]
-// impl<C, T> SubscriptionClientT for AutoReconnectClient<T>
-// where
-//     C: SubscriptionClientT,
-//     T: Reconnect<C>,
-// {
-//     async fn subscribe<'a, Notif, Params>(
-//         &self,
-//         subscribe_method: &'a str,
-//         params: Params,
-//         unsubscribe_method: &'a str,
-//     ) -> Result<Subscription<Notif>, Error>
-//     where
-//         Params: ToRpcParams + Send,
-//         Notif: DeserializeOwned,
-//     {
-//         let client = Reconnect::client(&self.client).await?.deref();
-//         let params = params.to_rpc_params()?;
-//         let result = SubscriptionClientT::subscribe(
-//             &self.client,
-//             subscribe_method,
-//             params.clone(),
-//             unsubscribe_method,
-//         )
-//         .await;
-//         if let Err(Error::RestartNeeded(_)) = result {
-//             self.client.reconnect().await?;
-//             return SubscriptionClientT::subscribe(
-//                 &self.client,
-//                 subscribe_method,
-//                 params,
-//                 unsubscribe_method,
-//             )
-//             .await;
-//         }
-//         result
-//     }
-//
-//     async fn subscribe_to_method<Notif>(&self, method: &str) -> Result<Subscription<Notif>, Error>
-//     where
-//         Notif: DeserializeOwned,
-//     {
-//         let result = SubscriptionClientT::subscribe_to_method(&self.client, method).await;
-//         if let Err(Error::RestartNeeded(_)) = result {
-//             self.client.reconnect().await?;
-//             return SubscriptionClientT::subscribe_to_method(&self.client, method).await;
-//         }
-//         result
-//     }
-// }
+#[async_trait]
+impl<C, T> SubscriptionClientT for AutoReconnectClient<C, T>
+where
+    C: SubscriptionClientT + Send + Sync,
+    T: Reconnect<C>,
+{
+    async fn subscribe<'a, Notif, Params>(
+        &self,
+        subscribe_method: &'a str,
+        params: Params,
+        unsubscribe_method: &'a str,
+    ) -> Result<Subscription<Notif>, Error>
+    where
+        Params: ToRpcParams + Send,
+        Notif: DeserializeOwned,
+    {
+        let client = Reconnect::client(&self.client).await?;
+        let params = RpcParams::new(params)?;
+        let error = match SubscriptionClientT::subscribe::<Notif, _>(
+            client.as_ref(),
+            subscribe_method,
+            params.clone(),
+            unsubscribe_method,
+        )
+        .await
+        {
+            Ok(subscription) => return Ok(subscription),
+            Err(error) => error,
+        };
+
+        match error {
+            Error::RestartNeeded(_) => {
+                let client = Reconnect::restart_needed(&self.client, client).await?;
+                SubscriptionClientT::subscribe::<Notif, _>(
+                    client.as_ref(),
+                    subscribe_method,
+                    params,
+                    unsubscribe_method,
+                )
+                .await
+            }
+            error => Err(error),
+        }
+    }
+
+    async fn subscribe_to_method<'a, Notif>(
+        &self,
+        method: &'a str,
+    ) -> Result<Subscription<Notif>, Error>
+    where
+        Notif: DeserializeOwned,
+    {
+        let client = Reconnect::client(&self.client).await?;
+        let error = match SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await {
+            Ok(subscription) => return Ok(subscription),
+            Err(error) => error,
+        };
+
+        match error {
+            Error::RestartNeeded(_) => {
+                let client = Reconnect::restart_needed(&self.client, client).await?;
+                SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await
+            }
+            error => Err(error),
+        }
+    }
+}
