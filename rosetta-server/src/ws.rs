@@ -4,6 +4,7 @@ mod config;
 mod extension;
 mod jsonrpsee_client;
 // mod reconnect_strategy;
+mod error;
 mod tungstenite_jsonrpsee;
 
 pub use config::{RpcClientConfig, WsTransportClient};

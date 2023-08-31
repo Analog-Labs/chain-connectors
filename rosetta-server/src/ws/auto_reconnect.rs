@@ -15,14 +15,11 @@ where
 {
     type ClientRef: AsRef<C> + Send + Sync;
 
-    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send + Sync
+    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
     where
         Self: 'a;
 
-    type ReconnectFuture<'a>: Future<Output = Result<Option<Self::ClientRef>, Error>>
-        + 'a
-        + Send
-        + Sync
+    type ReconnectFuture<'a>: Future<Output = Result<Option<Self::ClientRef>, Error>> + 'a + Send
     where
         Self: 'a;
 

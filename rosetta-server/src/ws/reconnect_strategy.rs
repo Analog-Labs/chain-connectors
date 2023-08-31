@@ -3,7 +3,7 @@ use arc_swap::ArcSwapOption;
 use futures_util::future::BoxFuture;
 use futures_util::future::Shared;
 use futures_util::FutureExt;
-use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
+use jsonrpsee::core::{client::SubscriptionClientT, error::{Error, InvalidRequestId}};
 use pin_project::pin_project;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU32;
@@ -12,23 +12,31 @@ use std::task::{Context, Poll};
 use std::{future::Future, sync::Arc};
 
 pub type ClientWithIdentifier<C> = Extended<C, u32>;
+pub type ClientRef<C> = Arc<ClientWithIdentifier<C>>;
 
-#[pin_project(project = ClientReadyFutureProj)]
-pub enum ClientReadyFuture<C> {
-    Ready(Result<Arc<C>, Error>),
-    Reconnecting(BoxFuture<'static, Result<Arc<C>, Error>>),
+pub enum ClientReadyState<C> {
+    Ready(Result<ClientRef<C>, Error>),
+    Reconnecting(BoxFuture<'static, Result<ClientRef<C>, Error>>),
+}
+
+#[pin_project]
+pub struct ClientReadyFuture<C> {
+    state: Option<ClientReadyState<C>>,
 }
 
 impl<C> Future for ClientReadyFuture<C> {
-    type Output = Result<Arc<C>, Error>;
+    type Output = Result<ClientRef<C>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-        match this {
-            ClientReadyFutureProj::Ready(result) => Poll::Ready(result.clone()),
-            ClientReadyFutureProj::Reconnecting(mut reconnect_attempt) => {
-                return reconnect_attempt.poll_unpin(cx);
+        let mut this = self.project();
+        match this.state.take() {
+            Some(ClientReadyState::Ready(result)) => Poll::Ready(result),
+            Some(ClientReadyState::Reconnecting(mut reconnect_attempt)) => {
+                let result = reconnect_attempt.poll_unpin(cx);
+                *this.state = Some(ClientReadyState::Reconnecting(reconnect_attempt));
+                result
             }
+            None => panic!("ClientReadyFuture polled after completion"),
         }
     }
 }
@@ -37,14 +45,11 @@ impl<C> Future for ClientReadyFuture<C> {
 #[derive(Debug, Clone)]
 pub struct ReconnectAttempt<C> {
     pub attempt: u32,
-    pub future: Shared<BoxFuture<'static, Result<Option<Arc<ClientWithIdentifier<C>>>, Error>>>,
+    pub future: Shared<BoxFuture<'static, Result<Option<ClientRef<C>>, Error>>>,
 }
 
 impl<C> ReconnectAttempt<C> {
-    pub fn new(
-        attempt: u32,
-        future: BoxFuture<'static, Result<Arc<ClientWithIdentifier<C>>, Error>>,
-    ) -> Self {
+    pub fn new(attempt: u32, future: BoxFuture<'static, Result<ClientRef<C>, Error>>) -> Self {
         Self {
             attempt,
             future: future.shared(),
@@ -52,11 +57,8 @@ impl<C> ReconnectAttempt<C> {
     }
 }
 
-impl<C, F> Future for ReconnectAttempt<F>
-where
-    F: Future<Output = Result<C, Error>> + Send + Sync,
-{
-    type Output = Result<Option<Arc<ClientWithIdentifier<C>>>, Error>;
+impl<C> Future for ReconnectAttempt<C> {
+    type Output = Result<Option<ClientRef<C>>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -107,15 +109,15 @@ where
     }
 }
 
-impl<C, Fut, B> Reconnect<C> for DefaultStrategy<C, Fut, B>
+impl<C, Fut, B> Reconnect<ClientWithIdentifier<C>> for DefaultStrategy<C, Fut, B>
 where
-    C: SubscriptionClientT + Send + Sync,
-    Fut: Future<Output = Result<C, Error>> + Send + Sync,
-    B: FnOnce() -> Fut + Send + Sync + Clone,
+    C: SubscriptionClientT + Send + Sync + 'static,
+    Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
+    B: FnOnce() -> Fut + Send + Sync + Clone + 'static,
 {
-    type ClientRef = Arc<ClientWithIdentifier<C>>;
-    type ReadyFuture<'a> = ClientReadyFuture<Self::ClientRef> where Self: 'a;
-    type ReconnectFuture<'a> = ReconnectAttempt<Self::ClientRef> where Self: 'a;
+    type ClientRef = ClientRef<C>;
+    type ReadyFuture<'a> = ClientReadyFuture<C> where Self: 'a;
+    type ReconnectFuture<'a> = ReconnectAttempt<C> where Self: 'a;
 
     fn client(&self) -> Self::ReadyFuture<'_> {
         self.acquire_client()
