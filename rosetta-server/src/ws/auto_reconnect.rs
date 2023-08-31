@@ -19,7 +19,7 @@ where
     where
         Self: 'a;
 
-    type ReconnectFuture<'a>: Future<Output = Result<Option<Self::ClientRef>, Error>> + 'a + Send
+    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
     where
         Self: 'a;
 
@@ -61,12 +61,9 @@ where
         let params = RpcParams::new(params)?;
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
-            Err(Error::RestartNeeded(reason)) => {
-                if let Some(client) = Reconnect::reconnect(&self.client).await? {
-                    ClientT::notification(client.as_ref(), method, params).await
-                } else {
-                    Err(Error::RestartNeeded(reason))
-                }
+            Err(Error::RestartNeeded(_)) => {
+                let client = Reconnect::reconnect(&self.client).await?;
+                ClientT::notification(client.as_ref(), method, params).await
             }
             Err(error) => Err(error),
         }
@@ -87,12 +84,9 @@ where
         };
 
         match error {
-            Error::RestartNeeded(reason) => {
-                if let Some(client) = Reconnect::reconnect(&self.client).await? {
-                    ClientT::request::<R, _>(client.as_ref(), method, params).await
-                } else {
-                    Err(Error::RestartNeeded(reason))
-                }
+            Error::RestartNeeded(_) => {
+                let client = Reconnect::reconnect(&self.client).await?;
+                ClientT::request::<R, _>(client.as_ref(), method, params).await
             }
             error => Err(error),
         }
@@ -114,12 +108,9 @@ where
         };
 
         match error {
-            Error::RestartNeeded(reason) => {
-                if let Some(client) = Reconnect::reconnect(&self.client).await? {
-                    ClientT::batch_request(client.as_ref(), batch).await
-                } else {
-                    Err(Error::RestartNeeded(reason))
-                }
+            Error::RestartNeeded(_) => {
+                let client = Reconnect::reconnect(&self.client).await?;
+                ClientT::batch_request(client.as_ref(), batch).await
             }
             error => Err(error),
         }

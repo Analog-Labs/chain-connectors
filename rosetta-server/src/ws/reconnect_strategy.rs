@@ -6,6 +6,7 @@ use futures_util::future::Shared;
 use futures_util::FutureExt;
 use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
+use std::fmt::{Debug, Formatter};
 use std::pin::Pin;
 use std::sync::atomic::AtomicU32;
 use std::sync::RwLock;
@@ -15,40 +16,55 @@ use std::{future::Future, sync::Arc};
 pub type ClientWithIdentifier<C> = Extended<C, u32>;
 pub type ClientRef<C> = Arc<ClientWithIdentifier<C>>;
 
-pub enum ClientReadyState<C> {
+pub enum ClientReadyState<C, Fut> {
     Ready(Result<ClientRef<C>, Error>),
-    Reconnecting(BoxFuture<'static, Result<ClientRef<C>, Error>>),
+    Reconnecting(Fut),
 }
 
 #[pin_project]
-pub struct ClientReadyFuture<C> {
-    state: Option<ClientReadyState<C>>,
+pub struct ClientReadyFuture<C, Fut> {
+    state: Option<ClientReadyState<C, Fut>>,
 }
 
-impl<C> ClientReadyFuture<C> {
+impl<C, Fut> ClientReadyFuture<C, Fut>
+where
+    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send,
+{
     pub fn ready(result: Result<ClientRef<C>, Error>) -> Self {
         Self {
             state: Some(ClientReadyState::Ready(result)),
         }
     }
 
-    pub fn reconnecting(future: BoxFuture<'static, Result<ClientRef<C>, Error>>) -> Self {
+    pub fn reconnecting(future: Fut) -> Self {
         Self {
             state: Some(ClientReadyState::Reconnecting(future)),
         }
     }
 }
 
-impl<C> Future for ClientReadyFuture<C> {
+impl<Fut, C> From<Error> for ClientReadyFuture<C, Fut>
+where
+    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send + Unpin,
+{
+    fn from(error: Error) -> Self {
+        Self::ready(Err(error))
+    }
+}
+
+impl<C, Fut> Future for ClientReadyFuture<C, Fut>
+where
+    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send + Unpin,
+{
     type Output = Result<ClientRef<C>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         match this.state.take() {
             Some(ClientReadyState::Ready(result)) => Poll::Ready(result),
-            Some(ClientReadyState::Reconnecting(mut reconnect_attempt)) => {
-                let result = reconnect_attempt.poll_unpin(cx);
-                *this.state = Some(ClientReadyState::Reconnecting(reconnect_attempt));
+            Some(ClientReadyState::Reconnecting(mut future)) => {
+                let result = future.poll_unpin(cx);
+                *this.state = Some(ClientReadyState::Reconnecting(future));
                 result
             }
             None => panic!("ClientReadyFuture polled after completion"),
@@ -57,10 +73,27 @@ impl<C> Future for ClientReadyFuture<C> {
 }
 
 #[pin_project]
-#[derive(Debug, Clone)]
 pub struct ReconnectAttempt<C> {
     pub attempt: u32,
     pub future: Shared<BoxFuture<'static, Result<ClientRef<C>, CloneableError>>>,
+}
+
+impl<C> Debug for ReconnectAttempt<C> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReconnectAttempt")
+            .field("attempt", &self.attempt)
+            .field("future", &self.future)
+            .finish()
+    }
+}
+
+impl<C> Clone for ReconnectAttempt<C> {
+    fn clone(&self) -> Self {
+        Self {
+            attempt: self.attempt,
+            future: self.future.clone(),
+        }
+    }
 }
 
 impl<C> ReconnectAttempt<C> {
@@ -87,15 +120,13 @@ impl<C> ReconnectAttempt<C> {
 }
 
 impl<C> Future for ReconnectAttempt<C> {
-    type Output = Result<Option<ClientRef<C>>, Error>;
+    type Output = Result<ClientRef<C>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
         match Future::poll(Pin::new(&mut this.future), cx) {
             Poll::Ready(result) => {
-                let result = result
-                    .map(Option::Some)
-                    .map_err(|error| error.clone().into_inner());
+                let result = result.map_err(|error| error.clone().into_inner());
                 Poll::Ready(result)
             }
             Poll::Pending => Poll::Pending,
@@ -103,14 +134,14 @@ impl<C> Future for ReconnectAttempt<C> {
     }
 }
 
-pub struct DefaultStrategy<C, Fut, B> {
+pub struct DefaultStrategy<C, B> {
     builder: B,
     reconnects_count: AtomicU32,
-    is_reconnecting: RwLock<Option<ReconnectAttempt<Fut>>>,
+    is_reconnecting: RwLock<Option<ReconnectAttempt<C>>>,
     client: ArcSwapOption<ClientWithIdentifier<C>>,
 }
 
-impl<C, Fut, B> DefaultStrategy<C, Fut, B>
+impl<C, Fut, B> DefaultStrategy<C, B>
 where
     C: SubscriptionClientT + Send + Sync,
     Fut: Future<Output = Result<C, Error>> + Send + Sync,
@@ -130,12 +161,23 @@ where
     /// Check if the client is reconnecting.
     ///
     /// Returns true if the client was reconnecting, false otherwise
-    pub fn acquire_client(&self) -> ClientReadyFuture<C> {
-        // let is_reconnecting = {
-        //     // Check if the client is reconnecting
-        //     let guard = self.is_reconnecting.read().map_err(|_| Error::Custom("Fatal error: client lock was poisoned".to_string()))?;
-        //     guard.as_ref().map(|reconnect| reconnect.future.clone())
-        // };
+    pub fn acquire_client(&self) -> ClientReadyFuture<C, ReconnectAttempt<C>> {
+        {
+            // Check if the client is reconnecting
+            let guard = match self.is_reconnecting.read() {
+                Ok(guard) => guard,
+                Err(error) => {
+                    return ClientReadyFuture::from(Error::Custom(format!(
+                        "Fatal error, client lock was poisoned: {error}"
+                    )))
+                }
+            };
+
+            // If the client is reconnecting, wait for the reconnect to finish
+            if let Some(reconnect) = guard.as_ref() {
+                return ClientReadyFuture::reconnecting(reconnect.clone());
+            }
+        };
 
         let result = self
             .client
@@ -146,14 +188,14 @@ where
     }
 }
 
-impl<C, Fut, B> Reconnect<ClientWithIdentifier<C>> for DefaultStrategy<C, Fut, B>
+impl<C, Fut, B> Reconnect<ClientWithIdentifier<C>> for DefaultStrategy<C, B>
 where
     C: SubscriptionClientT + Send + Sync + 'static,
     Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
     B: FnOnce() -> Fut + Send + Sync + Clone + 'static,
 {
     type ClientRef = ClientRef<C>;
-    type ReadyFuture<'a> = ClientReadyFuture<C> where Self: 'a;
+    type ReadyFuture<'a> = ClientReadyFuture<C, ReconnectAttempt<C>> where Self: 'a;
     type ReconnectFuture<'a> = ReconnectAttempt<C> where Self: 'a;
 
     fn client(&self) -> Self::ReadyFuture<'_> {
