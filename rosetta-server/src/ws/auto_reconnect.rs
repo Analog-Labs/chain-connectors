@@ -23,6 +23,10 @@ where
     where
         Self: 'a;
 
+    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    where
+        Self: 'a;
+
     type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
     where
         Self: 'a;
@@ -32,7 +36,7 @@ where
     /// The client returned a RestartNeeded error.
     /// # Params
     /// - `client` - The client which returned the RestartNeeded error.
-    fn restart_needed(&self, client: Self::ClientRef) -> Self::ReconnectFuture<'_>;
+    fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_>;
 
     /// Reconnect to the server and return a new client.
     fn reconnect(&self) -> Self::ReconnectFuture<'_>;

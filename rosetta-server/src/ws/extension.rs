@@ -87,8 +87,8 @@ where
 #[async_trait]
 impl<C, T> ClientT for Extended<C, T>
 where
-    C: ClientT + Send + Sync,
-    T: AsRef<C> + Send + Sync,
+    C: ClientT + Send + Sync + 'static,
+    T: AsRef<C> + Send + Sync + 'static,
 {
     async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), Error>
     where
@@ -119,8 +119,8 @@ where
 #[async_trait]
 impl<C, T> SubscriptionClientT for Extended<C, T>
 where
-    C: SubscriptionClientT + Send + Sync,
-    T: AsRef<C> + Send + Sync,
+    C: SubscriptionClientT + Send + Sync + 'static,
+    T: AsRef<C> + Send + Sync + 'static,
 {
     async fn subscribe<'a, Notif, Params>(
         &self,

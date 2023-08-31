@@ -1,87 +1,186 @@
 #![allow(dead_code)]
 use super::{auto_reconnect::Reconnect, error::CloneableError, extension::Extended};
-use arc_swap::ArcSwapOption;
+use arc_swap::ArcSwap;
 use futures_util::future::BoxFuture;
 use futures_util::future::Shared;
 use futures_util::FutureExt;
 use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
+use std::convert::AsRef;
 use std::fmt::{Debug, Formatter};
+use std::ops::Deref;
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::RwLock;
 use std::task::{Context, Poll};
 use std::{future::Future, sync::Arc};
 
-pub type Client<C> = Extended<C, u32>;
+pub type Client<C> = Extended<C, ClientState<C>>;
 pub type ClientRef<C> = Arc<Client<C>>;
+pub type ClientId = u32;
 
-pub enum ClientReadyState<C, Fut> {
+pub struct ClientState<C> {
+    id: ClientId,
+    client: Arc<C>,
+}
+
+impl<C> Clone for ClientState<C> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id,
+            client: self.client.clone(),
+        }
+    }
+}
+
+impl<C> AsRef<C> for ClientState<C> {
+    fn as_ref(&self) -> &C {
+        &self.client
+    }
+}
+
+pub enum ConnectionStatus<C> {
+    Idle(ClientId),
+    Reconnecting(ReconnectAttempt<C>),
+}
+
+impl<C> Clone for ConnectionStatus<C> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Idle(attempt) => Self::Idle(*attempt),
+            Self::Reconnecting(attempt) => Self::Reconnecting(attempt.clone()),
+        }
+    }
+}
+
+pub struct SharedState<C, F> {
+    builder: F,
+    connection_status: RwLock<ConnectionStatus<C>>,
+    client: ArcSwap<Client<C>>,
+}
+
+impl<C, F> Debug for SharedState<C, F>
+where
+    C: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedState").finish_non_exhaustive()
+    }
+}
+
+pub enum ClientReadyState<C, Fut, F> {
     Ready(Result<ClientRef<C>, Error>),
-    Reconnecting(Fut),
+    Reconnecting {
+        client_id: u32,
+        shared: Arc<SharedState<C, F>>,
+        future: Fut,
+    },
 }
 
 #[pin_project]
-pub struct ClientReadyFuture<C, Fut> {
-    state: Option<ClientReadyState<C, Fut>>,
+pub struct ClientReadyFuture<C, Fut, F> {
+    state: Option<ClientReadyState<C, Fut, F>>,
 }
 
-impl<C, Fut> ClientReadyFuture<C, Fut>
-where
-    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send,
-{
+impl<C, Fut, F> ClientReadyFuture<C, Fut, F> {
     pub fn ready(result: Result<ClientRef<C>, Error>) -> Self {
         Self {
             state: Some(ClientReadyState::Ready(result)),
         }
     }
 
-    pub fn reconnecting(future: Fut) -> Self {
+    pub fn reconnecting(attempt: u32, shared: Arc<SharedState<C, F>>, future: Fut) -> Self {
         Self {
-            state: Some(ClientReadyState::Reconnecting(future)),
+            state: Some(ClientReadyState::Reconnecting {
+                client_id: attempt,
+                shared,
+                future,
+            }),
         }
     }
 }
 
-impl<Fut, C> From<Error> for ClientReadyFuture<C, Fut>
-where
-    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send + Unpin,
-{
+impl<C, Fut, F> From<Error> for ClientReadyFuture<C, Fut, F> {
     fn from(error: Error) -> Self {
         Self::ready(Err(error))
     }
 }
 
-impl<C, Fut> Future for ClientReadyFuture<C, Fut>
+impl<C, Fut, F> Future for ClientReadyFuture<C, Fut, F>
 where
-    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send + Unpin,
+    Fut: Future<Output = Result<ClientRef<C>, Error>> + Send + Sync + Unpin + 'static,
+    F: Send + Sync + 'static,
+    C: Send + Sync + 'static,
 {
     type Output = Result<ClientRef<C>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        match this.state.take() {
-            Some(ClientReadyState::Ready(result)) => Poll::Ready(result),
-            Some(ClientReadyState::Reconnecting(mut future)) => {
-                let result = future.poll_unpin(cx);
-                *this.state = Some(ClientReadyState::Reconnecting(future));
-                result
+        loop {
+            match this.state.take() {
+                Some(ClientReadyState::Ready(result)) => return Poll::Ready(result),
+                Some(ClientReadyState::Reconnecting {
+                    client_id: attempt,
+                    shared,
+                    mut future,
+                }) => {
+                    match future.poll_unpin(cx) {
+                        Poll::Ready(result) => {
+                            // Release the is_connecting lock
+                            let mut guard = match shared.connection_status.write() {
+                                Ok(guard) => guard,
+                                Err(error) => {
+                                    return Poll::Ready(Err(Error::Custom(format!(
+                                        "Fatal error, client lock was poisoned: {error}"
+                                    ))))
+                                }
+                            };
+
+                            let connection_status = guard.deref().clone();
+
+                            // Checks if the client needs to be updated
+                            let should_update = match connection_status {
+                                ConnectionStatus::Idle(count) => attempt > count,
+                                ConnectionStatus::Reconnecting(future) => {
+                                    // Store the new client
+                                    if attempt >= future.client_id {
+                                        true
+                                    } else {
+                                        panic!("two reconnects at the same time, ignoring the older one (this is a bug)");
+                                    }
+                                }
+                            };
+
+                            if should_update {
+                                // Update the connection status
+                                *guard = ConnectionStatus::Idle(attempt);
+
+                                // Store the new client
+                                if let Ok(client) = &result {
+                                    shared.client.store(client.clone());
+                                }
+                            }
+
+                            return Poll::Ready(result);
+                        }
+                        Poll::Pending => return Poll::Pending,
+                    }
+                }
+                None => panic!("ClientReadyFuture polled after completion"),
             }
-            None => panic!("ClientReadyFuture polled after completion"),
         }
     }
 }
 
 #[pin_project]
 pub struct ReconnectAttempt<C> {
-    pub attempt: u32,
+    pub client_id: ClientId,
     pub future: Shared<BoxFuture<'static, Result<ClientRef<C>, CloneableError>>>,
 }
 
 impl<C> Debug for ReconnectAttempt<C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ReconnectAttempt")
-            .field("attempt", &self.attempt)
+            .field("attempt", &self.client_id)
             .field("future", &self.future)
             .finish()
     }
@@ -90,7 +189,7 @@ impl<C> Debug for ReconnectAttempt<C> {
 impl<C> Clone for ReconnectAttempt<C> {
     fn clone(&self) -> Self {
         Self {
-            attempt: self.attempt,
+            client_id: self.client_id,
             future: self.future.clone(),
         }
     }
@@ -98,18 +197,18 @@ impl<C> Clone for ReconnectAttempt<C> {
 
 impl<C> ReconnectAttempt<C> {
     pub fn new(
-        attempt: u32,
+        client_id: ClientId,
         future: BoxFuture<'static, Result<ClientRef<C>, CloneableError>>,
     ) -> Self {
         Self {
-            attempt,
+            client_id,
             future: future.shared(),
         }
     }
 
     pub fn failure(error: Error) -> Self {
         Self {
-            attempt: 0,
+            client_id: 0,
             future: async move {
                 Result::<ClientRef<C>, CloneableError>::Err(CloneableError::from(error))
             }
@@ -134,37 +233,38 @@ impl<C> Future for ReconnectAttempt<C> {
     }
 }
 
-pub struct DefaultStrategy<C, B> {
-    builder: B,
-    reconnects_count: AtomicU32,
-    is_reconnecting: RwLock<Option<ReconnectAttempt<C>>>,
-    client: ArcSwapOption<Client<C>>,
+pub struct DefaultStrategy<C, F> {
+    inner: Arc<SharedState<C, F>>,
 }
 
-impl<C, Fut, B> DefaultStrategy<C, B>
+impl<C, Fut, F> DefaultStrategy<C, F>
 where
-    C: SubscriptionClientT + Send + Sync,
+    C: SubscriptionClientT + Send + Sync + 'static,
     Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
-    B: FnOnce() -> Fut + Send + Sync + Clone,
+    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
 {
-    pub async fn connect(builder: B) -> Result<Self, Error> {
-        let client = (builder.clone())().await?;
-        let client = Client::new(client, 0);
+    pub async fn connect(builder: F) -> Result<Self, Error> {
+        let client = Arc::new((builder.clone())().await?);
         Ok(Self {
-            builder,
-            reconnects_count: AtomicU32::new(0),
-            is_reconnecting: RwLock::new(None),
-            client: ArcSwapOption::from(Some(Arc::new(client))),
+            inner: Arc::new(SharedState {
+                builder,
+                connection_status: RwLock::new(ConnectionStatus::Idle(0)),
+                client: ArcSwap::from(Arc::new(Extended::new(ClientState { id: 0, client }))),
+            }),
         })
+    }
+
+    pub fn state(&self) -> Arc<SharedState<C, F>> {
+        self.inner.clone()
     }
 
     /// Check if the client is reconnecting.
     ///
     /// Returns true if the client was reconnecting, false otherwise
-    pub fn acquire_client(&self) -> ClientReadyFuture<C, ReconnectAttempt<C>> {
+    pub fn acquire_client(&self) -> ClientReadyFuture<C, ReconnectAttempt<C>, F> {
         {
             // Check if the client is reconnecting
-            let guard = match self.is_reconnecting.read() {
+            let guard = match self.inner.connection_status.read() {
                 Ok(guard) => guard,
                 Err(error) => {
                     return ClientReadyFuture::from(Error::Custom(format!(
@@ -173,23 +273,27 @@ where
                 }
             };
 
+            let connection_status = guard.deref().clone();
+
             // If the client is reconnecting, wait for the reconnect to finish
-            if let Some(reconnect) = guard.as_ref() {
-                return ClientReadyFuture::reconnecting(reconnect.clone());
+            if let ConnectionStatus::Reconnecting(future) = connection_status {
+                return ClientReadyFuture::<C, ReconnectAttempt<C>, F>::reconnecting(
+                    future.client_id,
+                    self.inner.clone(),
+                    future,
+                );
             }
         };
 
-        let result = self
-            .client
-            .load()
-            .clone()
-            .ok_or_else(|| Error::Custom("Client is reconnecting...".to_string()));
-        ClientReadyFuture::ready(result)
+        let result = self.inner.client.load().clone();
+        ClientReadyFuture::ready(Ok(result))
     }
 
-    pub fn reconnect_attempt(&self, attempt: u32) -> ReconnectAttempt<C> {
+    pub fn reconnect_attempt(&self, client_id: u32) -> ReconnectAttempt<C> {
+        let state = self.state();
+
         // Make sure only one thread is handling the reconnect
-        let mut guard = match self.is_reconnecting.write() {
+        let mut guard = match state.connection_status.write() {
             Ok(guard) => guard,
             Err(error) => {
                 return ReconnectAttempt::failure(Error::Custom(format!(
@@ -198,60 +302,67 @@ where
             }
         };
 
-        // If the client is already reconnecting, return the current attempt
-        if let Some(reconnect_attempt) = guard.as_ref() {
-            return reconnect_attempt.clone();
+        // If the client is reconnecting, return the current attempt
+        let connection_status = guard.deref().clone();
+        let actual_client_id = match connection_status {
+            ConnectionStatus::Reconnecting(future) => return future,
+            ConnectionStatus::Idle(attempt) => attempt,
+        };
+
+        // Check if the client was already reconnected
+        if client_id <= actual_client_id {
+            let client = state.client.load().clone();
+            return ReconnectAttempt::<C>::new(
+                actual_client_id,
+                futures_util::future::ready(Ok(client)).boxed(),
+            );
         }
 
         // Create a new reconnect attempt
         let reconnect_future = {
-            let attempt = attempt;
-            let future = (self.builder.clone())().map(move |value| {
-                value
-                    .map(|client| {
-                        let client = Client::new(client, attempt);
-                        Arc::new(client)
-                    })
-                    .map_err(CloneableError::from)
-            });
-            ReconnectAttempt::new(attempt, Box::pin(future))
+            let future = (self.inner.builder.clone())();
+            ReconnectAttempt::new(
+                client_id,
+                async move {
+                    let state = Arc::new(Extended::new(ClientState {
+                        id: client_id,
+                        client: Arc::new(future.await?),
+                    }));
+                    Ok(state)
+                }
+                .boxed(),
+            )
         };
 
         // Store the reconnect attempt
-        guard.replace(reconnect_future.clone());
+        *guard = ConnectionStatus::Reconnecting(reconnect_future.clone());
 
         reconnect_future
     }
 }
 
-impl<C, Fut, B> Reconnect<Client<C>> for DefaultStrategy<C, B>
+impl<C, Fut, F> Reconnect<Client<C>> for DefaultStrategy<C, F>
 where
     C: SubscriptionClientT + Send + Sync + 'static,
     Fut: Future<Output = Result<C, Error>> + Send + Sync + 'static,
-    B: FnOnce() -> Fut + Send + Sync + Clone + 'static,
+    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
 {
     type ClientRef = ClientRef<C>;
-    type ReadyFuture<'a> = ClientReadyFuture<C, ReconnectAttempt<C>> where Self: 'a;
+    type ReadyFuture<'a> = ClientReadyFuture<C, ReconnectAttempt<C>, F> where Self: 'a;
+    type RestartNeededFuture<'a> = ReconnectAttempt<C> where Self: 'a;
     type ReconnectFuture<'a> = ReconnectAttempt<C> where Self: 'a;
 
     fn client(&self) -> Self::ReadyFuture<'_> {
         self.acquire_client()
     }
 
-    fn restart_needed(&self, client: ClientRef<C>) -> Self::ReconnectFuture<'_> {
-        // The current reconnect attempt
-        let current_attempt = client.data + 1;
-
-        self.reconnect_attempt(current_attempt)
+    fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_> {
+        let client_id = client.state().id;
+        self.reconnect_attempt(client_id + 1)
     }
 
     fn reconnect(&self) -> Self::ReconnectFuture<'_> {
-        // The current reconnect attempt
-        let reconnect_attempt = match self.client.load().clone() {
-            Some(client) => client.data + 1,
-            None => self.reconnects_count.load(Ordering::SeqCst) + 1,
-        };
-
-        self.reconnect_attempt(reconnect_attempt)
+        let client_id = self.state().client.load().state().id;
+        self.reconnect_attempt(client_id + 1)
     }
 }
