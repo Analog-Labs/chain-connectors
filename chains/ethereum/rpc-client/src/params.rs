@@ -5,9 +5,9 @@ use serde_json::value::RawValue;
 use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
-pub struct RpcParams(Box<RawValue>);
+pub struct EthRpcParams(Box<RawValue>);
 
-impl RpcParams {
+impl EthRpcParams {
     pub fn from_serializable<T>(params: &T) -> Result<Self, serde_json::Error>
     where
         T: Serialize,
@@ -22,13 +22,13 @@ impl RpcParams {
     }
 }
 
-impl ToRpcParams for RpcParams {
+impl ToRpcParams for EthRpcParams {
     fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
         Ok(Some(self.0))
     }
 }
 
-impl Display for RpcParams {
+impl Display for EthRpcParams {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.0, f)
     }

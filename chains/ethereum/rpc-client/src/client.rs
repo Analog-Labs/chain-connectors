@@ -1,4 +1,4 @@
-use crate::{error::Error, params::RpcParams};
+use crate::{error::Error, params::EthRpcParams};
 use async_trait::async_trait;
 use ethers::providers::JsonRpcClient;
 use jsonrpsee::core::{
@@ -87,8 +87,8 @@ where
         T: Debug + Serialize + Send + Sync,
         R: DeserializeOwned + Send,
     {
-        let params = RpcParams::from_serializable(&params)?;
-        ClientT::request::<R, RpcParams>(&self.client, method, params)
+        let params = EthRpcParams::from_serializable(&params)?;
+        ClientT::request::<R, EthRpcParams>(&self.client, method, params)
             .await
             .map_err(Error::from)
     }

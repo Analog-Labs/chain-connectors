@@ -1,7 +1,7 @@
 use crate::client::EthClientAdapter;
 use crate::prelude::ToRpcParams;
 use crate::subscription::EthSubscription;
-use crate::{error::Error, params::RpcParams};
+use crate::{error::Error, params::EthRpcParams};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use ethers::providers::{JsonRpcClient, PubsubClient};
@@ -156,7 +156,7 @@ where
         Ok(result)
     }
 
-    pub async fn eth_unsubscribe<R>(&self, params: RpcParams) -> Result<R, Error>
+    pub async fn eth_unsubscribe<R>(&self, params: EthRpcParams) -> Result<R, Error>
     where
         R: DeserializeOwned + Send,
     {
@@ -189,7 +189,7 @@ where
         T: Debug + Serialize + Send + Sync,
         R: DeserializeOwned + Send,
     {
-        let params = RpcParams::from_serializable(&params)?;
+        let params = EthRpcParams::from_serializable(&params)?;
         match method {
             ETHEREUM_SUBSCRIBE_METHOD => self.eth_subscribe(params).await,
             ETHEREUM_UNSUBSCRIBE_METHOD => self.eth_unsubscribe(params).await,
