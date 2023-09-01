@@ -14,18 +14,20 @@ use std::task::{Context, Poll};
 /// A Failure occur when the publisher submits an invalid json
 const MAX_FAILURES_THRESHOLD: u32 = 5;
 
-pub enum SubscriptionStreamState {
+/// The subscription state, make the unsubscribe only happens in the `Idle` state
+enum EthSubscriptionState {
     Idle(Subscription<serde_json::Value>),
     Receiving(Subscription<serde_json::Value>),
     Unsubscribing(BoxFuture<'static, Result<(), JsonRpseeError>>),
 }
 
+/// Adapter for the EventStream from [`ethers::providers::PubsubClient`] and [`jsonrpsee::core::client::Subscription`].
 #[pin_project(project = SubscriptionStreamProj)]
 pub struct EthSubscription {
     id: U256,
     should_unsubscribe: Arc<AtomicBool>,
     failure_count: u32,
-    state: Option<SubscriptionStreamState>,
+    state: Option<EthSubscriptionState>,
     span: tracing::Span,
 }
 
@@ -39,7 +41,7 @@ impl EthSubscription {
             id,
             should_unsubscribe: unsubscribe,
             failure_count: 0,
-            state: Some(SubscriptionStreamState::Idle(stream)),
+            state: Some(EthSubscriptionState::Idle(stream)),
             span: tracing::info_span!("eth_subscription", id = %id, failures = 0),
         }
     }
@@ -57,22 +59,22 @@ impl Stream for EthSubscription {
         loop {
             match this.state.take() {
                 // Guarantee that the stream isn't processing any more events
-                Some(SubscriptionStreamState::Idle(stream)) => {
+                Some(EthSubscriptionState::Idle(stream)) => {
                     if this.should_unsubscribe.load(Ordering::SeqCst) {
                         tracing::info!("unsubscribing...");
-                        *this.state = Some(SubscriptionStreamState::Unsubscribing(
+                        *this.state = Some(EthSubscriptionState::Unsubscribing(
                             stream.unsubscribe().boxed(),
                         ));
                     } else {
-                        *this.state = Some(SubscriptionStreamState::Receiving(stream));
+                        *this.state = Some(EthSubscriptionState::Receiving(stream));
                     }
                     continue;
                 }
-                Some(SubscriptionStreamState::Receiving(mut stream)) => {
+                Some(EthSubscriptionState::Receiving(mut stream)) => {
                     let result = match stream.poll_next_unpin(cx) {
                         Poll::Ready(result) => result,
                         Poll::Pending => {
-                            *this.state = Some(SubscriptionStreamState::Receiving(stream));
+                            *this.state = Some(EthSubscriptionState::Receiving(stream));
                             return Poll::Pending;
                         }
                     };
@@ -90,7 +92,7 @@ impl Stream for EthSubscription {
 
                     match result {
                         Ok(value) => {
-                            *this.state = Some(SubscriptionStreamState::Idle(stream));
+                            *this.state = Some(EthSubscriptionState::Idle(stream));
                             return Poll::Ready(Some(value));
                         }
                         Err(error) => {
@@ -107,20 +109,20 @@ impl Stream for EthSubscription {
                                     "failure limit reached, unsubscribing and closing stream"
                                 );
                                 this.should_unsubscribe.store(true, Ordering::SeqCst);
-                                *this.state = Some(SubscriptionStreamState::Unsubscribing(
+                                *this.state = Some(EthSubscriptionState::Unsubscribing(
                                     stream.unsubscribe().boxed(),
                                 ));
                             } else {
                                 // Reset failure count
                                 *this.failure_count = 0;
                                 this.span.record("failures", 0);
-                                *this.state = Some(SubscriptionStreamState::Idle(stream));
+                                *this.state = Some(EthSubscriptionState::Idle(stream));
                             }
                             continue;
                         }
                     }
                 }
-                Some(SubscriptionStreamState::Unsubscribing(mut future)) => {
+                Some(EthSubscriptionState::Unsubscribing(mut future)) => {
                     return match future.poll_unpin(cx) {
                         Poll::Ready(Ok(_)) => Poll::Ready(None),
                         Poll::Ready(Err(error)) => {
@@ -128,7 +130,7 @@ impl Stream for EthSubscription {
                             Poll::Ready(None)
                         }
                         Poll::Pending => {
-                            *this.state = Some(SubscriptionStreamState::Unsubscribing(future));
+                            *this.state = Some(EthSubscriptionState::Unsubscribing(future));
                             Poll::Pending
                         }
                     };

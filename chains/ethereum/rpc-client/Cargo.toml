@@ -4,19 +4,16 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
-description = "Provider wrapper for jsonrpsee."
+description = "Adapters for JsonRpsee RPC client and ethers-rs."
 
 [dependencies]
 async-trait = "0.1"
-dashmap = "5.5.0"
-ethabi = "18.0.0"
-ethers = { version = "2.0", default-features = true, features = ["ws", "abigen", "rustls"] }
-futures = "0.3"
+dashmap = "5.5"
+ethers = { version = "2.0", default-features = true }
 futures-util = "0.3"
-jsonrpsee = { version = "0.20.0", default-features = false, features = ["macros"] }
+jsonrpsee = { version = "0.20", default-features = false, features = ["macros"] }
 pin-project = "1.1"
 serde = "1.0"
 serde_json = "1.0"
 thiserror = "1.0"
-tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"

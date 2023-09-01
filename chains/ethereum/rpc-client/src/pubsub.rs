@@ -24,43 +24,6 @@ use std::{
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
-#[derive(Debug)]
-pub(crate) enum SubscriptionState {
-    Pending(Subscription<serde_json::Value>),
-    Subscribed(Arc<AtomicBool>),
-    Unsubscribed,
-}
-
-impl SubscriptionState {
-    fn subscribe(&mut self, id: U256) -> Option<EthSubscription> {
-        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
-        match old_state {
-            SubscriptionState::Pending(stream) => {
-                let unsubscribe = Arc::new(AtomicBool::new(false));
-                *self = SubscriptionState::Subscribed(unsubscribe.clone());
-                Some(EthSubscription::new(id, stream, unsubscribe))
-            }
-            SubscriptionState::Subscribed(unsubscribe) => {
-                *self = SubscriptionState::Subscribed(unsubscribe);
-                None
-            }
-            SubscriptionState::Unsubscribed => None,
-        }
-    }
-
-    async fn unsubscribe(&mut self) -> Result<(), JsonRpseeError> {
-        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
-        match old_state {
-            SubscriptionState::Pending(stream) => stream.unsubscribe().await,
-            SubscriptionState::Subscribed(unsubscribe) => {
-                unsubscribe.store(true, Ordering::SeqCst);
-                Ok(())
-            }
-            SubscriptionState::Unsubscribed => Ok(()),
-        }
-    }
-}
-
 /// Client adapter that supports subscriptions
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
@@ -291,5 +254,42 @@ where
         Notif: DeserializeOwned,
     {
         SubscriptionClientT::subscribe_to_method(self, method).await
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum SubscriptionState {
+    Pending(Subscription<serde_json::Value>),
+    Subscribed(Arc<AtomicBool>),
+    Unsubscribed,
+}
+
+impl SubscriptionState {
+    fn subscribe(&mut self, id: U256) -> Option<EthSubscription> {
+        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        match old_state {
+            SubscriptionState::Pending(stream) => {
+                let unsubscribe = Arc::new(AtomicBool::new(false));
+                *self = SubscriptionState::Subscribed(unsubscribe.clone());
+                Some(EthSubscription::new(id, stream, unsubscribe))
+            }
+            SubscriptionState::Subscribed(unsubscribe) => {
+                *self = SubscriptionState::Subscribed(unsubscribe);
+                None
+            }
+            SubscriptionState::Unsubscribed => None,
+        }
+    }
+
+    async fn unsubscribe(&mut self) -> Result<(), JsonRpseeError> {
+        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        match old_state {
+            SubscriptionState::Pending(stream) => stream.unsubscribe().await,
+            SubscriptionState::Subscribed(unsubscribe) => {
+                unsubscribe.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+            SubscriptionState::Unsubscribed => Ok(()),
+        }
     }
 }
