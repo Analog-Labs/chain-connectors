@@ -14,6 +14,7 @@ pub mod exports {
 
 // Adapters
 pub use client::EthClientAdapter;
+pub use error::EthError;
 pub use pubsub::EthPubsubAdapter;
 pub use subscription::EthSubscription;
 

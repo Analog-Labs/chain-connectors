@@ -4,6 +4,7 @@ use serde::Serialize;
 use serde_json::value::RawValue;
 use std::fmt::{Display, Formatter};
 
+/// Adapter for [`jsonrpsee::core::traits::ToRpcParams`] and [`serde::Serialize`].
 #[derive(Debug)]
 pub struct EthRpcParams(Box<RawValue>);
 

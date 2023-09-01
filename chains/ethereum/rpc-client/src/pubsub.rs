@@ -1,7 +1,7 @@
 use crate::client::EthClientAdapter;
 use crate::prelude::ToRpcParams;
 use crate::subscription::EthSubscription;
-use crate::{error::Error, params::EthRpcParams};
+use crate::{error::EthError, params::EthRpcParams};
 use async_trait::async_trait;
 use dashmap::DashMap;
 use ethers::providers::{JsonRpcClient, PubsubClient};
@@ -24,7 +24,7 @@ use std::{
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
-/// Client adapter that supports subscriptions
+/// Adapter for [`jsonrpsee::core::client::SubscriptionClientT`] to [`ethers::providers::PubsubClient`].
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
     pub(crate) eth_subscriptions: Arc<DashMap<U256, SubscriptionState>>,
@@ -79,7 +79,7 @@ where
         }
     }
 
-    pub async fn eth_subscribe<R, P>(&self, params: P) -> Result<R, Error>
+    pub async fn eth_subscribe<R, P>(&self, params: P) -> Result<R, EthError>
     where
         R: DeserializeOwned + Send,
         P: ToRpcParams + Send,
@@ -91,7 +91,7 @@ where
             ETHEREUM_UNSUBSCRIBE_METHOD,
         )
         .await
-        .map_err(Error::from)?;
+        .map_err(EthError::from)?;
 
         // The ethereum subscription id must be an U256
         let maybe_id = match stream.kind() {
@@ -107,7 +107,7 @@ where
         // Unsubscribe in case of error
         let Some((subscription_id, result)) = maybe_id else {
             stream.unsubscribe().await?;
-            return Err(Error::JsonRpsee {
+            return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
@@ -119,24 +119,24 @@ where
         Ok(result)
     }
 
-    pub async fn eth_unsubscribe<R>(&self, params: EthRpcParams) -> Result<R, Error>
+    pub async fn eth_unsubscribe<R>(&self, params: EthRpcParams) -> Result<R, EthError>
     where
         R: DeserializeOwned + Send,
     {
         let subscription_id = params
             .deserialize_as::<U256>()
-            .map_err(Error::from)
+            .map_err(EthError::from)
             .map_err(|_| JsonRpseeError::InvalidSubscriptionId)?;
 
         let Some(mut state) = self.eth_subscriptions.get_mut(&subscription_id) else {
-            return Err(Error::JsonRpsee {
+            return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
         };
         state.unsubscribe().await?;
 
-        serde_json::from_value::<R>(serde_json::value::Value::Bool(true)).map_err(Error::from)
+        serde_json::from_value::<R>(serde_json::value::Value::Bool(true)).map_err(EthError::from)
     }
 }
 
@@ -145,7 +145,7 @@ impl<C> JsonRpcClient for EthPubsubAdapter<C>
 where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
-    type Error = Error;
+    type Error = EthError;
 
     async fn request<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
     where
@@ -158,7 +158,7 @@ where
             ETHEREUM_UNSUBSCRIBE_METHOD => self.eth_unsubscribe(params).await,
             _ => ClientT::request(self, method, params)
                 .await
-                .map_err(Error::from),
+                .map_err(EthError::from),
         }
     }
 }
@@ -170,16 +170,16 @@ where
     type NotificationStream = EthSubscription;
 
     /// Add a subscription to this transport
-    fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {
+    fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, EthError> {
         let id = id.into();
         let Some(mut state) = self.eth_subscriptions.get_mut(&id) else {
-            return Err(Error::JsonRpsee {
+            return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             });
         };
 
-        state.subscribe(id).ok_or_else(|| Error::JsonRpsee {
+        state.subscribe(id).ok_or_else(|| EthError::JsonRpsee {
             original: JsonRpseeError::InvalidSubscriptionId,
             message: None,
         })
@@ -190,7 +190,7 @@ where
         self.eth_subscriptions
             .remove(&_id.into())
             .map(|_| ())
-            .ok_or_else(|| Error::JsonRpsee {
+            .ok_or_else(|| EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
             })

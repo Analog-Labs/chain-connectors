@@ -1,4 +1,4 @@
-use crate::{error::Error, params::EthRpcParams};
+use crate::{error::EthError, params::EthRpcParams};
 use async_trait::async_trait;
 use ethers::providers::JsonRpcClient;
 use jsonrpsee::core::{
@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
-// Adapter Client for JsonRpcClient trait
+/// Adapter for [`jsonrpsee::core::client::ClientT`] to [`ethers::providers::JsonRpcClient`].
 #[repr(transparent)]
 pub struct EthClientAdapter<C> {
     pub(crate) client: C,
@@ -80,7 +80,7 @@ impl<C> JsonRpcClient for EthClientAdapter<C>
 where
     C: ClientT + Debug + Send + Sync,
 {
-    type Error = Error;
+    type Error = EthError;
 
     async fn request<T, R>(&self, method: &str, params: T) -> Result<R, Self::Error>
     where
@@ -90,7 +90,7 @@ where
         let params = EthRpcParams::from_serializable(&params)?;
         ClientT::request::<R, EthRpcParams>(&self.client, method, params)
             .await
-            .map_err(Error::from)
+            .map_err(EthError::from)
     }
 }
 

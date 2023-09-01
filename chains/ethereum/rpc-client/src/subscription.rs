@@ -21,7 +21,7 @@ enum EthSubscriptionState {
     Unsubscribing(BoxFuture<'static, Result<(), JsonRpseeError>>),
 }
 
-/// Adapter for the EventStream from [`ethers::providers::PubsubClient`] and [`jsonrpsee::core::client::Subscription`].
+/// Adapter for [`jsonrpsee::core::client::Subscription`] to EventStream from [`ethers::providers::PubsubClient`].
 #[pin_project(project = SubscriptionStreamProj)]
 pub struct EthSubscription {
     id: U256,

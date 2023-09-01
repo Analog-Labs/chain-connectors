@@ -4,8 +4,9 @@ use ethers::providers::{
 };
 use jsonrpsee::{client_transport::ws::WsHandshakeError, core::Error as JsonRpseeError};
 
+/// Adapter for [`jsonrpsee::core::Error`] to [`ethers::providers::RpcError`].
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum EthError {
     /// Thrown if the response could not be parsed
     #[error("{original}")]
     JsonRpsee {
@@ -31,7 +32,7 @@ pub enum Error {
     Reconnecting,
 }
 
-impl From<JsonRpseeError> for Error {
+impl From<JsonRpseeError> for EthError {
     fn from(error: JsonRpseeError) -> Self {
         match error {
             JsonRpseeError::Call(call) => {
@@ -66,23 +67,23 @@ impl From<JsonRpseeError> for Error {
     }
 }
 
-impl From<WsHandshakeError> for Error {
+impl From<WsHandshakeError> for EthError {
     fn from(error: WsHandshakeError) -> Self {
         Self::HandshakeFailed(error)
     }
 }
 
-impl From<Error> for EthProviderError {
-    fn from(error: Error) -> Self {
+impl From<EthError> for EthProviderError {
+    fn from(error: EthError) -> Self {
         match error {
-            Error::ParseError(error) => Self::SerdeJson(error),
-            Error::HandshakeFailed(error) => Self::CustomError(error.to_string()),
+            EthError::ParseError(error) => Self::SerdeJson(error),
+            EthError::HandshakeFailed(error) => Self::CustomError(error.to_string()),
             error => Self::JsonRpcClientError(Box::new(error)),
         }
     }
 }
 
-impl EthRpcErrorTrait for Error {
+impl EthRpcErrorTrait for EthError {
     fn as_error_response(&self) -> Option<&EthJsonRpcError> {
         match self {
             Self::JsonRpsee { message, .. } => message.as_ref(),
