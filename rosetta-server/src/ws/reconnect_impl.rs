@@ -1,10 +1,15 @@
 #![allow(dead_code)]
-use super::{error::CloneableError, extension::ExtendedClient, reconnect::Reconnect};
+use super::{
+    error::CloneableError,
+    extension::{impl_client_trait, impl_subscription_trait},
+    reconnect::Reconnect,
+};
 use arc_swap::ArcSwap;
 use futures_util::{
     future::{BoxFuture, Shared},
     FutureExt,
 };
+use jsonrpsee::core::client::ClientT;
 use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
 use std::{
@@ -48,7 +53,7 @@ where
             inner: Arc::new(SharedState {
                 builder,
                 connection_status: RwLock::new(ConnectionStatus::Idle(0)),
-                client: ArcSwap::from(Arc::new(Extended::new(ClientState { id: 0, client }))),
+                client: ArcSwap::from(Arc::new(ClientState { id: 0, client })),
             }),
         })
     }
@@ -122,10 +127,10 @@ where
             ReconnectAttempt::new(
                 client_id,
                 async move {
-                    let state = Arc::new(Extended::new(ClientState {
+                    let state = Arc::new(ClientState {
                         id: client_id,
                         client: Arc::new(future.await?),
-                    }));
+                    });
                     Ok(state)
                 }
                 .boxed(),
@@ -139,7 +144,7 @@ where
     }
 }
 
-pub type Client<C> = Extended<C, ClientState<C>>;
+pub type Client<C> = ClientState<C>;
 pub type ClientRef<C> = Arc<Client<C>>;
 pub type ClientId = u32;
 
@@ -159,12 +164,12 @@ where
     }
 
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_> {
-        let client_id = client.state().id;
+        let client_id = client.id;
         self.reconnect_with_client_id(client_id + 1)
     }
 
     fn reconnect(&self) -> Self::ReconnectFuture<'_> {
-        let client_id = self.state().client.load().state().id;
+        let client_id = self.state().client.load().id;
         self.reconnect_with_client_id(client_id + 1)
     }
 }
@@ -173,12 +178,6 @@ where
 pub struct ClientState<C> {
     id: ClientId,
     client: Arc<C>,
-}
-
-impl <C> ExtendedClient<C> for ClientState<C> where C: 'static + Send + Sync {
-    fn rpc_client(&self) -> &C {
-        self.client.as_ref()
-    }
 }
 
 impl<C> Clone for ClientState<C> {
@@ -195,6 +194,9 @@ impl<C> AsRef<C> for ClientState<C> {
         &self.client
     }
 }
+
+impl_client_trait!(ClientState<C> where C: ClientT + 'static + Send + Sync);
+impl_subscription_trait!(ClientState<C> where C: SubscriptionClientT + 'static + Send + Sync);
 
 /// The connection status of the client.
 pub enum ConnectionStatus<C> {
