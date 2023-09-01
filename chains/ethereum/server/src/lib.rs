@@ -61,6 +61,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = MaybeWsEthereumClient::new(config, addr).await?;
         let new_client = client.clone();
+
+        // TODO: Remove, this is just for testing
         tokio::task::spawn(async move {
             let client = new_client;
             let mut stream = client.listen().await.unwrap().unwrap();

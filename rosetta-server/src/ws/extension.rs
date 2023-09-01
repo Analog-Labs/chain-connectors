@@ -1,6 +1,8 @@
-/// Implements the ClientT trait for the provided type
+/// Implements the [`::jsonrpsee::core::client::ClientT`] trait for the provided type
 ///
 /// ```rust
+/// use jsonrpsee::core::client::ClientT;
+///
 /// struct CustomClient<C> {
 ///     client: C,
 /// }
@@ -15,7 +17,6 @@
 /// ```
 #[macro_export]
 macro_rules! impl_client_trait {
-    // `()` indicates that the macro takes no argument.
     (
         $name:ident
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)?
@@ -24,7 +25,6 @@ macro_rules! impl_client_trait {
         impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?
             ::jsonrpsee::core::client::ClientT
         for $name
-            // the bounds are not required here
             $(< $( $lt ),+ >)?
             $(where $( $glt $( : $gclt $(+ $gdlt )* )? ),+ )?
         {
@@ -110,6 +110,8 @@ pub use impl_client_trait;
 /// Implements the [`::jsonrpsee::core::client::SubscriptionClientT`] trait for the provided type
 ///
 /// ```rust
+/// use jsonrpsee::core::client::SubscriptionClientT;
+///
 /// struct CustomClient<C> {
 ///     client: C,
 /// }
@@ -120,11 +122,10 @@ pub use impl_client_trait;
 ///   }
 /// }
 ///
-/// impl_subscription_trait!(CustomClient<C> where C: 'static + ClientT + Send + Sync)
+/// impl_subscription_trait!(CustomClient<C> where C: 'static + SubscriptionT + Send + Sync)
 /// ```
 #[macro_export]
 macro_rules! impl_subscription_trait {
-    // `()` indicates that the macro takes no argument.
     (
         $name:ident
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ >)?
@@ -133,7 +134,6 @@ macro_rules! impl_subscription_trait {
         impl $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?
             ::jsonrpsee::core::client::SubscriptionClientT
         for $name
-            // the bounds are not required here
             $(< $( $lt ),+ >)?
             $(where $( $glt $( : $gclt $(+ $gdlt )* )? ),+ )?
         {
