@@ -3,11 +3,13 @@ use jsonrpsee::{core::Error, types::InvalidRequestId};
 /// A version of `Error` that implements `Clone`.
 /// Cloning the error is necessary because if a reconnect fails, the error must be cloned and
 /// send back to all pending requests.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct CloneableError {
     inner: Error,
 }
 
+#[allow(dead_code)]
 impl CloneableError {
     /// Returns the inner error.
     pub fn into_inner(self) -> Error {

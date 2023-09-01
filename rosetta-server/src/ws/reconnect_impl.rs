@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::{error::CloneableError, extension::Extended, reconnect::Reconnect};
+use super::{error::CloneableError, extension::ExtendedClient, reconnect::Reconnect};
 use arc_swap::ArcSwap;
 use futures_util::{
     future::{BoxFuture, Shared},
@@ -173,6 +173,12 @@ where
 pub struct ClientState<C> {
     id: ClientId,
     client: Arc<C>,
+}
+
+impl <C> ExtendedClient<C> for ClientState<C> where C: 'static + Send + Sync {
+    fn rpc_client(&self) -> &C {
+        self.client.as_ref()
+    }
 }
 
 impl<C> Clone for ClientState<C> {
