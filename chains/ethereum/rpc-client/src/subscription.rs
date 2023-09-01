@@ -21,7 +21,7 @@ pub enum SubscriptionStreamState {
 }
 
 #[pin_project(project = SubscriptionStreamProj)]
-pub struct SubscriptionStream {
+pub struct EthSubscription {
     id: U256,
     should_unsubscribe: Arc<AtomicBool>,
     failure_count: u32,
@@ -29,7 +29,7 @@ pub struct SubscriptionStream {
     span: tracing::Span,
 }
 
-impl SubscriptionStream {
+impl EthSubscription {
     pub fn new(
         id: U256,
         stream: Subscription<serde_json::Value>,
@@ -45,7 +45,7 @@ impl SubscriptionStream {
     }
 }
 
-impl Stream for SubscriptionStream {
+impl Stream for EthSubscription {
     type Item = Box<RawValue>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {

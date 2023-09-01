@@ -6,7 +6,7 @@ mod subscription;
 
 pub use client::EthClientAdapter;
 pub use pubsub::EthPubsubAdapter;
-pub use subscription::SubscriptionStream;
+pub use subscription::EthSubscription;
 
 pub mod prelude {
     pub use ethers::providers::{JsonRpcClient, PubsubClient, RpcError};

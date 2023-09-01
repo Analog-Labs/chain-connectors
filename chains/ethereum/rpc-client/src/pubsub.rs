@@ -1,6 +1,6 @@
 use crate::client::EthClientAdapter;
 use crate::prelude::ToRpcParams;
-use crate::subscription::SubscriptionStream;
+use crate::subscription::EthSubscription;
 use crate::{error::Error, params::RpcParams};
 use async_trait::async_trait;
 use dashmap::DashMap;
@@ -32,13 +32,13 @@ pub(crate) enum SubscriptionState {
 }
 
 impl SubscriptionState {
-    fn subscribe(&mut self, id: U256) -> Option<SubscriptionStream> {
+    fn subscribe(&mut self, id: U256) -> Option<EthSubscription> {
         let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
         match old_state {
             SubscriptionState::Pending(stream) => {
                 let unsubscribe = Arc::new(AtomicBool::new(false));
                 *self = SubscriptionState::Subscribed(unsubscribe.clone());
-                Some(SubscriptionStream::new(id, stream, unsubscribe))
+                Some(EthSubscription::new(id, stream, unsubscribe))
             }
             SubscriptionState::Subscribed(unsubscribe) => {
                 *self = SubscriptionState::Subscribed(unsubscribe);
@@ -204,7 +204,7 @@ impl<C> PubsubClient for EthPubsubAdapter<C>
 where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
-    type NotificationStream = SubscriptionStream;
+    type NotificationStream = EthSubscription;
 
     /// Add a subscription to this transport
     fn subscribe<T: Into<U256>>(&self, id: T) -> Result<Self::NotificationStream, Error> {

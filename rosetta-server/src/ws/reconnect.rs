@@ -43,7 +43,7 @@ where
     /// - `client` - The client which returned the RestartNeeded error.
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_>;
 
-    /// Force Reconnect to the server and return a new client.
+    /// Force reconnect and return a new client.
     fn reconnect(&self) -> Self::ReconnectFuture<'_>;
 }
 

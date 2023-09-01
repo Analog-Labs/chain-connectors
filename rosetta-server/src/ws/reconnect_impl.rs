@@ -87,7 +87,7 @@ where
 
     /// Creates a future that reconnects the client, the reconnect only works when the provided
     /// client_id is greater than the current client id, this is a mechanism for avoid racing conditions.
-    pub fn reconnect_attempt(&self, client_id: u32) -> ReconnectAttempt<C> {
+    pub fn reconnect_with_client_id(&self, client_id: u32) -> ReconnectAttempt<C> {
         let state = self.state();
 
         // Make sure only one thread is handling the reconnect
@@ -160,12 +160,12 @@ where
 
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_> {
         let client_id = client.state().id;
-        self.reconnect_attempt(client_id + 1)
+        self.reconnect_with_client_id(client_id + 1)
     }
 
     fn reconnect(&self) -> Self::ReconnectFuture<'_> {
         let client_id = self.state().client.load().state().id;
-        self.reconnect_attempt(client_id + 1)
+        self.reconnect_with_client_id(client_id + 1)
     }
 }
 
