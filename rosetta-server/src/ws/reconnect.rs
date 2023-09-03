@@ -20,16 +20,17 @@ where
     C: ClientT + Send + Sync,
 {
     type ClientRef: AsRef<C> + Send + Sync;
+    type Error: Into<Error> + Send + Sync;
 
-    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Self::Error>> + 'a + Send
     where
         Self: 'a;
 
-    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Self::Error>> + 'a + Send
     where
         Self: 'a;
 
-    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Self::Error>> + 'a + Send
     where
         Self: 'a;
 
@@ -76,12 +77,14 @@ where
     where
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await.map_err(Into::into)?;
         let params = RpcParams::new(params)?;
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
             Err(Error::RestartNeeded(_)) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+                let client = Reconnect::restart_needed(&self.client, client)
+                    .await
+                    .map_err(Into::into)?;
                 ClientT::notification(client.as_ref(), method, params).await
             }
             Err(error) => Err(error),
@@ -93,7 +96,7 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await.map_err(Into::into)?;
         let params = RpcParams::new(params)?;
         let error = match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
             Ok(r) => return Ok(r),
@@ -102,7 +105,9 @@ where
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+                let client = Reconnect::restart_needed(&self.client, client)
+                    .await
+                    .map_err(Into::into)?;
                 ClientT::request::<R, _>(client.as_ref(), method, params).await
             }
             error => Err(error),
@@ -116,7 +121,7 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await.map_err(Into::into)?;
         let error = match ClientT::batch_request(client.as_ref(), batch.clone()).await {
             Ok(r) => return Ok(r),
             Err(error) => error,
@@ -124,7 +129,9 @@ where
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+                let client = Reconnect::restart_needed(&self.client, client)
+                    .await
+                    .map_err(Into::into)?;
                 ClientT::batch_request(client.as_ref(), batch).await
             }
             error => Err(error),
@@ -148,7 +155,7 @@ where
         Params: ToRpcParams + Send,
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await.map_err(Into::into)?;
         let params = RpcParams::new(params)?;
         let error = match SubscriptionClientT::subscribe::<Notif, _>(
             client.as_ref(),
@@ -164,7 +171,9 @@ where
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+                let client = Reconnect::restart_needed(&self.client, client)
+                    .await
+                    .map_err(Into::into)?;
                 SubscriptionClientT::subscribe::<Notif, _>(
                     client.as_ref(),
                     subscribe_method,
@@ -184,7 +193,7 @@ where
     where
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let client = Reconnect::ready(&self.client).await.map_err(Into::into)?;
         let error = match SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await {
             Ok(subscription) => return Ok(subscription),
             Err(error) => error,
@@ -192,7 +201,9 @@ where
 
         match error {
             Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+                let client = Reconnect::restart_needed(&self.client, client)
+                    .await
+                    .map_err(Into::into)?;
                 SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await
             }
             error => Err(error),

@@ -23,6 +23,12 @@ impl From<Error> for CloneableError {
     }
 }
 
+impl From<CloneableError> for Error {
+    fn from(error: CloneableError) -> Self {
+        error.inner
+    }
+}
+
 impl Clone for CloneableError {
     fn clone(&self) -> Self {
         let error = match &self.inner {
