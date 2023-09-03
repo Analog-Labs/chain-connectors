@@ -1,12 +1,7 @@
-use crate::{error::EthError, params::EthRpcParams};
+use crate::{error::EthError, extension::impl_client_trait, params::EthRpcParams};
 use async_trait::async_trait;
 use ethers::providers::JsonRpcClient;
-use jsonrpsee::core::{
-    client::{BatchResponse, ClientT},
-    params::BatchRequestBuilder,
-    traits::ToRpcParams,
-    Error as JsonRpseeError,
-};
+use jsonrpsee::core::client::ClientT;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::{Debug, Formatter};
@@ -26,6 +21,14 @@ where
         Self { client }
     }
 }
+
+impl<C> AsRef<C> for EthClientAdapter<C> {
+    fn as_ref(&self) -> &C {
+        &self.client
+    }
+}
+
+impl_client_trait!(EthClientAdapter<C> where C: ClientT + Debug + Send + Sync);
 
 impl<C> Debug for EthClientAdapter<C>
 where
@@ -52,12 +55,6 @@ where
 impl<C> AsMut<C> for EthClientAdapter<C> {
     fn as_mut(&mut self) -> &mut C {
         &mut self.client
-    }
-}
-
-impl<C> AsRef<C> for EthClientAdapter<C> {
-    fn as_ref(&self) -> &C {
-        &self.client
     }
 }
 
@@ -94,33 +91,3 @@ where
     }
 }
 
-#[async_trait]
-impl<C> ClientT for EthClientAdapter<C>
-where
-    C: ClientT + Debug + Send + Sync,
-{
-    async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), JsonRpseeError>
-    where
-        Params: ToRpcParams + Send,
-    {
-        ClientT::notification(&self.client, method, params).await
-    }
-
-    async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, JsonRpseeError>
-    where
-        R: DeserializeOwned,
-        Params: ToRpcParams + Send,
-    {
-        ClientT::request(&self.client, method, params).await
-    }
-
-    async fn batch_request<'a, R>(
-        &self,
-        batch: BatchRequestBuilder<'a>,
-    ) -> Result<BatchResponse<'a, R>, JsonRpseeError>
-    where
-        R: DeserializeOwned + Debug + 'a,
-    {
-        ClientT::batch_request(&self.client, batch).await
-    }
-}

@@ -1,5 +1,6 @@
 mod client;
 mod error;
+mod extension;
 mod params;
 mod pubsub;
 mod subscription;

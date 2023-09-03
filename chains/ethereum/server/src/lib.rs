@@ -32,20 +32,15 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
-        log::info!("Called ethereum;");
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
-            log::info!("WS client");
-            let (tx, rx) = WsTransportClientBuilder::default().build(uri).await.map_err(|error| {
-                log::error!("Failed to connect to websocket: {error}");
-                error
-            })?;
+            let (tx, rx) = WsTransportClientBuilder::default()
+                .build(uri)
+                .await?;
             let client = ClientBuilder::default().build_with_tokio(tx, rx);
             let ws_connection = EthPubsubAdapter::new(client);
-            let client = EthereumClient::new(config, ws_connection).await.map_err(|error| {
-                log::error!("Failed to create client: {error}");
-                error
-            })?;
+            let client = EthereumClient::new(config, ws_connection)
+                .await?;
             Ok(Self::Ws(client))
         } else {
             let http_connection = Http::new(uri);
