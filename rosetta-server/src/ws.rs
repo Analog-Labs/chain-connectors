@@ -19,7 +19,9 @@ use jsonrpsee::{
 use tide::http::url::Url;
 pub use tungstenite_jsonrpsee::{TungsteniteClient, WsError};
 
-async fn build_client(url: Url, config: RpcClientConfig) -> Result<Client, JsonRpseeError> {
+pub type DefaultClient = AutoReconnectClient<DefaultStrategy<ReconnectConfigImpl>>;
+
+async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, JsonRpseeError> {
     let builder = ClientBuilder::from(&config);
     let client = match config.client {
         WsTransportClient::Auto => {
@@ -58,22 +60,19 @@ impl ReconnectConfig for ReconnectConfigImpl {
     fn connect(&self) -> Self::ConnectFuture {
         let url = self.url.clone();
         let config = self.config.clone();
-        async move { build_client(url, config).await }.boxed()
+        connect_client(url, config).boxed()
     }
 }
 
 pub async fn default_client(
     url: &str,
     config: Option<RpcClientConfig>,
-) -> Result<AutoReconnectClient<DefaultStrategy<ReconnectConfigImpl>>, JsonRpseeError> {
+) -> Result<DefaultClient, JsonRpseeError> {
     let config = config.unwrap_or_default();
-
     let url = url
         .parse::<Url>()
         .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
-
     let reconnect_config = ReconnectConfigImpl { url, config };
-
     DefaultStrategy::connect(reconnect_config)
         .await
         .map(|strategy| strategy.into_client())

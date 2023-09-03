@@ -44,11 +44,12 @@ pub struct DefaultStrategy<T: Config> {
 
 impl<T: Config> DefaultStrategy<T> {
     pub async fn connect(config: T) -> Result<Self, Error> {
+        log::info!("Connecting");
         let client = Arc::new(config.connect().await?);
         Ok(Self {
             inner: Arc::new(SharedState {
                 config,
-                max_pending_delay: Duration::from_secs(10), // TODO: make this configurable
+                max_pending_delay: Duration::from_secs(15), // TODO: make this configurable
                 reconnect_delay: Duration::from_secs(5),    // TODO: make this configurable
                 connection_status: RwLock::new(ConnectionStatus::Ready(client)),
             }),
@@ -94,13 +95,11 @@ impl<T: Config> DefaultStrategy<T> {
         };
 
         // Creates a new reconnect attempt
+        // TODO: Reconnect in another task/thread
         let reconnect_future = ReconnectFuture::new(self.inner.clone()).shared();
         *guard = ConnectionStatus::Reconnecting(reconnect_future.clone());
 
-        ReadyOrWaitFuture::wait(
-            Duration::from_secs(60), // TODO: Reconnect in another task
-            reconnect_future,
-        )
+        ReadyOrWaitFuture::wait(self.inner.max_pending_delay, reconnect_future)
     }
 }
 
@@ -281,7 +280,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
                         };
 
                         if let ConnectionStatus::Ready(client) = guard.deref() {
-                            log::warn!("Racing condition detected, two reconnects running at happening at the same time");
+                            log::warn!("Racing condition detected, two reconnects running at the same time");
                             return Poll::Ready(Ok(client.clone()));
                         }
 

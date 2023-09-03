@@ -1,8 +1,6 @@
 use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
-use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
-use jsonrpsee::core::client::{Client as JsonRpseeClient, ClientBuilder};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -10,6 +8,7 @@ use rosetta_server::types::{
     Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
     TransactionIdentifier,
 };
+use rosetta_server::ws::{default_client, DefaultClient};
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use url::Url;
@@ -27,20 +26,16 @@ pub use event_stream::EthereumEventStream;
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<Http>),
-    Ws(EthereumClient<EthPubsubAdapter<JsonRpseeClient>>),
+    Ws(EthereumClient<EthPubsubAdapter<DefaultClient>>),
 }
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
-            let (tx, rx) = WsTransportClientBuilder::default()
-                .build(uri)
-                .await?;
-            let client = ClientBuilder::default().build_with_tokio(tx, rx);
+            let client = default_client(uri.as_str(), None).await?;
             let ws_connection = EthPubsubAdapter::new(client);
-            let client = EthereumClient::new(config, ws_connection)
-                .await?;
+            let client = EthereumClient::new(config, ws_connection).await?;
             Ok(Self::Ws(client))
         } else {
             let http_connection = Http::new(uri);
@@ -54,7 +49,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<JsonRpseeClient>>;
+    type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<DefaultClient>>;
 
     fn create_config(network: &str) -> Result<BlockchainConfig> {
         rosetta_config_ethereum::config(network)
