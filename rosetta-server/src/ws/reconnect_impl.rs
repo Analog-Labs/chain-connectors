@@ -16,6 +16,14 @@ use std::{
     task::{Context, Poll},
 };
 
+pub trait Config: 'static + Sized + Send + Sync {
+    type Client: SubscriptionClientT + Send + Sync + 'static;
+
+    type ConnectFuture: Future<Output = Result<Self::Client, Error>> + 'static + Unpin + Send;
+
+    fn connect(&self) -> Self::ConnectFuture;
+}
+
 /// The default reconnect strategy.
 ///
 /// This strategy will reconnect the client using the following algorithm:
@@ -30,26 +38,16 @@ use std::{
 /// - add a timeout for the reconnect
 /// - set a max number of reconnect attempts, shutdown when the max number is reached
 /// - automatically restore the subscriptions after reconnecting
-pub struct DefaultStrategy<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    inner: Arc<SharedState<C, Fut, F>>,
+pub struct DefaultStrategy<T: Config> {
+    inner: Arc<SharedState<T>>,
 }
 
-impl<C, Fut, F> DefaultStrategy<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    pub async fn connect(builder: F) -> Result<Self, Error> {
-        let client = Arc::new((builder.clone())().await?);
+impl<T: Config> DefaultStrategy<T> {
+    pub async fn connect(config: T) -> Result<Self, Error> {
+        let client = Arc::new(config.connect().await?);
         Ok(Self {
             inner: Arc::new(SharedState {
-                builder,
+                config,
                 max_pending_delay: Duration::from_secs(10), // TODO: make this configurable
                 reconnect_delay: Duration::from_secs(5),    // TODO: make this configurable
                 connection_status: RwLock::new(ConnectionStatus::Ready(client)),
@@ -57,12 +55,12 @@ where
         })
     }
 
-    pub fn state(&self) -> Arc<SharedState<C, Fut, F>> {
+    pub fn state(&self) -> Arc<SharedState<T>> {
         self.inner.clone()
     }
 
     /// Creates a future that is immediately ready if the client is idle. or pending if reconnecting.
-    pub fn acquire_client(&self) -> ReadyOrWaitFuture<C, Fut, F> {
+    pub fn acquire_client(&self) -> ReadyOrWaitFuture<T> {
         let guard = match self.inner.connection_status.read() {
             Ok(guard) => guard,
             Err(error) => {
@@ -75,14 +73,14 @@ where
         match guard.deref().clone() {
             ConnectionStatus::Ready(client) => ReadyOrWaitFuture::ready(Ok(client)),
             ConnectionStatus::Reconnecting(future) => {
-                ReadyOrWaitFuture::<C, Fut, F>::wait(self.inner.max_pending_delay, future)
+                ReadyOrWaitFuture::<T>::wait(self.inner.max_pending_delay, future)
             }
         }
     }
 
     /// Creates a future that reconnects the client, the reconnect only works when the provided
     /// client_id is greater than the current client id, this is a mechanism for avoid racing conditions.
-    pub fn reconnect_or_wait(&self) -> ReadyOrWaitFuture<C, Fut, F> {
+    pub fn reconnect_or_wait(&self) -> ReadyOrWaitFuture<T> {
         // Make sure only one thread is handling the reconnect
         let mut guard = self
             .inner
@@ -106,16 +104,12 @@ where
     }
 }
 
-impl<C, Fut, F> Reconnect<C> for DefaultStrategy<C, Fut, F>
-where
-    C: SubscriptionClientT + Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    type ClientRef = Arc<C>;
-    type ReadyFuture<'a> = ReadyOrWaitFuture<C, Fut, F> where Self: 'a;
-    type RestartNeededFuture<'a> = ReadyOrWaitFuture<C, Fut, F> where Self: 'a;
-    type ReconnectFuture<'a> = ReadyOrWaitFuture<C, Fut, F> where Self: 'a;
+impl<T: Config> Reconnect for DefaultStrategy<T> {
+    type Client = T::Client;
+    type ClientRef = Arc<T::Client>;
+    type ReadyFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
+    type RestartNeededFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
+    type ReconnectFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
 
     fn ready(&self) -> Self::ReadyFuture<'_> {
         self.acquire_client()
@@ -130,30 +124,17 @@ where
     }
 }
 
-// impl_client_trait!(ClientState<C> where C: ClientT + 'static + Send + Sync);
-// impl_subscription_trait!(ClientState<C> where C: SubscriptionClientT + 'static + Send + Sync);
-
 /// The connection status of the client.
-pub enum ConnectionStatus<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Clone + Send + Sync + 'static,
-{
+pub enum ConnectionStatus<T: Config> {
     /// The client is idle and ready to receive requests.
-    Ready(Arc<C>),
+    Ready(Arc<T::Client>),
 
     /// The client is reconnecting.
     /// This stores a shared future which will resolves when the reconnect completes.
-    Reconnecting(Shared<ReconnectFuture<C, Fut, F>>),
+    Reconnecting(Shared<ReconnectFuture<T>>),
 }
 
-impl<C, Fut, F> Clone for ConnectionStatus<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Clone + Send + Sync + 'static,
-{
+impl<T: Config> Clone for ConnectionStatus<T> {
     fn clone(&self) -> Self {
         match self {
             Self::Ready(client) => Self::Ready(client.clone()),
@@ -162,67 +143,42 @@ where
     }
 }
 
-/// Stores the connection status and builder.
+/// Stores the connection status and config.
 /// This state is shared between all the clients.
-pub struct SharedState<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Clone + Send + Sync + 'static,
-{
-    builder: F,
+pub struct SharedState<T: Config> {
+    config: T,
     /// Maximum amount of time the request will wait for the reconnect before failure.
     max_pending_delay: Duration,
     /// Amount of seconds to wait between reconnect attempts.
     reconnect_delay: Duration,
-    connection_status: RwLock<ConnectionStatus<C, Fut, F>>,
+    connection_status: RwLock<ConnectionStatus<T>>,
 }
 
-impl<C, Fut, F> Debug for SharedState<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
+impl<T: Config> Debug for SharedState<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SharedState").finish_non_exhaustive()
     }
 }
 
 /// Future that resolves when the client is ready to process requests.
-pub enum ReadyOrWaitState<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    Ready(Result<Arc<C>, Error>),
-    Waiting(Select<Delay, Shared<ReconnectFuture<C, Fut, F>>>),
+pub enum ReadyOrWaitState<T: Config> {
+    Ready(Result<Arc<T::Client>, Error>),
+    Waiting(Select<Delay, Shared<ReconnectFuture<T>>>),
 }
 
 #[pin_project]
-pub struct ReadyOrWaitFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    state: Option<ReadyOrWaitState<C, Fut, F>>,
+pub struct ReadyOrWaitFuture<T: Config> {
+    state: Option<ReadyOrWaitState<T>>,
 }
 
-impl<C, Fut, F> ReadyOrWaitFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    pub fn ready(result: Result<Arc<C>, Error>) -> Self {
+impl<T: Config> ReadyOrWaitFuture<T> {
+    pub fn ready(result: Result<Arc<T::Client>, Error>) -> Self {
         Self {
             state: Some(ReadyOrWaitState::Ready(result)),
         }
     }
 
-    pub fn wait(timeout: Duration, future: Shared<ReconnectFuture<C, Fut, F>>) -> Self {
+    pub fn wait(timeout: Duration, future: Shared<ReconnectFuture<T>>) -> Self {
         let future = futures_util::future::select(Delay::new(timeout), future);
         Self {
             state: Some(ReadyOrWaitState::Waiting(future)),
@@ -230,24 +186,14 @@ where
     }
 }
 
-impl<C, Fut, F> From<Error> for ReadyOrWaitFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
+impl<T: Config> From<Error> for ReadyOrWaitFuture<T> {
     fn from(error: Error) -> Self {
         Self::ready(Err(error))
     }
 }
 
-impl<C, Fut, F> Future for ReadyOrWaitFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Send + Sync + Unpin + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    type Output = Result<Arc<C>, Error>;
+impl<T: Config> Future for ReadyOrWaitFuture<T> {
+    type Output = Result<Arc<T::Client>, Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -284,9 +230,9 @@ where
 
 /// Future that resolves the client reconnects or fail to reconnect.
 /// This future can be cloned and polled from multiple threads
-pub enum ReconnectStatus<Fut> {
+pub enum ReconnectStatus<T: Config> {
     /// Client is reconnecting
-    Reconnecting(Fut),
+    Reconnecting(T::ConnectFuture),
 
     /// Client is waiting for the next reconnect attempt
     Waiting(Delay),
@@ -295,25 +241,15 @@ pub enum ReconnectStatus<Fut> {
 /// Future that resolves the client reconnects or fail to reconnect.
 /// This future can be cloned and polled from multiple threads
 #[pin_project]
-pub struct ReconnectFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
+pub struct ReconnectFuture<T: Config> {
     pub attempt: u32,
-    pub state: Arc<SharedState<C, Fut, F>>,
-    pub status: Option<ReconnectStatus<Fut>>,
+    pub state: Arc<SharedState<T>>,
+    pub status: Option<ReconnectStatus<T>>,
 }
 
-impl<C, Fut, F> ReconnectFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Send + Sync + Unpin + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    pub fn new(state: Arc<SharedState<C, Fut, F>>) -> Self {
-        let future = (state.builder.clone())();
+impl<T: Config> ReconnectFuture<T> {
+    pub fn new(state: Arc<SharedState<T>>) -> Self {
+        let future = state.config.connect();
         Self {
             attempt: 1,
             state,
@@ -322,13 +258,8 @@ where
     }
 }
 
-impl<C, Fut, F> Future for ReconnectFuture<C, Fut, F>
-where
-    C: Send + Sync + 'static,
-    Fut: Future<Output = Result<C, Error>> + Unpin + Send + Sync + 'static,
-    F: FnOnce() -> Fut + Send + Sync + Clone + 'static,
-{
-    type Output = Result<Arc<C>, CloneableError>;
+impl<T: Config> Future for ReconnectFuture<T> {
+    type Output = Result<Arc<T::Client>, CloneableError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -374,7 +305,7 @@ where
                 },
                 Some(ReconnectStatus::Waiting(mut delay)) => match delay.poll_unpin(cx) {
                     Poll::Ready(_) => {
-                        let future = (this.state.builder.clone())();
+                        let future = this.state.config.connect();
                         *this.status = Some(ReconnectStatus::Reconnecting(future));
                         *this.attempt += 1;
                         continue;

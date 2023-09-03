@@ -10,26 +10,26 @@ use jsonrpsee::core::{
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::future::Future;
-use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// Reconnect trait.
 /// This trait exposes callbacks which are called when the server returns a RestartNeeded error.
-pub trait Reconnect<C>: 'static + Send + Sync
-where
-    C: ClientT + Send + Sync,
-{
-    type ClientRef: AsRef<C> + Send + Sync;
+pub trait Reconnect: 'static + Sized + Send + Sync {
+    type Client: SubscriptionClientT + 'static + Send + Sync;
+    type ClientRef: AsRef<Self::Client> + Send + Sync;
 
-    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send + Unpin
     where
         Self: 'a;
 
-    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Error>>
+        + 'a
+        + Send
+        + Unpin
     where
         Self: 'a;
 
-    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send
+    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send + Unpin
     where
         Self: 'a;
 
@@ -45,14 +45,18 @@ where
 
     /// Force reconnect and return a new client.
     fn reconnect(&self) -> Self::ReconnectFuture<'_>;
+
+    /// Return a reference to the client.
+    fn into_client(self) -> AutoReconnectClient<Self> {
+        AutoReconnectClient { client: self }
+    }
 }
 
-pub struct AutoReconnectClient<C, T> {
-    _marker: PhantomData<C>,
+pub struct AutoReconnectClient<T> {
     client: T,
 }
 
-impl<C, T> Deref for AutoReconnectClient<C, T> {
+impl<T> Deref for AutoReconnectClient<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -60,17 +64,17 @@ impl<C, T> Deref for AutoReconnectClient<C, T> {
     }
 }
 
-impl<C, T> DerefMut for AutoReconnectClient<C, T> {
+impl<T> DerefMut for AutoReconnectClient<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
     }
 }
 
 #[async_trait]
-impl<C, T> ClientT for AutoReconnectClient<C, T>
+impl<T> ClientT for AutoReconnectClient<T>
 where
-    C: ClientT + Send + Sync,
-    T: Reconnect<C>,
+    T: Reconnect,
+    T::Client: ClientT,
 {
     async fn notification<Params>(&self, method: &str, params: Params) -> Result<(), Error>
     where
@@ -133,10 +137,10 @@ where
 }
 
 #[async_trait]
-impl<C, T> SubscriptionClientT for AutoReconnectClient<C, T>
+impl<T> SubscriptionClientT for AutoReconnectClient<T>
 where
-    C: SubscriptionClientT + Send + Sync,
-    T: Reconnect<C>,
+    T: Reconnect,
+    T::Client: SubscriptionClientT,
 {
     async fn subscribe<'a, Notif, Params>(
         &self,
