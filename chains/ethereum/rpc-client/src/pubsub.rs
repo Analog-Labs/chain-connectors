@@ -156,7 +156,7 @@ where
         match method {
             ETHEREUM_SUBSCRIBE_METHOD => self.eth_subscribe(params).await,
             ETHEREUM_UNSUBSCRIBE_METHOD => self.eth_unsubscribe(params).await,
-            _ => ClientT::request(self, method, params)
+            _ => ClientT::request(&self.adapter, method, params)
                 .await
                 .map_err(EthError::from),
         }
@@ -206,7 +206,7 @@ where
     where
         Params: ToRpcParams + Send,
     {
-        ClientT::notification(self, method, params).await
+        ClientT::notification(&self.adapter.client, method, params).await
     }
 
     async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, JsonRpseeError>
@@ -214,7 +214,7 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        ClientT::request(self, method, params).await
+        ClientT::request(&self.adapter.client, method, params).await
     }
 
     async fn batch_request<'a, R>(
@@ -224,7 +224,7 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        ClientT::batch_request(self, batch).await
+        ClientT::batch_request(&self.adapter.client, batch).await
     }
 }
 
@@ -243,7 +243,7 @@ where
         Params: ToRpcParams + Send,
         Notif: DeserializeOwned,
     {
-        SubscriptionClientT::subscribe(self, subscribe_method, params, unsubscribe_method).await
+        SubscriptionClientT::subscribe(&self.adapter.client, subscribe_method, params, unsubscribe_method).await
     }
 
     async fn subscribe_to_method<'a, Notif>(
@@ -253,7 +253,7 @@ where
     where
         Notif: DeserializeOwned,
     {
-        SubscriptionClientT::subscribe_to_method(self, method).await
+        SubscriptionClientT::subscribe_to_method(&self.adapter.client, method).await
     }
 }
 

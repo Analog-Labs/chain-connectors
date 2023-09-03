@@ -103,7 +103,7 @@ where
     where
         Params: ToRpcParams + Send,
     {
-        ClientT::notification(self, method, params).await
+        ClientT::notification(&self.client, method, params).await
     }
 
     async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, JsonRpseeError>
@@ -111,7 +111,7 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        ClientT::request(self, method, params).await
+        ClientT::request(&self.client, method, params).await
     }
 
     async fn batch_request<'a, R>(
@@ -121,6 +121,6 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        ClientT::batch_request(self, batch).await
+        ClientT::batch_request(&self.client, batch).await
     }
 }

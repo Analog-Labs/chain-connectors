@@ -1,7 +1,6 @@
 use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
-use futures_util::StreamExt;
 use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
 use jsonrpsee::core::client::{Client as JsonRpseeClient, ClientBuilder};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
@@ -33,12 +32,20 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
+        log::info!("Called ethereum;");
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
-            let (tx, rx) = WsTransportClientBuilder::default().build(uri).await?;
+            log::info!("WS client");
+            let (tx, rx) = WsTransportClientBuilder::default().build(uri).await.map_err(|error| {
+                log::error!("Failed to connect to websocket: {error}");
+                error
+            })?;
             let client = ClientBuilder::default().build_with_tokio(tx, rx);
             let ws_connection = EthPubsubAdapter::new(client);
-            let client = EthereumClient::new(config, ws_connection).await?;
+            let client = EthereumClient::new(config, ws_connection).await.map_err(|error| {
+                log::error!("Failed to create client: {error}");
+                error
+            })?;
             Ok(Self::Ws(client))
         } else {
             let http_connection = Http::new(uri);
@@ -59,22 +66,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
     }
 
     async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = MaybeWsEthereumClient::new(config, addr).await?;
-        let new_client = client.clone();
-
-        // TODO: Remove, this is just for testing
-        tokio::task::spawn(async move {
-            let client = new_client;
-            let mut stream = client.listen().await.unwrap().unwrap();
-            loop {
-                let Some(event) = stream.next().await else {
-                    log::info!("Stream closed");
-                    break;
-                };
-                log::info!("Received event: {:?}", event);
-            }
-        });
-        Ok(client)
+        MaybeWsEthereumClient::new(config, addr).await
     }
 
     fn config(&self) -> &BlockchainConfig {
