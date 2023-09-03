@@ -247,12 +247,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
 
 [[package]]
-name = "arc-swap"
-version = "1.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bddcadddf5e9015d310179a59bb28c4d4b9920ad0f11e8e14dbadf654890c9a6"
-
-[[package]]
 name = "array-bytes"
 version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5008,11 +5002,11 @@ name = "rosetta-server"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "arc-swap",
  "async-trait",
  "clap",
  "femme",
  "futures",
+ "futures-timer",
  "futures-util",
  "hex 0.4.3",
  "jsonrpsee 0.20.0",
