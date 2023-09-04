@@ -41,7 +41,10 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     let opts = Opts::parse();
 
     log::info!("connecting to {}", &opts.node_addr);
-    let config = T::create_config(&opts.network)?;
+    let config = T::create_config(&opts.network).map_err(|error| {
+        log::error!("Failed to create config: {}", error);
+        error
+    })?;
 
     let client = {
         // TODO: Allow configuring the retry strategy and retry count

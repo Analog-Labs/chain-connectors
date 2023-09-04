@@ -1,7 +1,8 @@
 use core::{num::NonZeroUsize, time::Duration};
-use jsonrpsee::client_transport::ws::WsTransportClientBuilder;
-use jsonrpsee::core::client::ClientBuilder;
-pub use jsonrpsee::core::client::IdKind;
+use jsonrpsee::{
+    client_transport::ws::WsTransportClientBuilder,
+    core::client::{ClientBuilder, IdKind},
+};
 
 /// Ten megabytes.
 pub const TEN_MB_SIZE_BYTES: usize = 10 * 1024 * 1024;
@@ -21,6 +22,42 @@ pub enum WsTransportClient {
     /// Tungstenite is the most used stream-based WebSocket Client
     /// Use this if you have issues with Socketto.
     Tungstenite,
+}
+
+/// Retry strategies including fixed interval and exponential back-off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RetryStrategyConfig {
+    /// fixed interval strategy, given a duration in milliseconds.
+    FixedInterval(Duration),
+
+    /// A retry strategy driven by exponential back-off.
+    /// The power corresponds to the number of past attempts.
+    ExponentialBackoff {
+        /// base duration in milliseconds.
+        /// The resulting duration is calculated by taking the base to the n-th power, where n denotes the number of past attempts.
+        base: u64,
+        /// A multiplicative factor that will be applied to the retry delay.
+        /// For example, using a factor of 1000 will make each delay in units of seconds.
+        /// Default factor is 1.
+        factor: Option<u64>,
+        /// Apply a maximum delay. No retry delay will be longer than this Duration.
+        max_delay: Option<Duration>,
+    },
+
+    /// A retry strategy driven by the fibonacci series.
+    /// Each retry uses a delay which is the sum of the two previous delays.
+    /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead to better throughput than the ExponentialBackoff strategy.
+    /// See "A Performance Comparison of Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for more details.
+    FibonacciBackoff {
+        /// Initial base duration in milliseconds.
+        initial: u64,
+        /// A multiplicative factor that will be applied to the retry delay.
+        /// For example, using a factor of 1000 will make each delay in units of seconds.
+        /// Default factor is 1.
+        factor: Option<u64>,
+        /// Apply a maximum delay. No retry delay will be longer than this Duration.
+        max_delay: Option<Duration>,
+    },
 }
 
 /// Common configuration for Socketto and Tungstenite clients.
@@ -93,6 +130,11 @@ pub struct RpcClientConfig {
     ///  - a reply is received from the backend
     ///  - the interval duration expires
     pub rpc_ping_interval: Option<Duration>,
+
+    /// Retry strategy for reconnecting to the server.
+    /// Default is [`RetryStrategyConfig::FibonacciBackoff`] with 5 seconds base and
+    /// 30 seconds maximum between retries.
+    pub retry_strategy: RetryStrategyConfig,
 }
 
 impl Default for RpcClientConfig {
@@ -113,6 +155,13 @@ impl Default for RpcClientConfig {
             rpc_id_kind: IdKind::Number,
             rpc_max_log_length: 4096,
             rpc_ping_interval: None,
+
+            // Reconnect Retry strategy.
+            retry_strategy: RetryStrategyConfig::FibonacciBackoff {
+                initial: 5000,
+                factor: None,
+                max_delay: Some(Duration::from_secs(30)),
+            },
         }
     }
 }

@@ -24,6 +24,16 @@ pub struct EthereumClient<P> {
     genesis_block: BlockIdentifier,
 }
 
+impl<P> Clone for EthereumClient<P> {
+    fn clone(&self) -> Self {
+        Self {
+            config: self.config.clone(),
+            client: self.client.clone(),
+            genesis_block: self.genesis_block.clone(),
+        }
+    }
+}
+
 impl<P> EthereumClient<P>
 where
     P: JsonRpcClient,

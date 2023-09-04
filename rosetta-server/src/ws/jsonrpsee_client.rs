@@ -1,7 +1,8 @@
+use crate::ws::reconnect::{AutoReconnectClient, Reconnect};
 use futures::stream::{StreamExt, TryStreamExt};
 use jsonrpsee::{
     core::{
-        client::{Client, ClientT, SubscriptionClientT, SubscriptionKind},
+        client::{ClientT, SubscriptionClientT, SubscriptionKind},
         traits::ToRpcParams,
         Error as JsonRpseeError,
     },
@@ -12,8 +13,18 @@ use subxt::{
     rpc::{RawValue, RpcClientT, RpcFuture, RpcSubscription},
 };
 
+#[derive(Clone)]
 pub struct Params(Option<Box<RawValue>>);
-pub struct RpcClient(pub Client);
+
+impl Params {
+    pub fn new<P>(params: P) -> Result<Self, JsonRpseeError>
+    where
+        P: ToRpcParams,
+    {
+        let params = params.to_rpc_params()?;
+        Ok(Self(params))
+    }
+}
 
 impl ToRpcParams for Params {
     fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
@@ -21,14 +32,18 @@ impl ToRpcParams for Params {
     }
 }
 
-impl RpcClientT for RpcClient {
+impl<T> RpcClientT for AutoReconnectClient<T>
+where
+    T: Reconnect,
+    T::Client: SubscriptionClientT,
+{
     fn request_raw<'a>(
         &'a self,
         method: &'a str,
         params: Option<Box<RawValue>>,
     ) -> RpcFuture<'a, Box<RawValue>> {
         Box::pin(async move {
-            let res = ClientT::request(&self.0, method, Params(params))
+            let res = ClientT::request(self, method, Params(params))
                 .await
                 .map_err(|e| RpcError::ClientError(Box::new(e)))?;
             Ok(res)
@@ -43,7 +58,7 @@ impl RpcClientT for RpcClient {
     ) -> RpcFuture<'a, RpcSubscription> {
         Box::pin(async move {
             let stream = SubscriptionClientT::subscribe::<Box<RawValue>, _>(
-                &self.0,
+                self,
                 sub,
                 Params(params),
                 unsub,
