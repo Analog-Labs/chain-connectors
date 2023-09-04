@@ -132,7 +132,8 @@ pub struct RpcClientConfig {
     pub rpc_ping_interval: Option<Duration>,
 
     /// Retry strategy for reconnecting to the server.
-    /// Default is `FixedInterval(Duration::from_secs(10))`.
+    /// Default is [`RetryStrategyConfig::FibonacciBackoff`] with 5 seconds base and
+    /// 30 seconds maximum between retries.
     pub retry_strategy: RetryStrategyConfig,
 }
 
