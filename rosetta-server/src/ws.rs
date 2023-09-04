@@ -1,7 +1,6 @@
 #![cfg(feature = "ws")]
 mod config;
 mod error;
-mod extension;
 mod jsonrpsee_client;
 mod reconnect;
 mod reconnect_impl;

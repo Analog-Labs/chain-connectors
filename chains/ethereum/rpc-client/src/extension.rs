@@ -1,7 +1,9 @@
 /// Implements the [`::jsonrpsee::core::client::ClientT`] trait for the provided type
 ///
+/// # Example
 /// ```rust
 /// use jsonrpsee::core::client::ClientT;
+/// use rosetta_ethereum_rpc_client::impl_client_trait;
 ///
 /// struct CustomClient<C> {
 ///     client: C,
@@ -13,7 +15,7 @@
 ///   }
 /// }
 ///
-/// impl_client_trait!(CustomClient<C> where C: 'static + ClientT + Send + Sync)
+/// impl_client_trait!(CustomClient<C> where C: 'static + ClientT + Send + Sync);
 /// ```
 #[macro_export]
 macro_rules! impl_client_trait {
@@ -109,8 +111,10 @@ pub use impl_client_trait;
 
 /// Implements the [`::jsonrpsee::core::client::SubscriptionClientT`] trait for the provided type
 ///
+/// # Example
 /// ```rust
-/// use jsonrpsee::core::client::SubscriptionClientT;
+/// use jsonrpsee::core::client::{SubscriptionClientT, ClientT};
+/// use rosetta_ethereum_rpc_client::{impl_client_trait, impl_subscription_trait};
 ///
 /// struct CustomClient<C> {
 ///     client: C,
@@ -122,7 +126,8 @@ pub use impl_client_trait;
 ///   }
 /// }
 ///
-/// impl_subscription_trait!(CustomClient<C> where C: 'static + SubscriptionT + Send + Sync)
+/// impl_client_trait!(CustomClient<C> where C: 'static + ClientT + Send + Sync);
+/// impl_subscription_trait!(CustomClient<C> where C: 'static + SubscriptionClientT + Send + Sync);
 /// ```
 #[macro_export]
 macro_rules! impl_subscription_trait {
