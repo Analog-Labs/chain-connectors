@@ -8,7 +8,6 @@ use jsonrpsee::{
     },
     types::SubscriptionId,
 };
-use std::fmt::{Debug, Formatter};
 use subxt::{
     error::RpcError,
     rpc::{RawValue, RpcClientT, RpcFuture, RpcSubscription},
@@ -79,12 +78,5 @@ where
                 .boxed();
             Ok(RpcSubscription { stream, id })
         })
-    }
-}
-
-impl<T> Debug for AutoReconnectClient<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("AutoReconnectClient")
-            .finish_non_exhaustive()
     }
 }

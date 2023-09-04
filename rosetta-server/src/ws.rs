@@ -4,10 +4,12 @@ mod error;
 mod jsonrpsee_client;
 mod reconnect;
 mod reconnect_impl;
+mod retry_strategy;
 mod tungstenite_jsonrpsee;
 
 use crate::ws::reconnect::{AutoReconnectClient, Reconnect};
 use crate::ws::reconnect_impl::{Config as ReconnectConfig, DefaultStrategy};
+use crate::ws::retry_strategy::RetryStrategy;
 pub use config::{RpcClientConfig, WsTransportClient};
 use futures_util::{future::BoxFuture, FutureExt};
 use jsonrpsee::core::Error as JsonRpseeError;
@@ -15,10 +17,11 @@ use jsonrpsee::{
     client_transport::ws::WsTransportClientBuilder,
     core::client::{Client, ClientBuilder},
 };
+use std::time::Duration;
 use tide::http::url::Url;
 pub use tungstenite_jsonrpsee::{TungsteniteClient, WsError};
 
-pub type DefaultClient = AutoReconnectClient<DefaultStrategy<ReconnectConfigImpl>>;
+pub type DefaultClient = AutoReconnectClient<DefaultStrategy<DefaultReconnectConfig>>;
 
 async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, JsonRpseeError> {
     let builder = ClientBuilder::from(&config);
@@ -48,18 +51,38 @@ async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, Jso
     Ok(client)
 }
 
-pub struct ReconnectConfigImpl {
+#[derive(Debug)]
+pub struct DefaultReconnectConfig {
+    /// Url to connect to.
     url: Url,
+
+    /// RPC Client configuration.
     config: RpcClientConfig,
 }
-impl ReconnectConfig for ReconnectConfigImpl {
+
+impl ReconnectConfig for DefaultReconnectConfig {
     type Client = Client;
     type ConnectFuture = BoxFuture<'static, Result<Client, JsonRpseeError>>;
+
+    /// Using fixed-interval strategy.
+    type RetryStrategy = RetryStrategy;
+
+    fn max_pending_delay(&self) -> Duration {
+        self.config.rpc_request_timeout
+    }
+
+    fn retry_strategy(&self) -> Self::RetryStrategy {
+        RetryStrategy::from(&self.config.retry_strategy)
+    }
 
     fn connect(&self) -> Self::ConnectFuture {
         let url = self.url.clone();
         let config = self.config.clone();
         connect_client(url, config).boxed()
+    }
+
+    fn is_connected(&self, client: &Self::Client) -> Option<bool> {
+        Some(client.is_connected())
     }
 }
 
@@ -71,7 +94,8 @@ pub async fn default_client(
     let url = url
         .parse::<Url>()
         .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
-    let reconnect_config = ReconnectConfigImpl { url, config };
+    let reconnect_config = DefaultReconnectConfig { url, config };
+
     DefaultStrategy::connect(reconnect_config)
         .await
         .map(|strategy| strategy.into_client())

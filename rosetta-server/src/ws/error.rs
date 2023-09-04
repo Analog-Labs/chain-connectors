@@ -1,29 +1,31 @@
-use jsonrpsee::{core::Error, types::InvalidRequestId};
+use jsonrpsee::{core::Error as JsonRpseeError, types::InvalidRequestId};
 
-/// A version of `Error` that implements `Clone`.
-/// Cloning the error is necessary because if a reconnect fails, the error must be cloned and
+/// A version of [`jsonrpsee::core::Error`] that implements [`core::clone::Clone`] trait.
+/// Cloning the error is necessary when using [`futures_util::future::Shared`]. if a reconnect fails, the error must be cloned and
 /// send back to all pending requests.
+///
+/// See [`super::reconnect_impl::ReconnectFuture`] and [`super::reconnect_impl::ReadyOrWaitFuture`]
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct CloneableError {
-    inner: Error,
+    inner: JsonRpseeError,
 }
 
 #[allow(dead_code)]
 impl CloneableError {
     /// Returns the inner error.
-    pub fn into_inner(self) -> Error {
+    pub fn into_inner(self) -> JsonRpseeError {
         self.inner
     }
 }
 
-impl From<Error> for CloneableError {
-    fn from(error: Error) -> Self {
+impl From<JsonRpseeError> for CloneableError {
+    fn from(error: JsonRpseeError) -> Self {
         Self { inner: error }
     }
 }
 
-impl From<CloneableError> for Error {
+impl From<CloneableError> for JsonRpseeError {
     fn from(error: CloneableError) -> Self {
         error.inner
     }
@@ -32,38 +34,52 @@ impl From<CloneableError> for Error {
 impl Clone for CloneableError {
     fn clone(&self) -> Self {
         let error = match &self.inner {
-            Error::Call(call) => Error::Call(call.clone()),
-            Error::Transport(error) => Error::Transport(anyhow::format_err!("{error:?}")),
-            Error::InvalidResponse(error) => Error::InvalidResponse(error.clone()),
-            Error::RestartNeeded(reason) => Error::RestartNeeded(reason.clone()),
-            Error::ParseError(error) => Error::Custom(format!("{error:?}")), // TODO: return an parser error instead a custom error
-            Error::InvalidSubscriptionId => Error::InvalidSubscriptionId,
-            Error::InvalidRequestId(error) => Error::InvalidRequestId(match error {
-                InvalidRequestId::Invalid(message) => InvalidRequestId::Invalid(message.clone()),
-                InvalidRequestId::NotPendingRequest(message) => {
-                    InvalidRequestId::NotPendingRequest(message.clone())
-                }
-                InvalidRequestId::Occupied(message) => InvalidRequestId::Occupied(message.clone()),
-            }),
-            Error::UnregisteredNotification(error) => {
-                Error::UnregisteredNotification(error.clone())
+            JsonRpseeError::Call(call) => JsonRpseeError::Call(call.clone()),
+            JsonRpseeError::Transport(error) => {
+                JsonRpseeError::Transport(anyhow::format_err!("{error:?}"))
             }
-            Error::DuplicateRequestId => Error::DuplicateRequestId,
-            Error::MethodAlreadyRegistered(method) => {
-                Error::MethodAlreadyRegistered(method.clone())
+            JsonRpseeError::InvalidResponse(error) => {
+                JsonRpseeError::InvalidResponse(error.clone())
             }
-            Error::MethodNotFound(method) => Error::MethodNotFound(method.clone()),
-            Error::SubscriptionNameConflict(name) => Error::SubscriptionNameConflict(name.clone()),
-            Error::RequestTimeout => Error::RequestTimeout,
-            Error::MaxSlotsExceeded => Error::MaxSlotsExceeded,
-            Error::AlreadyStopped => Error::AlreadyStopped,
-            Error::EmptyAllowList(list) => Error::EmptyAllowList(list),
-            Error::HttpHeaderRejected(header, value) => {
-                Error::HttpHeaderRejected(header, value.to_string())
+            JsonRpseeError::RestartNeeded(reason) => JsonRpseeError::RestartNeeded(reason.clone()),
+            JsonRpseeError::ParseError(error) => JsonRpseeError::Custom(format!("{error:?}")), // TODO: return an parser error instead a custom error
+            JsonRpseeError::InvalidSubscriptionId => JsonRpseeError::InvalidSubscriptionId,
+            JsonRpseeError::InvalidRequestId(error) => {
+                JsonRpseeError::InvalidRequestId(match error {
+                    InvalidRequestId::Invalid(message) => {
+                        InvalidRequestId::Invalid(message.clone())
+                    }
+                    InvalidRequestId::NotPendingRequest(message) => {
+                        InvalidRequestId::NotPendingRequest(message.clone())
+                    }
+                    InvalidRequestId::Occupied(message) => {
+                        InvalidRequestId::Occupied(message.clone())
+                    }
+                })
             }
-            Error::Custom(message) => Error::Custom(message.clone()),
-            Error::HttpNotImplemented => Error::HttpNotImplemented,
-            Error::EmptyBatchRequest => Error::EmptyBatchRequest,
+            JsonRpseeError::UnregisteredNotification(error) => {
+                JsonRpseeError::UnregisteredNotification(error.clone())
+            }
+            JsonRpseeError::DuplicateRequestId => JsonRpseeError::DuplicateRequestId,
+            JsonRpseeError::MethodAlreadyRegistered(method) => {
+                JsonRpseeError::MethodAlreadyRegistered(method.clone())
+            }
+            JsonRpseeError::MethodNotFound(method) => {
+                JsonRpseeError::MethodNotFound(method.clone())
+            }
+            JsonRpseeError::SubscriptionNameConflict(name) => {
+                JsonRpseeError::SubscriptionNameConflict(name.clone())
+            }
+            JsonRpseeError::RequestTimeout => JsonRpseeError::RequestTimeout,
+            JsonRpseeError::MaxSlotsExceeded => JsonRpseeError::MaxSlotsExceeded,
+            JsonRpseeError::AlreadyStopped => JsonRpseeError::AlreadyStopped,
+            JsonRpseeError::EmptyAllowList(list) => JsonRpseeError::EmptyAllowList(list),
+            JsonRpseeError::HttpHeaderRejected(header, value) => {
+                JsonRpseeError::HttpHeaderRejected(header, value.to_string())
+            }
+            JsonRpseeError::Custom(message) => JsonRpseeError::Custom(message.clone()),
+            JsonRpseeError::HttpNotImplemented => JsonRpseeError::HttpNotImplemented,
+            JsonRpseeError::EmptyBatchRequest => JsonRpseeError::EmptyBatchRequest,
         };
         Self { inner: error }
     }

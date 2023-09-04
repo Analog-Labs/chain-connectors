@@ -1,27 +1,52 @@
 #![allow(dead_code)]
 use super::{error::CloneableError, reconnect::Reconnect};
 use futures_timer::Delay;
-use futures_util::future::{Either, Select};
-use futures_util::{future::Shared, FutureExt};
+use futures_util::{
+    future::{Either, Select, Shared},
+    FutureExt,
+};
 use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
 use pin_project::pin_project;
-use std::time::Duration;
 use std::{
     fmt::{Debug, Formatter},
     future::Future,
+    num::NonZeroU32,
     ops::Deref,
     pin::Pin,
     sync::Arc,
     sync::RwLock,
     task::{Context, Poll},
+    time::Duration,
 };
 
-pub trait Config: 'static + Sized + Send + Sync {
-    type Client: SubscriptionClientT + Send + Sync + 'static;
+pub trait Config: 'static + Sized + Send + Sync + Debug {
+    type Client: SubscriptionClientT + Debug + Send + Sync + 'static;
 
     type ConnectFuture: Future<Output = Result<Self::Client, Error>> + 'static + Unpin + Send;
 
+    /// A retry strategy
+    type RetryStrategy: Iterator<Item = Duration> + 'static + Send + Sync;
+
+    /// Maximum time the request will wait for the reconnect before fails.
+    fn max_pending_delay(&self) -> Duration;
+
+    /// The strategy that drives multiple attempts at an action via a retry strategy
+    /// and a reconnect strategy.
+    ///
+    /// # Example of Retry Strategies:
+    /// - FixedInterval: A retry is performed in fixed intervals.
+    /// - Exponential Backoff: The resulting duration is calculated by taking the base to the `n`-th power,
+    /// where `n` denotes the number of past attempts.
+    fn retry_strategy(&self) -> Self::RetryStrategy;
+
+    /// Try to connect to the client.
     fn connect(&self) -> Self::ConnectFuture;
+
+    /// Checks whether the client is connected or not.
+    /// returns None if the client doesn't support this feature.
+    fn is_connected(&self, _client: &Self::Client) -> Option<bool> {
+        None
+    }
 }
 
 /// The default reconnect strategy.
@@ -38,19 +63,17 @@ pub trait Config: 'static + Sized + Send + Sync {
 /// - add a timeout for the reconnect
 /// - set a max number of reconnect attempts, shutdown when the max number is reached
 /// - automatically restore the subscriptions after reconnecting
+#[derive(Debug)]
 pub struct DefaultStrategy<T: Config> {
     inner: Arc<SharedState<T>>,
 }
 
 impl<T: Config> DefaultStrategy<T> {
     pub async fn connect(config: T) -> Result<Self, Error> {
-        log::info!("Connecting");
         let client = Arc::new(config.connect().await?);
         Ok(Self {
             inner: Arc::new(SharedState {
                 config,
-                max_pending_delay: Duration::from_secs(15), // TODO: make this configurable
-                min_delay_between_reconnect_retries: Duration::from_secs(5), // TODO: make this configurable
                 connection_status: RwLock::new(ConnectionStatus::Ready(client)),
             }),
         })
@@ -66,7 +89,7 @@ impl<T: Config> DefaultStrategy<T> {
             Ok(guard) => guard,
             Err(error) => {
                 return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
-                    "Fatal error, client lock was poisoned: {error}"
+                    "FATAL ERROR, client lock was poisoned: {error}"
                 ))));
             }
         };
@@ -74,7 +97,7 @@ impl<T: Config> DefaultStrategy<T> {
         match guard.deref().clone() {
             ConnectionStatus::Ready(client) => ReadyOrWaitFuture::ready(Ok(client)),
             ConnectionStatus::Reconnecting(future) => {
-                ReadyOrWaitFuture::<T>::wait(self.inner.max_pending_delay, future)
+                ReadyOrWaitFuture::<T>::wait(self.inner.config.max_pending_delay(), future)
             }
         }
     }
@@ -82,24 +105,27 @@ impl<T: Config> DefaultStrategy<T> {
     /// Creates a future that reconnects the client, the reconnect only works when the provided
     /// client_id is greater than the current client id, this is a mechanism for avoid racing conditions.
     pub fn reconnect_or_wait(&self) -> ReadyOrWaitFuture<T> {
-        // Make sure only one thread is handling the reconnect
-        let mut guard = self
-            .inner
-            .connection_status
-            .write()
-            .expect("not poisoned; qed");
+        // Acquire write lock, making sure only one thread is handling the reconnect
+        let mut guard = match self.inner.connection_status.write() {
+            Ok(guard) => guard,
+            Err(error) => {
+                return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
+                    "FATAL ERROR, client lock was poisoned: {error}"
+                ))));
+            }
+        };
 
         // If the client is already reconnecting, reuse the same future
         if let ConnectionStatus::Reconnecting(future) = guard.deref() {
-            return ReadyOrWaitFuture::wait(self.inner.max_pending_delay, future.clone());
+            return ReadyOrWaitFuture::wait(self.inner.config.max_pending_delay(), future.clone());
         };
 
-        // Creates a new reconnect attempt
+        // Update the connection status to reconnecting
         // TODO: Reconnect in another task/thread
         let reconnect_future = ReconnectFuture::new(self.inner.clone()).shared();
         *guard = ConnectionStatus::Reconnecting(reconnect_future.clone());
 
-        ReadyOrWaitFuture::wait(self.inner.max_pending_delay, reconnect_future)
+        ReadyOrWaitFuture::wait(self.inner.config.max_pending_delay(), reconnect_future)
     }
 }
 
@@ -124,6 +150,7 @@ impl<T: Config> Reconnect for DefaultStrategy<T> {
 }
 
 /// The connection status of the client.
+#[derive(Debug)]
 pub enum ConnectionStatus<T: Config> {
     /// The client is idle and ready to receive requests.
     Ready(Arc<T::Client>),
@@ -144,22 +171,14 @@ impl<T: Config> Clone for ConnectionStatus<T> {
 
 /// Stores the connection status and config.
 /// This state is shared between all the clients.
+#[derive(Debug)]
 pub struct SharedState<T: Config> {
     config: T,
-    /// Maximum amount of time the request will wait for the reconnect before failure.
-    max_pending_delay: Duration,
-    /// Minimum delay allowed between reconnect attempts.
-    min_delay_between_reconnect_retries: Duration,
     connection_status: RwLock<ConnectionStatus<T>>,
 }
 
-impl<T: Config> Debug for SharedState<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SharedState").finish_non_exhaustive()
-    }
-}
-
-/// Future that resolves when the client is ready to process requests.
+/// Future that resolves when the client is connected or
+/// when the timeout is reached.
 pub enum ReadyOrWaitState<T: Config> {
     Ready(Result<Arc<T::Client>, Error>),
     Waiting(Select<Delay, Shared<ReconnectFuture<T>>>),
@@ -204,7 +223,8 @@ impl<T: Config> Future for ReadyOrWaitFuture<T> {
                         // The request delay timeout
                         Poll::Ready(Either::Left(_)) => {
                             return Poll::Ready(Err(Error::Custom(
-                                "Cannot process request, client reconnecting...".to_string(),
+                                "Timeout: cannot process request, client reconnecting..."
+                                    .to_string(),
                             )));
                         }
                         // The client was reconnected!
@@ -244,13 +264,12 @@ pub enum ReconnectStateMachine<T: Config> {
     /// 3 - [`ReconnectStateMachine::Success`] if reconnect succeeds
     ReconnectAndWaitDelay(Select<Delay, T::ConnectFuture>),
 
-    /// Retry timeout reached, waiting for reconnecting to complete
+    /// Waiting for reconnecting to complete, retry immediately if fails
     ///
     /// # Description
-    /// This state means that the reconnect attempt took longer than the retry delay, example:
-    /// 1 - The retry delay is 10 seconds
-    /// 2 - The reconnect attempt takes 15 seconds
-    /// 3 - The next retry attempt will start immediately after the previous one failed
+    /// This state is reached in two cases:
+    /// 1 - The current reconnect attempt took longer than the retry delay
+    /// 2 - or the retry_strategy returns None, meaning that there is no delay between retries
     ///
     /// # State Transitions
     /// 1 - [`ReconnectStateMachine::Failure`] if reconnect fails, no delay is passed as parameter
@@ -279,7 +298,8 @@ pub enum ReconnectStateMachine<T: Config> {
     /// Retrying to connect
     ///
     /// # State Transitions
-    /// 1 - [`ReconnectStateMachine::ReconnectAndWaitDelay`] reconnect using the configured retry delay
+    /// 1 - if retry_strategy.next() is Some(delay), transition to [`ReconnectStateMachine::ReconnectAndWaitDelay`]
+    /// 2 - if retry_strategy.next() is None, transition to [`ReconnectStateMachine::Reconnecting`]
     Retry,
 
     /// The connection was reestablished successfully
@@ -292,24 +312,56 @@ pub enum ReconnectStateMachine<T: Config> {
     Success(T::Client),
 }
 
+impl<T: Config> Debug for ReconnectStateMachine<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReconnectStateMachine::ReconnectAndWaitDelay(_) => {
+                f.debug_struct("ReconnectStateMachine::ReconnectAndWaitDelay")
+            }
+            ReconnectStateMachine::Reconnecting(_) => {
+                f.debug_struct("ReconnectStateMachine::Reconnecting")
+            }
+            ReconnectStateMachine::Waiting(_) => f.debug_struct("ReconnectStateMachine::Waiting"),
+            ReconnectStateMachine::Failure { .. } => {
+                f.debug_struct("ReconnectStateMachine::Failure")
+            }
+            ReconnectStateMachine::Retry => f.debug_struct("ReconnectStateMachine::Retry"),
+            ReconnectStateMachine::Success(_) => f.debug_struct("ReconnectStateMachine::Success"),
+        }
+        .finish()
+    }
+}
+
 /// Future that resolves the client reconnects or fail to reconnect.
 /// This future can be cloned and polled from multiple threads
+#[derive(Debug)]
 #[pin_project]
 pub struct ReconnectFuture<T: Config> {
-    pub attempt: u32,
+    pub attempt: NonZeroU32,
+    pub retry_strategy: T::RetryStrategy,
     pub state: Arc<SharedState<T>>,
     pub state_machine: Option<ReconnectStateMachine<T>>,
 }
 
 impl<T: Config> ReconnectFuture<T> {
     pub fn new(state: Arc<SharedState<T>>) -> Self {
-        let delay = Delay::new(state.min_delay_between_reconnect_retries);
+        let mut retry_strategy = state.config.retry_strategy();
         let reconnect = state.config.connect();
-        let future = futures_util::future::select(delay, reconnect);
+        let state_machine = match retry_strategy.next() {
+            None => ReconnectStateMachine::Reconnecting(reconnect),
+            Some(delay) => {
+                let delay = Delay::new(delay);
+                let future = futures_util::future::select(delay, reconnect);
+                ReconnectStateMachine::ReconnectAndWaitDelay(future)
+            }
+        };
+
+        let attempt = NonZeroU32::new(1).expect("non zero; qed");
         Self {
-            attempt: 1,
+            attempt,
+            retry_strategy,
             state,
-            state_machine: Some(ReconnectStateMachine::ReconnectAndWaitDelay(future)),
+            state_machine: Some(state_machine),
         }
     }
 }
@@ -416,12 +468,17 @@ impl<T: Config> Future for ReconnectFuture<T> {
 
                 // Increment the attempt counter and retry to connect
                 Some(ReconnectStateMachine::Retry) => {
+                    *this.attempt = (*this.attempt).saturating_add(1);
                     let reconnect = this.state.config.connect();
-                    let delay = Delay::new(this.state.min_delay_between_reconnect_retries);
-                    *this.attempt += 1;
-                    *this.state_machine = Some(ReconnectStateMachine::ReconnectAndWaitDelay(
-                        futures_util::future::select(delay, reconnect),
-                    ));
+                    let next_state = match this.retry_strategy.next() {
+                        None => ReconnectStateMachine::Reconnecting(reconnect),
+                        Some(delay) => {
+                            let delay = Delay::new(delay);
+                            let future = futures_util::future::select(delay, reconnect);
+                            ReconnectStateMachine::ReconnectAndWaitDelay(future)
+                        }
+                    };
+                    *this.state_machine = Some(next_state);
                     continue;
                 }
 

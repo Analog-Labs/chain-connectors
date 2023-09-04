@@ -8,7 +8,7 @@ use jsonrpsee::core::{
     Error,
 };
 use serde::de::DeserializeOwned;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::future::Future;
 use std::ops::{Deref, DerefMut};
 
@@ -67,6 +67,26 @@ impl<T> Deref for AutoReconnectClient<T> {
 impl<T> DerefMut for AutoReconnectClient<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
+    }
+}
+
+impl<T> Debug for AutoReconnectClient<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AutoReconnectClient")
+            .field("client", &self.client)
+            .finish_non_exhaustive()
+    }
+}
+
+impl<T> Display for AutoReconnectClient<T>
+where
+    T: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.client, f)
     }
 }
 
