@@ -47,10 +47,7 @@ impl Wallet {
     }
 
     /// Creates a new wallet from a client, url and keyfile.
-    pub async fn from_client(
-        client: GenericClient,
-        keyfile: Option<&Path>,
-    ) -> Result<Self> {
+    pub async fn from_client(client: GenericClient, keyfile: Option<&Path>) -> Result<Self> {
         let store = MnemonicStore::new(keyfile)?;
         let mnemonic = store.get_or_generate_mnemonic()?;
         let signer = Signer::new(&mnemonic, "")?;
