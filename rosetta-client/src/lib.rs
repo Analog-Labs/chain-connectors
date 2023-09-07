@@ -13,6 +13,8 @@ mod signer;
 mod tx_builder;
 mod wallet;
 
+pub use signer::Signer;
+
 /// Converts an amount to a human readable string.
 pub fn amount_to_string(amount: &Amount) -> Result<String> {
     let value = BigInt::parse_bytes(amount.value.as_bytes(), 10)

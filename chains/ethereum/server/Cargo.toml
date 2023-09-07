@@ -17,6 +17,7 @@ futures-util = "0.3"
 hex = "0.4"
 log = "0.4"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
+rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 rosetta-ethereum-rpc-client = { version = "0.1.0", path = "../rpc-client" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
 serde = "1.0"
@@ -27,6 +28,5 @@ url = "2.4.0"
 [dev-dependencies]
 ethers-solc = "2.0.1"
 rosetta-client = { version = "0.4.0", path = "../../../rosetta-client" }
-rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker" }
-rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", features = ["tests"] }
+rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker", features = ["tests"] }
 sha3 = "0.10.6"

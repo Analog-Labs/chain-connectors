@@ -8,8 +8,8 @@ description = "Client library for interacting with connectors."
 
 [dependencies]
 anyhow = "1.0"
-async-trait = "0.1.73"
-derive_more = "0.99.17"
+async-trait = "0.1"
+derive_more = "0.99"
 dirs-next = "2.0.0"
 fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3"

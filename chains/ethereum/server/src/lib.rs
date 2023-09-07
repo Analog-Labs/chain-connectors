@@ -2,14 +2,15 @@ use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
 pub use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
-use rosetta_server::crypto::address::Address;
-use rosetta_server::crypto::PublicKey;
-use rosetta_server::types::{
-    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-    TransactionIdentifier,
+use rosetta_core::{
+    crypto::{address::Address, PublicKey},
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+        TransactionIdentifier,
+    },
+    BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::{default_client, DefaultClient};
-use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use url::Url;
 
@@ -174,7 +175,6 @@ mod tests {
     use super::*;
     use ethers_solc::artifacts::Source;
     use ethers_solc::{CompilerInput, EvmVersion, Solc};
-    use rosetta_client::EthereumExt;
     use rosetta_docker::Env;
     use sha3::Digest;
     use std::collections::BTreeMap;
@@ -183,10 +183,11 @@ mod tests {
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::network_status::<MaybeWsEthereumClient, _, _>(
+        rosetta_docker::tests::network_status::<MaybeWsEthereumClient, _, _>(
             |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(config, url.as_str()).await
+                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
@@ -196,10 +197,11 @@ mod tests {
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::account::<MaybeWsEthereumClient, _, _>(
+        rosetta_docker::tests::account::<MaybeWsEthereumClient, _, _>(
             |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(config, url.as_str()).await
+                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
@@ -209,10 +211,11 @@ mod tests {
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_server::tests::construction::<MaybeWsEthereumClient, _, _>(
+        rosetta_docker::tests::construction::<MaybeWsEthereumClient, _, _>(
             |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(config, url.as_str()).await
+                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
@@ -248,14 +251,19 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new("ethereum-smart-contract", config.clone(), |config| async {
-            let url = config.node_uri.to_string();
-            MaybeWsEthereumClient::new(config, url.as_str()).await
-        })
+        let env = Env::new(
+            "ethereum-smart-contract",
+            config.clone(),
+            |config| async move {
+                let network = config.network.to_string();
+                let url = config.node_uri.to_string();
+                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
+            },
+        )
         .await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet()?;
+        let wallet = env.ephemeral_wallet().await?;
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
@@ -294,14 +302,15 @@ mod tests {
             "ethereum-smart-contract-view",
             config.clone(),
             |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(config, url.as_str()).await
+                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
             },
         )
         .await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet()?;
+        let wallet = env.ephemeral_wallet().await?;
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(

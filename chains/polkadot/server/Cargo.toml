@@ -13,8 +13,9 @@ async-trait = "0.1"
 hex = "0.4.3"
 parity-scale-codec = "3.4.0"
 rosetta-config-polkadot = { version = "0.4.0", path = "../config" }
+rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
-scale-info = "2.3.1"
+scale-info = "2.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sp-keyring = "24.0"
@@ -22,4 +23,4 @@ subxt = { version = "0.31", default-features = false, features = ["substrate-com
 tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["tests"] }
+rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker", features = ["tests"] }

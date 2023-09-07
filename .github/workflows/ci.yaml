@@ -81,9 +81,6 @@ jobs:
     - name: Cleanup Docker
       run: ./scripts/reset_docker.sh
 
-    - name: Build connectors
-      run: ./scripts/build_connectors.sh
-
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
 

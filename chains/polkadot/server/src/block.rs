@@ -1,9 +1,12 @@
 use anyhow::{Context, Result};
-use rosetta_server::crypto::address::Address;
-use rosetta_server::types::{
-    AccountIdentifier, Amount, Operation, OperationIdentifier, Transaction, TransactionIdentifier,
+use rosetta_core::{
+    crypto::address::Address,
+    types::{
+        AccountIdentifier, Amount, Operation, OperationIdentifier, Transaction,
+        TransactionIdentifier,
+    },
+    BlockchainConfig,
 };
-use rosetta_server::BlockchainConfig;
 use serde_json::{json, Value};
 use subxt::{
     blocks::ExtrinsicDetails,

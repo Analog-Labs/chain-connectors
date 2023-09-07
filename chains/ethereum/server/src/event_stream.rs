@@ -1,8 +1,6 @@
 use ethers::prelude::*;
 use ethers::providers::PubsubClient;
-use rosetta_server::stream::Stream;
-use rosetta_server::types::BlockIdentifier;
-use rosetta_server::{BlockOrIdentifier, ClientEvent};
+use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use std::pin::Pin;
 use std::task::Poll;
 
