@@ -14,6 +14,7 @@ use rosetta_server::types::{
 };
 use rosetta_server::{ws::default_client, BlockchainClient, BlockchainConfig};
 use rosetta_server_ethereum::MaybeWsEthereumClient;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 use std::sync::Arc;
@@ -22,12 +23,31 @@ use subxt::{
     OnlineClient, PolkadotConfig,
 };
 
+#[derive(Deserialize, Serialize)]
+pub struct AstarMetadataParams(pub EthereumMetadataParams);
+
+#[derive(Deserialize, Serialize)]
+pub struct AstarMetadata(pub EthereumMetadata);
+
 pub struct AstarClient {
     client: MaybeWsEthereumClient,
     ws_client: OnlineClient<PolkadotConfig>,
 }
 
 impl AstarClient {
+    pub async fn new(network: &str, url: &str) -> Result<Self> {
+        let config = rosetta_config_astar::config(network)?;
+        let substrate_client = {
+            let client = default_client(url, None).await?;
+            OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
+        };
+        let ethereum_client = MaybeWsEthereumClient::from_config(config, url).await?;
+        Ok(Self {
+            client: ethereum_client,
+            ws_client: substrate_client,
+        })
+    }
+
     async fn account_info(
         &self,
         address: &Address,
@@ -67,25 +87,9 @@ impl AstarClient {
 
 #[async_trait::async_trait]
 impl BlockchainClient for AstarClient {
-    type MetadataParams = EthereumMetadataParams;
-    type Metadata = EthereumMetadata;
+    type MetadataParams = AstarMetadataParams;
+    type Metadata = AstarMetadata;
     type EventStream<'a> = <MaybeWsEthereumClient as BlockchainClient>::EventStream<'a>;
-
-    fn create_config(network: &str) -> Result<BlockchainConfig> {
-        rosetta_config_astar::config(network)
-    }
-
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let substrate_client = {
-            let client = default_client(addr, None).await?;
-            OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client)).await?
-        };
-        let ethereum_client = MaybeWsEthereumClient::new(config, addr).await?;
-        Ok(Self {
-            client: ethereum_client,
-            ws_client: substrate_client,
-        })
-    }
 
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
@@ -166,7 +170,9 @@ impl BlockchainClient for AstarClient {
         public_key: &PublicKey,
         options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        self.client.metadata(public_key, options).await
+        Ok(AstarMetadata(
+            self.client.metadata(public_key, &options.0).await?,
+        ))
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {

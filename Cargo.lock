@@ -494,19 +494,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ecc7ab41815b3c653ccd2978ec3255c81349336702dfdf62ee6f7069b12a3aae"
 
 [[package]]
-name = "async-tls"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d85a97c4a0ecce878efd3f945f119c78a646d8975340bca0398f9bb05c30cc52"
-dependencies = [
- "futures-core",
- "futures-io",
- "rustls 0.18.1",
- "webpki",
- "webpki-roots 0.20.0",
-]
-
-[[package]]
 name = "async-trait"
 version = "0.1.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,12 +590,6 @@ name = "base58"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6107fe1be6682a68940da878d9e9f5e90ca5745b3dec9fd1bb393c8777d4f581"
-
-[[package]]
-name = "base64"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
 name = "base64"
@@ -2935,7 +2916,6 @@ checksum = "1947510dc91e2bf586ea5ffb412caad7673264e14bb39fb9078da114a94ce1a5"
 dependencies = [
  "async-h1",
  "async-std",
- "async-tls",
  "async-trait",
  "cfg-if",
  "dashmap",
@@ -2943,7 +2923,6 @@ dependencies = [
  "futures",
  "http-types",
  "log",
- "rustls 0.18.1",
 ]
 
 [[package]]
@@ -3020,7 +2999,7 @@ dependencies = [
  "http",
  "hyper",
  "log",
- "rustls 0.21.7",
+ "rustls",
  "rustls-native-certs",
  "tokio",
  "tokio-rustls",
@@ -4769,7 +4748,7 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite 0.2.13",
- "rustls 0.21.7",
+ "rustls",
  "rustls-pemfile",
  "serde",
  "serde_json",
@@ -4846,7 +4825,8 @@ name = "rosetta-client"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "clap",
+ "async-trait",
+ "derive_more",
  "dirs-next",
  "fraction",
  "futures",
@@ -4855,19 +4835,15 @@ dependencies = [
  "js-sys",
  "log",
  "num-traits",
- "rosetta-config-astar",
- "rosetta-config-bitcoin",
- "rosetta-config-ethereum",
- "rosetta-config-polkadot",
  "rosetta-core",
- "rosetta-crypto",
+ "rosetta-server-astar",
+ "rosetta-server-bitcoin",
  "rosetta-server-ethereum",
+ "rosetta-server-polkadot",
  "rosetta-tx-ethereum",
  "rosetta-tx-polkadot",
  "serde",
  "serde_json",
- "surf",
- "tokio",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -4994,7 +4970,6 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "clap",
  "femme",
  "futures",
  "futures-timer",
@@ -5005,7 +4980,6 @@ dependencies = [
  "nanoid",
  "pin-project",
  "rosetta-core",
- "rosetta-docker",
  "serde",
  "serde_json",
  "subxt",
@@ -5035,6 +5009,7 @@ dependencies = [
  "rosetta-docker",
  "rosetta-server",
  "rosetta-server-ethereum",
+ "serde",
  "serde_json",
  "sha3",
  "sp-core",
@@ -5148,13 +5123,8 @@ dependencies = [
  "futures",
  "hex 0.4.3",
  "rosetta-client",
- "rosetta-core",
- "rosetta-server-astar",
- "rosetta-server-bitcoin",
- "rosetta-server-ethereum",
- "rosetta-server-polkadot",
- "surf",
  "tracing-subscriber 0.3.17",
+ "url",
 ]
 
 [[package]]
@@ -5254,19 +5224,6 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
-dependencies = [
- "base64 0.12.3",
- "log",
- "ring",
- "sct 0.6.1",
- "webpki",
-]
-
-[[package]]
-name = "rustls"
 version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd8d6c9f025a446bc4d18ad9632e69aec8f287aa84499ee335599fabd20c3fd8"
@@ -5274,7 +5231,7 @@ dependencies = [
  "log",
  "ring",
  "rustls-webpki 0.101.4",
- "sct 0.7.0",
+ "sct",
 ]
 
 [[package]]
@@ -5565,16 +5522,6 @@ dependencies = [
  "pbkdf2 0.11.0",
  "salsa20",
  "sha2 0.10.7",
-]
-
-[[package]]
-name = "sct"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b362b83898e0e69f38515b82ee15aa80636befe47c3b6d3d89a911e78fc228ce"
-dependencies = [
- "ring",
- "untrusted",
 ]
 
 [[package]]
@@ -6806,7 +6753,6 @@ dependencies = [
  "mime_guess",
  "once_cell",
  "pin-project-lite 0.2.13",
- "rustls 0.18.1",
  "serde",
  "serde_json",
 ]
@@ -7228,7 +7174,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
 dependencies = [
- "rustls 0.21.7",
+ "rustls",
  "tokio",
 ]
 
@@ -7252,7 +7198,7 @@ dependencies = [
  "futures-util",
  "log",
  "native-tls",
- "rustls 0.21.7",
+ "rustls",
  "tokio",
  "tokio-native-tls",
  "tokio-rustls",
@@ -7457,7 +7403,7 @@ dependencies = [
  "log",
  "native-tls",
  "rand 0.8.5",
- "rustls 0.21.7",
+ "rustls",
  "sha1 0.10.5",
  "thiserror",
  "url",
@@ -7947,25 +7893,6 @@ checksum = "9b85cbef8c220a6abc02aefd892dfc0fc23afb1c6a426316ec33253a3877249b"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webpki"
-version = "0.21.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8e38c0608262c46d4a56202ebabdeb094cef7e560ca7a226c6bf055188aa4ea"
-dependencies = [
- "ring",
- "untrusted",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f20dea7535251981a9670857150d571846545088359b28e4951d350bdaf179f"
-dependencies = [
- "webpki",
 ]
 
 [[package]]

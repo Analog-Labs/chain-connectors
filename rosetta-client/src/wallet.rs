@@ -1,98 +1,41 @@
+use crate::client::{GenericClient, GenericMetadata, GenericMetadataParams};
 use crate::crypto::address::Address;
 use crate::crypto::bip32::DerivedSecretKey;
 use crate::crypto::bip44::ChildNumber;
-use crate::crypto::SecretKey;
+use crate::mnemonic::MnemonicStore;
 use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
+use crate::tx_builder::GenericTransactionBuilder;
 use crate::types::{
     AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier,
 };
-use crate::{BlockchainConfig, TransactionBuilder};
+use crate::{Blockchain, BlockchainConfig};
 use anyhow::Result;
 use rosetta_core::types::{Block, CallRequest, PartialBlockIdentifier, Transaction};
 use rosetta_core::{BlockchainClient, RosettaAlgorithm};
 use serde_json::json;
-use surf::utils::async_trait;
-
-pub enum GenericTransactionBuilder {
-    Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
-    Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
-}
-
-impl GenericTransactionBuilder {
-    pub fn new(config: &BlockchainConfig) -> Result<Self> {
-        Ok(match config.blockchain {
-            "astar" => Self::Ethereum(Default::default()),
-            "ethereum" => Self::Ethereum(Default::default()),
-            "polkadot" => Self::Polkadot(Default::default()),
-            _ => anyhow::bail!("unsupported blockchain"),
-        })
-    }
-
-    pub fn transfer(&self, address: &Address, amount: u128) -> Result<serde_json::Value> {
-        Ok(match self {
-            Self::Ethereum(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
-            Self::Polkadot(tx) => serde_json::to_value(tx.transfer(address, amount)?)?,
-        })
-    }
-
-    pub fn method_call(
-        &self,
-        contract: &str,
-        method: &str,
-        params: &[String],
-        amount: u128,
-    ) -> Result<serde_json::Value> {
-        Ok(match self {
-            Self::Ethereum(tx) => {
-                serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
-            }
-            Self::Polkadot(tx) => {
-                serde_json::to_value(tx.method_call(contract, method, params, amount)?)?
-            }
-        })
-    }
-
-    pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<serde_json::Value> {
-        Ok(match self {
-            Self::Ethereum(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
-            Self::Polkadot(tx) => serde_json::to_value(tx.deploy_contract(contract_binary)?)?,
-        })
-    }
-
-    pub fn create_and_sign(
-        &self,
-        config: &BlockchainConfig,
-        metadata_params: serde_json::Value,
-        metadata: serde_json::Value,
-        secret_key: &SecretKey,
-    ) -> Vec<u8> {
-        match self {
-            Self::Ethereum(tx) => {
-                let metadata_params = serde_json::from_value(metadata_params).unwrap();
-                let metadata = serde_json::from_value(metadata).unwrap();
-                tx.create_and_sign(config, &metadata_params, &metadata, secret_key)
-            }
-            Self::Polkadot(tx) => {
-                let metadata_params = serde_json::from_value(metadata_params).unwrap();
-                let metadata = serde_json::from_value(metadata).unwrap();
-                tx.create_and_sign(config, &metadata_params, &metadata, secret_key)
-            }
-        }
-    }
-}
+use std::path::Path;
 
 /// The wallet provides the main entry point to this crate.
-pub struct Wallet<T: BlockchainClient> {
-    client: T,
+pub struct Wallet {
+    client: GenericClient,
     account: AccountIdentifier,
     secret_key: DerivedSecretKey,
     public_key: PublicKey,
     tx: GenericTransactionBuilder,
 }
 
-impl<T: BlockchainClient> Wallet<T> {
+impl Wallet {
     /// Creates a new wallet from a config, signer and client.
-    pub fn new(client: T, signer: &Signer) -> Result<Self> {
+    pub async fn new(
+        blockchain: Blockchain,
+        network: &str,
+        url: &str,
+        keyfile: Option<&Path>,
+    ) -> Result<Self> {
+        let store = MnemonicStore::new(keyfile)?;
+        let mnemonic = store.get_or_generate_mnemonic()?;
+        let signer = Signer::new(&mnemonic, "")?;
+        let client = GenericClient::new(blockchain, network, url).await?;
         let tx = GenericTransactionBuilder::new(client.config())?;
         let secret_key = if client.config().bip44 {
             signer
@@ -123,11 +66,6 @@ impl<T: BlockchainClient> Wallet<T> {
     /// Returns the blockchain config.
     pub fn config(&self) -> &BlockchainConfig {
         self.client.config()
-    }
-
-    /// Returns the rosetta client.
-    pub fn client(&self) -> &T {
-        &self.client
     }
 
     /// Returns the public key.
@@ -183,7 +121,7 @@ impl<T: BlockchainClient> Wallet<T> {
     /// Extension of rosetta-api does multiple things
     /// 1. fetching storage
     /// 2. calling extrinsic/contract
-    pub async fn call(
+    async fn call(
         &self,
         method: String,
         params: &serde_json::Value,
@@ -211,9 +149,12 @@ impl<T: BlockchainClient> Wallet<T> {
     /// Returns the on chain metadata.
     /// Parameters:
     /// - metadata_params: the metadata parameters which we got from transaction builder.
-    pub async fn metadata(&self, metadata_params: &T::MetadataParams) -> Result<T::Metadata> {
+    pub async fn metadata(
+        &self,
+        metadata_params: &GenericMetadataParams,
+    ) -> Result<GenericMetadata> {
         let public_key_bytes = hex::decode(&self.public_key.hex_bytes)?;
-        let public_key = rosetta_crypto::PublicKey::from_bytes(
+        let public_key = crate::crypto::PublicKey::from_bytes(
             self.client.config().algorithm,
             &public_key_bytes,
         )?;
@@ -228,14 +169,14 @@ impl<T: BlockchainClient> Wallet<T> {
     }
 
     /// Creates, signs and submits a transaction.
-    pub async fn construct(&self, metadata_params: &T::MetadataParams) -> Result<Vec<u8>> {
-        let metadata = self.metadata(metadata_params).await?;
+    pub async fn construct(&self, params: &GenericMetadataParams) -> Result<Vec<u8>> {
+        let metadata = self.metadata(params).await?;
         let transaction = self.tx.create_and_sign(
             self.client.config(),
-            serde_json::to_value(metadata_params)?,
-            serde_json::to_value(&metadata)?,
+            params,
+            &metadata,
             self.secret_key.secret_key(),
-        );
+        )?;
         self.submit(&transaction).await
     }
 
@@ -245,8 +186,7 @@ impl<T: BlockchainClient> Wallet<T> {
     /// - amount: the amount to transfer
     pub async fn transfer(&self, account: &AccountIdentifier, amount: u128) -> Result<Vec<u8>> {
         let address = Address::new(self.client.config().address_format, account.address.clone());
-        let metadata_params =
-            serde_json::from_value::<T::MetadataParams>(self.tx.transfer(&address, amount)?)?;
+        let metadata_params = self.tx.transfer(&address, amount)?;
         self.construct(&metadata_params).await
     }
 
@@ -260,64 +200,15 @@ impl<T: BlockchainClient> Wallet<T> {
         );
         self.client.faucet(&address, faucet_parameter).await
     }
-}
 
-/// Extension trait for the wallet. for ethereum chain
-#[async_trait]
-pub trait EthereumExt {
     /// deploys contract to chain
-    async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<Vec<u8>>;
-    /// calls a contract view call function
-    async fn eth_view_call(
-        &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value>;
-    /// calls contract send call function
-    async fn eth_send_call(
-        &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
-        amount: u128,
-    ) -> Result<Vec<u8>>;
-    /// estimates gas of send call
-    async fn eth_send_call_estimate_gas(
-        &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
-        amount: u128,
-    ) -> Result<u128>;
-    /// gets storage from ethereum contract
-    async fn eth_storage(
-        &self,
-        contract_address: &str,
-        storage_slot: &str,
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value>;
-    /// gets storage proof from ethereum contract
-    async fn eth_storage_proof(
-        &self,
-        contract_address: &str,
-        storage_slot: &str,
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value>;
-    /// gets transaction receipt of specific hash
-    async fn eth_transaction_receipt(&self, tx_hash: &[u8]) -> Result<serde_json::Value>;
-}
-
-#[async_trait]
-impl<T: BlockchainClient> EthereumExt for Wallet<T> {
-    async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<Vec<u8>> {
-        let metadata_params =
-            serde_json::from_value::<T::MetadataParams>(self.tx.deploy_contract(bytecode)?)?;
+    pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<Vec<u8>> {
+        let metadata_params = self.tx.deploy_contract(bytecode)?;
         self.construct(&metadata_params).await
     }
 
-    async fn eth_send_call(
+    /// calls contract send call function
+    pub async fn eth_send_call(
         &self,
         contract_address: &str,
         method_signature: &str,
@@ -327,11 +218,11 @@ impl<T: BlockchainClient> EthereumExt for Wallet<T> {
         let metadata_params =
             self.tx
                 .method_call(contract_address, method_signature, params, amount)?;
-        let metadata_params = serde_json::from_value::<T::MetadataParams>(metadata_params)?;
         self.construct(&metadata_params).await
     }
 
-    async fn eth_send_call_estimate_gas(
+    /// estimates gas of send call
+    pub async fn eth_send_call_estimate_gas(
         &self,
         contract_address: &str,
         method_signature: &str,
@@ -341,14 +232,16 @@ impl<T: BlockchainClient> EthereumExt for Wallet<T> {
         let metadata_params =
             self.tx
                 .method_call(contract_address, method_signature, params, amount)?;
-        let metadata_params = serde_json::from_value::<T::MetadataParams>(metadata_params)?;
-        let metadata = self.metadata(&metadata_params).await?;
-        let metadata: rosetta_config_ethereum::EthereumMetadata =
-            serde_json::from_value(serde_json::to_value(metadata)?)?;
+        let metadata = match self.metadata(&metadata_params).await? {
+            GenericMetadata::Ethereum(metadata) => metadata,
+            GenericMetadata::Astar(metadata) => metadata.0,
+            _ => anyhow::bail!("unsupported op"),
+        };
         Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
     }
 
-    async fn eth_view_call(
+    /// calls a contract view call function
+    pub async fn eth_view_call(
         &self,
         contract_address: &str,
         method_signature: &str,
@@ -359,7 +252,8 @@ impl<T: BlockchainClient> EthereumExt for Wallet<T> {
         self.call(method, &json!(params), block_identifier).await
     }
 
-    async fn eth_storage(
+    /// gets storage from ethereum contract
+    pub async fn eth_storage(
         &self,
         contract_address: &str,
         storage_slot: &str,
@@ -369,7 +263,8 @@ impl<T: BlockchainClient> EthereumExt for Wallet<T> {
         self.call(method, &json!({}), block_identifier).await
     }
 
-    async fn eth_storage_proof(
+    /// gets storage proof from ethereum contract
+    pub async fn eth_storage_proof(
         &self,
         contract_address: &str,
         storage_slot: &str,
@@ -379,7 +274,8 @@ impl<T: BlockchainClient> EthereumExt for Wallet<T> {
         self.call(method, &json!({}), block_identifier).await
     }
 
-    async fn eth_transaction_receipt(&self, tx_hash: &[u8]) -> Result<serde_json::Value> {
+    /// gets transaction receipt of specific hash
+    pub async fn eth_transaction_receipt(&self, tx_hash: &[u8]) -> Result<serde_json::Value> {
         let call_method = format!("{}--transaction_receipt", hex::encode(tx_hash));
         self.call(call_method, &json!({}), None).await
     }

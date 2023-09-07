@@ -36,6 +36,7 @@ impl Signer {
     }
 
     /// Creates a new ephemeral signer.
+    #[allow(unused)]
     pub fn generate() -> Result<Self> {
         let mnemonic = crate::mnemonic::generate_mnemonic()?;
         Self::new(&mnemonic, "")
