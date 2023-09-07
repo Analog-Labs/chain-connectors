@@ -97,8 +97,6 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Metadata: DeserializeOwned + Serialize + Send + Sync + 'static;
     type EventStream<'a>: stream::Stream<Item = ClientEvent> + Send + Unpin + 'a;
 
-    fn create_config(network: &str) -> Result<BlockchainConfig>;
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self>;
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
     async fn node_version(&self) -> Result<String>;
@@ -136,13 +134,6 @@ where
     type Metadata = <T as BlockchainClient>::Metadata;
     type EventStream<'a> = <T as BlockchainClient>::EventStream<'a>;
 
-    fn create_config(network: &str) -> Result<BlockchainConfig> {
-        <T as BlockchainClient>::create_config(network)
-    }
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = <T as BlockchainClient>::new(config, addr).await?;
-        Ok(Arc::new(client))
-    }
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Arc::as_ref(self))
     }

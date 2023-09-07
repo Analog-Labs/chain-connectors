@@ -1,7 +1,7 @@
 use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
-use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
+pub use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
@@ -30,7 +30,11 @@ pub enum MaybeWsEthereumClient {
 }
 
 impl MaybeWsEthereumClient {
-    pub async fn new<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
+    pub async fn new<S: AsRef<str>>(network: &str, addr: S) -> Result<Self> {
+        Self::from_config(rosetta_config_ethereum::config(network)?, addr).await
+    }
+
+    pub async fn from_config<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
@@ -50,14 +54,6 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
     type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<DefaultClient>>;
-
-    fn create_config(network: &str) -> Result<BlockchainConfig> {
-        rosetta_config_ethereum::config(network)
-    }
-
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        MaybeWsEthereumClient::new(config, addr).await
-    }
 
     fn config(&self) -> &BlockchainConfig {
         match self {

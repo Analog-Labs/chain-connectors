@@ -14,10 +14,5 @@ ethers-solc = "2.0.1"
 futures = "0.3"
 hex = "0.4"
 rosetta-client = { version = "0.4.0", path = "../rosetta-client" }
-rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
-rosetta-server-astar = { version = "0.4.0", path = "../chains/astar/server" }
-rosetta-server-bitcoin = { version = "0.4.0", path = "../chains/bitcoin/server" }
-rosetta-server-ethereum = { version = "0.4.0", path = "../chains/ethereum/server" }
-rosetta-server-polkadot = { version = "0.4.0", path = "../chains/polkadot/server" }
-surf = { version = "2.3", default-features = false, features = ["h1-client-rustls"] }
 tracing-subscriber = "0.3"
+url = "2.4.1"

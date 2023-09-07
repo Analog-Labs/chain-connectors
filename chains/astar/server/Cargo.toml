@@ -19,6 +19,7 @@ rosetta-config-astar = { version = "0.4.0", path = "../config" }
 rosetta-config-ethereum = { version = "0.4.0", path = "../../ethereum/config" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum = { version = "0.4.0", path = "../../ethereum/server" }
+serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0"
 sp-core = { version = "21.0.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "24.0.0"

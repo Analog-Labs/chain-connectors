@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use parity_scale_codec::{Decode, Encode};
-use rosetta_config_polkadot::{
-    metadata::dev as polkadot_metadata, PolkadotMetadata, PolkadotMetadataParams,
-};
+use rosetta_config_polkadot::metadata::dev as polkadot_metadata;
+pub use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
 use rosetta_server::types::{
@@ -32,6 +31,24 @@ pub struct PolkadotClient {
 }
 
 impl PolkadotClient {
+    pub async fn new(network: &str, addr: &str) -> Result<Self> {
+        let config = rosetta_config_polkadot::config(network)?;
+        let client = {
+            let ws_client = default_client(addr, None).await?;
+            OnlineClient::<PolkadotConfig>::from_rpc_client(std::sync::Arc::new(ws_client)).await?
+        };
+        let genesis = client.genesis_hash();
+        let genesis_block = BlockIdentifier {
+            index: 0,
+            hash: hex::encode(genesis.as_ref()),
+        };
+        Ok(Self {
+            config,
+            client,
+            genesis_block,
+        })
+    }
+
     async fn account_info(
         &self,
         address: &Address,
@@ -74,27 +91,6 @@ impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
     type EventStream<'a> = rosetta_server::EmptyEventStream;
-
-    fn create_config(network: &str) -> Result<BlockchainConfig> {
-        rosetta_config_polkadot::config(network)
-    }
-
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = {
-            let ws_client = default_client(addr, None).await?;
-            OnlineClient::<PolkadotConfig>::from_rpc_client(std::sync::Arc::new(ws_client)).await?
-        };
-        let genesis = client.genesis_hash();
-        let genesis_block = BlockIdentifier {
-            index: 0,
-            hash: hex::encode(genesis.as_ref()),
-        };
-        Ok(Self {
-            config,
-            client,
-            genesis_block,
-        })
-    }
 
     fn config(&self) -> &BlockchainConfig {
         &self.config

@@ -11,29 +11,18 @@ use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
 use std::str::FromStr;
 
+pub type BitcoinMetadataParams = ();
+pub type BitcoinMetadata = ();
+
 pub struct BitcoinClient {
     config: BlockchainConfig,
     client: Client,
     genesis_block: BlockIdentifier,
 }
 
-/// Bitcoin community has adopted 6 blocks as a standard confirmation period.
-/// That is, once a transaction is included in a block in the blockchain which is followed up by at least 6 additional blocks
-/// the transaction is called “confirmed.” While this was chosen somewhat arbitrarily, it is a reasonably safe value in practice
-/// as the only time this would have left users vulnerable to double-spending was the atypical March 2013 fork.
-const CONFIRMATION_PERIOD: u64 = 6;
-
-#[async_trait::async_trait]
-impl BlockchainClient for BitcoinClient {
-    type MetadataParams = ();
-    type Metadata = ();
-    type EventStream<'a> = rosetta_server::EmptyEventStream;
-
-    fn create_config(network: &str) -> Result<BlockchainConfig> {
-        rosetta_config_bitcoin::config(network)
-    }
-
-    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
+impl BitcoinClient {
+    pub async fn new(network: &str, addr: &str) -> Result<Self> {
+        let config = rosetta_config_bitcoin::config(network)?;
         let client = Client::new(
             addr.to_string(),
             Auth::UserPass("rosetta".into(), "rosetta".into()),
@@ -51,6 +40,19 @@ impl BlockchainClient for BitcoinClient {
             genesis_block,
         })
     }
+}
+
+/// Bitcoin community has adopted 6 blocks as a standard confirmation period.
+/// That is, once a transaction is included in a block in the blockchain which is followed up by at least 6 additional blocks
+/// the transaction is called “confirmed.” While this was chosen somewhat arbitrarily, it is a reasonably safe value in practice
+/// as the only time this would have left users vulnerable to double-spending was the atypical March 2013 fork.
+const CONFIRMATION_PERIOD: u64 = 6;
+
+#[async_trait::async_trait]
+impl BlockchainClient for BitcoinClient {
+    type MetadataParams = BitcoinMetadataParams;
+    type Metadata = BitcoinMetadata;
+    type EventStream<'a> = rosetta_server::EmptyEventStream;
 
     fn config(&self) -> &BlockchainConfig {
         &self.config
