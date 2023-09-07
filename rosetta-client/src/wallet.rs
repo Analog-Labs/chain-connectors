@@ -25,17 +25,35 @@ pub struct Wallet {
 }
 
 impl Wallet {
-    /// Creates a new wallet from a config, signer and client.
+    /// Creates a new wallet from blockchain, network, url and keyfile.
     pub async fn new(
         blockchain: Blockchain,
         network: &str,
         url: &str,
         keyfile: Option<&Path>,
     ) -> Result<Self> {
+        let client = GenericClient::new(blockchain, network, url).await?;
+        Self::from_client(client, keyfile).await
+    }
+
+    /// Creates a new wallet from a config, url and keyfile.
+    pub async fn from_config(
+        config: BlockchainConfig,
+        url: &str,
+        keyfile: Option<&Path>,
+    ) -> Result<Self> {
+        let client = GenericClient::from_config(config, url).await?;
+        Self::from_client(client, keyfile).await
+    }
+
+    /// Creates a new wallet from a client, url and keyfile.
+    pub async fn from_client(
+        client: GenericClient,
+        keyfile: Option<&Path>,
+    ) -> Result<Self> {
         let store = MnemonicStore::new(keyfile)?;
         let mnemonic = store.get_or_generate_mnemonic()?;
         let signer = Signer::new(&mnemonic, "")?;
-        let client = GenericClient::new(blockchain, network, url).await?;
         let tx = GenericTransactionBuilder::new(client.config())?;
         let secret_key = if client.config().bip44 {
             signer

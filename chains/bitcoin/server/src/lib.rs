@@ -10,7 +10,6 @@ use rosetta_core::{
     BlockchainClient, BlockchainConfig,
 };
 use serde_json::Value;
-use std::str::FromStr;
 
 pub type BitcoinMetadataParams = ();
 pub type BitcoinMetadata = ();
@@ -24,11 +23,15 @@ pub struct BitcoinClient {
 impl BitcoinClient {
     pub async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_bitcoin::config(network)?;
+        Self::from_config(config, addr).await
+    }
+
+    pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = Client::new(
             addr.to_string(),
             Auth::UserPass("rosetta".into(), "rosetta".into()),
         )
-        .await?;
+            .await?;
         let genesis = client.get_block_hash(0).await?;
         let genesis_block = BlockIdentifier {
             index: 0,
@@ -190,47 +193,30 @@ impl BlockchainClient for BitcoinClient {
 mod tests {
     use super::*;
 
+    pub async fn client_from_config(config: BlockchainConfig) -> Result<BitcoinClient> {
+        let network = config.network.to_string();
+        let url = config.node_uri.to_string();
+        BitcoinClient::new(network.as_str(), url.as_str()).await
+    }
+
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_docker::tests::network_status::<BitcoinClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                BitcoinClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::network_status::<BitcoinClient, _, _>(client_from_config, config)
+            .await
     }
 
     #[tokio::test]
     #[ignore]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_docker::tests::account::<BitcoinClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                BitcoinClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::account::<BitcoinClient, _, _>(client_from_config, config).await
     }
 
     #[tokio::test]
     #[ignore]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_docker::tests::construction::<BitcoinClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                BitcoinClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::construction::<BitcoinClient, _, _>(client_from_config, config).await
     }
 }

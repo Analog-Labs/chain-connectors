@@ -68,6 +68,14 @@ pub struct DefaultStrategy<T: Config> {
     inner: Arc<SharedState<T>>,
 }
 
+impl<T: Config> Clone for DefaultStrategy<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
 impl<T: Config> DefaultStrategy<T> {
     pub async fn connect(config: T) -> Result<Self, Error> {
         let client = Arc::new(config.connect().await?);
