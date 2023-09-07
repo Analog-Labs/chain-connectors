@@ -5,7 +5,6 @@ use anyhow::{Context, Result};
 use fraction::{BigDecimal, BigInt};
 use std::path::Path;
 
-pub use crate::client::Client;
 pub use crate::mnemonic::{generate_mnemonic, MnemonicStore};
 pub use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 pub use crate::wallet::EthereumExt;
@@ -13,7 +12,6 @@ pub use crate::wallet::Wallet;
 use rosetta_core::BlockchainClient;
 pub use rosetta_core::{crypto, types, BlockchainConfig, TransactionBuilder};
 
-mod client;
 mod mnemonic;
 mod signer;
 mod wallet;
