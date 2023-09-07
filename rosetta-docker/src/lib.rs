@@ -7,7 +7,7 @@ use docker_api::opts::{
 };
 use docker_api::{ApiVersion, Container, Docker};
 use futures::stream::StreamExt;
-use rosetta_client::{Blockchain, Wallet};
+use rosetta_client::Wallet;
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::future::Future;
 use std::str::FromStr;
@@ -61,10 +61,10 @@ impl<T: BlockchainClient> Env<T> {
     }
 
     pub async fn ephemeral_wallet(&self) -> Result<Wallet> {
-        let blockchain = Blockchain::from_str(self.client.config().blockchain)?;
-        let network = self.client.config().network.to_string();
-        let node_uri = self.client.config().node_uri.to_string();
-        Wallet::new(blockchain, &network, &node_uri, None).await
+        let config = self.client.config().clone();
+        let node_uri = config.node_uri.to_string();
+        println!("Ephemeral wallet: {}", node_uri);
+        Wallet::from_config(config, &node_uri, None).await
     }
 
     pub async fn shutdown(self) -> Result<()> {
@@ -231,19 +231,21 @@ impl<'a> EnvBuilder<'a> {
 
         let client = {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
-                .max_delay(Duration::from_secs(5))
-                .take(MAX_RETRIES);
+                .max_delay(Duration::from_secs(5)).into_iter().take(MAX_RETRIES);
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
                 match start_connector(config.clone()).await {
                     Ok(client) => {
+                        if let Err(error) = client.finalized_block().await {
+                            result = Err(error);
+                            continue;
+                        }
                         result = Ok(client);
                         break;
                     }
                     Err(error) => {
                         result = Err(error);
                         tokio::time::sleep(delay).await;
-                        continue;
                     }
                 }
             }

@@ -19,6 +19,7 @@ use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadata
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::pin::Pin;
+use std::str::FromStr;
 
 pub enum GenericClient {
     Bitcoin(BitcoinClient),
@@ -44,6 +45,28 @@ impl GenericClient {
             }
             Blockchain::Polkadot => {
                 let client = PolkadotClient::new(network, url).await?;
+                Self::Polkadot(client)
+            }
+        })
+    }
+
+    pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
+        let blockchain = Blockchain::from_str(&config.blockchain)?;
+        Ok(match blockchain {
+            Blockchain::Bitcoin => {
+                let client = BitcoinClient::from_config(config, url).await?;
+                Self::Bitcoin(client)
+            }
+            Blockchain::Ethereum => {
+                let client = EthereumClient::from_config(config, url).await?;
+                Self::Ethereum(client)
+            }
+            Blockchain::Astar => {
+                let client = AstarClient::from_config(config, url).await?;
+                Self::Astar(client)
+            }
+            Blockchain::Polkadot => {
+                let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
             }
         })

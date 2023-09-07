@@ -39,14 +39,18 @@ impl MaybeWsEthereumClient {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
-            let ws_connection = EthPubsubAdapter::new(client);
-            let client = EthereumClient::new(config, ws_connection).await?;
-            Ok(Self::Ws(client))
+            Self::from_jsonrpsee(config, client).await
         } else {
             let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection).await?;
             Ok(Self::Http(client))
         }
+    }
+
+    pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
+        let ws_connection = EthPubsubAdapter::new(client);
+        let client = EthereumClient::new(config, ws_connection).await?;
+        Ok(Self::Ws(client))
     }
 }
 
@@ -180,15 +184,16 @@ mod tests {
     use std::collections::BTreeMap;
     use std::path::Path;
 
+    pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
+        let url = config.node_uri.to_string();
+        MaybeWsEthereumClient::from_config(config, url.as_str()).await
+    }
+
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_docker::tests::network_status::<MaybeWsEthereumClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
-            },
+            client_from_config,
             config,
         )
         .await
@@ -197,26 +202,15 @@ mod tests {
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
-        rosetta_docker::tests::account::<MaybeWsEthereumClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::account::<MaybeWsEthereumClient, _, _>(client_from_config, config)
+            .await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
         rosetta_docker::tests::construction::<MaybeWsEthereumClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
-            },
+            client_from_config,
             config,
         )
         .await
@@ -254,11 +248,7 @@ mod tests {
         let env = Env::new(
             "ethereum-smart-contract",
             config.clone(),
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
-            },
+            client_from_config,
         )
         .await?;
 
@@ -301,11 +291,7 @@ mod tests {
         let env = Env::new(
             "ethereum-smart-contract-view",
             config.clone(),
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                MaybeWsEthereumClient::new(network.as_str(), url.as_str()).await
-            },
+            client_from_config,
         )
         .await?;
 

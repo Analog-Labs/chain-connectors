@@ -56,6 +56,17 @@ pub struct AutoReconnectClient<T> {
     client: T,
 }
 
+impl<T> Clone for AutoReconnectClient<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            client: self.client.clone(),
+        }
+    }
+}
+
 impl<T> Deref for AutoReconnectClient<T> {
     type Target = T;
 

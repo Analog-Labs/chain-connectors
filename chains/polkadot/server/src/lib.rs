@@ -35,6 +35,10 @@ pub struct PolkadotClient {
 impl PolkadotClient {
     pub async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_polkadot::config(network)?;
+        Self::from_config(config, addr).await
+    }
+
+    pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = {
             let ws_client = default_client(addr, None).await?;
             OnlineClient::<PolkadotConfig>::from_rpc_client(std::sync::Arc::new(ws_client)).await?
@@ -325,45 +329,28 @@ pub struct Transfer {
 mod tests {
     use super::*;
 
+    pub async fn client_from_config(config: BlockchainConfig) -> Result<PolkadotClient> {
+        let url = config.node_uri.to_string();
+        PolkadotClient::from_config(config, url.as_str()).await
+    }
+
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_docker::tests::network_status::<PolkadotClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                PolkadotClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::network_status::<PolkadotClient, _, _>(client_from_config, config)
+            .await
     }
 
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_docker::tests::account::<PolkadotClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                PolkadotClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::account::<PolkadotClient, _, _>(client_from_config, config).await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_docker::tests::construction::<PolkadotClient, _, _>(
-            |config| async move {
-                let network = config.network.to_string();
-                let url = config.node_uri.to_string();
-                PolkadotClient::new(network.as_str(), url.as_str()).await
-            },
-            config,
-        )
-        .await
+        rosetta_docker::tests::construction::<PolkadotClient, _, _>(client_from_config, config)
+            .await
     }
 }
