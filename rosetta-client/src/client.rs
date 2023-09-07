@@ -51,7 +51,7 @@ impl GenericClient {
     }
 
     pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
-        let blockchain = Blockchain::from_str(&config.blockchain)?;
+        let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
             Blockchain::Bitcoin => {
                 let client = BitcoinClient::from_config(config, url).await?;

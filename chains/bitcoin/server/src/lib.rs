@@ -10,6 +10,7 @@ use rosetta_core::{
     BlockchainClient, BlockchainConfig,
 };
 use serde_json::Value;
+use std::str::FromStr;
 
 pub type BitcoinMetadataParams = ();
 pub type BitcoinMetadata = ();
@@ -31,7 +32,7 @@ impl BitcoinClient {
             addr.to_string(),
             Auth::UserPass("rosetta".into(), "rosetta".into()),
         )
-            .await?;
+        .await?;
         let genesis = client.get_block_hash(0).await?;
         let genesis_block = BlockIdentifier {
             index: 0,

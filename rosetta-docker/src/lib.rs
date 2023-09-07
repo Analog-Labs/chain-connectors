@@ -10,7 +10,6 @@ use futures::stream::StreamExt;
 use rosetta_client::Wallet;
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::future::Future;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_retry::{strategy::ExponentialBackoff, RetryIf};
@@ -231,7 +230,8 @@ impl<'a> EnvBuilder<'a> {
 
         let client = {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
-                .max_delay(Duration::from_secs(5)).into_iter().take(MAX_RETRIES);
+                .max_delay(Duration::from_secs(5))
+                .take(MAX_RETRIES);
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
                 match start_connector(config.clone()).await {
