@@ -73,3 +73,79 @@ pub struct EthereumMetadata {
     pub max_fee_per_gas: [u64; 4],
     pub gas_limit: [u64; 4],
 }
+
+// pub trait TransactionT<T: BlockchainConfigT> {
+//     fn hash(&self) -> Multihash<T::HASH_LEN>;
+//     fn fee(&self) -> u128;
+//     fn is_coinbase(&self) -> bool;
+// }
+//
+// pub trait BlockT<T: BlockchainConfigT> {
+//     fn hash(&self) -> Multihash<T::HASH_LEN>;
+// }
+//
+// pub trait AddressT<T: BlockchainConfigT> {
+//     fn hash(&self) -> Multihash<T::HASH_LEN>;
+// }
+//
+// pub trait BlockchainConfigT {
+//     const HASH_LEN: usize;
+//
+//     type Address: AddressT<Self>;
+//     type Transaction: TransactionT<Self>;
+//     type Block: BlockT<Self>;
+// }
+//
+// pub enum TransactionStatus {
+//     /// The transaction is part of the “future” queue.
+//     Future,
+//     /// The transaction is part of the “ready” queue.
+//     Ready,
+//     /// The transaction has been broadcast to the given peers.
+//     Broadcast(Vec<String>),
+//     /// The transaction has been included in a block with given hash.
+//     InBlock(TxInBlock<T, C>),
+//     /// The block this transaction was included in has been retracted, probably because it did not make it onto the blocks which were finalized.
+//     Retracted(T::Hash),
+//     /// A block containing the transaction did not reach finality within 512 blocks, and so the subscription has ended.
+//     FinalityTimeout(T::Hash),
+//     /// The transaction has been finalized by a finality-gadget, e.g GRANDPA.
+//     Finalized(TxInBlock<T, C>),
+//     /// The transaction has been replaced in the pool by another transaction that provides the same tags. (e.g. same (sender, nonce)).
+//     Usurped(T::Hash),
+//     /// The transaction has been dropped from the pool because of the limit.
+//     Dropped,
+//     /// The transaction is no longer valid in the current state.
+//     Invalid,
+// }
+//
+// pub trait TransactionStream: futures_util::stream::Stream<Item = ()> {}
+//
+// pub enum ClientError<CustomError> {
+//     /// The request was invalid.
+//     InvalidRequest(String),
+//
+//     /// The request was valid but the server is currently unable to handle it.
+//     ServerError(String),
+//
+//     /// The request was valid but the server is rate-limiting the client.
+//     RateLimit(String),
+//
+//     /// The request was valid but there is not enough balance in the account.
+//     InsufficientBalance(String),
+//
+//     /// The request was valid but the account is not ready to send funds.
+//     NotReady(String),
+//
+//     /// The request was valid but the account is not ready to send funds.
+//     Stale(String),
+//
+//     /// The request was valid but the account is not ready to send funds.
+//     TemporaryFailure(String),
+//
+//     /// The request was valid but the account is not ready to send funds.
+//     Unknown(String),
+//
+//     /// The request was valid but the account is not ready to send funds.
+//     Custom(CustomError),
+// }

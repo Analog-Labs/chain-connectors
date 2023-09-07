@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use bitcoincore_rpc_async::bitcoin::BlockHash;
 use bitcoincore_rpc_async::{Auth, Client, RpcApi};
 use rosetta_server::crypto::address::Address;
 use rosetta_server::crypto::PublicKey;
@@ -8,6 +9,7 @@ use rosetta_server::types::{
 };
 use rosetta_server::{BlockchainClient, BlockchainConfig};
 use serde_json::Value;
+use std::str::FromStr;
 
 pub struct BitcoinClient {
     config: BlockchainConfig,
@@ -40,8 +42,9 @@ impl BlockchainClient for BitcoinClient {
         let genesis = client.get_block_hash(0).await?;
         let genesis_block = BlockIdentifier {
             index: 0,
-            hash: hex::encode(genesis.as_ref()),
+            hash: genesis.to_string(),
         };
+
         Ok(Self {
             config,
             client,
@@ -67,11 +70,11 @@ impl BlockchainClient for BitcoinClient {
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
-        let index = self.client.get_block_count().await?;
-        let hash = self.client.get_block_hash(index).await?;
+        let hash = self.client.get_best_block_hash().await?;
+        let info = self.client.get_block_info(&hash).await?;
         Ok(BlockIdentifier {
-            index,
-            hash: hex::encode(hash.as_ref()),
+            index: info.height as u64,
+            hash: hash.to_string(),
         })
     }
 
@@ -84,7 +87,7 @@ impl BlockchainClient for BitcoinClient {
         let hash = self.client.get_block_hash(index).await?;
         Ok(BlockIdentifier {
             index,
-            hash: hex::encode(hash.as_ref()),
+            hash: hash.to_string(),
         })
     }
 
@@ -112,8 +115,59 @@ impl BlockchainClient for BitcoinClient {
         todo!()
     }
 
-    async fn block(&self, _block: &PartialBlockIdentifier) -> Result<Block> {
-        anyhow::bail!("not implemented")
+    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
+        let block = match (block.hash.as_ref(), block.index) {
+            (Some(block_hash), _) => {
+                let hash = BlockHash::from_str(block_hash).context("Invalid block hash")?;
+                self.client.get_block(&hash).await?
+            }
+            (None, Some(height)) => {
+                let block_bash = self
+                    .client
+                    .get_block_hash(height)
+                    .await
+                    .context("cannot find by index")?;
+                self.client.get_block(&block_bash).await?
+            }
+            (None, None) => anyhow::bail!("the block hash or index must be specified"),
+        };
+
+        let block_height = match block.bip34_block_height().ok() {
+            Some(height) => height,
+            None => {
+                let info = self
+                    .client
+                    .get_block_info(&block.block_hash())
+                    .await
+                    .context("Cannot find block height")?;
+                info.height as u64
+            }
+        };
+
+        let transactions = block
+            .txdata
+            .iter()
+            .map(|tx| Transaction {
+                transaction_identifier: TransactionIdentifier::new(tx.txid().as_hash().to_string()),
+                operations: vec![],
+                related_transactions: None,
+                metadata: serde_json::to_value(tx.clone()).ok(),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Block {
+            block_identifier: BlockIdentifier {
+                index: block_height,
+                hash: block.block_hash().to_string(),
+            },
+            parent_block_identifier: BlockIdentifier {
+                index: block_height.saturating_sub(1),
+                hash: block.header.prev_blockhash.to_string(),
+            },
+            timestamp: (block.header.time as i64) * 1000,
+            transactions,
+            metadata: None,
+        })
     }
 
     async fn block_transaction(
@@ -134,34 +188,43 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_network_list() -> Result<()> {
-        let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_server::tests::network_list(config).await
-    }
-
-    #[tokio::test]
-    async fn test_network_options() -> Result<()> {
-        let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_server::tests::network_options::<BitcoinClient>(config).await
-    }
-
-    #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_server::tests::network_status::<BitcoinClient>(config).await
+        rosetta_server::tests::network_status::<BitcoinClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                BitcoinClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     #[ignore]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_server::tests::account(config).await
+        rosetta_server::tests::account::<BitcoinClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                BitcoinClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     #[ignore]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_bitcoin::config("regtest")?;
-        rosetta_server::tests::construction(config).await
+        rosetta_server::tests::construction::<BitcoinClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                BitcoinClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 }

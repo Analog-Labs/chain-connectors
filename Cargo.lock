@@ -1257,6 +1257,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e496a50fda8aacccc86d7529e2c1e0892dbd0f898a6b5645b5561b89c3210efa"
 
 [[package]]
+name = "core2"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b49ba7ef1ad6107f8824dbe97de947cbaac53c44e7f9756a1fba0d37c1eec505"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "cpp_demangle"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3788,6 +3797,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "multihash"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2fd59dcc2bbe70baabeac52cd22ae52c55eefe6c38ff11a9439f16a350a939f2"
+dependencies = [
+ "core2",
+ "unsigned-varint",
+]
+
+[[package]]
 name = "nanoid"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4842,18 +4861,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rosetta-cli"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "async-std",
- "clap",
- "env_logger",
- "rosetta-client",
- "surf",
-]
-
-[[package]]
 name = "rosetta-client"
 version = "0.4.0"
 dependencies = [
@@ -4866,11 +4873,14 @@ dependencies = [
  "hex 0.4.3",
  "js-sys",
  "log",
+ "num-traits",
  "rosetta-config-astar",
  "rosetta-config-bitcoin",
  "rosetta-config-ethereum",
  "rosetta-config-polkadot",
  "rosetta-core",
+ "rosetta-crypto",
+ "rosetta-server-ethereum",
  "rosetta-tx-ethereum",
  "rosetta-tx-polkadot",
  "serde",
@@ -4903,6 +4913,7 @@ name = "rosetta-config-ethereum"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "futures-util",
  "rosetta-config-astar",
  "rosetta-core",
  "serde",
@@ -4926,6 +4937,7 @@ dependencies = [
  "async-trait",
  "fluent-uri",
  "futures-util",
+ "multihash",
  "rosetta-crypto",
  "rosetta-types",
  "serde",
@@ -5155,7 +5167,13 @@ dependencies = [
  "clap",
  "ethers-solc",
  "futures",
+ "hex 0.4.3",
  "rosetta-client",
+ "rosetta-core",
+ "rosetta-server-astar",
+ "rosetta-server-bitcoin",
+ "rosetta-server-ethereum",
+ "rosetta-server-polkadot",
  "surf",
  "tracing-subscriber 0.3.17",
 ]
@@ -7542,6 +7560,12 @@ dependencies = [
  "generic-array 0.14.7",
  "subtle",
 ]
+
+[[package]]
+name = "unsigned-varint"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d86a8dc7f45e4c1b0d30e43038c38f274e77af056aa5f74b93c2cf9eb3c1c836"
 
 [[package]]
 name = "untrusted"

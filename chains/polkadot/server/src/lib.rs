@@ -328,32 +328,41 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_network_list() -> Result<()> {
-        let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::network_list(config).await
-    }
-
-    #[tokio::test]
-    async fn test_network_options() -> Result<()> {
-        let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::network_options::<PolkadotClient>(config).await
-    }
-
-    #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::network_status::<PolkadotClient>(config).await
+        rosetta_server::tests::network_status::<PolkadotClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                PolkadotClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::account(config).await
+        rosetta_server::tests::account::<PolkadotClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                PolkadotClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::construction(config).await
+        rosetta_server::tests::construction::<PolkadotClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                PolkadotClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 }
