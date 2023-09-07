@@ -27,6 +27,7 @@ pub enum Command {
     Pubkey,
     Account,
     Balance,
+    Status,
     DeployContract(DeployContractOpts),
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
@@ -86,6 +87,9 @@ async fn main() -> Result<()> {
         Command::Balance => {
             let balance = wallet.balance().await?;
             println!("{}", rosetta_client::amount_to_string(&balance)?);
+        }
+        Command::Status => {
+            println!("{:?}", wallet.status().await?);
         }
         Command::DeployContract(DeployContractOpts { contract_path }) => {
             match wallet.config().blockchain {
