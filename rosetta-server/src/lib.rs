@@ -430,8 +430,10 @@ impl Error {
 #[cfg(feature = "tests")]
 pub mod tests {
     use super::*;
+    use crate::types::PartialBlockIdentifier;
     use nanoid::nanoid;
     use rosetta_docker::Env;
+    use std::future::Future;
 
     fn env_id() -> String {
         nanoid!(
@@ -440,56 +442,75 @@ pub mod tests {
         )
     }
 
-    pub async fn network_list(config: BlockchainConfig) -> Result<()> {
+    pub async fn network_status<T, Fut, F>(
+        start_connector: F,
+        config: BlockchainConfig,
+    ) -> Result<()>
+    where
+        T: BlockchainClient,
+        Fut: Future<Output = Result<T>> + Send,
+        F: FnMut(BlockchainConfig) -> Fut,
+    {
         let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-network-list"), config.clone()).await?;
+        let env = Env::new(
+            &format!("{env_id}-network-status"),
+            config.clone(),
+            start_connector,
+        )
+        .await?;
 
-        let client = env.connector()?;
-        let networks = client.network_list().await?;
-        assert_eq!(networks.len(), 1);
-        assert_eq!(networks[0].blockchain, config.blockchain);
-        assert_eq!(networks[0].network, config.network);
-        assert!(networks[0].sub_network_identifier.is_none());
+        let client = env.node();
+
+        // Check if the genesis is consistent
+        let expected_genesis = client.genesis_block().clone();
+        let actual_genesis = client
+            .block(&PartialBlockIdentifier {
+                index: Some(0),
+                hash: None,
+            })
+            .await?
+            .block_identifier;
+        assert_eq!(expected_genesis, actual_genesis);
+
+        // Check if the current block is consistent
+        let expected_current = client.current_block().await?;
+        let actual_current = client
+            .block(&PartialBlockIdentifier {
+                index: None,
+                hash: Some(expected_current.hash.clone()),
+            })
+            .await?
+            .block_identifier;
+        assert_eq!(expected_current, actual_current);
+
+        // Check if the finalized block is consistent
+        let expected_finalized = client.finalized_block().await?;
+        let actual_finalized = client
+            .block(&PartialBlockIdentifier {
+                index: None,
+                hash: Some(expected_finalized.hash.clone()),
+            })
+            .await?
+            .block_identifier;
+        assert_eq!(expected_finalized, actual_finalized);
 
         env.shutdown().await?;
         Ok(())
     }
 
-    pub async fn network_options<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
+    pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
+    where
+        T: BlockchainClient,
+        Fut: Future<Output = Result<T>> + Send,
+        F: FnMut(BlockchainConfig) -> Fut,
+    {
         let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-network-options"), config.clone()).await?;
-
-        let client = env.node::<T>().await?;
-        let version = client.node_version().await?;
-
-        let client = env.connector()?;
-        let options = client.network_options(config.network()).await?;
-        assert_eq!(options.version.node_version, version);
-
-        env.shutdown().await?;
-        Ok(())
-    }
-
-    pub async fn network_status<T: BlockchainClient>(config: BlockchainConfig) -> Result<()> {
-        let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-network-status"), config.clone()).await?;
-
-        let client = env.node::<T>().await?;
-        let genesis = client.genesis_block().clone();
-        let current = client.current_block().await?;
-
-        let client = env.connector()?;
-        let status = client.network_status(config.network()).await?;
-        assert_eq!(status.genesis_block_identifier, Some(genesis));
-        assert_eq!(status.current_block_identifier, current);
-
-        env.shutdown().await?;
-        Ok(())
-    }
-
-    pub async fn account(config: BlockchainConfig) -> Result<()> {
-        let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-account"), config.clone()).await?;
+        let env = Env::new(
+            &format!("{env_id}-account"),
+            config.clone(),
+            start_connector,
+        )
+        .await?;
 
         let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -503,9 +524,19 @@ pub mod tests {
         Ok(())
     }
 
-    pub async fn construction(config: BlockchainConfig) -> Result<()> {
+    pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
+    where
+        T: BlockchainClient,
+        Fut: Future<Output = Result<T>> + Send,
+        F: FnMut(BlockchainConfig) -> Fut,
+    {
         let env_id = env_id();
-        let env = Env::new(&format!("{env_id}-construction"), config.clone()).await?;
+        let env = Env::new(
+            &format!("{env_id}-construction"),
+            config.clone(),
+            start_connector,
+        )
+        .await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);

@@ -1,10 +1,10 @@
 use anyhow::Context;
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use ethers_solc::{artifacts::Source, CompilerInput, Solc};
-use futures::stream::StreamExt;
-use rosetta_client::types::{AccountIdentifier, BlockTransaction, TransactionIdentifier};
+use rosetta_client::types::AccountIdentifier;
 use rosetta_client::EthereumExt;
+use rosetta_core::{BlockchainClient, BlockchainConfig};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -13,13 +13,34 @@ pub struct Opts {
     #[clap(long)]
     pub keyfile: Option<PathBuf>,
     #[clap(long)]
-    pub url: Option<String>,
+    pub url: String,
     #[clap(long)]
-    pub blockchain: Option<String>,
-    #[clap(long)]
-    pub network: Option<String>,
+    pub blockchain: Blockchain,
+    #[clap(long, default_value = "dev")]
+    pub network: String,
     #[clap(subcommand)]
     pub cmd: Command,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Blockchain {
+    Bitcoin,
+    Ethereum,
+    Astar,
+    Polkadot,
+}
+
+impl Blockchain {
+    pub fn config_from_network(&self, network: &str) -> Result<BlockchainConfig> {
+        match self {
+            Blockchain::Bitcoin => rosetta_server_bitcoin::BitcoinClient::create_config(network),
+            Blockchain::Ethereum => {
+                rosetta_server_ethereum::MaybeWsEthereumClient::create_config(network)
+            }
+            Blockchain::Astar => rosetta_server_astar::AstarClient::create_config(network),
+            Blockchain::Polkadot => rosetta_server_polkadot::PolkadotClient::create_config(network),
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -30,8 +51,6 @@ pub enum Command {
     DeployContract(DeployContractOpts),
     Faucet(FaucetOpts),
     Transfer(TransferOpts),
-    Transaction(TransactionOpts),
-    Transactions,
     MethodCall(MethodCallOpts),
 }
 
@@ -53,6 +72,7 @@ pub struct TransactionOpts {
 
 #[derive(Parser)]
 pub struct MethodCallOpts {
+    pub chain: String,
     pub contract: String,
     pub method: String,
     #[clap(value_delimiter = ' ')]
@@ -70,14 +90,61 @@ pub struct DeployContractOpts {
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
     let opts = Opts::parse();
-    let wallet = rosetta_client::create_wallet(
-        opts.blockchain,
-        opts.network,
-        opts.url,
-        opts.keyfile.as_deref(),
-    )
-    .await?;
-    match opts.cmd {
+
+    let config = opts.blockchain.config_from_network(&opts.network)?;
+
+    match opts.blockchain {
+        Blockchain::Bitcoin => {
+            let client = rosetta_server_bitcoin::BitcoinClient::new(config, &opts.url).await?;
+            run(client, opts.keyfile, opts.cmd).await
+        }
+        Blockchain::Ethereum => {
+            let client =
+                rosetta_server_ethereum::MaybeWsEthereumClient::new(config, &opts.url).await?;
+            run(client, opts.keyfile, opts.cmd).await
+        }
+        Blockchain::Astar => {
+            let client = rosetta_server_astar::AstarClient::new(config, &opts.url).await?;
+            run(client, opts.keyfile, opts.cmd).await
+        }
+        Blockchain::Polkadot => {
+            let client = rosetta_server_polkadot::PolkadotClient::new(config, &opts.url).await?;
+            run(client, opts.keyfile, opts.cmd).await
+        }
+    }
+}
+
+fn compile_file(path: &str) -> Result<Vec<u8>> {
+    let solc = Solc::default();
+    let mut sources = BTreeMap::new();
+    sources.insert(Path::new(path).into(), Source::read(path).unwrap());
+    let input = &CompilerInput::with_sources(sources)[0];
+    let output = solc.compile_exact(input)?;
+    let file = output.contracts.get(path).unwrap();
+    let (key, _) = file.first_key_value().unwrap();
+    let contract = file.get(key).unwrap();
+    let bytecode = contract
+        .evm
+        .as_ref()
+        .context("evm not found")?
+        .bytecode
+        .as_ref()
+        .context("bytecode not found")?
+        .object
+        .as_bytes()
+        .context("could not convert to bytes")?
+        .to_vec();
+    Ok(bytecode)
+}
+
+async fn run<T: BlockchainClient>(
+    client: T,
+    keyfile: Option<PathBuf>,
+    command: Command,
+) -> Result<()> {
+    let wallet = rosetta_client::create_wallet::<T>(client, keyfile.as_deref())?;
+
+    match command {
         Command::Pubkey => {
             println!("0x{}", wallet.public_key().hex_bytes);
         }
@@ -92,10 +159,11 @@ async fn main() -> Result<()> {
             match wallet.config().blockchain {
                 "astar" | "ethereum" => {
                     let bytes = compile_file(&contract_path)?;
-                    let response = wallet.eth_deploy_contract(bytes).await?;
-                    let tx_receipt = wallet.eth_transaction_receipt(&response.hash).await?;
-                    let contract_address = tx_receipt.result["contractAddress"]
-                        .as_str()
+                    let tx_hash = wallet.eth_deploy_contract(bytes).await?;
+                    let tx_receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+                    let contract_address = tx_receipt
+                        .get("contractAddress")
+                        .and_then(|v| v.as_str().map(str::to_string))
                         .ok_or(anyhow::anyhow!("Unable to get contract address"))?;
                     println!("Deploy contract address {:?}", contract_address);
                 }
@@ -112,8 +180,8 @@ async fn main() -> Result<()> {
                 sub_account: None,
                 metadata: None,
             };
-            let txid = wallet.transfer(&account, amount).await?;
-            println!("success: {}", txid.hash);
+            let tx_hash = wallet.transfer(&account, amount).await?;
+            println!("success: {}", hex::encode(tx_hash));
         }
         Command::Faucet(FaucetOpts { amount }) => match wallet.config().blockchain {
             "bitcoin" => {
@@ -148,97 +216,22 @@ async fn main() -> Result<()> {
             _ => {
                 let amount =
                     rosetta_client::string_to_amount(&amount, wallet.config().currency_decimals)?;
-                let txid = wallet.faucet(amount).await?;
-                println!("success: {}", txid.hash);
+                let tx_hash = wallet.faucet(amount).await?;
+                println!("success: {}", hex::encode(tx_hash));
             }
         },
-        Command::Transaction(TransactionOpts { transaction }) => {
-            let txid = TransactionIdentifier { hash: transaction };
-            let tx = wallet.transaction(txid).await?;
-            print_transaction_header();
-            print_transaction(&tx)?;
-        }
-        Command::Transactions => {
-            let mut first = true;
-            let mut stream = wallet.transactions(100);
-            while let Some(res) = stream.next().await {
-                let transactions = res?;
-                if first {
-                    print_transaction_header();
-                    first = false;
-                }
-                for tx in transactions {
-                    print_transaction(&tx)?;
-                }
-            }
-            if first {
-                println!("No transactions found");
-            }
-        }
         Command::MethodCall(MethodCallOpts {
             contract,
             method,
             params,
             amount,
+            ..
         }) => {
-            let tx = wallet
+            let tx_hash = wallet
                 .eth_send_call(&contract, &method, &params, amount)
                 .await?;
-            println!("Transaction hash: {:?}", tx.hash);
+            println!("Transaction hash: {}", hex::encode(tx_hash));
         }
     }
     Ok(())
-}
-
-fn print_transaction_header() {
-    println!(
-        "{: <8} | {: <40} | {: <25} | {: <50}",
-        "Block", "Op", "Amount", "Account"
-    );
-}
-
-fn print_transaction(tx: &BlockTransaction) -> Result<()> {
-    let block = tx.block_identifier.index;
-    for op in &tx.transaction.operations {
-        let name = &op.r#type;
-        let amount = op
-            .amount
-            .as_ref()
-            .map(rosetta_client::amount_to_string)
-            .transpose()?
-            .unwrap_or_default();
-        let account = op
-            .account
-            .as_ref()
-            .map(|account| account.address.as_str())
-            .unwrap_or_default();
-        println!(
-            "{: <8} | {: <40} | {: >25} | {: <50}",
-            block, name, amount, account
-        );
-    }
-    Ok(())
-}
-
-fn compile_file(path: &str) -> Result<Vec<u8>> {
-    let solc = Solc::default();
-    let mut sources = BTreeMap::new();
-    sources.insert(Path::new(path).into(), Source::read(path).unwrap());
-    let input = &CompilerInput::with_sources(sources)[0];
-    let output = solc.compile_exact(input)?;
-    let file = output.contracts.get(path).unwrap();
-    let (key, _) = file.first_key_value().unwrap();
-    let contract = file.get(key).unwrap();
-    let bytecode = contract
-        .evm
-        .as_ref()
-        .context("evm not found")?
-        .bytecode
-        .as_ref()
-        .context("bytecode not found")?
-        .object
-        .as_bytes()
-        .context("could not convert to bytes")?
-        .to_vec();
-    Ok(bytecode)
 }

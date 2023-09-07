@@ -14,11 +14,13 @@ futures = "0.3"
 getrandom = "0.2.8"
 hex = "0.4.3"
 log = "0.4"
+num-traits = "0.2"
 rosetta-config-astar = { version = "0.4.0", path = "../chains/astar/config" }
 rosetta-config-bitcoin = { version = "0.4.0", path = "../chains/bitcoin/config" }
 rosetta-config-ethereum = { version = "0.4.0", path = "../chains/ethereum/config" }
 rosetta-config-polkadot = { version = "0.4.0", path = "../chains/polkadot/config" }
 rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
+rosetta-crypto = { version = "0.4.0", path = "../rosetta-crypto" }
 rosetta-tx-ethereum = { version = "0.4.0", path = "../chains/ethereum/tx" }
 rosetta-tx-polkadot = { version = "0.4.0", path = "../chains/polkadot/tx" }
 serde = "1.0"
@@ -33,5 +35,6 @@ web-sys = { version = "0.3", features = ["Storage", "Window"] }
 
 [dev-dependencies]
 clap = { version = "4.4", features = ["derive"] }
+rosetta-server-ethereum = { version = "0.4.0", path = "../chains/ethereum/server" }
 surf = { version = "2.3", features = ["h1-client-rustls"], default-features = false }
 tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }

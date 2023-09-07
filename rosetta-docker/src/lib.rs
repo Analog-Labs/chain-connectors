@@ -3,85 +3,70 @@ mod config;
 use anyhow::Result;
 use docker_api::conn::TtyChunk;
 use docker_api::opts::{
-    ContainerConnectionOpts, ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort,
-    LogsOpts, NetworkCreateOpts, NetworkListOpts, PublishPort,
+    ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
 };
-use docker_api::{ApiVersion, Container, Docker, Network};
+use docker_api::{ApiVersion, Container, Docker};
 use futures::stream::StreamExt;
-use rosetta_client::{Client, Signer, Wallet};
+use rosetta_client::{Signer, Wallet};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
+use std::future::Future;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio_retry::{strategy::ExponentialBackoff, RetryIf};
 
-pub struct Env {
-    config: BlockchainConfig,
-    network: Network,
+pub struct Env<T> {
+    client: Arc<T>,
     node: Container,
-    connector: Container,
 }
 
-impl Env {
-    pub async fn new(prefix: &str, mut config: BlockchainConfig) -> Result<Self> {
+impl<T: BlockchainClient> Env<T> {
+    pub async fn new<Fut, F>(
+        prefix: &str,
+        mut config: BlockchainConfig,
+        start_connector: F,
+    ) -> Result<Env<T>>
+    where
+        Fut: Future<Output = Result<T>> + Send,
+        F: FnMut(BlockchainConfig) -> Fut,
+    {
         env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
-        config.node_uri.port = builder.random_port();
-        config.connector_port = builder.random_port();
-        log::info!("node: {}", config.node_uri.port);
-        log::info!("connector: {}", config.connector_port);
-        builder
-            .stop_container(&builder.connector_name(&config))
-            .await?;
+        let node_port = builder.random_port();
+        config.node_uri.port = node_port;
+        log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
-        builder.delete_network(&builder.network_name()).await?;
-        let network = builder.create_network().await?;
-        let node = match builder.run_node(&config, &network).await {
-            Ok(node) => node,
-            Err(e) => {
-                network.delete().await?;
-                return Err(e);
-            }
-        };
-        let connector = match builder.run_connector(&config, &network).await {
+        let node = builder.run_node(&config).await?;
+
+        let client = match builder
+            .run_connector::<T, Fut, F>(start_connector, config)
+            .await
+        {
             Ok(connector) => connector,
             Err(e) => {
                 let opts = ContainerStopOpts::builder().build();
                 let _ = node.stop(&opts).await;
-                network.delete().await?;
                 return Err(e);
             }
         };
+
         Ok(Self {
-            config,
-            network,
+            client: Arc::new(client),
             node,
-            connector,
         })
     }
 
-    pub async fn node<T: BlockchainClient>(&self) -> Result<T> {
-        let addr = self.config.node_uri.with_host("127.0.0.1").to_string();
-        T::new(self.config.clone(), &addr).await
+    pub fn node(&self) -> Arc<T> {
+        Arc::clone(&self.client)
     }
 
-    pub fn connector_url(&self) -> String {
-        format!("http://127.0.0.1:{}", self.config.connector_port)
-    }
-
-    pub fn connector(&self) -> Result<Client> {
-        Client::new(&self.connector_url())
-    }
-
-    pub fn ephemeral_wallet(&self) -> Result<Wallet> {
-        let client = self.connector()?;
+    pub fn ephemeral_wallet(&self) -> Result<Wallet<Arc<T>>> {
         let signer = Signer::generate()?;
-        Wallet::new(self.config.clone(), &signer, client)
+        Wallet::new(self.client.clone(), &signer)
     }
 
     pub async fn shutdown(self) -> Result<()> {
         let opts = ContainerStopOpts::builder().build();
-        self.connector.stop(&opts).await?;
         self.node.stop(&opts).await?;
-        self.network.delete().await?;
         Ok(())
     }
 }
@@ -105,40 +90,11 @@ impl<'a> EnvBuilder<'a> {
         u16::from_le_bytes(bytes)
     }
 
-    fn network_name(&self) -> String {
-        format!("{}-rosetta-docker", self.prefix)
-    }
-
     fn node_name(&self, config: &BlockchainConfig) -> String {
         format!(
             "{}-node-{}-{}",
             self.prefix, config.blockchain, config.network
         )
-    }
-
-    fn connector_name(&self, config: &BlockchainConfig) -> String {
-        format!(
-            "{}-connector-{}-{}",
-            self.prefix, config.blockchain, config.network
-        )
-    }
-
-    async fn create_network(&self) -> Result<Network> {
-        let opts = NetworkCreateOpts::builder(self.network_name()).build();
-        let network = self.docker.networks().create(&opts).await?;
-        let id = network.id().clone();
-        Ok(Network::new(self.docker.clone(), id))
-    }
-
-    async fn delete_network(&self, name: &str) -> Result<()> {
-        let opts = NetworkListOpts::builder().build();
-        for network in self.docker.networks().list(&opts).await? {
-            if network.name.as_ref().unwrap() == name {
-                let network = Network::new(self.docker.clone(), network.id.unwrap());
-                network.delete().await.ok();
-            }
-        }
-        Ok(())
     }
 
     async fn stop_container(&self, name: &str) -> Result<()> {
@@ -163,19 +119,10 @@ impl<'a> EnvBuilder<'a> {
         Ok(())
     }
 
-    async fn run_container(
-        &self,
-        name: String,
-        opts: &ContainerCreateOpts,
-        network: &Network,
-    ) -> Result<Container> {
+    async fn run_container(&self, name: String, opts: &ContainerCreateOpts) -> Result<Container> {
         log::info!("creating {}", name);
         let id = self.docker.containers().create(opts).await?.id().clone();
         let container = Container::new(self.docker.clone(), id.clone());
-
-        let opts = ContainerConnectionOpts::builder(&id).build();
-        network.connect(&opts).await?;
-
         container.start().await?;
 
         log::info!("starting {}", name);
@@ -221,7 +168,7 @@ impl<'a> EnvBuilder<'a> {
         Ok(container)
     }
 
-    async fn run_node(&self, config: &BlockchainConfig, network: &Network) -> Result<Container> {
+    async fn run_node(&self, config: &BlockchainConfig) -> Result<Container> {
         let name = self.node_name(config);
         let mut opts = ContainerCreateOpts::builder()
             .name(&name)
@@ -239,7 +186,7 @@ impl<'a> EnvBuilder<'a> {
             let port = *port as u32;
             opts = opts.expose(PublishPort::tcp(port), port);
         }
-        let container = self.run_container(name, &opts.build(), network).await?;
+        let container = self.run_container(name, &opts.build()).await?;
 
         // TODO: replace this by a proper healthcheck
         let maybe_error = if matches!(config.node_uri.scheme, "http" | "https" | "ws" | "wss") {
@@ -267,44 +214,40 @@ impl<'a> EnvBuilder<'a> {
         Ok(container)
     }
 
-    async fn run_connector(
+    async fn run_connector<T, Fut, F>(
         &self,
-        config: &BlockchainConfig,
-        network: &Network,
-    ) -> Result<Container> {
-        let name = self.connector_name(config);
-        let link = self.node_name(config);
-        let opts = ContainerCreateOpts::builder()
-            .name(&name)
-            .image(format!("analoglabs/connector-{}:latest", config.blockchain))
-            .command(vec![
-                format!("--network={}", config.network),
-                format!("--addr=0.0.0.0:{}", config.connector_port),
-                format!("--node-addr={}", config.node_uri.with_host(link.as_str())),
-            ])
-            .auto_remove(true)
-            .attach_stdout(true)
-            .attach_stderr(true)
-            .expose(
-                PublishPort::tcp(config.connector_port as _),
-                HostPort::new(config.connector_port as u32),
-            )
-            .build();
-        let container = self.run_container(name, &opts, network).await?;
+        mut start_connector: F,
+        config: BlockchainConfig,
+    ) -> Result<T>
+    where
+        T: BlockchainClient,
+        Fut: Future<Output = Result<T>> + Send,
+        F: FnMut(BlockchainConfig) -> Fut,
+    {
+        const MAX_RETRIES: usize = 10;
 
-        match wait_for_http(
-            &format!("http://127.0.0.1:{}", config.connector_port),
-            &container,
-        )
-        .await
-        {
-            Ok(()) => Ok(container),
-            Err(err) => {
-                log::error!("connector failed to start: {}", err);
-                let _ = container.stop(&ContainerStopOpts::default()).await;
-                Err(err)
+        let client = {
+            let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
+                .max_delay(Duration::from_secs(5))
+                .take(MAX_RETRIES);
+            let mut result = Err(anyhow::anyhow!("failed to start connector"));
+            for delay in retry_strategy {
+                match start_connector(config.clone()).await {
+                    Ok(client) => {
+                        result = Ok(client);
+                        break;
+                    }
+                    Err(error) => {
+                        result = Err(error);
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                }
             }
-        }
+            result?
+        };
+
+        Ok(client)
     }
 }
 

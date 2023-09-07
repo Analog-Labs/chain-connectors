@@ -1,6 +1,5 @@
 //! Rosetta client.
 #![deny(missing_docs)]
-#![deny(warnings)]
 use crate::types::Amount;
 use anyhow::{Context, Result};
 use fraction::{BigDecimal, BigInt};
@@ -11,11 +10,13 @@ pub use crate::mnemonic::{generate_mnemonic, MnemonicStore};
 pub use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 pub use crate::wallet::EthereumExt;
 pub use crate::wallet::Wallet;
+use rosetta_core::BlockchainClient;
 pub use rosetta_core::{crypto, types, BlockchainConfig, TransactionBuilder};
 
 mod client;
 mod mnemonic;
 mod signer;
+mod traits;
 mod wallet;
 
 /// Converts an amount to a human readable string.
@@ -59,34 +60,10 @@ pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig
 }
 
 /// Returns a signer for a given keyfile.
-pub fn create_signer(_keyfile: Option<&Path>) -> Result<Signer> {
-    let store = MnemonicStore::new(_keyfile)?;
+pub fn create_signer(keyfile: Option<&Path>) -> Result<Signer> {
+    let store = MnemonicStore::new(keyfile)?;
     let mnemonic = store.get_or_generate_mnemonic()?;
     Signer::new(&mnemonic, "")
-}
-
-/// Returns a client instance.
-/// Parameters:
-/// - `blockchain`: blockchain name e.g. "bitcoin", "ethereum".
-/// - `network`: network name e.g. "dev".
-/// - `url`: rosetta server url.
-pub async fn create_client(
-    blockchain: Option<String>,
-    network: Option<String>,
-    url: Option<String>,
-) -> Result<(BlockchainConfig, Client)> {
-    let (blockchain, network) = if let (Some(blockchain), Some(network)) = (blockchain, network) {
-        (blockchain, network)
-    } else if let Some(url) = url.as_ref() {
-        let network = Client::new(url)?.network_list().await?[0].clone();
-        (network.blockchain, network.network)
-    } else {
-        anyhow::bail!("requires url or blockchain argument");
-    };
-    let config = create_config(&blockchain, &network)?;
-    let url = url.unwrap_or_else(|| config.connector_url());
-    let client = Client::new(&url)?;
-    Ok((config, client))
 }
 
 /// Returns a wallet instance.
@@ -95,13 +72,7 @@ pub async fn create_client(
 /// - `network`: network name e.g. "dev".
 /// - `url`: rosetta server url.
 /// - `keyfile`: path to a keyfile.
-pub async fn create_wallet(
-    blockchain: Option<String>,
-    network: Option<String>,
-    url: Option<String>,
-    keyfile: Option<&Path>,
-) -> Result<Wallet> {
-    let (config, client) = create_client(blockchain, network, url).await?;
+pub fn create_wallet<T: BlockchainClient>(client: T, keyfile: Option<&Path>) -> Result<Wallet<T>> {
     let signer = create_signer(keyfile)?;
-    Wallet::new(config, &signer, client)
+    Wallet::new(client, &signer)
 }

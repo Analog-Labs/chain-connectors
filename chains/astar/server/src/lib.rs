@@ -206,33 +206,42 @@ mod tests {
     use std::path::Path;
 
     #[tokio::test]
-    async fn test_network_list() -> Result<()> {
-        let config = rosetta_config_astar::config("dev")?;
-        rosetta_server::tests::network_list(config).await
-    }
-
-    #[tokio::test]
-    async fn test_network_options() -> Result<()> {
-        let config = rosetta_config_astar::config("dev")?;
-        rosetta_server::tests::network_options::<AstarClient>(config).await
-    }
-
-    #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
-        rosetta_server::tests::network_status::<AstarClient>(config).await
+        rosetta_server::tests::network_status::<AstarClient, _, _>(
+            |config| async {
+                let url = config.node_uri.to_string();
+                AstarClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
-        rosetta_server::tests::account(config).await
+        rosetta_server::tests::account(
+            |config| async {
+                let url = config.node_uri.to_string();
+                AstarClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
-        rosetta_server::tests::construction(config).await
+        rosetta_server::tests::construction(
+            |config| async {
+                let url = config.node_uri.to_string();
+                AstarClient::new(config, url.as_str()).await
+            },
+            config,
+        )
+        .await
     }
 
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
@@ -264,7 +273,11 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
-        let env = Env::new("astar-smart-contract", config.clone()).await?;
+        let env = Env::new("astar-smart-contract", config.clone(), |config| async {
+            let url = config.node_uri.to_string();
+            AstarClient::new(config, url.as_str()).await
+        })
+        .await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -278,15 +291,18 @@ mod tests {
             }
         "#,
         )?;
-        let response = wallet.eth_deploy_contract(bytes).await?;
+        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 
-        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
-        let contract_address = receipt.result["contractAddress"].as_str().unwrap();
-        let response = wallet
+        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+        let contract_address = receipt
+            .get("contractAddress")
+            .and_then(Value::as_str)
+            .unwrap();
+        let tx_hash = wallet
             .eth_send_call(contract_address, "function emitEvent()", &[], 0)
             .await?;
-        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
-        let logs = receipt.result["logs"].as_array().unwrap();
+        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+        let logs = receipt.get("logs").and_then(Value::as_array).unwrap();
         assert_eq!(logs.len(), 1);
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
@@ -299,7 +315,15 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
-        let env = Env::new("astar-smart-contract-view", config.clone()).await?;
+        let env = Env::new(
+            "astar-smart-contract-view",
+            config.clone(),
+            |config| async {
+                let url = config.node_uri.to_string();
+                AstarClient::new(config, url.as_str()).await
+            },
+        )
+        .await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet()?;
@@ -312,9 +336,9 @@ mod tests {
             }
         "#,
         )?;
-        let response = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(&response.hash).await?;
-        let contract_address = receipt.result["contractAddress"].as_str().unwrap();
+        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
+        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+        let contract_address = receipt["contractAddress"].as_str().unwrap();
 
         let response = wallet
             .eth_view_call(
@@ -325,7 +349,7 @@ mod tests {
             )
             .await?;
         println!("{:?}", response);
-        let result: Vec<String> = serde_json::from_value(response.result)?;
+        let result: Vec<String> = serde_json::from_value(response)?;
         assert_eq!(result[0], "true");
         env.shutdown().await?;
         Ok(())

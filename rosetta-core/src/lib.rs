@@ -93,8 +93,8 @@ pub type EmptyEventStream = Empty<ClientEvent>;
 
 #[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
-    type MetadataParams: DeserializeOwned + Send + Sync + 'static;
-    type Metadata: Serialize;
+    type MetadataParams: DeserializeOwned + Serialize + Send + Sync + 'static;
+    type Metadata: DeserializeOwned + Serialize + Send + Sync + 'static;
     type EventStream<'a>: stream::Stream<Item = ClientEvent> + Send + Unpin + 'a;
 
     fn create_config(network: &str) -> Result<BlockchainConfig>;
@@ -124,6 +124,76 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         Ok(None)
+    }
+}
+
+#[async_trait]
+impl<T> BlockchainClient for Arc<T>
+where
+    T: BlockchainClient,
+{
+    type MetadataParams = <T as BlockchainClient>::MetadataParams;
+    type Metadata = <T as BlockchainClient>::Metadata;
+    type EventStream<'a> = <T as BlockchainClient>::EventStream<'a>;
+
+    fn create_config(network: &str) -> Result<BlockchainConfig> {
+        <T as BlockchainClient>::create_config(network)
+    }
+    async fn new(config: BlockchainConfig, addr: &str) -> Result<Self> {
+        let client = <T as BlockchainClient>::new(config, addr).await?;
+        Ok(Arc::new(client))
+    }
+    fn config(&self) -> &BlockchainConfig {
+        BlockchainClient::config(Arc::as_ref(self))
+    }
+    fn genesis_block(&self) -> &BlockIdentifier {
+        BlockchainClient::genesis_block(Arc::as_ref(self))
+    }
+    async fn node_version(&self) -> Result<String> {
+        BlockchainClient::node_version(Arc::as_ref(self)).await
+    }
+    async fn current_block(&self) -> Result<BlockIdentifier> {
+        BlockchainClient::current_block(Arc::as_ref(self)).await
+    }
+    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+        BlockchainClient::finalized_block(Arc::as_ref(self)).await
+    }
+    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
+        BlockchainClient::balance(Arc::as_ref(self), address, block).await
+    }
+    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
+        BlockchainClient::coins(Arc::as_ref(self), address, block).await
+    }
+    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+        BlockchainClient::faucet(Arc::as_ref(self), address, param).await
+    }
+    async fn metadata(
+        &self,
+        public_key: &PublicKey,
+        params: &Self::MetadataParams,
+    ) -> Result<Self::Metadata> {
+        BlockchainClient::metadata(Arc::as_ref(self), public_key, params).await
+    }
+    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+        BlockchainClient::submit(Arc::as_ref(self), transaction).await
+    }
+    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
+        BlockchainClient::block(Arc::as_ref(self), block).await
+    }
+    async fn block_transaction(
+        &self,
+        block: &BlockIdentifier,
+        tx: &TransactionIdentifier,
+    ) -> Result<Transaction> {
+        BlockchainClient::block_transaction(Arc::as_ref(self), block, tx).await
+    }
+    async fn call(&self, req: &CallRequest) -> Result<Value> {
+        BlockchainClient::call(Arc::as_ref(self), req).await
+    }
+
+    /// Return a stream of events, return None if the blockchain doesn't support events.
+    async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
+        BlockchainClient::listen(Arc::as_ref(self)).await
     }
 }
 

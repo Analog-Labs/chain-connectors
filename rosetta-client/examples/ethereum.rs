@@ -4,6 +4,7 @@ use rosetta_client::{
     types::{AccountIdentifier, Block, PartialBlockIdentifier},
     EthereumExt, Wallet,
 };
+use rosetta_core::BlockchainClient;
 
 #[derive(Parser)]
 struct EthereumOpts {
@@ -15,7 +16,15 @@ struct EthereumOpts {
 #[tokio::main]
 async fn main() {
     let opts = EthereumOpts::parse();
-    rosetta_wallet_methods(&opts.contract_address).await;
+    let ethereum_config =
+        rosetta_server_ethereum::MaybeWsEthereumClient::create_config("dev").unwrap();
+    let client = rosetta_server_ethereum::MaybeWsEthereumClient::new(
+        ethereum_config,
+        "ws://127.0.0.1:8545".to_owned(),
+    )
+    .await
+    .unwrap();
+    rosetta_wallet_methods(client, &opts.contract_address).await;
 }
 
 /// Wallet methods
@@ -30,15 +39,8 @@ async fn main() {
 /// 9. call
 /// 10. storage
 /// 11. storage_proof
-async fn rosetta_wallet_methods(contract_address: &str) {
-    let wallet = create_wallet(
-        Some("ethereum".to_owned()),
-        Some("dev".to_owned()),
-        Some("http://127.0.0.1:8081".to_owned()),
-        None,
-    )
-    .await
-    .unwrap();
+async fn rosetta_wallet_methods<T: BlockchainClient>(client: T, contract_address: &str) {
+    let wallet = create_wallet(client, None).unwrap();
 
     account(&wallet);
     network_status(&wallet).await;
@@ -54,27 +56,27 @@ async fn rosetta_wallet_methods(contract_address: &str) {
     storage_proof(&wallet, contract_address, None).await;
 }
 
-fn account(wallet: &Wallet) {
+fn account<T: BlockchainClient>(wallet: &Wallet<T>) {
     println!("account identifier ==================");
     println!("{:?}", wallet.account());
 }
 
-async fn network_status(wallet: &Wallet) {
+async fn network_status<T: BlockchainClient>(wallet: &Wallet<T>) {
     println!("network status ==================");
     println!("{:?}", wallet.status().await);
 }
 
-async fn faucet(wallet: &Wallet) {
+async fn faucet<T: BlockchainClient>(wallet: &Wallet<T>) {
     println!("faucet ==================");
     println!("{:?}", wallet.faucet(1000000000000000).await);
 }
 
-async fn balance(wallet: &Wallet) {
+async fn balance<T: BlockchainClient>(wallet: &Wallet<T>) {
     println!("balance ==================");
     println!("{:?}", wallet.balance().await);
 }
 
-async fn transfer_call(wallet: &Wallet) {
+async fn transfer_call<T: BlockchainClient>(wallet: &Wallet<T>) {
     println!("transfer ==================");
     println!(
         "{:?}",
@@ -94,7 +96,7 @@ async fn transfer_call(wallet: &Wallet) {
     println!("{:?}", wallet.balance().await);
 }
 
-async fn block(wallet: &Wallet) -> Block {
+async fn block<T: BlockchainClient>(wallet: &Wallet<T>) -> Block {
     //getting latest block data
     let network_status = wallet.status().await.unwrap();
 
@@ -107,7 +109,7 @@ async fn block(wallet: &Wallet) -> Block {
     response
 }
 
-async fn block_transaction(wallet: &Wallet, block_data: Block) {
+async fn block_transaction<T: BlockchainClient>(wallet: &Wallet<T>, block_data: Block) {
     let block_identifier = block_data.block_identifier;
     //taking transaction_identifier from block data
     let transaction_identifier = block_data
@@ -123,7 +125,7 @@ async fn block_transaction(wallet: &Wallet, block_data: Block) {
     println!("block transaction response {:#?}\n", response);
 }
 
-async fn method_call(wallet: &Wallet, contract_address: &str) {
+async fn method_call<T: BlockchainClient>(wallet: &Wallet<T>, contract_address: &str) {
     println!("method call ==================");
     let function_signature = "function vote_yes()";
     println!(
@@ -136,8 +138,8 @@ async fn method_call(wallet: &Wallet, contract_address: &str) {
     println!("{:?}", wallet.balance().await);
 }
 
-async fn contract_call(
-    wallet: &Wallet,
+async fn contract_call<T: BlockchainClient>(
+    wallet: &Wallet<T>,
     contract_address: &str,
     block_identifier: Option<PartialBlockIdentifier>,
 ) {
@@ -148,8 +150,8 @@ async fn contract_call(
     println!("contract call response {:#?}\n", response);
 }
 
-async fn storage_yes_votes(
-    wallet: &Wallet,
+async fn storage_yes_votes<T: BlockchainClient>(
+    wallet: &Wallet<T>,
     contract_address: &str,
     block_identifier: Option<PartialBlockIdentifier>,
 ) {
@@ -161,8 +163,8 @@ async fn storage_yes_votes(
     println!("storage 0th response {:#?}", response);
 }
 
-async fn storage_no_votes(
-    wallet: &Wallet,
+async fn storage_no_votes<T: BlockchainClient>(
+    wallet: &Wallet<T>,
     contract_address: &str,
     block_identifier: Option<PartialBlockIdentifier>,
 ) {
@@ -174,8 +176,8 @@ async fn storage_no_votes(
     println!("storage 1th response {:#?}", response);
 }
 
-async fn storage_proof(
-    wallet: &Wallet,
+async fn storage_proof<T: BlockchainClient>(
+    wallet: &Wallet<T>,
     contract_address: &str,
     block_identifier: Option<PartialBlockIdentifier>,
 ) {
