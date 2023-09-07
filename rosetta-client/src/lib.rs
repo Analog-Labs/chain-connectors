@@ -16,7 +16,6 @@ pub use rosetta_core::{crypto, types, BlockchainConfig, TransactionBuilder};
 mod client;
 mod mnemonic;
 mod signer;
-mod traits;
 mod wallet;
 
 /// Converts an amount to a human readable string.
