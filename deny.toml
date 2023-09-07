@@ -119,7 +119,6 @@ ignore = [
   'RUSTSEC-2021-0064', # Crate `cpuid-bool` has been renamed to `cpufeatures`
   'RUSTSEC-2021-0139', # ansi_term is Unmaintained
   'RUSTSEC-2022-0093', # related issue: https://github.com/Analog-Labs/chain-connectors/issues/162
-  'RUSTSEC-2023-0052', # webpki denial-of-service vulnerability!!
 ]
 
 # This section is considered when running `cargo deny check sources`.

@@ -10,11 +10,11 @@ use ethers::{
     providers::Middleware,
     types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
 };
-use rosetta_server::types as rosetta_types;
-use rosetta_server::types::{
+use rosetta_core::types as rosetta_types;
+use rosetta_core::types::{
     AccountIdentifier, Amount, Currency, Operation, OperationIdentifier, TransactionIdentifier,
 };
-use rosetta_server::BlockchainConfig;
+use rosetta_core::BlockchainConfig;
 use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;

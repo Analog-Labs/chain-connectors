@@ -7,13 +7,14 @@ use ethers::providers::{JsonRpcClient, Middleware, Provider};
 use ethers::utils::keccak256;
 use ethers::utils::rlp::Encodable;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
-use rosetta_server::crypto::address::Address;
-use rosetta_server::crypto::PublicKey;
-use rosetta_server::types::{
-    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-    TransactionIdentifier,
+use rosetta_core::{
+    crypto::{address::Address, PublicKey},
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+        TransactionIdentifier,
+    },
+    BlockchainConfig,
 };
-use rosetta_server::BlockchainConfig;
 use serde_json::{json, Value};
 use std::str::FromStr;
 use std::sync::Arc;

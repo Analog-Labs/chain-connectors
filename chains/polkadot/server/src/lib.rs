@@ -2,13 +2,15 @@ use anyhow::{Context, Result};
 use parity_scale_codec::{Decode, Encode};
 use rosetta_config_polkadot::metadata::dev as polkadot_metadata;
 pub use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
-use rosetta_server::crypto::address::Address;
-use rosetta_server::crypto::PublicKey;
-use rosetta_server::types::{
-    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-    TransactionIdentifier,
+use rosetta_core::{
+    crypto::{address::Address, PublicKey},
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+        TransactionIdentifier,
+    },
+    BlockchainClient, BlockchainConfig, EmptyEventStream,
 };
-use rosetta_server::{ws::default_client, BlockchainClient, BlockchainConfig};
+use rosetta_server::ws::default_client;
 use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use std::time::Duration;
@@ -90,7 +92,7 @@ impl PolkadotClient {
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
-    type EventStream<'a> = rosetta_server::EmptyEventStream;
+    type EventStream<'a> = EmptyEventStream;
 
     fn config(&self) -> &BlockchainConfig {
         &self.config
@@ -326,10 +328,11 @@ mod tests {
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::network_status::<PolkadotClient, _, _>(
-            |config| async {
+        rosetta_docker::tests::network_status::<PolkadotClient, _, _>(
+            |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                PolkadotClient::new(config, url.as_str()).await
+                PolkadotClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
@@ -339,10 +342,11 @@ mod tests {
     #[tokio::test]
     async fn test_account() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::account::<PolkadotClient, _, _>(
-            |config| async {
+        rosetta_docker::tests::account::<PolkadotClient, _, _>(
+            |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                PolkadotClient::new(config, url.as_str()).await
+                PolkadotClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
@@ -352,10 +356,11 @@ mod tests {
     #[tokio::test]
     async fn test_construction() -> Result<()> {
         let config = rosetta_config_polkadot::config("dev")?;
-        rosetta_server::tests::construction::<PolkadotClient, _, _>(
-            |config| async {
+        rosetta_docker::tests::construction::<PolkadotClient, _, _>(
+            |config| async move {
+                let network = config.network.to_string();
                 let url = config.node_uri.to_string();
-                PolkadotClient::new(config, url.as_str()).await
+                PolkadotClient::new(network.as_str(), url.as_str()).await
             },
             config,
         )
