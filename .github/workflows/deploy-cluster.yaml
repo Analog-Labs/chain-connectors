@@ -33,7 +33,7 @@ on:
       - "deploy"
     types: [completed]
     branches:
-    - 'master'
+    - 'maintenance'
 
 jobs:
   deploy-internal:
