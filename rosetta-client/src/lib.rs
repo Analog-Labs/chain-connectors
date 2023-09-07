@@ -9,7 +9,6 @@ pub use crate::mnemonic::{generate_mnemonic, MnemonicStore};
 pub use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
 pub use crate::wallet::EthereumExt;
 pub use crate::wallet::Wallet;
-use rosetta_core::BlockchainClient;
 pub use rosetta_core::{crypto, types, BlockchainConfig, TransactionBuilder};
 
 mod mnemonic;
@@ -45,31 +44,49 @@ pub fn string_to_amount(amount: &str, decimals: u32) -> Result<u128> {
         .context("u128 overflow")
 }
 
-/// Returns a blockchain config for a given blockchain and network.
-pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig> {
-    match blockchain {
-        "bitcoin" => rosetta_config_bitcoin::config(network),
-        "ethereum" => rosetta_config_ethereum::config(network),
-        "astar" => rosetta_config_astar::config(network),
-        "polkadot" => rosetta_config_polkadot::config(network),
-        _ => anyhow::bail!("unsupported blockchain"),
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Blockchain {
+    Bitcoin,
+    Ethereum,
+    Astar,
+    Polkadot,
+}
+
+impl std::str::FromStr for Blockchain {
+    type Error = anyhow::Error;
+
+    fn from_str(blockchain &str) -> Result<Self> {
+        match blockchain {
+            "bitcoin" => Self::Bitcoin,
+            "ethereum" => Self::Ethereum,
+            "astar" => Self::Astar,
+            "polkadot" => Self::Polkadot,
+        }
     }
 }
 
-/// Returns a signer for a given keyfile.
-pub fn create_signer(keyfile: Option<&Path>) -> Result<Signer> {
-    let store = MnemonicStore::new(keyfile)?;
-    let mnemonic = store.get_or_generate_mnemonic()?;
-    Signer::new(&mnemonic, "")
+pub enum MultiWallet {
+    Ethereum(Wallet<MaybeWsEthereumClient>),
+    Astar(Wallet<MaybeWsEthereumClient>),
 }
 
-/// Returns a wallet instance.
-/// Parameters:
-/// - `blockchain`: blockchain name e.g. "bitcoin", "ethereum".
-/// - `network`: network name e.g. "dev".
-/// - `url`: rosetta server url.
-/// - `keyfile`: path to a keyfile.
-pub fn create_wallet<T: BlockchainClient>(client: T, keyfile: Option<&Path>) -> Result<Wallet<T>> {
-    let signer = create_signer(keyfile)?;
-    Wallet::new(client, &signer)
+impl MultiWallet {
+    pub async fn new(blockchain: Blockchain, network: &str, url: Url, keyfile: Option<&Path>) -> Result<Self> {
+        let store = MnemonicStore::new(keyfile)?;
+        let mnemonic = store.get_or_generate_mnemonic()?;
+        let signer = Signer::new(&mnemonic, "");
+        match blockchain {
+            Blockchain::Ethereum => {
+                let config = rosetta_server_ethereum::MaybeWsEthereumClient::create_config(network)?;
+                let client = rosetta_server_ethereum::MaybeWsEthereumClient::new(config, url).await?;
+                Self::Ethereum(Wallet::new(client, &signer))
+            }
+            Blockchain::Astar => {
+                let config = rosetta_server_astar::MaybeWsEthereumClient::create_config(network)?;
+                let client = rosetta_server_astar::MaybeWsEthereumClient::new(config, url).await?;
+                Self::Astar(Wallet::new(client, &signer))
+            }
+            _ => anyhow::bail!("unsupported blockchain"),
+        }
+    }
 }
