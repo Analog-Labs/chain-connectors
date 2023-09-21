@@ -12,6 +12,7 @@ const FAILURE_THRESHOLD: u32 = 10;
 pub struct EthereumEventStream<'a, P: PubsubClient> {
     pub new_head: SubscriptionStream<'a, P, Block<H256>>,
     pub failures: u32,
+    span: tracing::Span,
 }
 
 impl<'a, P> EthereumEventStream<'a, P>
@@ -19,9 +20,11 @@ where
     P: PubsubClient,
 {
     pub fn new(subscription: SubscriptionStream<'a, P, Block<H256>>) -> Self {
+        let id = format!("{:?}", subscription.id);
         Self {
             new_head: subscription,
             failures: 0,
+            span: tracing::warn_span!("eth_subscription", id = id),
         }
     }
 }
@@ -38,6 +41,8 @@ where
     ) -> Poll<Option<Self::Item>> {
         loop {
             if self.failures >= FAILURE_THRESHOLD {
+                let _enter = self.span.enter();
+                tracing::error!("More than 10 failures in sequence");
                 return Poll::Ready(Some(ClientEvent::Close(
                     "More than 10 failures in sequence".into(),
                 )));
@@ -46,14 +51,16 @@ where
             match self.new_head.poll_next_unpin(cx) {
                 Poll::Ready(Some(block)) => {
                     let Some(number) = block.number else {
-                        log::error!("block number is missing");
                         self.failures += 1;
+                        let _enter = &self.span.enter();
+                        tracing::error!("block number is missing");
                         continue;
                     };
 
                     let Some(hash) = block.hash else {
-                        log::error!("block hash is missing");
                         self.failures += 1;
+                        let _enter = &self.span.enter();
+                        tracing::error!("block hash is missing");
                         continue;
                     };
 

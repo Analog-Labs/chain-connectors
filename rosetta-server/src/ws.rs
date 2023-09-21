@@ -27,24 +27,24 @@ async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, Jso
     let builder = ClientBuilder::from(&config);
     let client = match config.client {
         WsTransportClient::Auto => {
-            log::info!("Connecting using Socketto...");
+            tracing::info!("Connecting using Socketto...");
             match build_socketto_client(builder, url.clone(), &config).await {
                 Ok(client) => client,
                 Err(error) => {
-                    log::warn!("Socketto failed: {}", error);
-                    log::trace!("Retrying to connect using Tungstenite.");
+                    tracing::warn!("Socketto failed: {}", error);
+                    tracing::trace!("Retrying to connect using Tungstenite.");
                     build_tungstenite_client(builder, url, &config).await?
                 }
             }
         }
         WsTransportClient::Socketto => {
             let client = build_socketto_client(builder, url.clone(), &config).await?;
-            log::info!("Connected to {} using Socketto", url);
+            tracing::info!("Connected to {} using Socketto", url);
             client
         }
         WsTransportClient::Tungstenite => {
             let client = build_tungstenite_client(builder, url.clone(), &config).await?;
-            log::info!("Connected to {} using Tungstenite", url);
+            tracing::info!("Connected to {} using Tungstenite", url);
             client
         }
     };

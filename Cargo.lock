@@ -5004,13 +5004,11 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
- "femme",
  "futures",
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
  "jsonrpsee 0.20.0",
- "log",
  "nanoid",
  "pin-project",
  "rosetta-core",
@@ -5023,6 +5021,7 @@ dependencies = [
  "tokio-retry",
  "tokio-tungstenite",
  "tracing",
+ "tracing-subscriber 0.3.17",
  "vergen",
 ]
 
@@ -5081,7 +5080,6 @@ dependencies = [
  "futures-timer",
  "futures-util",
  "hex 0.4.3",
- "log",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-docker",
@@ -5091,6 +5089,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -7412,11 +7411,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30a651bc37f915e81f087d86e62a18eec5f79550c7faff886f7090b4ea757c77"
 dependencies = [
  "nu-ansi-term",
+ "parking_lot",
+ "serde",
+ "serde_json",
  "sharded-slab",
  "smallvec 1.11.0",
  "thread_local",
  "tracing-core",
  "tracing-log",
+ "tracing-serde",
 ]
 
 [[package]]
