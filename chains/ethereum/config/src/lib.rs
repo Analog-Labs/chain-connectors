@@ -7,55 +7,60 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub fn config(network: &str) -> Result<BlockchainConfig> {
-    let config = match network {
-        "dev" | "mainnet" => BlockchainConfig {
-            blockchain: "ethereum",
-            network: if network == "dev" { "dev" } else { "mainnet" },
-            algorithm: Algorithm::EcdsaRecoverableSecp256k1,
-            address_format: AddressFormat::Eip55,
-            coin: if network == "mainnet" { 60 } else { 1 },
-            bip44: true,
-            utxo: false,
-            currency_unit: "wei",
-            currency_symbol: "ETH",
-            currency_decimals: 18,
-            node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws")?,
-            node_image: "ethereum/client-go:v1.12.2",
-            node_command: Arc::new(|network, port| {
-                let mut params = if network == "dev" {
-                    vec![
-                        "--dev".into(),
-                        "--dev.period=1".into(),
-                        "--ipcdisable".into(),
-                    ]
-                } else {
-                    vec!["--syncmode=full".into()]
-                };
-                params.extend_from_slice(&[
-                    "--http".into(),
-                    "--http.addr=0.0.0.0".into(),
-                    format!("--http.port={port}"),
-                    "--http.vhosts=*".into(),
-                    "--http.corsdomain=*".into(),
-                    "--http.api=eth,debug,admin,txpool,web3".into(),
-                    "--ws".into(),
-                    "--ws.addr=0.0.0.0".into(),
-                    format!("--ws.port={port}"),
-                    "--ws.origins=*".into(),
-                    "--ws.api=eth,debug,admin,txpool,web3".into(),
-                    "--ws.rpcprefix=/ws".into(),
-                ]);
-                params
-            }),
-            node_additional_ports: &[],
-            connector_port: 8081,
-            testnet: network == "dev",
-        },
+    let (network, symbol, bip44_id, is_dev) = match network {
+        "dev" => ("dev", "ETH", 1, true),
+        "mainnet" => ("mainnet", "ETH", 60, false),
+        "goerli" => ("goerli", "TST", 1, true),
+        "polygon" => ("polygon", "MATIC", 966, false),
+
         // Try to load the network config from astar
-        "astar-local" => astar_config("dev")?,
-        network => astar_config(network)?,
+        "astar-local" => return astar_config("dev"),
+        network => return astar_config(network),
     };
-    Ok(config)
+
+    Ok(BlockchainConfig {
+        blockchain: "ethereum",
+        network,
+        algorithm: Algorithm::EcdsaRecoverableSecp256k1,
+        address_format: AddressFormat::Eip55,
+        coin: bip44_id,
+        bip44: true,
+        utxo: false,
+        currency_unit: "wei",
+        currency_symbol: symbol,
+        currency_decimals: 18,
+        node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws")?,
+        node_image: "ethereum/client-go:v1.12.2",
+        node_command: Arc::new(|network, port| {
+            let mut params = if network == "dev" {
+                vec![
+                    "--dev".into(),
+                    "--dev.period=1".into(),
+                    "--ipcdisable".into(),
+                ]
+            } else {
+                vec!["--syncmode=full".into()]
+            };
+            params.extend_from_slice(&[
+                "--http".into(),
+                "--http.addr=0.0.0.0".into(),
+                format!("--http.port={port}"),
+                "--http.vhosts=*".into(),
+                "--http.corsdomain=*".into(),
+                "--http.api=eth,debug,admin,txpool,web3".into(),
+                "--ws".into(),
+                "--ws.addr=0.0.0.0".into(),
+                format!("--ws.port={port}"),
+                "--ws.origins=*".into(),
+                "--ws.api=eth,debug,admin,txpool,web3".into(),
+                "--ws.rpcprefix=/ws".into(),
+            ]);
+            params
+        }),
+        node_additional_ports: &[],
+        connector_port: 8081,
+        testnet: is_dev,
+    })
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
