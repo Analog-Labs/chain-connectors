@@ -5022,6 +5022,7 @@ dependencies = [
  "tokio",
  "tokio-retry",
  "tokio-tungstenite",
+ "tracing",
  "vergen",
 ]
 
