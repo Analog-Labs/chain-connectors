@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
         }
         Command::DeployContract(DeployContractOpts { contract_path }) => {
             match wallet.config().blockchain {
-                "astar" | "ethereum" => {
+                "astar" | "ethereum" | "polygon" => {
                     let bytes = compile_file(&contract_path)?;
                     let response = wallet.eth_deploy_contract(bytes).await?;
                     let tx_receipt = wallet.eth_transaction_receipt(&response.hash).await?;

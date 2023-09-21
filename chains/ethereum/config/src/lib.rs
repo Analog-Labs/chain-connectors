@@ -6,20 +6,45 @@ use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "mumbai" => ("mumbai", 1, true),
+        "mainnet" => ("mainnet", 966, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+
+    Ok(evm_config("polygon", network, "MATIC", bip44_id, is_dev))
+}
+
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     let (network, symbol, bip44_id, is_dev) = match network {
         "dev" => ("dev", "ETH", 1, true),
         "mainnet" => ("mainnet", "ETH", 60, false),
         "goerli" => ("goerli", "TST", 1, true),
-        "polygon" => ("polygon", "MATIC", 966, false),
 
-        // Try to load the network config from astar
+        // Polygon
+        "polygon-local" => return polygon_config("dev"),
+        "polygon" => return polygon_config("mainnet"),
+        "mumbai" => return polygon_config("mumbai"),
+
+        // Astar
         "astar-local" => return astar_config("dev"),
         network => return astar_config(network),
     };
 
-    Ok(BlockchainConfig {
-        blockchain: "ethereum",
+    Ok(evm_config("ethereum", network, symbol, bip44_id, is_dev))
+}
+
+fn evm_config(
+    blockchain: &'static str,
+    network: &'static str,
+    symbol: &'static str,
+    bip44_id: u32,
+    is_dev: bool,
+) -> BlockchainConfig {
+    BlockchainConfig {
+        blockchain,
         network,
         algorithm: Algorithm::EcdsaRecoverableSecp256k1,
         address_format: AddressFormat::Eip55,
@@ -29,7 +54,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "wei",
         currency_symbol: symbol,
         currency_decimals: 18,
-        node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws")?,
+        node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws").expect("uri is valid; qed"),
         node_image: "ethereum/client-go:v1.12.2",
         node_command: Arc::new(|network, port| {
             let mut params = if network == "dev" {
@@ -60,7 +85,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         node_additional_ports: &[],
         connector_port: 8081,
         testnet: is_dev,
-    })
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
