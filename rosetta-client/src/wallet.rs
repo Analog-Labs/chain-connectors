@@ -32,6 +32,7 @@ impl GenericTransactionBuilder {
             "astar" => Self::Ethereum(Default::default()),
             "ethereum" => Self::Ethereum(Default::default()),
             "polkadot" => Self::Polkadot(Default::default()),
+            "polygon" => Self::Ethereum(Default::default()),
             _ => anyhow::bail!("unsupported blockchain"),
         })
     }

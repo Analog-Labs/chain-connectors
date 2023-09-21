@@ -54,7 +54,7 @@ pub fn create_config(blockchain: &str, network: &str) -> Result<BlockchainConfig
         "ethereum" => rosetta_config_ethereum::config(network),
         "astar" => rosetta_config_astar::config(network),
         "polkadot" => rosetta_config_polkadot::config(network),
-        "polygon" => rosetta_config_ethereum::config(network),
+        "polygon" => rosetta_config_ethereum::polygon_config(network),
         _ => anyhow::bail!("unsupported blockchain"),
     }
 }
