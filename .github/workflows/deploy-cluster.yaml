@@ -33,7 +33,6 @@ on:
       - "deploy"
     types: [completed]
     branches:
-    - 'master'
     - 'staging'
 
 jobs:
