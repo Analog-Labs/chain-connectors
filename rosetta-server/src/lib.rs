@@ -37,12 +37,13 @@ struct Opts {
 }
 
 pub async fn main<T: BlockchainClient>() -> Result<()> {
-    femme::start();
+    // install global collector configured based on RUST_LOG env var.
+    tracing_subscriber::fmt().json().flatten_event(true).init();
     let opts = Opts::parse();
 
-    log::info!("connecting to {}", &opts.node_addr);
+    tracing::info!("connecting to {}", &opts.node_addr);
     let config = T::create_config(&opts.network).map_err(|error| {
-        log::error!("Failed to create config: {}", error);
+        tracing::error!("Failed to create config: {}", error);
         error
     })?;
 
@@ -57,7 +58,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
             match T::new(config.clone(), &opts.node_addr).await {
                 Ok(client) => Ok(client),
                 Err(err) => {
-                    log::error!("{}", err);
+                    tracing::error!("{}", err);
                     Err(err)
                 }
             }
@@ -74,7 +75,7 @@ pub async fn main<T: BlockchainClient>() -> Result<()> {
     app.with(cors);
     app.at("/").nest(server(Arc::new(client)));
 
-    log::info!("listening on {}", &opts.addr);
+    tracing::info!("listening on {}", &opts.addr);
     app.listen(opts.addr).await?;
 
     Ok(())

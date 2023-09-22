@@ -33,7 +33,7 @@ on:
       - "deploy"
     types: [completed]
     branches:
-    - 'master'
+    - 'staging'
 
 jobs:
   deploy-internal:
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     # If no input is provided, deploy to staging
     environment: ${{ github.event.inputs.environment || 'staging' }}
-    # Deploy gets triggered only on master branch
+    # Deploy gets triggered by master or staging branches
     steps:
     - name: Checkout
       uses: actions/checkout@v2
