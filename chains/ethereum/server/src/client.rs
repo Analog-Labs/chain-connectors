@@ -81,18 +81,52 @@ where
     }
 
     pub async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        if let Some(block) = self
+        // TODO: ISSUE-176 Create a new connector for polygon
+        let block = if self.config.blockchain == "polygon" {
+            let Some(latest_block) = self
+                .client
+                .get_block(BlockId::Number(BlockNumber::Latest))
+                .await?
+            else {
+                return Ok(self.genesis_block.clone());
+            };
+
+            let Some(block_number) = latest_block.number else {
+                // This error should not happen once we query the latest block, not pending one.
+                anyhow::bail!("This is a bug, latest block doesn't have block number");
+            };
+
+            // TODO: ISSUE-176 Replace this hack by querying polygon checkpoints
+            // Polygon finalized blocks are stored on ethereum mainnet roughly every 30 minutes
+            // and polygon block interval is ~2 seconds, 30 minutes / 2 seconds == 900 blocks.
+            let block_number = block_number.saturating_sub(U64::from(900u32));
+            if block_number.is_zero() {
+                return Ok(self.genesis_block.clone());
+            }
+
+            let Some(finalized_block) = self
+                .client
+                .get_block(BlockId::Number(BlockNumber::Number(block_number)))
+                .await?
+            else {
+                anyhow::bail!("Cannot find block number {block_number}");
+            };
+
+            finalized_block
+        } else if let Some(finalized_block) = self
             .client
             .get_block(BlockId::Number(BlockNumber::Finalized))
             .await?
         {
-            Ok(BlockIdentifier {
-                index: block.number.context("Block is pending")?.as_u64(),
-                hash: hex::encode(block.hash.as_ref().unwrap()),
-            })
+            finalized_block
         } else {
-            Ok(self.genesis_block.clone())
-        }
+            return Ok(self.genesis_block.clone());
+        };
+
+        Ok(BlockIdentifier {
+            index: block.number.context("Block is pending")?.as_u64(),
+            hash: hex::encode(block.hash.as_ref().unwrap()),
+        })
     }
 
     pub async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
