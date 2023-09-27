@@ -49,7 +49,10 @@ impl Wallet {
     /// Creates a new wallet from a client, url and keyfile.
     pub async fn from_client(client: GenericClient, keyfile: Option<&Path>) -> Result<Self> {
         let store = MnemonicStore::new(keyfile)?;
-        let mnemonic = store.get_or_generate_mnemonic()?;
+        let mnemonic = match keyfile {
+            Some(_) => store.get_or_generate_mnemonic()?,
+            None => store.generate()?,
+        };
         let signer = Signer::new(&mnemonic, "")?;
         let tx = GenericTransactionBuilder::new(client.config())?;
         let secret_key = if client.config().bip44 {
