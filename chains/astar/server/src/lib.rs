@@ -85,11 +85,25 @@ impl AstarClient {
             .storage()
             .at(block_hash)
             .fetch(&storage_query)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("account not found"))?;
+            .await?;
 
-        <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
-            .map_err(|_| anyhow::anyhow!("invalid format"))
+        if let Some(account_info) = account_info {
+            <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
+                .map_err(|_| anyhow::anyhow!("invalid format"))
+        } else {
+            Ok(AccountInfo::<u32, AccountData<u128>> {
+                nonce: 0,
+                consumers: 0,
+                providers: 0,
+                sufficients: 0,
+                data: AccountData {
+                    free: 0,
+                    reserved: 0,
+                    frozen: 0,
+                    flags: astar_metadata::runtime_types::pallet_balances::types::ExtraFlags(0),
+                },
+            })
+        }
     }
 }
 
@@ -333,7 +347,6 @@ mod tests {
                 None,
             )
             .await?;
-        println!("{:?}", response);
         let result: Vec<String> = serde_json::from_value(response)?;
         assert_eq!(result[0], "true");
         env.shutdown().await?;

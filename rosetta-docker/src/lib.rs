@@ -62,7 +62,6 @@ impl<T: BlockchainClient> Env<T> {
     pub async fn ephemeral_wallet(&self) -> Result<Wallet> {
         let config = self.client.config().clone();
         let node_uri = config.node_uri.to_string();
-        println!("Ephemeral wallet: {}", node_uri);
         Wallet::from_config(config, &node_uri, None).await
     }
 
@@ -434,9 +433,21 @@ pub mod tests {
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);
         let alice = env.ephemeral_wallet().await?;
-        alice.faucet(faucet).await?;
-
         let bob = env.ephemeral_wallet().await?;
+        assert_ne!(alice.public_key(), bob.public_key());
+
+        // Alice and bob have no balance
+        let balance = alice.balance().await?;
+        assert_eq!(balance.value, "0");
+        let balance = bob.balance().await?;
+        assert_eq!(balance.value, "0");
+
+        // Transfer faucets to alice
+        alice.faucet(faucet).await?;
+        let balance = alice.balance().await?;
+        assert_eq!(balance.value, faucet.to_string());
+
+        // Alice transfers to bob
         alice.transfer(bob.account(), value).await?;
         let amount = bob.balance().await?;
         assert_eq!(amount.value, value.to_string());

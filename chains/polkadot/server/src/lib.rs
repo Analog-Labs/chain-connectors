@@ -84,11 +84,25 @@ impl PolkadotClient {
             .storage()
             .at(block_hash)
             .fetch(&storage_query)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("account not found"))?;
+            .await?;
 
-        AccountInfo::decode(&mut account_info.encoded())
-            .map_err(|_| anyhow::anyhow!("invalid format"))
+        if let Some(account_info) = account_info {
+            AccountInfo::decode(&mut account_info.encoded())
+                .map_err(|_| anyhow::anyhow!("invalid format"))
+        } else {
+            Ok(AccountInfo {
+                nonce: 0,
+                consumers: 0,
+                providers: 0,
+                sufficients: 0,
+                data: AccountData {
+                    free: 0,
+                    reserved: 0,
+                    misc_frozen: 0,
+                    fee_frozen: 0,
+                },
+            })
+        }
     }
 }
 
