@@ -2,6 +2,7 @@ on:
   push:
     branches:
     - master
+    - staging
   pull_request:
 
 name: rosetta-wallet
