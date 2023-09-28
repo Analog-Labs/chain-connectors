@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 use crate::crypto::address::Address;
 use crate::crypto::PublicKey;
 use crate::types::{
@@ -21,6 +22,7 @@ use serde_json::Value;
 use std::pin::Pin;
 use std::str::FromStr;
 
+/// Generic Client
 pub enum GenericClient {
     Bitcoin(BitcoinClient),
     Ethereum(EthereumClient),
@@ -73,6 +75,7 @@ impl GenericClient {
     }
 }
 
+/// Generic Blockchain Params
 #[derive(Deserialize, Serialize, From)]
 pub enum GenericMetadataParams {
     Bitcoin(BitcoinMetadataParams),
@@ -81,6 +84,7 @@ pub enum GenericMetadataParams {
     Polkadot(PolkadotMetadataParams),
 }
 
+/// Generic Blockchain Metadata
 #[derive(Deserialize, Serialize, From)]
 pub enum GenericMetadata {
     Bitcoin(BitcoinMetadata),

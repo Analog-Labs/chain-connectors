@@ -17,7 +17,8 @@ use std::path::Path;
 
 /// The wallet provides the main entry point to this crate.
 pub struct Wallet {
-    client: GenericClient,
+    /// GenericClient instance
+    pub client: GenericClient,
     account: AccountIdentifier,
     secret_key: DerivedSecretKey,
     public_key: PublicKey,
@@ -114,6 +115,13 @@ impl Wallet {
             currency: self.client.config().currency(),
             metadata: None,
         })
+    }
+
+    /// Return a stream of events, return None if the blockchain doesn't support events.
+    pub async fn listen(
+        &self,
+    ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
+        self.client.listen().await
     }
 
     /// Returns block data
