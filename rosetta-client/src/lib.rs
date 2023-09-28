@@ -5,7 +5,8 @@ use anyhow::Result;
 pub use crate::wallet::Wallet;
 pub use rosetta_core::{crypto, types, BlockchainConfig};
 
-mod client;
+/// Clients that communicates to different blockchains
+pub mod client;
 mod mnemonic;
 mod signer;
 mod tx_builder;
