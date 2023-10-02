@@ -1,7 +1,6 @@
 use ethers::prelude::*;
 use ethers::providers::PubsubClient;
 use futures_util::future::BoxFuture;
-// use futures_util::FutureExt;
 use futures_util::FutureExt;
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use std::pin::Pin;
