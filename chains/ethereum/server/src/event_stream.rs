@@ -17,13 +17,13 @@ pub struct EthereumEventStream<'a, P: PubsubClient> {
     pub new_head: SubscriptionStream<'a, P, Block<H256>>,
     /// Count the number of failed attempts to retrieve the finalized block
     pub finalized_block_failures: u32,
-    /// Count the number of failed attempts to retrieve the latest blocks
+    /// Count the number of failed attempts to retrieve the latest block
     pub latest_block_failures: u32,
     /// Cache the best finalized block, we use this to avoid emitting two [`ClientEvent::NewFinalized`]
     /// for the same block
     pub best_finalized_block: Option<BlockIdentifier>,
     /// Ethereum client doesn't support subscribing for finalized blocks, as workaround
-    /// everytime we receive a new head, we query the latest block
+    /// everytime we receive a new head, we query the latest finalized block
     pub finalized_block_future:
         Option<BoxFuture<'static, Result<Option<Block<TxHash>>, ProviderError>>>,
 }
@@ -58,6 +58,7 @@ where
     }
 }
 
+/// Converts [`Block`] to [`BlockIdentifier`]
 fn block_to_identifier(block: Block<TxHash>) -> Result<BlockIdentifier, &'static str> {
     let Some(number) = block.number else {
         return Err("block number is missing");
@@ -109,18 +110,18 @@ where
                         this.finalized_block_failures = 0;
 
                         // Skip if the finalized block is equal to the best finalized block
-                        if let Some(latest_finalized_block) = this.best_finalized_block.take() {
-                            if block_identifier == latest_finalized_block {
+                        if let Some(best_finalized_block) = this.best_finalized_block.take() {
+                            if block_identifier == best_finalized_block {
                                 log::debug!("finalized block unchanged");
-                                this.best_finalized_block = Some(block_identifier);
+                                this.best_finalized_block = Some(best_finalized_block);
                                 break;
                             }
                         }
 
-                        // Cache the new latest finalized block
+                        // Cache the new best finalized block
                         this.best_finalized_block = Some(block_identifier.clone());
 
-                        // Return the new finalized block
+                        // Return the best finalized block
                         return Poll::Ready(Some(ClientEvent::NewFinalized(
                             BlockOrIdentifier::Identifier(block_identifier),
                         )));
