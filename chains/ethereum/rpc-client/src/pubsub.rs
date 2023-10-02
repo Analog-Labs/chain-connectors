@@ -10,9 +10,12 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use ethers::providers::{JsonRpcClient, PubsubClient};
 use ethers::types::U256;
-use jsonrpsee::core::{
-    client::{ClientT, Subscription, SubscriptionClientT, SubscriptionKind},
-    error::Error as JsonRpseeError,
+use jsonrpsee::{
+    core::{
+        client::{ClientT, Subscription, SubscriptionClientT, SubscriptionKind},
+        error::Error as JsonRpseeError,
+    },
+    types::SubscriptionId,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -106,12 +109,35 @@ where
 
         // The ethereum subscription id must be an U256
         let maybe_id = match stream.kind() {
-            SubscriptionKind::Subscription(id) => serde_json::to_value(id).ok(),
+            SubscriptionKind::Subscription(id) => {
+                tracing::trace!("subscription_id: {id:?}");
+                let maybe_subscription_id = serde_json::to_value(id)
+                    .ok()
+                    .and_then(|value| serde_json::from_value::<U256>(value).ok());
+
+                let id = if let Some(id) = maybe_subscription_id {
+                    id
+                } else {
+                    // id is not a valid U256, convert str to bytes
+                    match id {
+                        SubscriptionId::Num(id) => U256::from(*id),
+                        SubscriptionId::Str(id) => {
+                            let str_bytes = id.as_bytes();
+                            let mut bytes = [0u8; 32];
+                            let size = usize::min(str_bytes.len(), bytes.len());
+                            bytes[0..size].copy_from_slice(str_bytes);
+                            U256::from_big_endian(bytes.as_slice())
+                        }
+                    }
+                };
+                Some(id)
+            }
             _ => None,
         }
-        .and_then(|value| {
-            let subscription_id = serde_json::from_value::<U256>(value.clone()).ok()?;
-            let result = serde_json::from_value::<R>(value).ok()?;
+        .and_then(|subscription_id| {
+            // For ethereum subscriptions, R is always U256.
+            let result =
+                serde_json::from_value::<R>(serde_json::to_value(subscription_id).ok()?).ok()?;
             Some((subscription_id, result))
         });
 
@@ -147,6 +173,7 @@ where
         };
         state.unsubscribe().await?;
 
+        // For unsubscribe, R is always boolean
         serde_json::from_value::<R>(serde_json::value::Value::Bool(true)).map_err(EthError::from)
     }
 }
