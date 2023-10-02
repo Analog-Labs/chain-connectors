@@ -389,10 +389,13 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: PubsubClient,
+    P: PubsubClient + 'static,
 {
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_head_subscription = self.client.subscribe_blocks().await?;
-        Ok(EthereumEventStream::new(new_head_subscription))
+        Ok(EthereumEventStream::new(
+            Arc::clone(&self.client),
+            new_head_subscription,
+        ))
     }
 }
