@@ -28,8 +28,8 @@ pub struct Version {
 
 impl Version {
     /// The Version object is utilized to inform the client of the versions of different components of the Rosetta implementation.
-    pub fn new(rosetta_version: String, node_version: String) -> Version {
-        Version {
+    #[must_use] pub fn new(rosetta_version: String, node_version: String) -> Self {
+        Self {
             rosetta_version,
             node_version,
             middleware_version: None,

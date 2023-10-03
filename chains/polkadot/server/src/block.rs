@@ -28,7 +28,7 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
         let event_parsed_data = get_operation_data(config, &event)?;
 
         let mut fields = vec![];
-        for field in event.event_metadata().variant.fields.iter() {
+        for field in &event.event_metadata().variant.fields {
             fields.push(json!({"name": field.name, "type": field.type_name}));
         }
         let op_metadata = Value::Array(fields);

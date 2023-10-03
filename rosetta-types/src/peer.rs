@@ -20,8 +20,8 @@ pub struct Peer {
 
 impl Peer {
     /// A Peer is a representation of a node's peer.
-    pub fn new(peer_id: String) -> Peer {
-        Peer {
+    #[must_use] pub fn new(peer_id: String) -> Self {
+        Self {
             peer_id,
             metadata: None,
         }

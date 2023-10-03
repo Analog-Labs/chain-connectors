@@ -23,8 +23,8 @@ pub struct Amount {
 
 impl Amount {
     /// Amount is some Value of a Currency. It is considered invalid to specify a Value without a Currency.
-    pub fn new(value: String, currency: crate::Currency) -> Amount {
-        Amount {
+    #[must_use] pub fn new(value: String, currency: crate::Currency) -> Self {
+        Self {
             value,
             currency,
             metadata: None,

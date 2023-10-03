@@ -171,7 +171,7 @@ impl BlockchainClient for BitcoinClient {
                 index: block_height.saturating_sub(1),
                 hash: block.header.prev_blockhash.to_string(),
             },
-            timestamp: (block.header.time as i64) * 1000,
+            timestamp: i64::from(block.header.time) * 1000,
             transactions,
             metadata: None,
         })

@@ -125,15 +125,15 @@ impl Wallet {
     }
 
     /// Returns block data
-    /// Takes PartialBlockIdentifier
+    /// Takes `PartialBlockIdentifier`
     pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
         self.client.block(&data).await
     }
 
     /// Returns transactions included in a block
     /// Parameters:
-    /// 1. block_identifier: BlockIdentifier containing block number and hash
-    /// 2. tx_identifier: TransactionIdentifier containing hash of transaction
+    /// 1. `block_identifier`: `BlockIdentifier` containing block number and hash
+    /// 2. `tx_identifier`: `TransactionIdentifier` containing hash of transaction
     pub async fn block_transaction(
         &self,
         block_identifer: BlockIdentifier,
@@ -174,7 +174,7 @@ impl Wallet {
 
     /// Returns the on chain metadata.
     /// Parameters:
-    /// - metadata_params: the metadata parameters which we got from transaction builder.
+    /// - `metadata_params`: the metadata parameters which we got from transaction builder.
     pub async fn metadata(
         &self,
         metadata_params: &GenericMetadataParams,
@@ -218,7 +218,7 @@ impl Wallet {
 
     /// Uses the faucet on dev chains to seed the account with funds.
     /// Parameters:
-    /// - faucet_parameter: the amount to seed the account with
+    /// - `faucet_parameter`: the amount to seed the account with
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<Vec<u8>> {
         let address = Address::new(
             self.client.config().address_format,
@@ -274,7 +274,7 @@ impl Wallet {
         params: &[String],
         block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<serde_json::Value> {
-        let method = format!("{}-{}-call", contract_address, method_signature);
+        let method = format!("{contract_address}-{method_signature}-call");
         self.call(method, &json!(params), block_identifier).await
     }
 
@@ -285,7 +285,7 @@ impl Wallet {
         storage_slot: &str,
         block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<serde_json::Value> {
-        let method = format!("{}-{}-storage", contract_address, storage_slot);
+        let method = format!("{contract_address}-{storage_slot}-storage");
         self.call(method, &json!({}), block_identifier).await
     }
 
@@ -296,7 +296,7 @@ impl Wallet {
         storage_slot: &str,
         block_identifier: Option<PartialBlockIdentifier>,
     ) -> Result<serde_json::Value> {
-        let method = format!("{}-{}-storage_proof", contract_address, storage_slot);
+        let method = format!("{contract_address}-{storage_slot}-storage_proof");
         self.call(method, &json!({}), block_identifier).await
     }
 

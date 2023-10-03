@@ -22,9 +22,9 @@ pub const MAX_UNCLE_DEPTH: u64 = 8;
 
 pub const _TRANSFER_GAS_LIMIT: u64 = 21000;
 
-pub const FRONTIER_BLOCK_REWARD: u64 = 5000000000000000000;
-pub const BYZANTIUM_BLOCK_REWARD: u64 = 3000000000000000000;
-pub const CONSTANTINOPLE_BLOCK_REWARD: u64 = 2000000000000000000;
+pub const FRONTIER_BLOCK_REWARD: u64 = 5_000_000_000_000_000_000;
+pub const BYZANTIUM_BLOCK_REWARD: u64 = 3_000_000_000_000_000_000;
+pub const CONSTANTINOPLE_BLOCK_REWARD: u64 = 2_000_000_000_000_000_000;
 
 pub struct ChainConfig {
     pub byzantium_block: u64,
@@ -32,8 +32,8 @@ pub struct ChainConfig {
 }
 
 pub const _MAINNET_CHAIN_CONFIG: ChainConfig = ChainConfig {
-    byzantium_block: 4370000,
-    constantinople_block: 7280000,
+    byzantium_block: 4_370_000,
+    constantinople_block: 7_280_000,
 };
 
 pub const TESTNET_CHAIN_CONFIG: ChainConfig = ChainConfig {

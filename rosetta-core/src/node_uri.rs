@@ -2,7 +2,7 @@ use fluent_uri::Uri;
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum NodeUriError {
     #[error("Invalid uri")]
     InvalidUri,
@@ -22,7 +22,7 @@ pub enum NodeUriError {
 ///  |            |              |       |      |               |              |
 /// scheme    userinfo         host    port   path            query         fragment
 /// ```
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeUri<'a> {
     pub scheme: &'a str,
     pub userinfo: Option<&'a str>,
@@ -40,7 +40,7 @@ impl<'a> NodeUri<'a> {
         // Parse uri components.
         let scheme = uri
             .scheme()
-            .map(|scheme| scheme.as_str())
+            .map(fluent_uri::Scheme::as_str)
             .ok_or(NodeUriError::InvalidScheme)?;
         if scheme.is_empty() {
             return Err(NodeUriError::InvalidScheme);
@@ -55,7 +55,7 @@ impl<'a> NodeUri<'a> {
             .ok_or(NodeUriError::InvalidPort)?
             .parse::<u16>()
             .map_err(|_| NodeUriError::InvalidPort)?;
-        let userinfo = authority.userinfo().map(|userinfo| userinfo.as_str());
+        let userinfo = authority.userinfo().map(fluent_uri::enc::EStr::as_str);
 
         Ok(Self {
             scheme,
@@ -63,12 +63,12 @@ impl<'a> NodeUri<'a> {
             host,
             port,
             path: uri.path().as_str(),
-            query: uri.query().map(|query| query.as_str()),
-            fragment: uri.fragment().map(|fragment| fragment.as_str()),
+            query: uri.query().map(fluent_uri::enc::EStr::as_str),
+            fragment: uri.fragment().map(fluent_uri::enc::EStr::as_str),
         })
     }
 
-    pub fn with_host<'b, 'c: 'b>(&'b self, host: &'c str) -> NodeUri<'b> {
+    #[must_use] pub fn with_host<'b, 'c: 'b>(&'b self, host: &'c str) -> NodeUri<'b> {
         NodeUri {
             scheme: self.scheme,
             userinfo: self.userinfo,
@@ -80,7 +80,7 @@ impl<'a> NodeUri<'a> {
         }
     }
 
-    pub fn with_scheme<'b, 'c: 'b>(&'b self, scheme: &'c str) -> NodeUri<'b> {
+    #[must_use] pub fn with_scheme<'b, 'c: 'b>(&'b self, scheme: &'c str) -> NodeUri<'b> {
         NodeUri {
             scheme,
             userinfo: self.userinfo,
@@ -100,7 +100,7 @@ impl Display for NodeUri<'_> {
 
         // userinfo@
         if let Some(userinfo) = self.userinfo {
-            write!(f, "{}@", userinfo)?;
+            write!(f, "{userinfo}@")?;
         }
 
         // host:port/path
@@ -108,12 +108,12 @@ impl Display for NodeUri<'_> {
 
         // ?query
         if let Some(query) = self.query {
-            write!(f, "?{}", query)?;
+            write!(f, "?{query}")?;
         }
 
         // #fragment
         if let Some(fragment) = self.fragment {
-            write!(f, "#{}", fragment)?;
+            write!(f, "#{fragment}")?;
         }
         Ok(())
     }

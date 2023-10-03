@@ -20,8 +20,8 @@ pub struct Coin {
 
 impl Coin {
     /// Coin contains its unique identifier and the amount it represents.
-    pub fn new(coin_identifier: crate::CoinIdentifier, amount: crate::Amount) -> Coin {
-        Coin {
+    #[must_use] pub fn new(coin_identifier: crate::CoinIdentifier, amount: crate::Amount) -> Self {
+        Self {
             coin_identifier,
             amount,
         }

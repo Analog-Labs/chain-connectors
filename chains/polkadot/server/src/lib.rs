@@ -131,7 +131,7 @@ impl BlockchainClient for PolkadotClient {
             .block(None)
             .await?
             .context("no current block")?;
-        let index = block.block.header.number as _;
+        let index = u64::from(block.block.header.number);
         let hash = block.block.header.hash();
         Ok(BlockIdentifier {
             index,
@@ -147,7 +147,7 @@ impl BlockchainClient for PolkadotClient {
             .block(Some(finalized_head))
             .await?
             .context("no finalized block")?;
-        let index = block.block.header.number as _;
+        let index = u64::from(block.block.header.number);
         let hash = block.block.header.hash();
         Ok(BlockIdentifier {
             index,
@@ -257,11 +257,11 @@ impl BlockchainClient for PolkadotClient {
         }
         Ok(Block {
             block_identifier: BlockIdentifier {
-                index: block.number() as _,
+                index: u64::from(block.number()),
                 hash: hex::encode(block.hash()),
             },
             parent_block_identifier: BlockIdentifier {
-                index: block.number().saturating_sub(1) as _,
+                index: u64::from(block.number().saturating_sub(1)),
                 hash: hex::encode(block.header().parent_hash),
             },
             timestamp: Duration::from_millis(timestamp).as_nanos() as i64,

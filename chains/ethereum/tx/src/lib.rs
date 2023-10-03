@@ -95,7 +95,7 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         let rlp = tx.rlp_signed(&Signature {
             r: U256::from_big_endian(&signature[..32]),
             s: U256::from_big_endian(&signature[32..64]),
-            v: signature[64] as _,
+            v: u64::from(signature[64]),
         });
         let mut tx = Vec::with_capacity(rlp.len() + 1);
         tx.push(0x02);

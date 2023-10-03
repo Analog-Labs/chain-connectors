@@ -24,7 +24,7 @@ impl<T: BlockchainClient> Env<T> {
         prefix: &str,
         mut config: BlockchainConfig,
         start_connector: F,
-    ) -> Result<Env<T>>
+    ) -> Result<Self>
     where
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut,
@@ -55,7 +55,7 @@ impl<T: BlockchainClient> Env<T> {
         })
     }
 
-    pub fn node(&self) -> Arc<T> {
+    #[must_use] pub fn node(&self) -> Arc<T> {
         Arc::clone(&self.client)
     }
 
@@ -178,13 +178,13 @@ impl<'a> EnvBuilder<'a> {
             .auto_remove(true)
             .attach_stdout(true)
             .attach_stderr(true)
-            .publish(PublishPort::tcp(config.node_uri.port as _))
+            .publish(PublishPort::tcp(u32::from(config.node_uri.port)))
             .expose(
-                PublishPort::tcp(config.node_uri.port as _),
-                HostPort::new(config.node_uri.port as u32),
+                PublishPort::tcp(u32::from(config.node_uri.port)),
+                HostPort::new(u32::from(config.node_uri.port)),
             );
         for port in config.node_additional_ports {
-            let port = *port as u32;
+            let port = u32::from(*port);
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build()).await?;

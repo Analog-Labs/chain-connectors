@@ -25,8 +25,8 @@ pub struct Currency {
 
 impl Currency {
     /// Currency is composed of a canonical Symbol and Decimals. This Decimals value is used to convert an Amount.Value from atomic units (Satoshis) to standard units (Bitcoins).
-    pub fn new(symbol: String, decimals: u32) -> Currency {
-        Currency {
+    #[must_use] pub fn new(symbol: String, decimals: u32) -> Self {
+        Self {
             symbol,
             decimals,
             metadata: None,

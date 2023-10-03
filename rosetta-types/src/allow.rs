@@ -50,7 +50,7 @@ pub struct Allow {
 
 impl Allow {
     /// Allow specifies supported Operation status, Operation types, and all possible error statuses. This Allow object is used by clients to validate the correctness of a Rosetta Server implementation. It is expected that these clients will error if they receive some response that contains any of the above information that is not specified here.
-    pub fn new(
+    #[must_use] pub fn new(
         operation_statuses: Vec<crate::OperationStatus>,
         operation_types: Vec<String>,
         errors: Vec<crate::Error>,
@@ -58,8 +58,8 @@ impl Allow {
         call_methods: Option<Vec<String>>,
         balance_exemptions: Option<Vec<crate::BalanceExemption>>,
         mempool_coins: bool,
-    ) -> Allow {
-        Allow {
+    ) -> Self {
+        Self {
             operation_statuses,
             operation_types,
             errors,

@@ -34,7 +34,7 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
         anyhow::bail!("ss58: bad length");
     }
     let (prefix_len, _ident) = match data[0] {
-        0..=63 => (1, data[0] as u16),
+        0..=63 => (1, u16::from(data[0])),
         64..=127 => {
             // weird bit manipulation owing to the combination of LE encoding and missing two
             // bits from the left.
@@ -42,8 +42,8 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
             // they make the LE-encoded 16-bit value: aaaaaabb 00cccccc
             // so the lower byte is formed of aaaaaabb and the higher byte is 00cccccc
             let lower = (data[0] << 2) | (data[1] >> 6);
-            let upper = data[1] & 0b00111111;
-            (2, (lower as u16) | ((upper as u16) << 8))
+            let upper = data[1] & 0b0011_1111;
+            (2, u16::from(lower) | (u16::from(upper) << 8))
         }
         _ => anyhow::bail!("ss58: invalid prefix"),
     };
@@ -119,7 +119,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         let address = MultiAddress::Id(address);
         let extra_parameters = (
             Era::Immortal,
-            Compact(metadata.nonce as u64),
+            Compact(u64::from(metadata.nonce)),
             // plain tip
             Compact(0u128),
         );
@@ -151,7 +151,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         // encode transaction
         let mut encoded = vec![];
         // "is signed" + transaction protocol version (4)
-        (0b10000000 + 4u8).encode_to(&mut encoded);
+        (0b1000_0000 + 4u8).encode_to(&mut encoded);
         // from address for signature
         address.encode_to(&mut encoded);
         // signature encode pending to vector

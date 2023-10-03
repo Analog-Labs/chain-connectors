@@ -35,7 +35,7 @@ impl ToString for Case {
 }
 
 impl Default for Case {
-    fn default() -> Case {
+    fn default() -> Self {
         Self::UpperCase
     }
 }

@@ -118,9 +118,7 @@ pub fn endpoint_from_config(config_dir: PathBuf) -> anyhow::Result<String> {
         .parse::<serde_json::Value>()
         .context("config.json is not a valid json")?
         .get("currentContext")
-        .and_then(|value| value.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| "default".to_string());
+        .and_then(serde_json::Value::as_str).map_or_else(|| "default".to_string(), str::to_string);
 
     // Find the endpoint
     find_context_endpoint(config_dir, &current_context)

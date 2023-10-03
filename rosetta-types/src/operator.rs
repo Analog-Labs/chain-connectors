@@ -29,7 +29,7 @@ impl ToString for Operator {
 }
 
 impl Default for Operator {
-    fn default() -> Operator {
+    fn default() -> Self {
         Self::Or
     }
 }

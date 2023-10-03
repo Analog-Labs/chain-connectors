@@ -12,7 +12,7 @@ pub mod metadata {
     pub mod dev {}
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PolkadotNetworkProperties {
     blockchain: &'static str,
     network: &'static str,
@@ -98,11 +98,11 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
 
 impl PolkadotNetworkProperties {
     // TODO: What is considered testnet? only local chains, or public testnets as well?
-    pub fn is_testnet(&self) -> bool {
+    #[must_use] pub fn is_testnet(&self) -> bool {
         self.network != "mainnet"
     }
 
-    pub fn is_live(&self) -> bool {
+    #[must_use] pub fn is_live(&self) -> bool {
         matches!(self.network, "mainnet" | "staging")
     }
 }

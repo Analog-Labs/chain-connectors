@@ -1,6 +1,6 @@
 use crate::{AccountIdentifier, NetworkIdentifier};
 
-/// AccountFaucetRequest : AccountFaucetRequest is sent for faucet on an account.
+/// `AccountFaucetRequest` : `AccountFaucetRequest` is sent for faucet on an account.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountFaucetRequest {
     #[serde(rename = "network_identifier")]
@@ -12,13 +12,13 @@ pub struct AccountFaucetRequest {
 }
 
 impl AccountFaucetRequest {
-    /// AccountCoinsRequest is utilized to make a request on the /account/coins endpoint.
-    pub fn new(
+    /// `AccountCoinsRequest` is utilized to make a request on the /account/coins endpoint.
+    #[must_use] pub fn new(
         network_identifier: NetworkIdentifier,
         account_identifier: AccountIdentifier,
         faucet_parameter: u128,
-    ) -> AccountFaucetRequest {
-        AccountFaucetRequest {
+    ) -> Self {
+        Self {
             network_identifier,
             account_identifier,
             faucet_parameter,

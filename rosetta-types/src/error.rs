@@ -31,8 +31,8 @@ pub struct Error {
 
 impl Error {
     /// Instead of utilizing HTTP status codes to describe node errors (which often do not have a good analog), rich errors are returned using this object.  Both the code and message fields can be individually used to correctly identify an error. Implementations MUST use unique values for both fields.
-    pub fn new(code: i32, message: String, retriable: bool) -> Error {
-        Error {
+    #[must_use] pub fn new(code: i32, message: String, retriable: bool) -> Self {
+        Self {
             code,
             message,
             description: None,
