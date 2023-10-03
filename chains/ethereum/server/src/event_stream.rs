@@ -101,7 +101,7 @@ where
                             Ok(block_identifier) => block_identifier,
                             Err(error) => {
                                 this.finalized_block_failures += 1;
-                                log::error!("finalized block: {error}");
+                                tracing::error!("finalized block: {error}");
                                 break;
                             }
                         };
@@ -112,7 +112,7 @@ where
                         // Skip if the finalized block is equal to the best finalized block
                         if let Some(best_finalized_block) = this.best_finalized_block.take() {
                             if block_identifier == best_finalized_block {
-                                log::debug!("finalized block unchanged");
+                                tracing::debug!("finalized block unchanged");
                                 this.best_finalized_block = Some(best_finalized_block);
                                 break;
                             }
@@ -129,14 +129,14 @@ where
                     Poll::Ready(Ok(None)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
-                        log::error!("finalized block not found");
+                        tracing::error!("finalized block not found");
                         this.finalized_block_failures += 1;
                         continue;
                     }
                     Poll::Ready(Err(error)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
-                        log::error!("failed to retrieve finalized block: {error:?}");
+                        tracing::error!("failed to retrieve finalized block: {error:?}");
                         this.finalized_block_failures += 1;
                         continue;
                     }
@@ -163,7 +163,7 @@ where
                         Ok(block_identifier) => block_identifier,
                         Err(error) => {
                             this.latest_block_failures += 1;
-                            log::error!("latest block: {error}");
+                            tracing::error!("latest block: {error}");
                             continue;
                         }
                     };

@@ -40,6 +40,7 @@ tide = { version = "0.16.0", default-features = false, features = ["h1-server", 
 tokio = { version = "1.32", features = ["full"] }
 tokio-retry = "0.3"
 tokio-tungstenite = { version = "0.20.0", default-features = false, features = ["handshake", "connect"] }
+tracing = "0.1"
 
 [build-dependencies]
 anyhow = "1.0"

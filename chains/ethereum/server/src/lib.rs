@@ -31,8 +31,13 @@ pub enum MaybeWsEthereumClient {
 }
 
 impl MaybeWsEthereumClient {
-    pub async fn new<S: AsRef<str>>(network: &str, addr: S) -> Result<Self> {
-        Self::from_config(rosetta_config_ethereum::config(network)?, addr).await
+    pub async fn new<S: AsRef<str>>(blockchain: &str, network: &str, addr: S) -> Result<Self> {
+        let config = match blockchain {
+            "polygon" => rosetta_config_ethereum::polygon_config(network)?,
+            "ethereum" => rosetta_config_ethereum::config(network)?,
+            blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
+        };
+        Self::from_config(config, addr).await
     }
 
     pub async fn from_config<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {

@@ -349,6 +349,7 @@ pub struct ReconnectFuture<T: Config> {
     pub retry_strategy: T::RetryStrategy,
     pub state: Arc<SharedState<T>>,
     pub state_machine: Option<ReconnectStateMachine<T>>,
+    pub span: tracing::Span,
 }
 
 impl<T: Config> ReconnectFuture<T> {
@@ -370,6 +371,7 @@ impl<T: Config> ReconnectFuture<T> {
             retry_strategy,
             state,
             state_machine: Some(state_machine),
+            span: tracing::info_span!("reconnect_attempt"),
         }
     }
 }
@@ -379,6 +381,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
+        let _enter = this.span.enter();
         loop {
             match this.state_machine.take() {
                 // Client is reconnecting and the retry delay is counting
@@ -456,7 +459,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
 
                 // Reconnect attempt failed, retry to reconnect after delay or immediately
                 Some(ReconnectStateMachine::Failure { error, maybe_delay }) => {
-                    log::error!(
+                    tracing::error!(
                         "Reconnect attempt {} failed with error: {:?}",
                         *this.attempt,
                         error
@@ -492,14 +495,14 @@ impl<T: Config> Future for ReconnectFuture<T> {
 
                 // Reconnect Succeeded! update the connection status and return the client
                 Some(ReconnectStateMachine::Success(client)) => {
-                    log::info!("Reconnect attempt {} succeeded!!", *this.attempt);
+                    tracing::info!("Reconnect attempt {} succeeded!!", *this.attempt);
                     let client = Arc::new(client);
 
                     // Update connection status
                     let mut guard = match this.state.connection_status.write() {
                         Ok(guard) => guard,
                         Err(error) => {
-                            log::error!("FATAL ERROR: client lock was poisoned: {error}");
+                            tracing::error!("FATAL ERROR: client lock was poisoned: {error}");
                             return Poll::Ready(Err(CloneableError::from(Error::Custom(format!(
                                 "FATAL ERROR: client lock was poisoned: {error}"
                             )))));
@@ -507,7 +510,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
                     };
 
                     if let ConnectionStatus::Ready(client) = guard.deref() {
-                        log::warn!(
+                        tracing::warn!(
                             "Racing condition detected, two reconnects running at the same time"
                         );
                         return Poll::Ready(Ok(client.clone()));
