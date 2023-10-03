@@ -41,7 +41,7 @@ impl TungsteniteClient {
         let config = WebSocketConfig::from(config);
         let (ws_stream, response) = connect_async_with_config(url, Some(config), false).await?;
         let (send, receive) = ws_stream.split();
-        log::trace!(
+        tracing::trace!(
             "Successfully connected to the server using Tungstenite. Handshake HTTP code: {}",
             response.status()
         );
@@ -88,7 +88,7 @@ impl TransportSenderT for Sender {
             }));
         }
 
-        log::trace!("send: {}", body);
+        tracing::trace!("send: {}", body);
         self.inner.send(Message::Text(body)).await?;
         self.inner.flush().await?;
         Ok(())
@@ -97,7 +97,6 @@ impl TransportSenderT for Sender {
     /// Sends out a ping request. Returns a `Future` that finishes when the request has been
     /// successfully sent.
     async fn send_ping(&mut self) -> Result<(), Self::Error> {
-        log::debug!("Send ping");
         self.inner.send(Message::Ping(Vec::default())).await?;
         self.inner.flush().await?;
         Ok(())

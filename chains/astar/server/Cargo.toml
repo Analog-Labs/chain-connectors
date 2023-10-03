@@ -12,6 +12,7 @@ async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1"
 ethers = "2.0.7"
 futures = { version = "0.3", default-features = false, features = ["std"] }
+futures-util = "0.3"
 hex = "0.4.3"
 log = "0.4"
 parity-scale-codec = "3.6"
