@@ -88,9 +88,9 @@ where
                 .client
                 .get_block(BlockId::Number(BlockNumber::Latest))
                 .await?
-                else {
-                    return Ok(self.genesis_block.clone());
-                };
+            else {
+                return Ok(self.genesis_block.clone());
+            };
 
             let Some(block_number) = latest_block.number else {
                 // This error should not happen once we query the latest block, not pending one.
@@ -109,9 +109,9 @@ where
                 .client
                 .get_block(BlockId::Number(BlockNumber::Number(block_number)))
                 .await?
-                else {
-                    anyhow::bail!("Cannot find block number {block_number}");
-                };
+            else {
+                anyhow::bail!("Cannot find block number {block_number}");
+            };
 
             finalized_block
         } else if let Some(finalized_block) = self
