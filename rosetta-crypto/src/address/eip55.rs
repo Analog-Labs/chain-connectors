@@ -1,6 +1,7 @@
 use crate::{Algorithm, PublicKey};
 use sha3::Digest;
 
+#[allow(clippy::unwrap_used)]
 pub fn eip55_encode(public_key: &[u8]) -> String {
     let uncompressed = PublicKey::from_bytes(Algorithm::EcdsaSecp256k1, public_key)
         .unwrap()
@@ -9,6 +10,7 @@ pub fn eip55_encode(public_key: &[u8]) -> String {
     eip55_encode_bytes(&digest[12..])
 }
 
+#[allow(clippy::unwrap_used)]
 fn eip55_encode_bytes(bytes: &[u8]) -> String {
     let address = hex::encode(bytes);
     let hashed_address = hex::encode(sha3::Keccak256::digest(&address));
@@ -18,7 +20,7 @@ fn eip55_encode_bytes(bytes: &[u8]) -> String {
         if character.is_alphabetic() {
             let nibble = hashed_address.as_bytes()[nibble_index] as char;
             if nibble.to_digit(16).unwrap() > 7 {
-                character = character.to_ascii_uppercase()
+                character = character.to_ascii_uppercase();
             }
         }
         result.push(character);

@@ -86,6 +86,11 @@ impl ReconnectConfig for DefaultReconnectConfig {
     }
 }
 
+/// Creates an Json-RPC client with default settings
+///
+/// # Errors
+///
+/// Returns `Err` if it fails to connect to the provided `url`
 pub async fn default_client(
     url: &str,
     config: Option<RpcClientConfig>,
@@ -98,7 +103,7 @@ pub async fn default_client(
 
     DefaultStrategy::connect(reconnect_config)
         .await
-        .map(|strategy| strategy.into_client())
+        .map(Reconnect::into_client)
 }
 
 /// Creates a default jsonrpsee client using socketto.

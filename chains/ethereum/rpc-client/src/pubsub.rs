@@ -72,13 +72,13 @@ impl<C> Deref for EthPubsubAdapter<C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
-        self.adapter.deref()
+        &self.adapter
     }
 }
 
 impl<C> DerefMut for EthPubsubAdapter<C> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.adapter.deref_mut()
+        &mut self.adapter
     }
 }
 
@@ -93,6 +93,12 @@ where
         }
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err` when:
+    /// * when `R` is not an `U256`
+    /// * when the client RPC fails to send the message
+    /// * when the client returns an invalid subscription id
     pub async fn eth_subscribe<R, P>(&self, params: P) -> Result<R, EthError>
     where
         R: DeserializeOwned + Send,
@@ -115,11 +121,8 @@ where
                     .ok()
                     .and_then(|value| serde_json::from_value::<U256>(value).ok());
 
-                let id = if let Some(id) = maybe_subscription_id {
-                    id
-                } else {
-                    // id is not a valid U256, convert str to bytes
-                    match id {
+                let id = maybe_subscription_id.map_or_else(
+                    || match id {
                         SubscriptionId::Num(id) => U256::from(*id),
                         SubscriptionId::Str(id) => {
                             let str_bytes = id.as_bytes();
@@ -128,8 +131,9 @@ where
                             bytes[0..size].copy_from_slice(str_bytes);
                             U256::from_big_endian(bytes.as_slice())
                         }
-                    }
-                };
+                    },
+                    |id| id,
+                );
                 Some(id)
             }
             _ => None,
@@ -156,6 +160,9 @@ where
         Ok(result)
     }
 
+    /// # Errors
+    ///
+    /// Will return `Err(EthError)` when the client fails to unsubscribe
     pub async fn eth_unsubscribe<R>(&self, params: EthRpcParams) -> Result<R, EthError>
     where
         R: DeserializeOwned + Send,
@@ -224,9 +231,9 @@ where
     }
 
     /// Remove a subscription from this transport
-    fn unsubscribe<T: Into<U256>>(&self, _id: T) -> Result<(), Self::Error> {
+    fn unsubscribe<T: Into<U256>>(&self, id: T) -> Result<(), Self::Error> {
         self.eth_subscriptions
-            .remove(&_id.into())
+            .remove(&id.into())
             .map(|_| ())
             .ok_or_else(|| EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
@@ -236,7 +243,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) enum SubscriptionState {
+pub enum SubscriptionState {
     Pending(Subscription<serde_json::Value>),
     Subscribed(Arc<AtomicBool>),
     Unsubscribed,
@@ -244,30 +251,30 @@ pub(crate) enum SubscriptionState {
 
 impl SubscriptionState {
     fn subscribe(&mut self, id: U256) -> Option<EthSubscription> {
-        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        let old_state = std::mem::replace(self, Self::Unsubscribed);
         match old_state {
-            SubscriptionState::Pending(stream) => {
+            Self::Pending(stream) => {
                 let unsubscribe = Arc::new(AtomicBool::new(false));
-                *self = SubscriptionState::Subscribed(unsubscribe.clone());
+                *self = Self::Subscribed(unsubscribe.clone());
                 Some(EthSubscription::new(id, stream, unsubscribe))
             }
-            SubscriptionState::Subscribed(unsubscribe) => {
-                *self = SubscriptionState::Subscribed(unsubscribe);
+            Self::Subscribed(unsubscribe) => {
+                *self = Self::Subscribed(unsubscribe);
                 None
             }
-            SubscriptionState::Unsubscribed => None,
+            Self::Unsubscribed => None,
         }
     }
 
     async fn unsubscribe(&mut self) -> Result<(), JsonRpseeError> {
-        let old_state = std::mem::replace(self, SubscriptionState::Unsubscribed);
+        let old_state = std::mem::replace(self, Self::Unsubscribed);
         match old_state {
-            SubscriptionState::Pending(stream) => stream.unsubscribe().await,
-            SubscriptionState::Subscribed(unsubscribe) => {
+            Self::Pending(stream) => stream.unsubscribe().await,
+            Self::Subscribed(unsubscribe) => {
                 unsubscribe.store(true, Ordering::SeqCst);
                 Ok(())
             }
-            SubscriptionState::Unsubscribed => Ok(()),
+            Self::Unsubscribed => Ok(()),
         }
     }
 }

@@ -17,7 +17,7 @@ impl<C> EthClientAdapter<C>
 where
     C: ClientT + Debug + Send + Sync,
 {
-    pub fn new(client: C) -> Self {
+    pub const fn new(client: C) -> Self {
         Self { client }
     }
 }

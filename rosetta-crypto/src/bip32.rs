@@ -9,39 +9,34 @@ use sha2::Sha512;
 impl Algorithm {
     /// If the algorithm supports BIP32. ECDSA and Ed25519 do, but schnorrkel
     /// uses it's own hierarchical key derivation algorithm.
-    fn supports_bip32(self) -> bool {
-        !matches!(self, Algorithm::Sr25519)
+    const fn supports_bip32(self) -> bool {
+        !matches!(self, Self::Sr25519)
     }
 
     /// If the algorithm supports soft key derivations. ECDSA and schnorrkel
     /// do, but ed25519 does not.
-    fn supports_non_hardened_derivation(self) -> bool {
-        !matches!(self, Algorithm::Ed25519)
+    const fn supports_non_hardened_derivation(self) -> bool {
+        !matches!(self, Self::Ed25519)
     }
 
     /// BIP32 defines a retry procedure for secp256k1.
-    fn uses_bip32_retry(self) -> bool {
-        matches!(
-            self,
-            Algorithm::EcdsaSecp256k1 | Algorithm::EcdsaRecoverableSecp256k1
-        )
+    const fn uses_bip32_retry(self) -> bool {
+        matches!(self, Self::EcdsaSecp256k1 | Self::EcdsaRecoverableSecp256k1)
     }
 
     /// SLIP0010 defines a retry procedure for secp256r1.
-    fn uses_slip10_retry(self) -> bool {
-        matches!(self, Algorithm::EcdsaSecp256r1)
+    const fn uses_slip10_retry(self) -> bool {
+        matches!(self, Self::EcdsaSecp256r1)
     }
 }
 
 impl SecretKey {
-    fn tweak_add(&self, secret_key: &SecretKey) -> Result<Option<Self>> {
+    fn tweak_add(&self, secret_key: &Self) -> Result<Option<Self>> {
         use ecdsa::elliptic_curve::NonZeroScalar;
         match (self, secret_key) {
-            (SecretKey::EcdsaSecp256k1(secret), SecretKey::EcdsaSecp256k1(secret2))
-            | (
-                SecretKey::EcdsaRecoverableSecp256k1(secret),
-                SecretKey::EcdsaRecoverableSecp256k1(secret2),
-            ) => {
+            (Self::EcdsaSecp256k1(secret), Self::EcdsaSecp256k1(secret2))
+            | (Self::EcdsaRecoverableSecp256k1(secret), Self::EcdsaRecoverableSecp256k1(secret2)) =>
+            {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =
@@ -51,22 +46,20 @@ impl SecretKey {
                     None => return Ok(None),
                 };
                 Ok(Some(if self.algorithm().is_recoverable() {
-                    SecretKey::EcdsaRecoverableSecp256k1(signing_key)
+                    Self::EcdsaRecoverableSecp256k1(signing_key)
                 } else {
-                    SecretKey::EcdsaSecp256k1(signing_key)
+                    Self::EcdsaSecp256k1(signing_key)
                 }))
             }
-            (SecretKey::EcdsaSecp256r1(secret), SecretKey::EcdsaSecp256r1(secret2)) => {
+            (Self::EcdsaSecp256r1(secret), Self::EcdsaSecp256r1(secret2)) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =
                     Option::from(NonZeroScalar::new(scalar + tweak));
-                match scalar {
-                    Some(scalar) => Ok(Some(SecretKey::EcdsaSecp256r1(ecdsa::SigningKey::from(
-                        scalar,
-                    )))),
-                    None => Ok(None),
-                }
+                scalar.map_or_else(
+                    || Ok(None),
+                    |scalar| Ok(Some(Self::EcdsaSecp256r1(ecdsa::SigningKey::from(scalar)))),
+                )
             }
             _ => anyhow::bail!("unsupported key type"),
         }
@@ -76,27 +69,26 @@ impl SecretKey {
 impl PublicKey {
     fn tweak_add(&self, tweak: [u8; 32]) -> Result<Option<Self>> {
         match self {
-            PublicKey::EcdsaSecp256k1(public) | PublicKey::EcdsaRecoverableSecp256k1(public) => {
-                Ok((|| {
-                    let parent_key = k256::ProjectivePoint::from(public.as_affine());
-                    let tweak = k256::NonZeroScalar::try_from(&tweak[..]).ok()?;
-                    let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
-                    tweak_point += parent_key;
-                    let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
-                    Some(if self.algorithm().is_recoverable() {
-                        PublicKey::EcdsaRecoverableSecp256k1(public)
-                    } else {
-                        PublicKey::EcdsaSecp256k1(public)
-                    })
-                })())
-            }
-            PublicKey::EcdsaSecp256r1(public) => Ok((|| {
+            Self::EcdsaSecp256k1(public) | Self::EcdsaRecoverableSecp256k1(public) => Ok((|| {
+                let parent_key = k256::ProjectivePoint::from(public.as_affine());
+                let tweak = k256::NonZeroScalar::try_from(&tweak[..]).ok()?;
+                let mut tweak_point = k256::ProjectivePoint::GENERATOR * tweak.as_ref();
+                tweak_point += parent_key;
+                let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
+                Some(if self.algorithm().is_recoverable() {
+                    Self::EcdsaRecoverableSecp256k1(public)
+                } else {
+                    Self::EcdsaSecp256k1(public)
+                })
+            })(
+            )),
+            Self::EcdsaSecp256r1(public) => Ok((|| {
                 let parent_key = p256::ProjectivePoint::from(public.as_affine());
                 let tweak = p256::NonZeroScalar::try_from(&tweak[..]).ok()?;
                 let mut tweak_point = p256::ProjectivePoint::GENERATOR * tweak.as_ref();
                 tweak_point += parent_key;
                 let public = ecdsa::VerifyingKey::from_affine(tweak_point.to_affine()).ok()?;
-                Some(PublicKey::EcdsaSecp256r1(public))
+                Some(Self::EcdsaSecp256r1(public))
             })()),
             _ => anyhow::bail!("unsupported key type"),
         }
@@ -112,6 +104,10 @@ pub struct DerivedSecretKey {
 
 impl DerivedSecretKey {
     /// Derives a master key from a mnemonic.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when the chain code is invalid
     pub fn new(mnemonic: &Mnemonic, password: &str, algorithm: Algorithm) -> Result<Self> {
         if algorithm == Algorithm::Sr25519 {
             Self::substrate(mnemonic, password, algorithm)
@@ -121,6 +117,10 @@ impl DerivedSecretKey {
     }
 
     /// Derives a master key and chain code from a mnemonic using BIP39.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when the chain code is invalid
     pub fn bip39(mnemonic: &Mnemonic, password: &str, algorithm: Algorithm) -> Result<Self> {
         let seed = mnemonic.to_seed(password);
         Self::bip32_master_key(&seed[..], algorithm)
@@ -129,8 +129,9 @@ impl DerivedSecretKey {
     /// Derives a BIP32 master key. See SLIP0010 for extension to secp256r1 and ed25519 curves.
     fn bip32_master_key(seed: &[u8], algorithm: Algorithm) -> Result<Self> {
         let curve_name = match algorithm {
-            Algorithm::EcdsaSecp256k1 => &b"Bitcoin seed"[..],
-            Algorithm::EcdsaRecoverableSecp256k1 => &b"Bitcoin seed"[..],
+            Algorithm::EcdsaRecoverableSecp256k1 | Algorithm::EcdsaSecp256k1 => {
+                &b"Bitcoin seed"[..]
+            }
             Algorithm::EcdsaSecp256r1 => &b"Nist256p1 seed"[..],
             Algorithm::Ed25519 => &b"ed25519 seed"[..],
             Algorithm::Sr25519 => anyhow::bail!("sr25519 does not support bip32 derivation"),
@@ -145,13 +146,15 @@ impl DerivedSecretKey {
             }
             let result = hmac.finalize().into_bytes();
             let (secret_key, chain_code) = result.split_at(32);
-            let secret_key = if let Ok(secret_key) = SecretKey::from_bytes(algorithm, secret_key) {
-                secret_key
-            } else if algorithm.uses_slip10_retry() {
-                retry = Some(result.into());
-                continue;
-            } else {
-                anyhow::bail!("failed to derive a valid secret key");
+            let secret_key = match SecretKey::from_bytes(algorithm, secret_key) {
+                Ok(secret_key) => secret_key,
+                _ if algorithm.uses_slip10_retry() => {
+                    retry = Some(result.into());
+                    continue;
+                }
+                _ => {
+                    anyhow::bail!("failed to derive a valid secret key");
+                }
             };
             return Ok(Self {
                 secret_key,
@@ -163,6 +166,10 @@ impl DerivedSecretKey {
     /// Derives a master key and chain code from a mnemonic. This avoids the complex BIP39
     /// seed generation algorithm which was intended to support brain wallets. Instead it
     /// uses pbkdf2 using the entropy as the key and password as the salt.
+    ///
+    /// # Errors
+    ///
+    /// Only supports [`Algorithm::Ed25519`] and [`Algorithm::Sr25519`], otherwise returns `Err`
     pub fn substrate(mnemonic: &Mnemonic, password: &str, algorithm: Algorithm) -> Result<Self> {
         let (entropy, len) = mnemonic.to_entropy_array();
         let seed = substrate_bip39::seed_from_entropy(&entropy[..len], password)
@@ -176,16 +183,19 @@ impl DerivedSecretKey {
     }
 
     /// The secret key used to sign messages.
-    pub fn secret_key(&self) -> &SecretKey {
+    #[must_use]
+    pub const fn secret_key(&self) -> &SecretKey {
         &self.secret_key
     }
 
     /// The chain code used to derive child keys.
-    pub fn chain_code(&self) -> &[u8; 32] {
+    #[must_use]
+    pub const fn chain_code(&self) -> &[u8; 32] {
         &self.chain_code
     }
 
     /// Returns the derived public key used for verifying signatures.
+    #[must_use]
     pub fn public_key(&self) -> DerivedPublicKey {
         DerivedPublicKey::new(self.secret_key.public_key(), self.chain_code)
     }
@@ -218,16 +228,14 @@ impl DerivedSecretKey {
             let chain_code: [u8; 32] = chain_code.try_into()?;
             retry = Some(chain_code);
 
-            let mut secret_key =
-                if let Ok(secret_key) = SecretKey::from_bytes(algorithm, secret_key) {
-                    secret_key
-                } else if algorithm.uses_slip10_retry() {
-                    continue;
-                } else if algorithm.uses_bip32_retry() {
-                    return self.bip32_derive(child + 1);
-                } else {
+            let mut secret_key = match SecretKey::from_bytes(algorithm, secret_key) {
+                Ok(secret_key) => secret_key,
+                _ if algorithm.uses_slip10_retry() => continue,
+                _ if algorithm.uses_bip32_retry() => return self.bip32_derive(child + 1),
+                _ => {
                     anyhow::bail!("failed to derive a valid secret key");
-                };
+                }
+            };
 
             if algorithm.supports_non_hardened_derivation() {
                 if let Some(tweaked_secret_key) = secret_key.tweak_add(&self.secret_key)? {
@@ -249,6 +257,10 @@ impl DerivedSecretKey {
     }
 
     /// Derives a child secret key.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the derivation is invalid or if the [`SecretKey`] doesn't support derivation
     pub fn derive(&self, child: ChildNumber) -> Result<Self> {
         match &self.secret_key {
             SecretKey::Sr25519(secret, _) => {
@@ -282,7 +294,8 @@ pub struct DerivedPublicKey {
 
 impl DerivedPublicKey {
     /// Constructs a derived public key from a public key and a chain code.
-    pub fn new(public_key: PublicKey, chain_code: [u8; 32]) -> Self {
+    #[must_use]
+    pub const fn new(public_key: PublicKey, chain_code: [u8; 32]) -> Self {
         Self {
             public_key,
             chain_code,
@@ -290,12 +303,14 @@ impl DerivedPublicKey {
     }
 
     /// The public key used to verify messages.
-    pub fn public_key(&self) -> &PublicKey {
+    #[must_use]
+    pub const fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
 
     /// The chain code used to derive child keys.
-    pub fn chain_code(&self) -> &[u8; 32] {
+    #[must_use]
+    pub const fn chain_code(&self) -> &[u8; 32] {
         &self.chain_code
     }
 
@@ -324,15 +339,16 @@ impl DerivedPublicKey {
             let public_key: [u8; 32] = public_key.try_into()?;
             let chain_code: [u8; 32] = chain_code.try_into()?;
 
-            let public_key = if let Some(public_key) = self.public_key.tweak_add(public_key)? {
-                public_key
-            } else if algorithm.uses_slip10_retry() {
-                retry = Some(chain_code);
-                continue;
-            } else if algorithm.uses_bip32_retry() {
-                return self.bip32_derive(child + 1);
-            } else {
-                anyhow::bail!("failed to derive a valid public key");
+            let public_key = match self.public_key.tweak_add(public_key)? {
+                Some(public_key) => public_key,
+                _ if algorithm.uses_slip10_retry() => {
+                    retry = Some(chain_code);
+                    continue;
+                }
+                _ if algorithm.uses_bip32_retry() => return self.bip32_derive(child + 1),
+                _ => {
+                    anyhow::bail!("failed to derive a valid public key");
+                }
             };
 
             return Ok(Self {
@@ -343,6 +359,10 @@ impl DerivedPublicKey {
     }
 
     /// Derives a child public key.
+    ///
+    /// # Errors
+    ///
+    /// Can't derive a hardened public key
     pub fn derive(&self, child: ChildNumber) -> Result<Self> {
         anyhow::ensure!(child.is_normal(), "can't derive a hardened public key");
         match &self.public_key {
@@ -478,7 +498,7 @@ mod tests {
                 "0f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4",
                 "02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29",
             );
-            let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1000000000))?;
+            let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1_000_000_000))?;
             key.assert(
                 "c783e67b921d2beb8f6b389cc646d7263b4145701dadd2161548a8b078e65e9e",
                 "471b76e389e528d6de6d816857e012c5455051cad6660850e58372a6c3e6e7c8",
@@ -524,7 +544,7 @@ mod tests {
             "5996c37fd3dd2679039b23ed6f70b506c6b56b3cb5e424681fb0fa64caf82aaa",
             "029f871f4cb9e1c97f9f4de9ccd0d4a2f2a171110c61178f84430062230833ff20",
         );
-        let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1000000000))?;
+        let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1_000_000_000))?;
         key.assert(
             "b9b7b82d326bb9cb5b5b121066feea4eb93d5241103c9e7a18aad40f1dde8059",
             "21c4f269ef0a5fd1badf47eeacebeeaa3de22eb8e5b0adcd0f27dd99d34d0119",
@@ -567,7 +587,7 @@ mod tests {
             "30d1dc7e5fc04c31219ab25a27ae00b50f6fd66622f6e9c913253d6511d1e662",
             "8abae2d66361c879b900d204ad2cc4984fa2aa344dd7ddc46007329ac76c429c",
         );
-        let key = key.bip32_derive(ChildNumber::hardened_from_u32(1000000000))?;
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(1_000_000_000))?;
         key.assert(
             "68789923a0cac2cd5a29172a475fe9e0fb14cd6adb5ad98a3fa70333e7afa230",
             "8f94d394a8e8fd6b1bc2f3f49f5c47e385281d5c17e65324b0f62483e37e8793",
@@ -612,7 +632,7 @@ mod tests {
             "5bdcd9d165e7e7f2c27c3e98edd10cc5f50a07dbd69b0e49171f531dae11890e",
             "da7b3bb8a92351f89c4a996561c8323fd534c9a6a6f713ffce316e0e95169c58",
         );
-        let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1000000000))?;
+        let key = key.bip32_derive(ChildNumber::non_hardened_from_u32(1_000_000_000))?;
         key.assert(
             "00ca9a3b00000000000000000000000000000000000000000000000000000000",
             "8800b77abcbe366d2afa4c65e1c47884e5cd0ff81824d7cb10b8a3aa2a044a0f",
@@ -642,7 +662,7 @@ mod tests {
                 "abe74a98f6c7eabee0428f53798f0ab8aa1bd37873999041703c742f15ac7e1e",
                 "02fc9e5af0ac8d9b3cecfe2a888e2117ba3d089d8585886c9c826b6b22a98d12ea",
             );
-            let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483647))?;
+            let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_647))?;
             key.assert(
                 "be17a268474a6bb9c61e1d720cf6215e2a88c5406c4aee7b38547f585c9a37d9",
                 "877c779ad9687164e9c2f4f0f4ff0340814392330693ce95a58fe18fd52e6e93",
@@ -654,7 +674,7 @@ mod tests {
                 "704addf544a06e5ee4bea37098463c23613da32020d604506da8c0518e1da4b7",
                 "03a7d1d856deb74c508e05031f9895dab54626251b3806e16b4bd12e781a7df5b9",
             );
-            let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483646))?;
+            let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_646))?;
             key.assert(
                 "637807030d55d01f9a0cb3a7839515d796bd07706386a6eddf06cc29a65a0e29",
                 "f1c7c871a54a804afe328b4c83a1c33b8e5ff48f5087273f04efa83b247d6a2d",
@@ -685,7 +705,7 @@ mod tests {
             "d7d065f63a62624888500cdb4f88b6d59c2927fee9e6d0cdff9cad555884df6e",
             "039b6df4bece7b6c81e2adfeea4bcf5c8c8a6e40ea7ffa3cf6e8494c61a1fc82cc",
         );
-        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483647))?;
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_647))?;
         key.assert(
             "f235b2bc5c04606ca9c30027a84f353acf4e4683edbd11f635d0dcc1cd106ea6",
             "96d2ec9316746a75e7793684ed01e3d51194d81a42a3276858a5b7376d4b94b9",
@@ -697,7 +717,7 @@ mod tests {
             "974f9096ea6873a915910e82b29d7c338542ccde39d2064d1cc228f371542bbc",
             "03abe0ad54c97c1d654c1852dfdc32d6d3e487e75fa16f0fd6304b9ceae4220c64",
         );
-        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483646))?;
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_646))?;
         key.assert(
             "5794e616eadaf33413aa309318a26ee0fd5163b70466de7a4512fd4b1a5c9e6a",
             "da29649bbfaff095cd43819eda9a7be74236539a29094cd8336b07ed8d4eff63",
@@ -727,7 +747,7 @@ mod tests {
             "1559eb2bbec5790b0c65d8693e4d0875b1747f4970ae8b650486ed7470845635",
             "86fab68dcb57aa196c77c5f264f215a112c22a912c10d123b0d03c3c28ef1037",
         );
-        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483647))?;
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_647))?;
         key.assert(
             "138f0b2551bcafeca6ff2aa88ba8ed0ed8de070841f0c4ef0165df8181eaad7f",
             "ea4f5bfe8694d8bb74b7b59404632fd5968b774ed545e810de9c32a4fb4192f4",
@@ -739,7 +759,7 @@ mod tests {
             "3757c7577170179c7868353ada796c839135b3d30554bbb74a4b1e4a5a58505c",
             "2e66aa57069c86cc18249aecf5cb5a9cebbfd6fadeab056254763874a9352b45",
         );
-        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2147483646))?;
+        let key = key.bip32_derive(ChildNumber::hardened_from_u32(2_147_483_646))?;
         key.assert(
             "0902fe8a29f9140480a00ef244bd183e8a13288e4412d8389d140aac1794825a",
             "5837736c89570de861ebc173b1086da4f505d4adb387c6a1b1342d5e4ac9ec72",

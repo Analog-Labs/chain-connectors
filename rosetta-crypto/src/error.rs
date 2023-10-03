@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 /// Errors that can occur while converting or parsing addresses.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum AddressError {
     #[error("Invalid address format")]
     InvalidAddressFormat,

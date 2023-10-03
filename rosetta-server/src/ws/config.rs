@@ -7,7 +7,7 @@ use jsonrpsee::{
 /// Ten megabytes.
 pub const TEN_MB_SIZE_BYTES: usize = 10 * 1024 * 1024;
 
-/// Supported WebSocket transport clients.
+/// Supported websocket transport clients.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WsTransportClient {
     /// Auto will try to use Socketto first, if it fails, it will fallback to Tungstenite.
@@ -168,7 +168,7 @@ impl Default for RpcClientConfig {
 
 impl From<&RpcClientConfig> for ClientBuilder {
     fn from(config: &RpcClientConfig) -> Self {
-        let mut builder = ClientBuilder::new()
+        let mut builder = Self::new()
             .request_timeout(config.rpc_request_timeout)
             .max_concurrent_requests(config.rpc_max_concurrent_requests)
             .max_buffer_capacity_per_subscription(
@@ -185,8 +185,9 @@ impl From<&RpcClientConfig> for ClientBuilder {
 
 impl From<&RpcClientConfig> for WsTransportClientBuilder {
     fn from(config: &RpcClientConfig) -> Self {
-        let message_size = config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES) as u32;
-        let mut builder = WsTransportClientBuilder::default()
+        let message_size =
+            u32::try_from(config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES)).unwrap_or(u32::MAX);
+        let mut builder = Self::default()
             .max_request_size(message_size)
             .max_response_size(message_size)
             .max_redirections(5);

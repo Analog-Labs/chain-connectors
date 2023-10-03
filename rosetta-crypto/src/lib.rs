@@ -33,8 +33,9 @@ pub enum Algorithm {
 
 impl Algorithm {
     /// Returns true if the signer's public key is recoverable from the signature.
-    pub fn is_recoverable(&self) -> bool {
-        matches!(self, Algorithm::EcdsaRecoverableSecp256k1)
+    #[must_use]
+    pub const fn is_recoverable(&self) -> bool {
+        matches!(self, Self::EcdsaRecoverableSecp256k1)
     }
 }
 
@@ -54,39 +55,44 @@ pub enum SecretKey {
 
 impl Clone for SecretKey {
     fn clone(&self) -> Self {
+        #[allow(clippy::unwrap_used)]
         Self::from_bytes(self.algorithm(), &self.to_bytes()).unwrap()
     }
 }
 
 impl SecretKey {
     /// Returns the signing algorithm.
-    pub fn algorithm(&self) -> Algorithm {
+    #[must_use]
+    pub const fn algorithm(&self) -> Algorithm {
         match self {
-            SecretKey::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
-            SecretKey::EcdsaRecoverableSecp256k1(_) => Algorithm::EcdsaRecoverableSecp256k1,
-            SecretKey::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
-            SecretKey::Ed25519(_) => Algorithm::Ed25519,
-            SecretKey::Sr25519(_, _) => Algorithm::Sr25519,
+            Self::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
+            Self::EcdsaRecoverableSecp256k1(_) => Algorithm::EcdsaRecoverableSecp256k1,
+            Self::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
+            Self::Ed25519(_) => Algorithm::Ed25519,
+            Self::Sr25519(_, _) => Algorithm::Sr25519,
         }
     }
 
     /// Creates a secret key from a byte sequence for a given signing algorithm.
+    ///
+    /// # Errors
+    /// Will return `Err` if `bytes` has the wrong length
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => {
-                SecretKey::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+                Self::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
             }
-            Algorithm::EcdsaRecoverableSecp256k1 => SecretKey::EcdsaRecoverableSecp256k1(
-                ecdsa::SigningKey::from_bytes(bytes.try_into()?)?,
-            ),
+            Algorithm::EcdsaRecoverableSecp256k1 => {
+                Self::EcdsaRecoverableSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+            }
             Algorithm::EcdsaSecp256r1 => {
-                SecretKey::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+                Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
             }
             Algorithm::Ed25519 => {
                 let secret = ed25519_dalek::SecretKey::from_bytes(bytes)?;
                 let public = ed25519_dalek::PublicKey::from(&secret);
                 let keypair = ed25519_dalek::Keypair { secret, public };
-                SecretKey::Ed25519(keypair)
+                Self::Ed25519(keypair)
             }
             Algorithm::Sr25519 => {
                 if bytes.len() == 32 {
@@ -94,52 +100,58 @@ impl SecretKey {
                         .map_err(|err| anyhow::anyhow!("{}", err))?;
                     let secret =
                         minisecret.expand_to_keypair(schnorrkel::MiniSecretKey::ED25519_MODE);
-                    SecretKey::Sr25519(secret, Some(minisecret))
+                    Self::Sr25519(secret, Some(minisecret))
                 } else {
                     let secret = schnorrkel::SecretKey::from_bytes(bytes)
                         .map_err(|err| anyhow::anyhow!("{}", err))?;
-                    SecretKey::Sr25519(secret.to_keypair(), None)
+                    Self::Sr25519(secret.to_keypair(), None)
                 }
             }
         })
     }
 
     /// Returns a byte sequence representing the secret key.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            SecretKey::EcdsaSecp256k1(secret) => secret.to_bytes().to_vec(),
-            SecretKey::EcdsaRecoverableSecp256k1(secret) => secret.to_bytes().to_vec(),
-            SecretKey::EcdsaSecp256r1(secret) => secret.to_bytes().to_vec(),
-            SecretKey::Ed25519(secret) => secret.secret.to_bytes().to_vec(),
-            SecretKey::Sr25519(_, Some(minisecret)) => minisecret.as_bytes().to_vec(),
-            SecretKey::Sr25519(secret, None) => secret.secret.to_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(secret) | Self::EcdsaSecp256k1(secret) => {
+                secret.to_bytes().to_vec()
+            }
+            Self::EcdsaSecp256r1(secret) => secret.to_bytes().to_vec(),
+            Self::Ed25519(secret) => secret.secret.to_bytes().to_vec(),
+            Self::Sr25519(_, Some(minisecret)) => minisecret.as_bytes().to_vec(),
+            Self::Sr25519(secret, None) => secret.secret.to_bytes().to_vec(),
         }
     }
 
     /// Returns the public key used for verifying signatures.
+    #[must_use]
     pub fn public_key(&self) -> PublicKey {
         match self {
-            SecretKey::EcdsaSecp256k1(secret) => PublicKey::EcdsaSecp256k1(*secret.verifying_key()),
-            SecretKey::EcdsaRecoverableSecp256k1(secret) => {
+            Self::EcdsaSecp256k1(secret) => PublicKey::EcdsaSecp256k1(*secret.verifying_key()),
+            Self::EcdsaRecoverableSecp256k1(secret) => {
                 PublicKey::EcdsaRecoverableSecp256k1(*secret.verifying_key())
             }
-            SecretKey::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(*secret.verifying_key()),
-            SecretKey::Ed25519(secret) => PublicKey::Ed25519(secret.public),
-            SecretKey::Sr25519(secret, _) => PublicKey::Sr25519(secret.public),
+            Self::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(*secret.verifying_key()),
+            Self::Ed25519(secret) => PublicKey::Ed25519(secret.public),
+            Self::Sr25519(secret, _) => PublicKey::Sr25519(secret.public),
         }
     }
 
     /// Signs a message and returns it's signature.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)]
     pub fn sign(&self, msg: &[u8], context_param: &str) -> Signature {
         match self {
-            SecretKey::EcdsaSecp256k1(secret) => Signature::EcdsaSecp256k1(secret.sign(msg)),
-            SecretKey::EcdsaRecoverableSecp256k1(_) => {
+            Self::EcdsaSecp256k1(secret) => Signature::EcdsaSecp256k1(secret.sign(msg)),
+            Self::EcdsaRecoverableSecp256k1(_) => {
                 let digest = sha2::Sha256::digest(msg);
-                self.sign_prehashed(&digest).unwrap()
+                #[allow(clippy::expect_used)]
+                self.sign_prehashed(&digest).expect("supports prehash; qed")
             }
-            SecretKey::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign(msg)),
-            SecretKey::Ed25519(secret) => Signature::Ed25519(secret.sign(msg)),
-            SecretKey::Sr25519(secret, _) => {
+            Self::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign(msg)),
+            Self::Ed25519(secret) => Signature::Ed25519(secret.sign(msg)),
+            Self::Sr25519(secret, _) => {
                 // need a signing context here for substrate
                 let context = schnorrkel::signing_context(context_param.as_bytes());
                 Signature::Sr25519(secret.sign(context.bytes(msg)))
@@ -148,22 +160,22 @@ impl SecretKey {
     }
 
     /// Signs a prehashed message and returns it's signature.
+    ///
+    /// # Errors
+    ///
+    /// Not supported by [`SecretKey::Ed25519`] and [`SecretKey::Sr25519`]
     pub fn sign_prehashed(&self, hash: &[u8]) -> Result<Signature> {
         Ok(match self {
-            SecretKey::EcdsaSecp256k1(secret) => {
-                Signature::EcdsaSecp256k1(secret.sign_prehash(hash)?)
-            }
-            SecretKey::EcdsaRecoverableSecp256k1(secret) => {
+            Self::EcdsaSecp256k1(secret) => Signature::EcdsaSecp256k1(secret.sign_prehash(hash)?),
+            Self::EcdsaRecoverableSecp256k1(secret) => {
                 let (sig, recid) = secret
                     .as_nonzero_scalar()
                     .try_sign_prehashed_rfc6979::<sha2::Sha256>(hash.try_into()?, b"")?;
                 Signature::EcdsaRecoverableSecp256k1(sig, recid.context("no recovery id")?)
             }
-            SecretKey::EcdsaSecp256r1(secret) => {
-                Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?)
-            }
-            SecretKey::Ed25519(_) => anyhow::bail!("unimplemented"),
-            SecretKey::Sr25519(_, _) => {
+            Self::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?),
+            Self::Ed25519(_) => anyhow::bail!("unimplemented"),
+            Self::Sr25519(_, _) => {
                 anyhow::bail!("unsupported")
             }
         })
@@ -187,78 +199,92 @@ pub enum PublicKey {
 
 impl PublicKey {
     /// Returns the signing algorithm.
-    pub fn algorithm(&self) -> Algorithm {
+    #[must_use]
+    pub const fn algorithm(&self) -> Algorithm {
         match self {
-            PublicKey::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
-            PublicKey::EcdsaRecoverableSecp256k1(_) => Algorithm::EcdsaRecoverableSecp256k1,
-            PublicKey::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
-            PublicKey::Ed25519(_) => Algorithm::Ed25519,
-            PublicKey::Sr25519(_) => Algorithm::Sr25519,
+            Self::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
+            Self::EcdsaRecoverableSecp256k1(_) => Algorithm::EcdsaRecoverableSecp256k1,
+            Self::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
+            Self::Ed25519(_) => Algorithm::Ed25519,
+            Self::Sr25519(_) => Algorithm::Sr25519,
         }
     }
 
     /// Creates a public key from a byte sequence for a given signing algorithm.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `bytes` is not a valid public key for `algoritm`.
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => {
-                PublicKey::EcdsaSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+                Self::EcdsaSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             }
             Algorithm::EcdsaRecoverableSecp256k1 => {
-                PublicKey::EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+                Self::EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             }
             Algorithm::EcdsaSecp256r1 => {
-                PublicKey::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+                Self::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             }
-            Algorithm::Ed25519 => PublicKey::Ed25519(ed25519_dalek::PublicKey::from_bytes(bytes)?),
+            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::PublicKey::from_bytes(bytes)?),
             Algorithm::Sr25519 => {
                 let public = schnorrkel::PublicKey::from_bytes(bytes)
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
-                PublicKey::Sr25519(public)
+                Self::Sr25519(public)
             }
         })
     }
 
     /// Returns a byte sequence representing the public key.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            PublicKey::EcdsaSecp256k1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
-            PublicKey::EcdsaRecoverableSecp256k1(public) => {
+            Self::EcdsaSecp256k1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(public) => {
                 public.to_encoded_point(true).as_bytes().to_vec()
             }
-            PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
-            PublicKey::Ed25519(public) => public.to_bytes().to_vec(),
-            PublicKey::Sr25519(public) => public.to_bytes().to_vec(),
+            Self::EcdsaSecp256r1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
+            Self::Ed25519(public) => public.to_bytes().to_vec(),
+            Self::Sr25519(public) => public.to_bytes().to_vec(),
         }
     }
 
     /// Returns an uncompressed byte sequence representing the public key.
+    #[must_use]
     pub fn to_uncompressed_bytes(&self) -> Vec<u8> {
         match self {
-            PublicKey::EcdsaSecp256k1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
-            PublicKey::EcdsaRecoverableSecp256k1(public) => {
+            Self::EcdsaSecp256k1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(public) => {
                 public.to_encoded_point(false).as_bytes().to_vec()
             }
-            PublicKey::EcdsaSecp256r1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
-            PublicKey::Ed25519(public) => public.to_bytes().to_vec(),
-            PublicKey::Sr25519(public) => public.to_bytes().to_vec(),
+            Self::EcdsaSecp256r1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
+            Self::Ed25519(public) => public.to_bytes().to_vec(),
+            Self::Sr25519(public) => public.to_bytes().to_vec(),
         }
     }
 
     /// Verifies a signature.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when:
+    /// - Signature is invalid
+    /// - The `sig` type doesn't match `self` type.
+    ///
     pub fn verify(&self, msg: &[u8], sig: &Signature) -> Result<()> {
         match (self, &sig) {
-            (PublicKey::EcdsaSecp256k1(public), Signature::EcdsaSecp256k1(sig)) => {
-                public.verify(msg, sig)?
+            (Self::EcdsaSecp256k1(public), Signature::EcdsaSecp256k1(sig)) => {
+                public.verify(msg, sig)?;
             }
             (
-                PublicKey::EcdsaRecoverableSecp256k1(public),
+                Self::EcdsaRecoverableSecp256k1(public),
                 Signature::EcdsaRecoverableSecp256k1(sig, _),
             ) => public.verify(msg, sig)?,
-            (PublicKey::EcdsaSecp256r1(public), Signature::EcdsaSecp256r1(sig)) => {
-                public.verify(msg, sig)?
+            (Self::EcdsaSecp256r1(public), Signature::EcdsaSecp256r1(sig)) => {
+                public.verify(msg, sig)?;
             }
-            (PublicKey::Ed25519(public), Signature::Ed25519(sig)) => public.verify(msg, sig)?,
-            (PublicKey::Sr25519(public), Signature::Sr25519(sig)) => {
+            (Self::Ed25519(public), Signature::Ed25519(sig)) => public.verify(msg, sig)?,
+            (Self::Sr25519(public), Signature::Sr25519(sig)) => {
                 public
                     .verify_simple(&[], msg, sig)
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
@@ -286,57 +312,63 @@ pub enum Signature {
 
 impl Signature {
     /// Returns the signing algorithm.
-    pub fn algorithm(&self) -> Algorithm {
+    #[must_use]
+    pub const fn algorithm(&self) -> Algorithm {
         match self {
-            Signature::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
-            Signature::EcdsaRecoverableSecp256k1(_, _) => Algorithm::EcdsaRecoverableSecp256k1,
-            Signature::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
-            Signature::Ed25519(_) => Algorithm::Ed25519,
-            Signature::Sr25519(_) => Algorithm::Sr25519,
+            Self::EcdsaSecp256k1(_) => Algorithm::EcdsaSecp256k1,
+            Self::EcdsaRecoverableSecp256k1(_, _) => Algorithm::EcdsaRecoverableSecp256k1,
+            Self::EcdsaSecp256r1(_) => Algorithm::EcdsaSecp256r1,
+            Self::Ed25519(_) => Algorithm::Ed25519,
+            Self::Sr25519(_) => Algorithm::Sr25519,
         }
     }
 
     /// Creates a signature from a byte sequence for a given signing algorithm.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `bytes` doesn't represent a valid signature for `algorithm`
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
-            Algorithm::EcdsaSecp256k1 => {
-                Signature::EcdsaSecp256k1(ecdsa::Signature::try_from(bytes)?)
-            }
-            Algorithm::EcdsaRecoverableSecp256k1 => Signature::EcdsaRecoverableSecp256k1(
+            Algorithm::EcdsaSecp256k1 => Self::EcdsaSecp256k1(ecdsa::Signature::try_from(bytes)?),
+            Algorithm::EcdsaRecoverableSecp256k1 => Self::EcdsaRecoverableSecp256k1(
                 ecdsa::Signature::try_from(&bytes[..64])?,
                 RecoveryId::from_byte(bytes[64]).context("invalid signature")?,
             ),
-            Algorithm::EcdsaSecp256r1 => {
-                Signature::EcdsaSecp256r1(ecdsa::Signature::try_from(bytes)?)
-            }
-            Algorithm::Ed25519 => Signature::Ed25519(ed25519_dalek::Signature::from_bytes(bytes)?),
+            Algorithm::EcdsaSecp256r1 => Self::EcdsaSecp256r1(ecdsa::Signature::try_from(bytes)?),
+            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::Signature::from_bytes(bytes)?),
             Algorithm::Sr25519 => {
                 let sig = schnorrkel::Signature::from_bytes(bytes)
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
-                Signature::Sr25519(sig)
+                Self::Sr25519(sig)
             }
         })
     }
 
     /// Returns a byte sequence representing the signature.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            Signature::EcdsaSecp256k1(sig) => sig.to_vec(),
-            Signature::EcdsaRecoverableSecp256k1(sig, recovery_id) => {
+            Self::EcdsaSecp256k1(sig) => sig.to_vec(),
+            Self::EcdsaRecoverableSecp256k1(sig, recovery_id) => {
                 let mut bytes = Vec::with_capacity(65);
                 bytes.extend(sig.to_bytes());
                 bytes.push(recovery_id.to_byte());
                 bytes
             }
-            Signature::EcdsaSecp256r1(sig) => sig.to_vec(),
-            Signature::Ed25519(sig) => sig.to_bytes().to_vec(),
-            Signature::Sr25519(sig) => sig.to_bytes().to_vec(),
+            Self::EcdsaSecp256r1(sig) => sig.to_vec(),
+            Self::Ed25519(sig) => sig.to_bytes().to_vec(),
+            Self::Sr25519(sig) => sig.to_bytes().to_vec(),
         }
     }
 
     /// Returns the recovered public key if supported.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if `msg` is the public key cannot be recovered
     pub fn recover(&self, msg: &[u8]) -> Result<Option<PublicKey>> {
-        if let Signature::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
+        if let Self::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
             let recovered_key =
                 ecdsa::VerifyingKey::recover_from_msg(msg, signature, *recovery_id)?;
             Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))
@@ -346,8 +378,12 @@ impl Signature {
     }
 
     /// Returns the recovered public key if supported.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the public key cannot be recovered
     pub fn recover_prehashed(&self, hash: &[u8]) -> Result<Option<PublicKey>> {
-        if let Signature::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
+        if let Self::EcdsaRecoverableSecp256k1(signature, recovery_id) = self {
             let recovered_key =
                 ecdsa::VerifyingKey::recover_from_prehash(hash, signature, *recovery_id)?;
             Ok(Some(PublicKey::EcdsaRecoverableSecp256k1(recovered_key)))

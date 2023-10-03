@@ -14,7 +14,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Reconnect trait.
-/// This trait exposes callbacks which are called when the server returns a RestartNeeded error.
+/// This trait exposes callbacks which are called when the server returns a [`Error::RestartNeeded`] error.
 pub trait Reconnect: 'static + Sized + Send + Sync {
     type Client: SubscriptionClientT + 'static + Send + Sync;
     type ClientRef: AsRef<Self::Client> + Send + Sync;
@@ -39,9 +39,9 @@ pub trait Reconnect: 'static + Sized + Send + Sync {
     /// Here is the right place to block the requests until the client reconnects.
     fn ready(&self) -> Self::ReadyFuture<'_>;
 
-    /// Callback called when the client returns a RestartNeeded error.
+    /// Callback called when the client returns a [`Error::RestartNeeded`] error.
     /// # Params
-    /// - `client` - The client which returned the RestartNeeded error.
+    /// - `client` - The client which returned the [`Error::RestartNeeded`] error.
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_>;
 
     /// Force reconnect and return a new client.

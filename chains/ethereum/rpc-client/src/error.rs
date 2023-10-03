@@ -36,7 +36,7 @@ impl From<JsonRpseeError> for EthError {
     fn from(error: JsonRpseeError) -> Self {
         match error {
             JsonRpseeError::Call(call) => {
-                let code = call.code() as i64;
+                let code = i64::from(call.code());
                 let data = call
                     .data()
                     .and_then(|raw_value| serde_json::value::to_value(raw_value).ok());
