@@ -4873,7 +4873,6 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "futures",
- "futures-util",
  "hex 0.4.3",
  "log",
  "parity-scale-codec",
