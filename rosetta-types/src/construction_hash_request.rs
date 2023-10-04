@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionHashRequest` : `ConstructionHashRequest` is the input to the `/construction/hash` endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionHashRequest {
     #[serde(rename = "network_identifier")]
@@ -20,7 +19,8 @@ pub struct ConstructionHashRequest {
 
 impl ConstructionHashRequest {
     /// `ConstructionHashRequest` is the input to the `/construction/hash` endpoint.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         signed_transaction: String,
     ) -> Self {

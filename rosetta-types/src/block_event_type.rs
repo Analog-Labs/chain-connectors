@@ -9,8 +9,6 @@
  */
 
 /// `BlockEventType` : `BlockEventType` determines if a `BlockEvent` represents the addition or removal of a block.
-
-/// `BlockEventType` determines if a `BlockEvent` represents the addition or removal of a block.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum BlockEventType {
     #[serde(rename = "block_added")]

@@ -12,6 +12,10 @@ pub mod metadata {
     pub mod dev {}
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     // All available networks are listed here:
     // https://github.com/AstarNetwork/Astar/blob/v5.15.0/bin/collator/src/command.rs#L88-L100

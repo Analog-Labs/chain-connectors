@@ -9,7 +9,6 @@
  */
 
 /// Operator : Operator is used by query-related endpoints to determine how to apply conditions.  If this field is not populated, the default `and` value will be used.
-
 /// Operator is used by query-related endpoints to determine how to apply conditions.  If this field is not populated, the default `and` value will be used.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub enum Operator {

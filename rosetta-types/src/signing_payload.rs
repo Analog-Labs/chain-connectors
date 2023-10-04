@@ -9,7 +9,6 @@
  */
 
 /// `SigningPayload` : `SigningPayload` is signed by the client with the keypair associated with an `AccountIdentifier` using the specified `SignatureType`.  `SignatureType` can be optionally populated if there is a restriction on the signature scheme that can be used to sign the payload.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SigningPayload {
     /// [DEPRECATED by `account_identifier` in `v1.4.4`] The network-specific address of the account that should sign the payload.
@@ -26,7 +25,8 @@ pub struct SigningPayload {
 
 impl SigningPayload {
     /// `SigningPayload` is signed by the client with the keypair associated with an `AccountIdentifier` using the specified `SignatureType`.  `SignatureType` can be optionally populated if there is a restriction on the signature scheme that can be used to sign the payload.
-    #[must_use] pub fn new(hex_bytes: String) -> Self {
+    #[must_use]
+    pub const fn new(hex_bytes: String) -> Self {
         Self {
             address: None,
             account_identifier: None,

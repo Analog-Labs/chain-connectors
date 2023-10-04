@@ -9,7 +9,6 @@
  */
 
 /// `AccountCoinsResponse` : `AccountCoinsResponse` is returned on the /account/coins endpoint and includes all unspent Coins owned by an `AccountIdentifier`.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountCoinsResponse {
     #[serde(rename = "block_identifier")]
@@ -24,10 +23,8 @@ pub struct AccountCoinsResponse {
 
 impl AccountCoinsResponse {
     /// `AccountCoinsResponse` is returned on the /account/coins endpoint and includes all unspent Coins owned by an `AccountIdentifier`.
-    #[must_use] pub fn new(
-        block_identifier: crate::BlockIdentifier,
-        coins: Vec<crate::Coin>,
-    ) -> Self {
+    #[must_use]
+    pub const fn new(block_identifier: crate::BlockIdentifier, coins: Vec<crate::Coin>) -> Self {
         Self {
             block_identifier,
             coins,

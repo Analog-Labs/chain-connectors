@@ -8,6 +8,7 @@ use rosetta_core::{
     BlockchainConfig,
 };
 use serde_json::{json, Value};
+use subxt::blocks::ExtrinsicEvents;
 use subxt::{
     blocks::ExtrinsicDetails,
     config::Hasher,
@@ -17,11 +18,23 @@ use subxt::{
     Config, OnlineClient,
 };
 
-pub async fn get_transaction<T: Config<Hash = H256>>(
-    config: &BlockchainConfig,
+pub fn get_transaction_identifier<T: Config<Hash = H256>>(
     extrinsic: &ExtrinsicDetails<T, OnlineClient<T>>,
+) -> TransactionIdentifier {
+    TransactionIdentifier {
+        hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())),
+    }
+}
+
+pub fn get_transaction<T: Config<Hash = H256> + Send>(
+    config: &BlockchainConfig,
+    transaction_identifier: TransactionIdentifier,
+    events: &ExtrinsicEvents<T>,
 ) -> Result<Transaction> {
-    let events = extrinsic.events().await?;
+    // let transaction_identifier = TransactionIdentifier {
+    //     hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())),
+    // };
+    // let events = extrinsic.events().await?;
     let mut operations = vec![];
     for (event_index, event_data) in events.iter().enumerate() {
         let event = event_data?;
@@ -49,7 +62,7 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
 
         let operation = Operation {
             operation_identifier: OperationIdentifier {
-                index: event_index as i64,
+                index: i64::try_from(event_index).context("event_index overflow")?,
                 network_index: None,
             },
             related_operations: None,
@@ -65,7 +78,7 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
         if let (Some(to), Some(amount)) = (event_parsed_data.to, event_parsed_data.amount) {
             operations.push(Operation {
                 operation_identifier: OperationIdentifier {
-                    index: event_index as i64,
+                    index: i64::try_from(event_index).context("event_index overflow")?,
                     network_index: None,
                 },
                 related_operations: None,
@@ -87,9 +100,7 @@ pub async fn get_transaction<T: Config<Hash = H256>>(
         }
     }
     Ok(Transaction {
-        transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())),
-        },
+        transaction_identifier,
         operations,
         related_transactions: None,
         metadata: None,
@@ -107,32 +118,22 @@ fn get_operation_data<T: Config<Hash = H256>>(
 
     let event_fields = event.field_values()?;
     let parsed_data = match event_fields {
-        subxt::ext::scale_value::Composite::Named(value) => {
-            let from_data = value
+        Composite::Named(value) => {
+            let mut from_data = value
                 .iter()
-                .filter(|(k, _)| k == "from" || k == "who" || k == "account")
-                .collect::<Vec<_>>();
+                .filter(|(k, _)| k == "from" || k == "who" || k == "account");
 
-            let sender_address: Option<String> = if !from_data.is_empty() {
-                let data = from_data.into_iter().next().context("invalid operation")?;
-
+            let sender_address: Option<String> = if let Some(data) = from_data.next() {
                 let address = generate_address(config, &data.1.value)?;
                 Some(address)
             } else {
                 None
             };
 
-            let amount_data = value
+            let amount: Option<String> = if let Some(value) = value
                 .iter()
-                .filter(|(k, _)| k == "amount" || k == "actual_fee")
-                .collect::<Vec<_>>();
-
-            let amount: Option<String> = if !amount_data.is_empty() {
-                let value = amount_data
-                    .into_iter()
-                    .next()
-                    .context("invalid operation")?;
-
+                .find(|(k, _)| k == "amount" || k == "actual_fee")
+            {
                 match &value.1.value {
                     ValueDef::Primitive(Primitive::U128(amount)) => Some(amount.to_string()),
                     _ => {
@@ -143,20 +144,17 @@ fn get_operation_data<T: Config<Hash = H256>>(
                 None
             };
 
-            let to_data = value.iter().filter(|(k, _)| k == "to").collect::<Vec<_>>();
-
-            let to_address: Option<String> = if !to_data.is_empty() {
-                let data = to_data.into_iter().next().context("invalid operation")?;
-
-                let address = generate_address(config, &data.1.value)?;
-                Some(address)
-            } else {
-                None
-            };
+            let to_address: Option<String> =
+                if let Some(data) = value.iter().find(|(k, _)| k == "to") {
+                    let address = generate_address(config, &data.1.value)?;
+                    Some(address)
+                } else {
+                    None
+                };
 
             (sender_address, amount, to_address)
         }
-        _ => {
+        Composite::Unnamed(_) => {
             anyhow::bail!("invalid operation");
         }
     };
@@ -186,7 +184,11 @@ fn generate_address(config: &BlockchainConfig, val: &ValueDef<TypeId>) -> Result
                         for data in data.values() {
                             match data.value {
                                 ValueDef::Primitive(Primitive::U128(val)) => {
-                                    addr_array.push(val as u8);
+                                    let Ok(val) = u8::try_from(val) else {
+                                        tracing::error!("overflow: {val} > 255");
+                                        anyhow::bail!("overflow: {val} > 255");
+                                    };
+                                    addr_array.push(val);
                                 }
                                 _ => anyhow::bail!("invalid operation"),
                             }

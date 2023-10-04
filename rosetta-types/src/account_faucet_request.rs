@@ -13,7 +13,8 @@ pub struct AccountFaucetRequest {
 
 impl AccountFaucetRequest {
     /// `AccountCoinsRequest` is utilized to make a request on the /account/coins endpoint.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: NetworkIdentifier,
         account_identifier: AccountIdentifier,
         faucet_parameter: u128,

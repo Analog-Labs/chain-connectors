@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionMetadataRequest` : A `ConstructionMetadataRequest` is utilized to get information required to construct a transaction.  The Options object used to specify which metadata to return is left purposely unstructured to allow flexibility for implementers. Options is not required in the case that there is network-wide metadata of interest.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionMetadataRequest {
     #[serde(rename = "network_identifier")]
@@ -24,7 +23,8 @@ pub struct ConstructionMetadataRequest {
 
 impl ConstructionMetadataRequest {
     /// A `ConstructionMetadataRequest` is utilized to get information required to construct a transaction.  The Options object used to specify which metadata to return is left purposely unstructured to allow flexibility for implementers. Options is not required in the case that there is network-wide metadata of interest.
-    #[must_use] pub fn new(network_identifier: crate::NetworkIdentifier) -> Self {
+    #[must_use]
+    pub const fn new(network_identifier: crate::NetworkIdentifier) -> Self {
         Self {
             network_identifier,
             options: None,

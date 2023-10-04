@@ -34,6 +34,11 @@ pub struct NodeUri<'a> {
 }
 
 impl<'a> NodeUri<'a> {
+    /// Parses a URI reference from a byte sequence into a Uri<&str>.
+    /// This function validates the input strictly except that UTF-8 validation is not performed on a percent-encoded registered name (see Section 3.2.2, RFC 3986 ). Care should be taken when dealing with such cases.
+    /// # Errors
+    ///
+    /// The provided url must contain [`fluent_uri::Scheme`], [`fluent_uri::Host`] and port, otherwise returns `Err`
     pub fn parse(s: &'a str) -> Result<Self, NodeUriError> {
         let uri = Uri::parse(s).map_err(|_| NodeUriError::InvalidUri)?;
 
@@ -68,7 +73,8 @@ impl<'a> NodeUri<'a> {
         })
     }
 
-    #[must_use] pub fn with_host<'b, 'c: 'b>(&'b self, host: &'c str) -> NodeUri<'b> {
+    #[must_use]
+    pub const fn with_host<'b, 'c: 'b>(&'b self, host: &'c str) -> NodeUri<'b> {
         NodeUri {
             scheme: self.scheme,
             userinfo: self.userinfo,
@@ -80,7 +86,8 @@ impl<'a> NodeUri<'a> {
         }
     }
 
-    #[must_use] pub fn with_scheme<'b, 'c: 'b>(&'b self, scheme: &'c str) -> NodeUri<'b> {
+    #[must_use]
+    pub const fn with_scheme<'b, 'c: 'b>(&'b self, scheme: &'c str) -> NodeUri<'b> {
         NodeUri {
             scheme,
             userinfo: self.userinfo,

@@ -6,6 +6,10 @@ use rosetta_core::{BlockchainConfig, NodeUri};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+/// Retrieve the [`BlockchainConfig`] from the provided polygon `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
 pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
@@ -17,6 +21,10 @@ pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
     Ok(evm_config("polygon", network, "MATIC", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     let (network, symbol, bip44_id, is_dev) = match network {
         "dev" => ("dev", "ETH", 1, true),
@@ -54,7 +62,10 @@ fn evm_config(
         currency_unit: "wei",
         currency_symbol: symbol,
         currency_decimals: 18,
-        node_uri: NodeUri::parse("ws://127.0.0.1:8545/ws").expect("uri is valid; qed"),
+        node_uri: {
+            #[allow(clippy::expect_used)]
+            NodeUri::parse("ws://127.0.0.1:8545/ws").expect("uri is valid; qed")
+        },
         node_image: "ethereum/client-go:v1.12.2",
         node_command: Arc::new(|network, port| {
             let mut params = if network == "dev" {

@@ -19,12 +19,19 @@ use serde_json::json;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
 
-pub async fn get_transaction<P: JsonRpcClient, T>(
+pub async fn get_transaction<P: JsonRpcClient, T: Send>(
     client: &Provider<P>,
     config: &BlockchainConfig,
-    block: &Block<T>,
+    block: Block<T>,
     tx: &Transaction,
 ) -> Result<rosetta_types::Transaction> {
+    let Some(block_hash) = block.hash else {
+        anyhow::bail!("Block must have a hash");
+    };
+    let Some(block_number) = block.number else {
+        anyhow::bail!("Block must have a number");
+    };
+
     let tx_receipt = client
         .get_transaction_receipt(tx.hash)
         .await?
@@ -33,7 +40,7 @@ pub async fn get_transaction<P: JsonRpcClient, T>(
     if tx_receipt
         .block_hash
         .context("Block hash not found in tx receipt")?
-        != block.hash.unwrap()
+        != block_hash
     {
         bail!("Transaction receipt block hash does not match block hash");
     }
@@ -41,16 +48,20 @@ pub async fn get_transaction<P: JsonRpcClient, T>(
     let currency = config.currency();
 
     let mut operations = vec![];
-    let fee_ops = get_fee_operations(block, tx, &tx_receipt, &currency)?;
+    let fee_ops = get_fee_operations(&block, tx, &tx_receipt, &currency)?;
     operations.extend(fee_ops);
 
-    let tx_trace = if block.number.unwrap().as_u64() != 0 {
+    let tx_trace = if block_number.is_zero() {
+        None
+    } else {
         let trace = get_transaction_trace(&tx.hash, client).await?;
-        let trace_ops = get_trace_operations(trace.clone(), operations.len() as i64, &currency)?;
+        let trace_ops = get_trace_operations(
+            trace.clone(),
+            i64::try_from(operations.len()).context("operations overflow")?,
+            &currency,
+        )?;
         operations.extend(trace_ops);
         Some(trace)
-    } else {
-        None
     };
 
     Ok(rosetta_types::Transaction {
@@ -184,6 +195,7 @@ async fn get_transaction_trace<P: JsonRpcClient>(
     Ok(client.request("debug_traceTransaction", params).await?)
 }
 
+#[allow(clippy::too_many_lines)]
 fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Result<Vec<Operation>> {
     let mut traces = VecDeque::new();
     traces.push_back(trace);
@@ -210,22 +222,15 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
     }
 
     for trace in traces {
-        let mut metadata: HashMap<String, String> = HashMap::new();
-        let mut operation_status = SUCCESS_STATUS;
-        if trace.revert {
-            operation_status = FAILURE_STATUS;
-            metadata.insert("error".into(), trace.error_message);
-        }
+        let operation_status = if trace.revert {
+            FAILURE_STATUS
+        } else {
+            SUCCESS_STATUS
+        };
 
-        let mut zero_value = false;
-        if trace.value == U256::from(0) {
-            zero_value = true;
-        }
+        let zero_value = trace.value.is_zero();
 
-        let mut should_add = true;
-        if zero_value && trace.trace_type == CALL_OP_TYPE {
-            should_add = false;
-        }
+        let should_add = !(zero_value && trace.trace_type == CALL_OP_TYPE);
 
         let from = to_checksum(&trace.from, None);
         let to = to_checksum(&trace.to, None);
@@ -233,7 +238,8 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
         if should_add {
             let mut from_operation = Operation {
                 operation_identifier: OperationIdentifier {
-                    index: op_len + operations.len() as i64,
+                    index: op_len
+                        + i64::try_from(operations.len()).context("operation.index overflow")?,
                     network_index: None,
                 },
                 related_operations: None,
@@ -367,7 +373,7 @@ pub async fn block_reward_transaction<P: JsonRpcClient>(
     let block_number = block.number.context("missing block number")?.as_u64();
     let block_hash = block.hash.context("missing block hash")?;
     let block_id = BlockId::Hash(block_hash);
-    let miner = block.author.unwrap();
+    let miner = block.author.context("missing block author")?;
 
     let mut uncles = vec![];
     for (i, _) in block.uncles.iter().enumerate() {
@@ -379,13 +385,13 @@ pub async fn block_reward_transaction<P: JsonRpcClient>(
     }
 
     let chain_config = TESTNET_CHAIN_CONFIG;
-    let mut mining_reward = FRONTIER_BLOCK_REWARD;
-    if chain_config.byzantium_block <= block_number {
-        mining_reward = BYZANTIUM_BLOCK_REWARD;
-    }
-    if chain_config.constantinople_block <= block_number {
-        mining_reward = CONSTANTINOPLE_BLOCK_REWARD;
-    }
+    let mut mining_reward = if chain_config.constantinople_block <= block_number {
+        CONSTANTINOPLE_BLOCK_REWARD
+    } else if chain_config.byzantium_block <= block_number {
+        BYZANTIUM_BLOCK_REWARD
+    } else {
+        FRONTIER_BLOCK_REWARD
+    };
     if !uncles.is_empty() {
         mining_reward += (mining_reward / UNCLE_REWARD_MULTIPLIER) * mining_reward;
     }
@@ -422,7 +428,7 @@ pub async fn block_reward_transaction<P: JsonRpcClient>(
 
         let operation = Operation {
             operation_identifier: OperationIdentifier {
-                index: operations.len() as i64,
+                index: i64::try_from(operations.len()).context("operation.index overflow")?,
                 network_index: None,
             },
             related_operations: None,

@@ -9,7 +9,6 @@
  */
 
 /// `CallRequest` : `CallRequest` is the input to the `/call` endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CallRequest {
     #[serde(rename = "network_identifier")]
@@ -26,7 +25,8 @@ pub struct CallRequest {
 
 impl CallRequest {
     /// `CallRequest` is the input to the `/call` endpoint.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         method: String,
         parameters: serde_json::Value,

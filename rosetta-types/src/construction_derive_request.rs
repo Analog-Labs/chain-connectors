@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionDeriveRequest` : `ConstructionDeriveRequest` is passed to the `/construction/derive` endpoint. Network is provided in the request because some blockchains have different address formats for different networks. Metadata is provided in the request because some blockchains allow for multiple address types (i.e. different address for validators vs normal accounts).
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionDeriveRequest {
     #[serde(rename = "network_identifier")]
@@ -22,7 +21,8 @@ pub struct ConstructionDeriveRequest {
 
 impl ConstructionDeriveRequest {
     /// `ConstructionDeriveRequest` is passed to the `/construction/derive` endpoint. Network is provided in the request because some blockchains have different address formats for different networks. Metadata is provided in the request because some blockchains allow for multiple address types (i.e. different address for validators vs normal accounts).
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         public_key: crate::PublicKey,
     ) -> Self {

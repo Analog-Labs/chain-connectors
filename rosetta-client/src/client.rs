@@ -30,6 +30,7 @@ pub enum GenericClient {
     Polkadot(PolkadotClient),
 }
 
+#[allow(clippy::missing_errors_doc)]
 impl GenericClient {
     pub async fn new(blockchain: Blockchain, network: &str, url: &str) -> Result<Self> {
         Ok(match blockchain {

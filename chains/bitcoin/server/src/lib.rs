@@ -22,11 +22,19 @@ pub struct BitcoinClient {
 }
 
 impl BitcoinClient {
+    /// Creates a new bitcoin client from `network`and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_bitcoin::config(network)?;
         Self::from_config(config, addr).await
     }
 
+    /// Creates a new bitcoin client from `config` and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = Client::new(
             addr.to_string(),
@@ -139,16 +147,15 @@ impl BlockchainClient for BitcoinClient {
             (None, None) => anyhow::bail!("the block hash or index must be specified"),
         };
 
-        let block_height = match block.bip34_block_height().ok() {
-            Some(height) => height,
-            None => {
-                let info = self
-                    .client
-                    .get_block_info(&block.block_hash())
-                    .await
-                    .context("Cannot find block height")?;
-                info.height as u64
-            }
+        let block_height = if let Ok(height) = block.bip34_block_height() {
+            height
+        } else {
+            let info = self
+                .client
+                .get_block_info(&block.block_hash())
+                .await
+                .context("Cannot find block height")?;
+            info.height as u64
         };
 
         let transactions = block

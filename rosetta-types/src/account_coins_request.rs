@@ -9,7 +9,6 @@
  */
 
 /// `AccountCoinsRequest` : `AccountCoinsRequest` is utilized to make a request on the /account/coins endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountCoinsRequest {
     #[serde(rename = "network_identifier")]
@@ -26,7 +25,8 @@ pub struct AccountCoinsRequest {
 
 impl AccountCoinsRequest {
     /// `AccountCoinsRequest` is utilized to make a request on the /account/coins endpoint.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         account_identifier: crate::AccountIdentifier,
         include_mempool: bool,

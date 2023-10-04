@@ -9,7 +9,6 @@
  */
 
 /// `EventsBlocksRequest` : `EventsBlocksRequest` is utilized to fetch a sequence of `BlockEvents` indicating which blocks were added and removed from storage to reach the current state.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct EventsBlocksRequest {
     #[serde(rename = "network_identifier")]
@@ -24,7 +23,8 @@ pub struct EventsBlocksRequest {
 
 impl EventsBlocksRequest {
     /// `EventsBlocksRequest` is utilized to fetch a sequence of `BlockEvents` indicating which blocks were added and removed from storage to reach the current state.
-    #[must_use] pub fn new(network_identifier: crate::NetworkIdentifier) -> Self {
+    #[must_use]
+    pub const fn new(network_identifier: crate::NetworkIdentifier) -> Self {
         Self {
             network_identifier,
             offset: None,

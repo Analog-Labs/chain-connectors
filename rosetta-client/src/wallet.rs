@@ -27,6 +27,7 @@ pub struct Wallet {
 
 impl Wallet {
     /// Creates a new wallet from blockchain, network, url and keyfile.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn new(
         blockchain: Blockchain,
         network: &str,
@@ -34,21 +35,23 @@ impl Wallet {
         keyfile: Option<&Path>,
     ) -> Result<Self> {
         let client = GenericClient::new(blockchain, network, url).await?;
-        Self::from_client(client, keyfile).await
+        Self::from_client(client, keyfile)
     }
 
     /// Creates a new wallet from a config, url and keyfile.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn from_config(
         config: BlockchainConfig,
         url: &str,
         keyfile: Option<&Path>,
     ) -> Result<Self> {
         let client = GenericClient::from_config(config, url).await?;
-        Self::from_client(client, keyfile).await
+        Self::from_client(client, keyfile)
     }
 
     /// Creates a new wallet from a client, url and keyfile.
-    pub async fn from_client(client: GenericClient, keyfile: Option<&Path>) -> Result<Self> {
+    #[allow(clippy::missing_errors_doc)]
+    pub fn from_client(client: GenericClient, keyfile: Option<&Path>) -> Result<Self> {
         let store = MnemonicStore::new(keyfile)?;
         let mnemonic = match keyfile {
             Some(_) => store.get_or_generate_mnemonic()?,
@@ -61,7 +64,7 @@ impl Wallet {
                 .bip44_account(client.config().algorithm, client.config().coin, 0)?
                 .derive(ChildNumber::non_hardened_from_u32(0))?
         } else {
-            signer.master_key(client.config().algorithm)?.clone()
+            signer.master_key(client.config().algorithm).clone()
         };
         let public_key = secret_key.public_key();
         let account = public_key
@@ -88,21 +91,23 @@ impl Wallet {
     }
 
     /// Returns the public key.
-    pub fn public_key(&self) -> &PublicKey {
+    pub const fn public_key(&self) -> &PublicKey {
         &self.public_key
     }
 
     /// Returns the account identifier.
-    pub fn account(&self) -> &AccountIdentifier {
+    pub const fn account(&self) -> &AccountIdentifier {
         &self.account
     }
 
     /// Returns the latest finalized block identifier.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn status(&self) -> Result<BlockIdentifier> {
         self.client.finalized_block().await
     }
 
     /// Returns the balance of the wallet.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn balance(&self) -> Result<Amount> {
         let block = self.client.current_block().await?;
         let address = Address::new(
@@ -118,6 +123,7 @@ impl Wallet {
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn listen(
         &self,
     ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
@@ -126,6 +132,7 @@ impl Wallet {
 
     /// Returns block data
     /// Takes `PartialBlockIdentifier`
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
         self.client.block(&data).await
     }
@@ -134,6 +141,7 @@ impl Wallet {
     /// Parameters:
     /// 1. `block_identifier`: `BlockIdentifier` containing block number and hash
     /// 2. `tx_identifier`: `TransactionIdentifier` containing hash of transaction
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block_transaction(
         &self,
         block_identifer: BlockIdentifier,
@@ -147,6 +155,7 @@ impl Wallet {
     /// Extension of rosetta-api does multiple things
     /// 1. fetching storage
     /// 2. calling extrinsic/contract
+    #[allow(clippy::missing_errors_doc)]
     async fn call(
         &self,
         method: String,
@@ -163,6 +172,7 @@ impl Wallet {
     }
 
     /// Returns the coins of the wallet.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn coins(&self) -> Result<Vec<Coin>> {
         let block = self.client.current_block().await?;
         let address = Address::new(
@@ -175,6 +185,7 @@ impl Wallet {
     /// Returns the on chain metadata.
     /// Parameters:
     /// - `metadata_params`: the metadata parameters which we got from transaction builder.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn metadata(
         &self,
         metadata_params: &GenericMetadataParams,
@@ -190,11 +201,13 @@ impl Wallet {
     /// Submits a transaction and returns the transaction identifier.
     /// Parameters:
     /// - transaction: the transaction bytes to submit
+    #[allow(clippy::missing_errors_doc)]
     pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         self.client.submit(transaction).await
     }
 
     /// Creates, signs and submits a transaction.
+    #[allow(clippy::missing_errors_doc)]
     pub async fn construct(&self, params: &GenericMetadataParams) -> Result<Vec<u8>> {
         let metadata = self.metadata(params).await?;
         let transaction = self.tx.create_and_sign(
@@ -210,6 +223,7 @@ impl Wallet {
     /// Parameters:
     /// - account: the account to transfer to
     /// - amount: the amount to transfer
+    #[allow(clippy::missing_errors_doc)]
     pub async fn transfer(&self, account: &AccountIdentifier, amount: u128) -> Result<Vec<u8>> {
         let address = Address::new(self.client.config().address_format, account.address.clone());
         let metadata_params = self.tx.transfer(&address, amount)?;
@@ -219,6 +233,7 @@ impl Wallet {
     /// Uses the faucet on dev chains to seed the account with funds.
     /// Parameters:
     /// - `faucet_parameter`: the amount to seed the account with
+    #[allow(clippy::missing_errors_doc)]
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<Vec<u8>> {
         let address = Address::new(
             self.client.config().address_format,
@@ -228,12 +243,14 @@ impl Wallet {
     }
 
     /// deploys contract to chain
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<Vec<u8>> {
         let metadata_params = self.tx.deploy_contract(bytecode)?;
         self.construct(&metadata_params).await
     }
 
     /// calls contract send call function
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_send_call(
         &self,
         contract_address: &str,
@@ -248,6 +265,7 @@ impl Wallet {
     }
 
     /// estimates gas of send call
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_send_call_estimate_gas(
         &self,
         contract_address: &str,
@@ -267,6 +285,7 @@ impl Wallet {
     }
 
     /// calls a contract view call function
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_view_call(
         &self,
         contract_address: &str,
@@ -279,6 +298,7 @@ impl Wallet {
     }
 
     /// gets storage from ethereum contract
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_storage(
         &self,
         contract_address: &str,
@@ -290,6 +310,7 @@ impl Wallet {
     }
 
     /// gets storage proof from ethereum contract
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_storage_proof(
         &self,
         contract_address: &str,
@@ -301,6 +322,7 @@ impl Wallet {
     }
 
     /// gets transaction receipt of specific hash
+    #[allow(clippy::missing_errors_doc)]
     pub async fn eth_transaction_receipt(&self, tx_hash: &[u8]) -> Result<serde_json::Value> {
         let call_method = format!("{}--transaction_receipt", hex::encode(tx_hash));
         self.call(call_method, &json!({}), None).await

@@ -9,7 +9,6 @@
  */
 
 /// `BlockTransaction` : `BlockTransaction` contains a populated Transaction and the `BlockIdentifier` that contains it.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockTransaction {
     #[serde(rename = "block_identifier")]
@@ -20,7 +19,8 @@ pub struct BlockTransaction {
 
 impl BlockTransaction {
     /// `BlockTransaction` contains a populated Transaction and the `BlockIdentifier` that contains it.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         block_identifier: crate::BlockIdentifier,
         transaction: crate::Transaction,
     ) -> Self {

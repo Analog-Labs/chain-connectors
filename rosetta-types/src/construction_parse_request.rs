@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionParseRequest` : `ConstructionParseRequest` is the input to the `/construction/parse` endpoint. It allows the caller to parse either an unsigned or signed transaction.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionParseRequest {
     #[serde(rename = "network_identifier")]
@@ -24,7 +23,8 @@ pub struct ConstructionParseRequest {
 
 impl ConstructionParseRequest {
     /// `ConstructionParseRequest` is the input to the `/construction/parse` endpoint. It allows the caller to parse either an unsigned or signed transaction.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         signed: bool,
         transaction: String,

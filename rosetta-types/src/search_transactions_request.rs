@@ -9,7 +9,6 @@
  */
 
 /// `SearchTransactionsRequest` : `SearchTransactionsRequest` is used to search for transactions matching a set of provided conditions in canonical blocks.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SearchTransactionsRequest {
     #[serde(rename = "network_identifier")]
@@ -52,7 +51,8 @@ pub struct SearchTransactionsRequest {
 
 impl SearchTransactionsRequest {
     /// `SearchTransactionsRequest` is used to search for transactions matching a set of provided conditions in canonical blocks.
-    #[must_use] pub fn new(network_identifier: crate::NetworkIdentifier) -> Self {
+    #[must_use]
+    pub const fn new(network_identifier: crate::NetworkIdentifier) -> Self {
         Self {
             network_identifier,
             operator: None,

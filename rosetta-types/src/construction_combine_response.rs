@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionCombineResponse` : `ConstructionCombineResponse` is returned by `/construction/combine`. The network payload will be sent directly to the `construction/submit` endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionCombineResponse {
     #[serde(rename = "signed_transaction")]
@@ -18,7 +17,8 @@ pub struct ConstructionCombineResponse {
 
 impl ConstructionCombineResponse {
     /// `ConstructionCombineResponse` is returned by `/construction/combine`. The network payload will be sent directly to the `construction/submit` endpoint.
-    #[must_use] pub fn new(signed_transaction: String) -> Self {
+    #[must_use]
+    pub const fn new(signed_transaction: String) -> Self {
         Self { signed_transaction }
     }
 }

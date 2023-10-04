@@ -9,7 +9,6 @@
  */
 
 /// `BlockIdentifier` : The `block_identifier` uniquely identifies a block in a particular network.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockIdentifier {
     /// This is also known as the block height.
@@ -22,7 +21,8 @@ pub struct BlockIdentifier {
 
 impl BlockIdentifier {
     /// The `block_identifier` uniquely identifies a block in a particular network.
-    #[must_use] pub fn new(index: u64, hash: String) -> Self {
+    #[must_use]
+    pub const fn new(index: u64, hash: String) -> Self {
         Self { index, hash }
     }
 }

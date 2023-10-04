@@ -9,7 +9,6 @@
  */
 
 /// `CoinIdentifier` : `CoinIdentifier` uniquely identifies a Coin.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CoinIdentifier {
     /// Identifier should be populated with a globally unique identifier of a Coin. In Bitcoin, this identifier would be transaction_hash:index.
@@ -19,7 +18,8 @@ pub struct CoinIdentifier {
 
 impl CoinIdentifier {
     /// `CoinIdentifier` uniquely identifies a Coin.
-    #[must_use] pub fn new(identifier: String) -> Self {
+    #[must_use]
+    pub const fn new(identifier: String) -> Self {
         Self { identifier }
     }
 }

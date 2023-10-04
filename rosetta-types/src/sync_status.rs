@@ -9,7 +9,6 @@
  */
 
 /// `SyncStatus` : `SyncStatus` is used to provide additional context about an implementation's sync status.  This object is often used by implementations to indicate healthiness when block data cannot be queried until some sync phase completes or cannot be determined by comparing the timestamp of the most recent block with the current time.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SyncStatus {
     /// CurrentIndex is the index of the last synced block in the current stage.  This is a separate field from current_block_identifier in NetworkStatusResponse because blocks with indices up to and including the current_index may not yet be queryable by the caller. To reiterate, all indices up to and including current_block_identifier in NetworkStatusResponse must be queryable via the /block endpoint (excluding indices less than oldest_block_identifier).
@@ -28,7 +27,8 @@ pub struct SyncStatus {
 
 impl SyncStatus {
     /// `SyncStatus` is used to provide additional context about an implementation's sync status.  This object is often used by implementations to indicate healthiness when block data cannot be queried until some sync phase completes or cannot be determined by comparing the timestamp of the most recent block with the current time.
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             current_index: None,
             target_index: None,

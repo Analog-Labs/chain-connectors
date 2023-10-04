@@ -4954,6 +4954,7 @@ dependencies = [
  "sp-keyring",
  "subxt",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

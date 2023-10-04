@@ -9,7 +9,6 @@
  */
 
 /// Block : Blocks contain an array of Transactions that occurred at a particular `BlockIdentifier`.  A hard requirement for blocks returned by Rosetta implementations is that they MUST be _inalterable_: once a client has requested and received a block identified by a specific `BlockIndentifier`, all future calls for that same `BlockIdentifier` must return the same block contents.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Block {
     #[serde(rename = "block_identifier")]
@@ -27,7 +26,8 @@ pub struct Block {
 
 impl Block {
     /// Blocks contain an array of Transactions that occurred at a particular `BlockIdentifier`.  A hard requirement for blocks returned by Rosetta implementations is that they MUST be _inalterable_: once a client has requested and received a block identified by a specific `BlockIndentifier`, all future calls for that same `BlockIdentifier` must return the same block contents.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         block_identifier: crate::BlockIdentifier,
         parent_block_identifier: crate::BlockIdentifier,
         timestamp: i64,

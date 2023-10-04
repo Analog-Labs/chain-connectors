@@ -9,7 +9,6 @@
  */
 
 /// Signature : Signature contains the payload that was signed, the public keys of the keypairs used to produce the signature, the signature (encoded in hex), and the `SignatureType`.  `PublicKey` is often times not known during construction of the signing payloads but may be needed to combine signatures properly.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Signature {
     #[serde(rename = "signing_payload")]
@@ -24,7 +23,8 @@ pub struct Signature {
 
 impl Signature {
     /// Signature contains the payload that was signed, the public keys of the keypairs used to produce the signature, the signature (encoded in hex), and the `SignatureType`.  `PublicKey` is often times not known during construction of the signing payloads but may be needed to combine signatures properly.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         signing_payload: crate::SigningPayload,
         public_key: crate::PublicKey,
         signature_type: crate::SignatureType,

@@ -15,9 +15,9 @@ pub enum GenericTransactionBuilder {
 impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
-            "astar" => Self::Astar(Default::default()),
-            "ethereum" => Self::Ethereum(Default::default()),
-            "polkadot" => Self::Polkadot(Default::default()),
+            "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "ethereum" => Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "polkadot" => Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
             _ => anyhow::bail!("unsupported blockchain"),
         })
     }

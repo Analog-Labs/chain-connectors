@@ -59,7 +59,7 @@ where
 }
 
 /// Converts [`Block`] to [`BlockIdentifier`]
-fn block_to_identifier(block: Block<TxHash>) -> Result<BlockIdentifier, &'static str> {
+fn block_to_identifier(block: &Block<TxHash>) -> Result<BlockIdentifier, &'static str> {
     let Some(number) = block.number else {
         return Err("block number is missing");
     };
@@ -97,7 +97,7 @@ where
                 match finalized_block_future.poll_unpin(cx) {
                     Poll::Ready(Ok(Some(block))) => {
                         // Convert raw block to block identifier
-                        let block_identifier = match block_to_identifier(block) {
+                        let block_identifier = match block_to_identifier(&block) {
                             Ok(block_identifier) => block_identifier,
                             Err(error) => {
                                 this.finalized_block_failures += 1;
@@ -159,7 +159,7 @@ where
             match this.new_head.poll_next_unpin(cx) {
                 Poll::Ready(Some(block)) => {
                     // Convert raw block to block identifier
-                    let block_identifier = match block_to_identifier(block) {
+                    let block_identifier = match block_to_identifier(&block) {
                         Ok(block_identifier) => block_identifier,
                         Err(error) => {
                             this.latest_block_failures += 1;

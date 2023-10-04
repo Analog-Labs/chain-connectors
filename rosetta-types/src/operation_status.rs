@@ -9,7 +9,6 @@
  */
 
 /// `OperationStatus` : `OperationStatus` is utilized to indicate which Operation status are considered successful.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct OperationStatus {
     /// The status is the network-specific status of the operation.
@@ -22,7 +21,8 @@ pub struct OperationStatus {
 
 impl OperationStatus {
     /// `OperationStatus` is utilized to indicate which Operation status are considered successful.
-    #[must_use] pub fn new(status: String, successful: bool) -> Self {
+    #[must_use]
+    pub const fn new(status: String, successful: bool) -> Self {
         Self { status, successful }
     }
 }

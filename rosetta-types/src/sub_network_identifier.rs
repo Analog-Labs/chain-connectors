@@ -9,7 +9,6 @@
  */
 
 /// `SubNetworkIdentifier` : In blockchains with sharded state, the `SubNetworkIdentifier` is required to query some object on a specific shard. This identifier is optional for all non-sharded blockchains.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SubNetworkIdentifier {
     #[serde(rename = "network")]
@@ -20,7 +19,8 @@ pub struct SubNetworkIdentifier {
 
 impl SubNetworkIdentifier {
     /// In blockchains with sharded state, the `SubNetworkIdentifier` is required to query some object on a specific shard. This identifier is optional for all non-sharded blockchains.
-    #[must_use] pub fn new(network: String) -> Self {
+    #[must_use]
+    pub const fn new(network: String) -> Self {
         Self {
             network,
             metadata: None,

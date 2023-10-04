@@ -98,15 +98,21 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
 
 impl PolkadotNetworkProperties {
     // TODO: What is considered testnet? only local chains, or public testnets as well?
-    #[must_use] pub fn is_testnet(&self) -> bool {
+    #[must_use]
+    pub fn is_testnet(&self) -> bool {
         self.network != "mainnet"
     }
 
-    #[must_use] pub fn is_live(&self) -> bool {
+    #[must_use]
+    pub fn is_live(&self) -> bool {
         matches!(self.network, "mainnet" | "staging")
     }
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     let properties = PolkadotNetworkProperties::try_from(network)?;
 
@@ -125,9 +131,10 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
         node_image: "parity/polkadot:v1.0.0",
         node_command: Arc::new(move |network, port| {
-            let chain = match network {
-                "mainnet" => blockchain.to_string(),
-                _ => format!("{blockchain}-{network}"),
+            let chain = if network == "mainnet" {
+                blockchain.to_string()
+            } else {
+                format!("{blockchain}-{network}")
             };
             match network {
                 "dev" | "local" => vec![

@@ -31,7 +31,16 @@ pub enum MaybeWsEthereumClient {
 }
 
 impl MaybeWsEthereumClient {
-    pub async fn new<S: AsRef<str>>(blockchain: &str, network: &str, addr: S) -> Result<Self> {
+    /// Creates a new ethereum client from `network` and `addr`.
+    /// Supported blockchains are `ethereum` and `polygon`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
+    pub async fn new<S: AsRef<str> + Send>(
+        blockchain: &str,
+        network: &str,
+        addr: S,
+    ) -> Result<Self> {
         let config = match blockchain {
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "ethereum" => rosetta_config_ethereum::config(network)?,
@@ -40,7 +49,14 @@ impl MaybeWsEthereumClient {
         Self::from_config(config, addr).await
     }
 
-    pub async fn from_config<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
+    /// Creates a new bitcoin client from `config` and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
+    pub async fn from_config<S: AsRef<str> + Send>(
+        config: BlockchainConfig,
+        addr: S,
+    ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
@@ -52,6 +68,11 @@ impl MaybeWsEthereumClient {
         }
     }
 
+    /// Creates a new Ethereum Client from the provided `JsonRpsee` client,
+    /// this method is useful for reusing the same rpc client for ethereum and substrate calls.
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.    
     pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
         let client = EthereumClient::new(config, ws_connection).await?;
@@ -127,9 +148,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
         options: &Self::MetadataParams,
     ) -> Result<EthereumMetadata> {
         match self {
-            Self::Http(http_client) => {
-                http_client.metadata(public_key, options).await
-            }
+            Self::Http(http_client) => http_client.metadata(public_key, options).await,
             Self::Ws(ws_client) => ws_client.metadata(public_key, options).await,
         }
     }
@@ -154,9 +173,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
         match self {
-            Self::Http(http_client) => {
-                http_client.block_transaction(block, tx).await
-            }
+            Self::Http(http_client) => http_client.block_transaction(block, tx).await,
             Self::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
         }
     }
@@ -280,7 +297,10 @@ mod tests {
             .eth_send_call(contract_address, "function emitEvent()", &[], 0)
             .await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let logs = receipt.get("logs").and_then(serde_json::Value::as_array).unwrap();
+        let logs = receipt
+            .get("logs")
+            .and_then(serde_json::Value::as_array)
+            .unwrap();
         assert_eq!(logs.len(), 1);
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));

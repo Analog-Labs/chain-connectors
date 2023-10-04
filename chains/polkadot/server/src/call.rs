@@ -44,17 +44,16 @@ pub async fn dynamic_storage_req(
     let storage_type = storage_metadata.entry_type().clone();
     let type_id = match storage_type {
         StorageEntryType::Map { key_ty, .. } => Some(key_ty),
-        _ => None,
+        StorageEntryType::Plain(_) => None,
     };
     let params = if let Some(id) = type_id {
         let ty = types.resolve(id).context("invalid metadata")?;
-        match ty.type_def {
-            TypeDef::Tuple(_) => type_distributor(params, &ty.type_def, types)?,
-            _ => {
-                let json_params = params.as_array().context("expected array")?;
-                let params = json_params.iter().next().context("invalid params")?.clone();
-                type_distributor(params, &ty.type_def, types)?
-            }
+        if let TypeDef::Tuple(_) = ty.type_def {
+            type_distributor(params, &ty.type_def, types)?
+        } else {
+            let json_params = params.as_array().context("expected array")?;
+            let params = json_params.iter().next().context("invalid params")?.clone();
+            type_distributor(params, &ty.type_def, types)?
         }
     } else {
         vec![]
@@ -108,7 +107,7 @@ fn type_distributor(
 ) -> Result<Vec<SubxtValue>> {
     let mut value_vec = vec![];
     let val = match type_from_pallet {
-        TypeDef::Variant(inner_val) => make_variant(json_value, inner_val, types),
+        TypeDef::Variant(inner_val) => make_variant(&json_value, inner_val, types),
         TypeDef::Composite(inner_val) => make_composite(json_value, inner_val, types),
         TypeDef::Array(inner_val) => make_array(json_value, inner_val),
         TypeDef::Tuple(inner_val) => make_tuple(json_value, inner_val, types),
@@ -122,7 +121,7 @@ fn type_distributor(
 }
 
 fn make_variant(
-    json_value: Value,
+    json_value: &Value,
     type_from_pallet: &TypeDefVariant<PortableForm>,
     types: &PortableRegistry,
 ) -> Result<SubxtValue> {

@@ -40,11 +40,19 @@ pub struct AstarClient {
 }
 
 impl AstarClient {
+    /// Creates a new polkadot client, loading the config from `network` and connects to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn new(network: &str, url: &str) -> Result<Self> {
         let config = rosetta_config_astar::config(network)?;
         Self::from_config(config, url).await
     }
 
+    /// Creates a new polkadot client using the provided `config` and connects to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
         let client = default_client(url, None).await?;
         let substrate_client =
@@ -87,23 +95,26 @@ impl AstarClient {
             .fetch(&storage_query)
             .await?;
 
-        if let Some(account_info) = account_info {
-            <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
-                .map_err(|_| anyhow::anyhow!("invalid format"))
-        } else {
-            Ok(AccountInfo::<u32, AccountData<u128>> {
-                nonce: 0,
-                consumers: 0,
-                providers: 0,
-                sufficients: 0,
-                data: AccountData {
-                    free: 0,
-                    reserved: 0,
-                    frozen: 0,
-                    flags: astar_metadata::runtime_types::pallet_balances::types::ExtraFlags(0),
-                },
-            })
-        }
+        account_info.map_or_else(
+            || {
+                Ok(AccountInfo::<u32, AccountData<u128>> {
+                    nonce: 0,
+                    consumers: 0,
+                    providers: 0,
+                    sufficients: 0,
+                    data: AccountData {
+                        free: 0,
+                        reserved: 0,
+                        frozen: 0,
+                        flags: astar_metadata::runtime_types::pallet_balances::types::ExtraFlags(0),
+                    },
+                })
+            },
+            |account_info| {
+                <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
+                    .map_err(|_| anyhow::anyhow!("invalid format"))
+            },
+        )
     }
 }
 
@@ -149,7 +160,7 @@ impl BlockchainClient for AstarClient {
                 let account_info = self.account_info(&address, Some(block)).await?;
                 account_info.data.free
             }
-            _ => {
+            AddressFormat::Bech32(_) => {
                 return Err(anyhow::anyhow!("invalid address format"));
             }
         };

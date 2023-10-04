@@ -9,7 +9,6 @@
  */
 
 /// `TransactionIdentifier` : The `transaction_identifier` uniquely identifies a transaction in a particular network and block or in the mempool.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TransactionIdentifier {
     /// Any transactions that are attributable only to a block (ex: a block event) should use the hash of the block as the identifier.  This should be normalized according to the case specified in the transaction_hash_case in network options.
@@ -19,7 +18,8 @@ pub struct TransactionIdentifier {
 
 impl TransactionIdentifier {
     /// The `transaction_identifier` uniquely identifies a transaction in a particular network and block or in the mempool.
-    #[must_use] pub fn new(hash: String) -> Self {
+    #[must_use]
+    pub const fn new(hash: String) -> Self {
         Self { hash }
     }
 }

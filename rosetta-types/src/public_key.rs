@@ -9,7 +9,6 @@
  */
 
 /// `PublicKey` : `PublicKey` contains a public key byte array for a particular `CurveType` encoded in hex.  Note that there is no `PrivateKey` struct as this is NEVER the concern of an implementation.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PublicKey {
     /// Hex-encoded public key bytes in the format specified by the CurveType.
@@ -21,7 +20,8 @@ pub struct PublicKey {
 
 impl PublicKey {
     /// `PublicKey` contains a public key byte array for a particular `CurveType` encoded in hex.  Note that there is no `PrivateKey` struct as this is NEVER the concern of an implementation.
-    #[must_use] pub fn new(hex_bytes: String, curve_type: crate::CurveType) -> Self {
+    #[must_use]
+    pub const fn new(hex_bytes: String, curve_type: crate::CurveType) -> Self {
         Self {
             hex_bytes,
             curve_type,

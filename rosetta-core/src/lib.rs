@@ -44,7 +44,8 @@ pub struct BlockchainConfig {
 }
 
 impl BlockchainConfig {
-    #[must_use] pub fn network(&self) -> NetworkIdentifier {
+    #[must_use]
+    pub fn network(&self) -> NetworkIdentifier {
         NetworkIdentifier {
             blockchain: self.blockchain.into(),
             network: self.network.into(),
@@ -52,7 +53,8 @@ impl BlockchainConfig {
         }
     }
 
-    #[must_use] pub fn currency(&self) -> Currency {
+    #[must_use]
+    pub fn currency(&self) -> Currency {
         Currency {
             symbol: self.currency_symbol.into(),
             decimals: self.currency_decimals,
@@ -60,11 +62,13 @@ impl BlockchainConfig {
         }
     }
 
-    #[must_use] pub fn node_url(&self) -> String {
+    #[must_use]
+    pub fn node_url(&self) -> String {
         self.node_uri.with_host("rosetta.analog.one").to_string()
     }
 
-    #[must_use] pub fn connector_url(&self) -> String {
+    #[must_use]
+    pub fn connector_url(&self) -> String {
         format!("http://rosetta.analog.one:{}", self.connector_port)
     }
 }
@@ -196,9 +200,8 @@ pub trait RosettaAlgorithm {
 impl RosettaAlgorithm for Algorithm {
     fn to_signature_type(self) -> SignatureType {
         match self {
-            Self::EcdsaSecp256k1 => SignatureType::Ecdsa,
+            Self::EcdsaSecp256k1 | Self::EcdsaSecp256r1 => SignatureType::Ecdsa,
             Self::EcdsaRecoverableSecp256k1 => SignatureType::EcdsaRecovery,
-            Self::EcdsaSecp256r1 => SignatureType::Ecdsa,
             Self::Ed25519 => SignatureType::Ed25519,
             Self::Sr25519 => SignatureType::Sr25519,
         }
@@ -206,8 +209,7 @@ impl RosettaAlgorithm for Algorithm {
 
     fn to_curve_type(self) -> CurveType {
         match self {
-            Self::EcdsaSecp256k1 => CurveType::Secp256k1,
-            Self::EcdsaRecoverableSecp256k1 => CurveType::Secp256k1,
+            Self::EcdsaSecp256k1 | Self::EcdsaRecoverableSecp256k1 => CurveType::Secp256k1,
             Self::EcdsaSecp256r1 => CurveType::Secp256r1,
             Self::Ed25519 => CurveType::Edwards25519,
             Self::Sr25519 => CurveType::Schnorrkel,
@@ -219,8 +221,16 @@ pub trait TransactionBuilder: Default + Sized {
     type MetadataParams: Serialize + Clone;
     type Metadata: DeserializeOwned + Sized + Send + Sync + 'static;
 
+    /// Returns the transfer metadata parameters
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams>;
 
+    /// Returns the call metadata parameters
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn method_call(
         &self,
         contract: &str,
@@ -229,6 +239,10 @@ pub trait TransactionBuilder: Default + Sized {
         amount: u128,
     ) -> Result<Self::MetadataParams>;
 
+    /// Retrieve the metadata parameters for deploying a smart-contract
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<Self::MetadataParams>;
 
     fn create_and_sign(

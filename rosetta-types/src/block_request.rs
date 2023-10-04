@@ -9,7 +9,6 @@
  */
 
 /// `BlockRequest` : A `BlockRequest` is utilized to make a block request on the /block endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockRequest {
     #[serde(rename = "network_identifier")]
@@ -20,7 +19,8 @@ pub struct BlockRequest {
 
 impl BlockRequest {
     /// A `BlockRequest` is utilized to make a block request on the /block endpoint.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         block_identifier: crate::PartialBlockIdentifier,
     ) -> Self {

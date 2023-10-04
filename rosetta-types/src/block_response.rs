@@ -9,7 +9,6 @@
  */
 
 /// `BlockResponse` : A `BlockResponse` includes a fully-populated block or a partially-populated block with a list of other transactions to fetch (`other_transactions`).  As a result of the consensus algorithm of some blockchains, blocks can be omitted (i.e. certain block indices can be skipped). If a query for one of these omitted indices is made, the response should not include a `Block` object.  It is VERY important to note that blocks MUST still form a canonical, connected chain of blocks where each block has a unique index. In other words, the `PartialBlockIdentifier` of a block after an omitted block should reference the last non-omitted block.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockResponse {
     #[serde(rename = "block", skip_serializing_if = "Option::is_none")]
@@ -21,7 +20,8 @@ pub struct BlockResponse {
 
 impl BlockResponse {
     /// A `BlockResponse` includes a fully-populated block or a partially-populated block with a list of other transactions to fetch (`other_transactions`).  As a result of the consensus algorithm of some blockchains, blocks can be omitted (i.e. certain block indices can be skipped). If a query for one of these omitted indices is made, the response should not include a `Block` object.  It is VERY important to note that blocks MUST still form a canonical, connected chain of blocks where each block has a unique index. In other words, the `PartialBlockIdentifier` of a block after an omitted block should reference the last non-omitted block.
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             block: None,
             other_transactions: None,

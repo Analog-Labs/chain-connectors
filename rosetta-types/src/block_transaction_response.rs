@@ -9,7 +9,6 @@
  */
 
 /// `BlockTransactionResponse` : A `BlockTransactionResponse` contains information about a block transaction.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockTransactionResponse {
     #[serde(rename = "transaction")]
@@ -18,7 +17,8 @@ pub struct BlockTransactionResponse {
 
 impl BlockTransactionResponse {
     /// A `BlockTransactionResponse` contains information about a block transaction.
-    #[must_use] pub fn new(transaction: crate::Transaction) -> Self {
+    #[must_use]
+    pub const fn new(transaction: crate::Transaction) -> Self {
         Self { transaction }
     }
 }

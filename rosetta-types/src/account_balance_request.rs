@@ -9,7 +9,6 @@
  */
 
 /// `AccountBalanceRequest` : An `AccountBalanceRequest` is utilized to make a balance request on the /account/balance endpoint. If the `block_identifier` is populated, a historical balance query should be performed.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct AccountBalanceRequest {
     #[serde(rename = "network_identifier")]
@@ -25,7 +24,8 @@ pub struct AccountBalanceRequest {
 
 impl AccountBalanceRequest {
     /// An `AccountBalanceRequest` is utilized to make a balance request on the /account/balance endpoint. If the `block_identifier` is populated, a historical balance query should be performed.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         account_identifier: crate::AccountIdentifier,
     ) -> Self {

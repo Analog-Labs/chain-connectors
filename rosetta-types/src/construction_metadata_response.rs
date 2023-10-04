@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionMetadataResponse` : The `ConstructionMetadataResponse` returns network-specific metadata used for transaction construction.  Optionally, the implementer can return the suggested fee associated with the transaction being constructed. The caller may use this info to adjust the intent of the transaction or to create a transaction with a different account that can pay the suggested fee. Suggested fee is an array in case fee payment must occur in multiple currencies.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionMetadataResponse {
     #[serde(rename = "metadata")]
@@ -20,7 +19,8 @@ pub struct ConstructionMetadataResponse {
 
 impl ConstructionMetadataResponse {
     /// The `ConstructionMetadataResponse` returns network-specific metadata used for transaction construction.  Optionally, the implementer can return the suggested fee associated with the transaction being constructed. The caller may use this info to adjust the intent of the transaction or to create a transaction with a different account that can pay the suggested fee. Suggested fee is an array in case fee payment must occur in multiple currencies.
-    #[must_use] pub fn new(metadata: serde_json::Value) -> Self {
+    #[must_use]
+    pub const fn new(metadata: serde_json::Value) -> Self {
         Self {
             metadata,
             suggested_fee: None,

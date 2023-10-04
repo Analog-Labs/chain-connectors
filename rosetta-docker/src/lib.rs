@@ -1,6 +1,6 @@
 mod config;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use docker_api::conn::TtyChunk;
 use docker_api::opts::{
     ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
@@ -20,6 +20,7 @@ pub struct Env<T> {
 }
 
 impl<T: BlockchainClient> Env<T> {
+    #[allow(clippy::missing_errors_doc)]
     pub async fn new<Fut, F>(
         prefix: &str,
         mut config: BlockchainConfig,
@@ -27,11 +28,11 @@ impl<T: BlockchainClient> Env<T> {
     ) -> Result<Self>
     where
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
-        let node_port = builder.random_port();
+        let node_port = random_port();
         config.node_uri.port = node_port;
         log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
@@ -55,16 +56,25 @@ impl<T: BlockchainClient> Env<T> {
         })
     }
 
-    #[must_use] pub fn node(&self) -> Arc<T> {
+    #[must_use]
+    pub fn node(&self) -> Arc<T> {
         Arc::clone(&self.client)
     }
 
+    /// Creates a new ephemeral wallet
+    ///
+    /// # Errors
+    /// Returns `Err` if the node uri is invalid or keyfile doesn't exists
     pub async fn ephemeral_wallet(&self) -> Result<Wallet> {
         let config = self.client.config().clone();
         let node_uri = config.node_uri.to_string();
         Wallet::from_config(config, &node_uri, None).await
     }
 
+    /// Stop all containers
+    ///
+    /// # Errors
+    /// Will return `Err` if it fails to stop the container for some reason
     pub async fn shutdown(self) -> Result<()> {
         let opts = ContainerStopOpts::builder().build();
         self.node.stop(&opts).await?;
@@ -85,12 +95,6 @@ impl<'a> EnvBuilder<'a> {
         Ok(Self { prefix, docker })
     }
 
-    fn random_port(&self) -> u16 {
-        let mut bytes = [0; 2];
-        getrandom::getrandom(&mut bytes).unwrap();
-        u16::from_le_bytes(bytes)
-    }
-
     fn node_name(&self, config: &BlockchainConfig) -> String {
         format!(
             "{}-node-{}-{}",
@@ -104,11 +108,14 @@ impl<'a> EnvBuilder<'a> {
             if container
                 .names
                 .as_ref()
-                .unwrap()
+                .context("no containers found")?
                 .iter()
                 .any(|n| n.as_str().ends_with(name))
             {
-                let container = Container::new(self.docker.clone(), container.id.unwrap());
+                let container = Container::new(
+                    self.docker.clone(),
+                    container.id.context("container doesn't have id")?,
+                );
                 log::info!("stopping {}", name);
                 container
                     .stop(&ContainerStopOpts::builder().build())
@@ -223,7 +230,7 @@ impl<'a> EnvBuilder<'a> {
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         const MAX_RETRIES: usize = 10;
 
@@ -255,6 +262,13 @@ impl<'a> EnvBuilder<'a> {
     }
 }
 
+fn random_port() -> u16 {
+    let mut bytes = [0; 2];
+    #[allow(clippy::unwrap_used)]
+    getrandom::getrandom(&mut bytes).unwrap();
+    u16::from_le_bytes(bytes)
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Health {
     None,
@@ -281,18 +295,18 @@ async fn health(container: &Container) -> Result<Option<Health>> {
     }))
 }
 
-async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<()> {
+#[derive(Debug)]
+enum RetryError {
+    Retry(anyhow::Error),
+    ContainerExited(anyhow::Error),
+}
+
+async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> Result<()> {
     let url = url.as_ref();
     let retry_strategy = ExponentialBackoff::from_millis(2)
         .factor(100)
         .max_delay(Duration::from_secs(2))
         .take(20); // limit to 20 retries
-
-    #[derive(Debug)]
-    enum RetryError {
-        Retry(anyhow::Error),
-        ContainerExited(anyhow::Error),
-    }
 
     RetryIf::spawn(
         retry_strategy,
@@ -314,8 +328,7 @@ async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<(
     )
     .await
     .map_err(|err| match err {
-        RetryError::Retry(error) => error,
-        RetryError::ContainerExited(error) => error,
+        RetryError::Retry(error) | RetryError::ContainerExited(error) => error,
     })
 }
 
@@ -334,6 +347,7 @@ pub mod tests {
         )
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn network_status<T, Fut, F>(
         start_connector: F,
         config: BlockchainConfig,
@@ -341,7 +355,7 @@ pub mod tests {
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
         let env = Env::new(
@@ -390,11 +404,12 @@ pub mod tests {
         Ok(())
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
         let env = Env::new(
@@ -416,11 +431,12 @@ pub mod tests {
         Ok(())
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
         let env = Env::new(

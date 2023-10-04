@@ -33,11 +33,19 @@ pub struct PolkadotClient {
 }
 
 impl PolkadotClient {
+    /// Creates a new polkadot client, loading the config from `network` and connects to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_polkadot::config(network)?;
         Self::from_config(config, addr).await
     }
 
+    /// Creates a new bitcoin client using the provided `config` and connets to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
         let client = {
             let ws_client = default_client(addr, None).await?;
@@ -86,23 +94,26 @@ impl PolkadotClient {
             .fetch(&storage_query)
             .await?;
 
-        if let Some(account_info) = account_info {
-            AccountInfo::decode(&mut account_info.encoded())
-                .map_err(|_| anyhow::anyhow!("invalid format"))
-        } else {
-            Ok(AccountInfo {
-                nonce: 0,
-                consumers: 0,
-                providers: 0,
-                sufficients: 0,
-                data: AccountData {
-                    free: 0,
-                    reserved: 0,
-                    misc_frozen: 0,
-                    fee_frozen: 0,
-                },
-            })
-        }
+        account_info.map_or_else(
+            || {
+                Ok(AccountInfo {
+                    nonce: 0,
+                    consumers: 0,
+                    providers: 0,
+                    sufficients: 0,
+                    data: AccountData {
+                        free: 0,
+                        reserved: 0,
+                        misc_frozen: 0,
+                        fee_frozen: 0,
+                    },
+                })
+            },
+            |account_info| {
+                AccountInfo::decode(&mut account_info.encoded())
+                    .map_err(|_| anyhow::anyhow!("invalid format"))
+            },
+        )
     }
 }
 
@@ -252,7 +263,10 @@ impl BlockchainClient for PolkadotClient {
         let body = block.body().await?;
         let mut transactions = vec![];
         for extrinsic in body.extrinsics().iter().filter_map(Result::ok) {
-            let transaction = crate::block::get_transaction(self.config(), &extrinsic).await?;
+            let transaction_identifier = crate::block::get_transaction_identifier(&extrinsic);
+            let events = extrinsic.events().await?;
+            let transaction =
+                crate::block::get_transaction(self.config(), transaction_identifier, &events)?;
             transactions.push(transaction);
         }
         Ok(Block {
@@ -264,7 +278,8 @@ impl BlockchainClient for PolkadotClient {
                 index: u64::from(block.number().saturating_sub(1)),
                 hash: hex::encode(block.header().parent_hash),
             },
-            timestamp: Duration::from_millis(timestamp).as_nanos() as i64,
+            timestamp: i64::try_from(Duration::from_millis(timestamp).as_nanos())
+                .context("timestamp overflow")?,
             transactions,
             metadata: None,
         })
@@ -286,7 +301,10 @@ impl BlockchainClient for PolkadotClient {
                 <PolkadotConfig as Config>::Hasher::hash_of(&extrinsic.bytes()) == transaction_hash
             })
             .context("transaction not found")?;
-        crate::block::get_transaction(self.config(), &extrinsic).await
+
+        let identifier = crate::block::get_transaction_identifier(&extrinsic);
+        let events = extrinsic.events().await?;
+        crate::block::get_transaction(self.config(), identifier, &events)
     }
 
     async fn call(&self, request: &CallRequest) -> Result<Value> {

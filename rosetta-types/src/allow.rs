@@ -9,7 +9,6 @@
  */
 
 /// Allow : Allow specifies supported Operation status, Operation types, and all possible error statuses. This Allow object is used by clients to validate the correctness of a Rosetta Server implementation. It is expected that these clients will error if they receive some response that contains any of the above information that is not specified here.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Allow {
     /// All Operation.Status this implementation supports. Any status that is returned during parsing that is not listed here will cause client validation to error.
@@ -50,7 +49,8 @@ pub struct Allow {
 
 impl Allow {
     /// Allow specifies supported Operation status, Operation types, and all possible error statuses. This Allow object is used by clients to validate the correctness of a Rosetta Server implementation. It is expected that these clients will error if they receive some response that contains any of the above information that is not specified here.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         operation_statuses: Vec<crate::OperationStatus>,
         operation_types: Vec<String>,
         errors: Vec<crate::Error>,

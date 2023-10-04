@@ -19,6 +19,16 @@ use serde_json::{json, Value};
 use std::str::FromStr;
 use std::sync::Arc;
 
+struct Detokenizer {
+    tokens: Vec<Token>,
+}
+
+impl Detokenize for Detokenizer {
+    fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
+        Ok(Self { tokens })
+    }
+}
+
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     client: Arc<Provider<P>>,
@@ -41,13 +51,17 @@ where
 {
     pub async fn new(config: BlockchainConfig, rpc_client: P) -> Result<Self> {
         let client = Arc::new(Provider::new(rpc_client));
-        let genesis = client
+        let Some(genesis_hash) = client
             .get_block(0)
             .await?
-            .context("Failed to get genesis block")?;
+            .context("Failed to get genesis block")?
+            .hash
+        else {
+            anyhow::bail!("FATAL: genesis block doesn't have hash");
+        };
         let genesis_block = BlockIdentifier {
             index: 0,
-            hash: hex::encode(genesis.hash.as_ref().unwrap()),
+            hash: hex::encode(genesis_hash),
         };
         Ok(Self {
             config,
@@ -56,11 +70,11 @@ where
         })
     }
 
-    pub fn config(&self) -> &BlockchainConfig {
+    pub const fn config(&self) -> &BlockchainConfig {
         &self.config
     }
 
-    pub fn genesis_block(&self) -> &BlockIdentifier {
+    pub const fn genesis_block(&self) -> &BlockIdentifier {
         &self.genesis_block
     }
 
@@ -70,14 +84,18 @@ where
 
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_number().await?.as_u64();
-        let block = self
+        let Some(block_hash) = self
             .client
             .get_block(index)
             .await?
-            .context("missing block")?;
+            .context("missing block")?
+            .hash
+        else {
+            anyhow::bail!("FATAL: block hash is missing");
+        };
         Ok(BlockIdentifier {
             index,
-            hash: hex::encode(block.hash.as_ref().unwrap()),
+            hash: hex::encode(block_hash),
         })
     }
 
@@ -126,7 +144,7 @@ where
 
         Ok(BlockIdentifier {
             index: block.number.context("Block is pending")?.as_u64(),
-            hash: hex::encode(block.hash.as_ref().unwrap()),
+            hash: hex::encode(block.hash.context("Block is pending")?),
         })
     }
 
@@ -142,6 +160,7 @@ where
             .as_u128())
     }
 
+    #[allow(clippy::unused_async)]
     pub async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
         anyhow::bail!("not a utxo chain");
     }
@@ -160,7 +179,7 @@ where
             .await?
             .confirmations(2)
             .await?
-            .unwrap()
+            .context("failed to retrieve tx receipt")?
             .transaction_hash
             .0
             .to_vec())
@@ -219,11 +238,9 @@ where
         let block_id = if let Some(hash) = block_identifier.hash.as_ref() {
             BlockId::Hash(H256::from_str(hash)?)
         } else {
-            let index = if let Some(index) = block_identifier.index {
+            let index = block_identifier.index.map_or(BlockNumber::Latest, |index| {
                 BlockNumber::Number(U64::from(index))
-            } else {
-                BlockNumber::Latest
-            };
+            });
             BlockId::Number(index)
         };
         let block = self
@@ -244,9 +261,13 @@ where
             crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
         transactions.push(block_reward_transaction);
         for transaction in &block.transactions {
-            let transaction =
-                crate::utils::get_transaction(&self.client, self.config(), &block, transaction)
-                    .await?;
+            let transaction = crate::utils::get_transaction(
+                &self.client,
+                self.config(),
+                block.clone(),
+                transaction,
+            )
+            .await?;
             transactions.push(transaction);
         }
         Ok(Block {
@@ -258,7 +279,7 @@ where
                 index: block_number.as_u64().saturating_sub(1),
                 hash: hex::encode(block.parent_hash),
             },
-            timestamp: block.timestamp.as_u64() as i64,
+            timestamp: i64::try_from(block.timestamp.as_u64()).context("timestamp overflow")?,
             transactions,
             metadata: None,
         })
@@ -281,11 +302,11 @@ where
             .await?
             .context("transaction not found")?;
         let transaction =
-            crate::utils::get_transaction(&self.client, self.config(), &block, &transaction)
-                .await?;
+            crate::utils::get_transaction(&self.client, self.config(), block, &transaction).await?;
         Ok(transaction)
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn call(&self, req: &CallRequest) -> Result<Value> {
         let call_details = req.method.split('-').collect::<Vec<&str>>();
         if call_details.len() != 3 {
@@ -333,14 +354,6 @@ where
                 let tx = &tx.into();
                 let received_data = self.client.call(tx, block_id).await?;
 
-                struct Detokenizer {
-                    tokens: Vec<Token>,
-                }
-                impl Detokenize for Detokenizer {
-                    fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
-                        Ok(Self { tokens })
-                    }
-                }
                 let detokenizer: Detokenizer =
                     decode_function_data(&function, received_data, false)?;
                 let mut result = Vec::with_capacity(tokens.len());

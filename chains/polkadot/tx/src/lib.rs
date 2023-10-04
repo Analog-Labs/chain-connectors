@@ -33,7 +33,7 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
     if data.len() < 2 {
         anyhow::bail!("ss58: bad length");
     }
-    let (prefix_len, _ident) = match data[0] {
+    let (prefix_len, _ident) = match data.first().context("ss58: invalid prefix")? {
         0..=63 => (1, u16::from(data[0])),
         64..=127 => {
             // weird bit manipulation owing to the combination of LE encoding and missing two
@@ -78,6 +78,13 @@ fn ss58hash(data: &[u8]) -> blake2_rfc::blake2b::Blake2bResult {
 #[derive(Default)]
 pub struct PolkadotTransactionBuilder;
 
+#[derive(Debug, Decode, Encode)]
+struct Transfer {
+    pub dest: MultiAddress,
+    #[codec(compact)]
+    pub amount: u128,
+}
+
 impl TransactionBuilder for PolkadotTransactionBuilder {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
@@ -85,12 +92,6 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams> {
         let address: AccountId32 = parse_address(address)?;
         let dest = MultiAddress::Id(address);
-        #[derive(Debug, Decode, Encode)]
-        struct Transfer {
-            pub dest: MultiAddress,
-            #[codec(compact)]
-            pub amount: u128,
-        }
         Ok(PolkadotMetadataParams {
             pallet_name: "Balances".into(),
             call_name: "transfer".into(),
@@ -115,6 +116,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         metadata: &Self::Metadata,
         secret_key: &SecretKey,
     ) -> Vec<u8> {
+        #[allow(clippy::unwrap_used)]
         let address = AccountId32(secret_key.public_key().to_bytes().try_into().unwrap());
         let address = MultiAddress::Id(address);
         let extra_parameters = (
@@ -145,6 +147,7 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         } else {
             secret_key.sign(&payload, "substrate")
         };
+        #[allow(clippy::unwrap_used)]
         let signature =
             MultiSignature::Sr25519(signature.to_bytes().as_slice().try_into().unwrap());
 
@@ -164,7 +167,8 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         encoded.extend(&metadata_params.call_args);
 
         // now, prefix byte length:
-        let len = Compact(encoded.len() as u32);
+        #[allow(clippy::expect_used)]
+        let len = Compact(u32::try_from(encoded.len()).expect("tx cannot have more than 32 bits"));
         let mut transaction = vec![];
         len.encode_to(&mut transaction);
         transaction.extend(encoded);

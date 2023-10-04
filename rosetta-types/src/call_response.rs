@@ -9,7 +9,6 @@
  */
 
 /// `CallResponse` : `CallResponse` contains the result of a `/call` invocation.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CallResponse {
     /// Result contains the result of the `/call` invocation. This result will not be inspected or interpreted by Rosetta tooling and is left to the caller to decode.
@@ -22,7 +21,8 @@ pub struct CallResponse {
 
 impl CallResponse {
     /// `CallResponse` contains the result of a `/call` invocation.
-    #[must_use] pub fn new(result: serde_json::Value, idempotent: bool) -> Self {
+    #[must_use]
+    pub const fn new(result: serde_json::Value, idempotent: bool) -> Self {
         Self { result, idempotent }
     }
 }

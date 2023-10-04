@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionDeriveResponse` : `ConstructionDeriveResponse` is returned by the `/construction/derive` endpoint.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionDeriveResponse {
     /// [DEPRECATED by `account_identifier` in `v1.4.4`] Address in network-specific format.
@@ -23,7 +22,8 @@ pub struct ConstructionDeriveResponse {
 
 impl ConstructionDeriveResponse {
     /// `ConstructionDeriveResponse` is returned by the `/construction/derive` endpoint.
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             address: None,
             account_identifier: None,

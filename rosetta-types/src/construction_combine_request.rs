@@ -9,7 +9,6 @@
  */
 
 /// `ConstructionCombineRequest` : `ConstructionCombineRequest` is the input to the `/construction/combine` endpoint. It contains the unsigned transaction blob returned by `/construction/payloads` and all required signatures to create a network transaction.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionCombineRequest {
     #[serde(rename = "network_identifier")]
@@ -22,7 +21,8 @@ pub struct ConstructionCombineRequest {
 
 impl ConstructionCombineRequest {
     /// `ConstructionCombineRequest` is the input to the `/construction/combine` endpoint. It contains the unsigned transaction blob returned by `/construction/payloads` and all required signatures to create a network transaction.
-    #[must_use] pub fn new(
+    #[must_use]
+    pub const fn new(
         network_identifier: crate::NetworkIdentifier,
         unsigned_transaction: String,
         signatures: Vec<crate::Signature>,

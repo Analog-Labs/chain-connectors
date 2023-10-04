@@ -9,7 +9,6 @@
  */
 
 /// Peer : A Peer is a representation of a node's peer.
-
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Peer {
     #[serde(rename = "peer_id")]
@@ -20,7 +19,8 @@ pub struct Peer {
 
 impl Peer {
     /// A Peer is a representation of a node's peer.
-    #[must_use] pub fn new(peer_id: String) -> Self {
+    #[must_use]
+    pub const fn new(peer_id: String) -> Self {
         Self {
             peer_id,
             metadata: None,
