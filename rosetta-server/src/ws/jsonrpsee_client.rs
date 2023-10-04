@@ -67,8 +67,9 @@ where
             .map_err(|e| RpcError::ClientError(Box::new(e)))?;
 
             let id = match stream.kind() {
-                SubscriptionKind::Subscription(SubscriptionId::Str(id)) =>
-                    Some(id.clone().into_owned()),
+                SubscriptionKind::Subscription(SubscriptionId::Str(id)) => {
+                    Some(id.clone().into_owned())
+                },
                 _ => None,
             };
 

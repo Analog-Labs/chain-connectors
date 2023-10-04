@@ -32,8 +32,9 @@ impl Iterator for RetryStrategy {
 impl From<&RetryStrategyConfig> for RetryStrategy {
     fn from(config: &RetryStrategyConfig) -> Self {
         match config {
-            RetryStrategyConfig::FixedInterval(duration) =>
-                Self::FixedInterval(FixedInterval::new(*duration)),
+            RetryStrategyConfig::FixedInterval(duration) => {
+                Self::FixedInterval(FixedInterval::new(*duration))
+            },
             RetryStrategyConfig::ExponentialBackoff { base, factor, max_delay } => {
                 let mut exponential_backoff = ExponentialBackoff::from_millis(*base);
                 if let Some(factor) = factor.as_ref() {

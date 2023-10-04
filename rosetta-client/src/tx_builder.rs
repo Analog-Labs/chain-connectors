@@ -39,8 +39,9 @@ impl GenericTransactionBuilder {
         amount: u128,
     ) -> Result<GenericMetadataParams> {
         Ok(match self {
-            Self::Astar(tx) =>
-                AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into(),
+            Self::Astar(tx) => {
+                AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into()
+            },
             Self::Ethereum(tx) => tx.method_call(contract, method, params, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, method, params, amount)?.into(),
         })

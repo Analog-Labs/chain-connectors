@@ -94,16 +94,18 @@ impl<T: Config> DefaultStrategy<T> {
     pub fn acquire_client(&self) -> ReadyOrWaitFuture<T> {
         let connection_status = match self.inner.connection_status.read() {
             Ok(guard) => guard.deref().clone(),
-            Err(error) =>
+            Err(error) => {
                 return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
                     "FATAL ERROR, client lock was poisoned: {error}"
-                )))),
+                ))))
+            },
         };
 
         match connection_status {
             ConnectionStatus::Ready(client) => ReadyOrWaitFuture::ready(Ok(client)),
-            ConnectionStatus::Reconnecting(future) =>
-                ReadyOrWaitFuture::<T>::wait(self.inner.config.max_pending_delay(), future),
+            ConnectionStatus::Reconnecting(future) => {
+                ReadyOrWaitFuture::<T>::wait(self.inner.config.max_pending_delay(), future)
+            },
         }
     }
 
@@ -112,10 +114,11 @@ impl<T: Config> DefaultStrategy<T> {
         // Acquire write lock, making sure only one thread is handling the reconnect
         let mut guard = match self.inner.connection_status.write() {
             Ok(guard) => guard,
-            Err(error) =>
+            Err(error) => {
                 return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
                     "FATAL ERROR, client lock was poisoned: {error}"
-                )))),
+                ))))
+            },
         };
 
         // If the client is already reconnecting, reuse the same future
@@ -220,17 +223,20 @@ impl<T: Config> Future for ReadyOrWaitFuture<T> {
                 Some(ReadyOrWaitState::Waiting(mut future)) => {
                     match future.poll_unpin(cx) {
                         // The request delay timeout
-                        Poll::Ready(Either::Left(_)) =>
+                        Poll::Ready(Either::Left(_)) => {
                             return Poll::Ready(Err(Error::Custom(
                                 "Timeout: cannot process request, client reconnecting..."
                                     .to_string(),
-                            ))),
+                            )))
+                        },
                         // The client was reconnected!
-                        Poll::Ready(Either::Right((Ok(client), _))) =>
-                            return Poll::Ready(Ok(client)),
+                        Poll::Ready(Either::Right((Ok(client), _))) => {
+                            return Poll::Ready(Ok(client))
+                        },
                         // Failed to reconnect
-                        Poll::Ready(Either::Right((Err(result), _))) =>
-                            return Poll::Ready(Err(result.into_inner())),
+                        Poll::Ready(Either::Right((Err(result), _))) => {
+                            return Poll::Ready(Err(result.into_inner()))
+                        },
                         Poll::Pending => {
                             *this.state = Some(ReadyOrWaitState::Waiting(future));
                             return Poll::Pending
@@ -311,8 +317,9 @@ pub enum ReconnectStateMachine<T: Config> {
 impl<T: Config> Debug for ReconnectStateMachine<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ReconnectAndWaitDelay(_) =>
-                f.debug_struct("ReconnectStateMachine::ReconnectAndWaitDelay"),
+            Self::ReconnectAndWaitDelay(_) => {
+                f.debug_struct("ReconnectStateMachine::ReconnectAndWaitDelay")
+            },
             Self::Reconnecting(_) => f.debug_struct("ReconnectStateMachine::Reconnecting"),
             Self::Waiting(_) => f.debug_struct("ReconnectStateMachine::Waiting"),
             Self::Failure { .. } => f.debug_struct("ReconnectStateMachine::Failure"),

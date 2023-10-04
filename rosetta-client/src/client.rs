@@ -152,14 +152,18 @@ impl BlockchainClient for GenericClient {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
         Ok(match (self, params) {
-            (Self::Bitcoin(client), GenericMetadataParams::Bitcoin(params)) =>
-                client.metadata(public_key, params).await?.into(),
-            (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) =>
-                client.metadata(public_key, params).await?.into(),
-            (Self::Astar(client), GenericMetadataParams::Astar(params)) =>
-                client.metadata(public_key, params).await?.into(),
-            (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) =>
-                client.metadata(public_key, params).await?.into(),
+            (Self::Bitcoin(client), GenericMetadataParams::Bitcoin(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
+            (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
+            (Self::Astar(client), GenericMetadataParams::Astar(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
+            (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
             _ => anyhow::bail!("invalid params"),
         })
     }

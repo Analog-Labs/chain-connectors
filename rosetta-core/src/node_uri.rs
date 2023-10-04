@@ -39,6 +39,7 @@ impl<'a> NodeUri<'a> {
     /// a percent-encoded registered name (see Section 3.2.2, RFC 3986 ). Care should be taken when
     /// dealing with such cases. # Errors
     ///
+    /// # Errors
     /// The provided url must contain [`fluent_uri::Scheme`], [`fluent_uri::Host`] and port,
     /// otherwise returns `Err`
     pub fn parse(s: &'a str) -> Result<Self, NodeUriError> {

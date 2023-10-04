@@ -77,8 +77,9 @@ impl RosettaPublicKey for DerivedPublicKey {
     fn to_rosetta(&self) -> PublicKey {
         PublicKey {
             curve_type: match self.public_key().algorithm() {
-                Algorithm::EcdsaSecp256k1 | Algorithm::EcdsaRecoverableSecp256k1 =>
-                    CurveType::Secp256k1,
+                Algorithm::EcdsaSecp256k1 | Algorithm::EcdsaRecoverableSecp256k1 => {
+                    CurveType::Secp256k1
+                },
                 Algorithm::EcdsaSecp256r1 => CurveType::Secp256r1,
                 Algorithm::Ed25519 => CurveType::Edwards25519,
                 Algorithm::Sr25519 => CurveType::Schnorrkel,

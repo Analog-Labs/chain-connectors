@@ -339,14 +339,15 @@ fn scale_to_serde_json(data: ValueDef<TypeId>) -> Result<SerdeValue> {
                 Ok(SerdeValue::Array(vec_of_array))
             },
         },
-        scale_value::ValueDef::Variant(val) =>
+        scale_value::ValueDef::Variant(val) => {
             if val.values.is_empty() {
                 Ok(SerdeValue::String(val.name))
             } else {
                 let mut map = Map::new();
                 map.insert(val.name, scale_to_serde_json(val.values.into())?);
                 Ok(SerdeValue::Object(map))
-            },
+            }
+        },
         scale_value::ValueDef::BitSequence(val) => {
             let mut vec_of_array = vec![];
             for i in val {

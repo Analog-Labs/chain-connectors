@@ -158,10 +158,10 @@ struct TransactionOperationStatus {
 fn generate_address(config: &BlockchainConfig, val: &ValueDef<TypeId>) -> Result<String> {
     let mut addr_array = vec![];
     match val {
-        ValueDef::Composite(Composite::Unnamed(unamed_data)) =>
+        ValueDef::Composite(Composite::Unnamed(unamed_data)) => {
             for value_data in unamed_data {
                 match &value_data.value {
-                    ValueDef::Composite(data) =>
+                    ValueDef::Composite(data) => {
                         for data in data.values() {
                             match data.value {
                                 ValueDef::Primitive(Primitive::U128(val)) => {
@@ -173,10 +173,12 @@ fn generate_address(config: &BlockchainConfig, val: &ValueDef<TypeId>) -> Result
                                 },
                                 _ => anyhow::bail!("invalid operation"),
                             }
-                        },
+                        }
+                    },
                     _ => anyhow::bail!("invalid operation"),
                 }
-            },
+            }
+        },
         _ => anyhow::bail!("invalid operation"),
     }
 

@@ -284,14 +284,15 @@ impl BlockchainClient for PolkadotClient {
         let query_type = call_details[2];
         match query_type.to_lowercase().as_str() {
             "constant" => crate::call::dynamic_constant_req(&self.client, pallet_name, call_name),
-            "storage" =>
+            "storage" => {
                 crate::call::dynamic_storage_req(
                     &self.client,
                     pallet_name,
                     call_name,
                     request.parameters.clone(),
                 )
-                .await,
+                .await
+            },
             _ => {
                 anyhow::bail!("invalid query type");
             },

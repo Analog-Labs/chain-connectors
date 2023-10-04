@@ -124,7 +124,7 @@ impl Stream for EthSubscription {
                         },
                     }
                 },
-                Some(EthSubscriptionState::Unsubscribing(mut future)) =>
+                Some(EthSubscriptionState::Unsubscribing(mut future)) => {
                     return match future.poll_unpin(cx) {
                         Poll::Ready(Ok(_)) => Poll::Ready(None),
                         Poll::Ready(Err(error)) => {
@@ -135,7 +135,8 @@ impl Stream for EthSubscription {
                             *this.state = Some(EthSubscriptionState::Unsubscribing(future));
                             Poll::Pending
                         },
-                    },
+                    }
+                },
                 None => {
                     tracing::error!("stream must not be polled after being closed`");
                     return Poll::Ready(None)

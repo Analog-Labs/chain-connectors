@@ -126,8 +126,9 @@ impl DerivedSecretKey {
     /// Derives a BIP32 master key. See SLIP0010 for extension to secp256r1 and ed25519 curves.
     fn bip32_master_key(seed: &[u8], algorithm: Algorithm) -> Result<Self> {
         let curve_name = match algorithm {
-            Algorithm::EcdsaRecoverableSecp256k1 | Algorithm::EcdsaSecp256k1 =>
-                &b"Bitcoin seed"[..],
+            Algorithm::EcdsaRecoverableSecp256k1 | Algorithm::EcdsaSecp256k1 => {
+                &b"Bitcoin seed"[..]
+            },
             Algorithm::EcdsaSecp256r1 => &b"Nist256p1 seed"[..],
             Algorithm::Ed25519 => &b"ed25519 seed"[..],
             Algorithm::Sr25519 => anyhow::bail!("sr25519 does not support bip32 derivation"),

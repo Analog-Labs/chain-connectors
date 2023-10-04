@@ -80,19 +80,22 @@ impl SecretKey {
     /// Will return `Err` if `bytes` has the wrong length
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
-            Algorithm::EcdsaSecp256k1 =>
-                Self::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?),
-            Algorithm::EcdsaRecoverableSecp256k1 =>
-                Self::EcdsaRecoverableSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?),
-            Algorithm::EcdsaSecp256r1 =>
-                Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?),
+            Algorithm::EcdsaSecp256k1 => {
+                Self::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+            },
+            Algorithm::EcdsaRecoverableSecp256k1 => {
+                Self::EcdsaRecoverableSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+            },
+            Algorithm::EcdsaSecp256r1 => {
+                Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+            },
             Algorithm::Ed25519 => {
                 let secret = ed25519_dalek::SecretKey::from_bytes(bytes)?;
                 let public = ed25519_dalek::PublicKey::from(&secret);
                 let keypair = ed25519_dalek::Keypair { secret, public };
                 Self::Ed25519(keypair)
             },
-            Algorithm::Sr25519 =>
+            Algorithm::Sr25519 => {
                 if bytes.len() == 32 {
                     let minisecret = schnorrkel::MiniSecretKey::from_bytes(bytes)
                         .map_err(|err| anyhow::anyhow!("{}", err))?;
@@ -103,7 +106,8 @@ impl SecretKey {
                     let secret = schnorrkel::SecretKey::from_bytes(bytes)
                         .map_err(|err| anyhow::anyhow!("{}", err))?;
                     Self::Sr25519(secret.to_keypair(), None)
-                },
+                }
+            },
         })
     }
 
@@ -111,8 +115,9 @@ impl SecretKey {
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            Self::EcdsaRecoverableSecp256k1(secret) | Self::EcdsaSecp256k1(secret) =>
-                secret.to_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(secret) | Self::EcdsaSecp256k1(secret) => {
+                secret.to_bytes().to_vec()
+            },
             Self::EcdsaSecp256r1(secret) => secret.to_bytes().to_vec(),
             Self::Ed25519(secret) => secret.secret.to_bytes().to_vec(),
             Self::Sr25519(_, Some(minisecret)) => minisecret.as_bytes().to_vec(),
@@ -125,8 +130,9 @@ impl SecretKey {
     pub fn public_key(&self) -> PublicKey {
         match self {
             Self::EcdsaSecp256k1(secret) => PublicKey::EcdsaSecp256k1(*secret.verifying_key()),
-            Self::EcdsaRecoverableSecp256k1(secret) =>
-                PublicKey::EcdsaRecoverableSecp256k1(*secret.verifying_key()),
+            Self::EcdsaRecoverableSecp256k1(secret) => {
+                PublicKey::EcdsaRecoverableSecp256k1(*secret.verifying_key())
+            },
             Self::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(*secret.verifying_key()),
             Self::Ed25519(secret) => PublicKey::Ed25519(secret.public),
             Self::Sr25519(secret, _) => PublicKey::Sr25519(secret.public),
@@ -212,12 +218,15 @@ impl PublicKey {
     /// Will return `Err` if `bytes` is not a valid public key for `algoritm`.
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
-            Algorithm::EcdsaSecp256k1 =>
-                Self::EcdsaSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?),
-            Algorithm::EcdsaRecoverableSecp256k1 =>
-                Self::EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?),
-            Algorithm::EcdsaSecp256r1 =>
-                Self::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?),
+            Algorithm::EcdsaSecp256k1 => {
+                Self::EcdsaSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+            },
+            Algorithm::EcdsaRecoverableSecp256k1 => {
+                Self::EcdsaRecoverableSecp256k1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+            },
+            Algorithm::EcdsaSecp256r1 => {
+                Self::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
+            },
             Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::PublicKey::from_bytes(bytes)?),
             Algorithm::Sr25519 => {
                 let public = schnorrkel::PublicKey::from_bytes(bytes)
@@ -232,8 +241,9 @@ impl PublicKey {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
             Self::EcdsaSecp256k1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
-            Self::EcdsaRecoverableSecp256k1(public) =>
-                public.to_encoded_point(true).as_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(public) => {
+                public.to_encoded_point(true).as_bytes().to_vec()
+            },
             Self::EcdsaSecp256r1(public) => public.to_encoded_point(true).as_bytes().to_vec(),
             Self::Ed25519(public) => public.to_bytes().to_vec(),
             Self::Sr25519(public) => public.to_bytes().to_vec(),
@@ -245,8 +255,9 @@ impl PublicKey {
     pub fn to_uncompressed_bytes(&self) -> Vec<u8> {
         match self {
             Self::EcdsaSecp256k1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
-            Self::EcdsaRecoverableSecp256k1(public) =>
-                public.to_encoded_point(false).as_bytes().to_vec(),
+            Self::EcdsaRecoverableSecp256k1(public) => {
+                public.to_encoded_point(false).as_bytes().to_vec()
+            },
             Self::EcdsaSecp256r1(public) => public.to_encoded_point(false).as_bytes().to_vec(),
             Self::Ed25519(public) => public.to_bytes().to_vec(),
             Self::Sr25519(public) => public.to_bytes().to_vec(),
