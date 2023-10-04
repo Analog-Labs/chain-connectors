@@ -17,7 +17,7 @@ match_arm_leading_pipes = "Preserve"
 match_arm_blocks = true
 match_block_trailing_comma = true
 trailing_comma = "Vertical"
-trailing_semicolon = false
+trailing_semicolon = true
 use_field_init_shorthand = true
 # Format comments
 comment_width = 100
