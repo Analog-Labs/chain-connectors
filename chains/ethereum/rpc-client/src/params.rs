@@ -1,6 +1,5 @@
 use jsonrpsee::core::{error::Error as JsonRpseeError, traits::ToRpcParams};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::value::RawValue;
 use std::fmt::{Display, Formatter};
 

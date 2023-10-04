@@ -31,7 +31,16 @@ pub enum MaybeWsEthereumClient {
 }
 
 impl MaybeWsEthereumClient {
-    pub async fn new<S: AsRef<str>>(blockchain: &str, network: &str, addr: S) -> Result<Self> {
+    /// Creates a new ethereum client from `network` and `addr`.
+    /// Supported blockchains are `ethereum` and `polygon`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
+    pub async fn new<S: AsRef<str> + Send>(
+        blockchain: &str,
+        network: &str,
+        addr: S,
+    ) -> Result<Self> {
         let config = match blockchain {
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "ethereum" => rosetta_config_ethereum::config(network)?,
@@ -40,7 +49,14 @@ impl MaybeWsEthereumClient {
         Self::from_config(config, addr).await
     }
 
-    pub async fn from_config<S: AsRef<str>>(config: BlockchainConfig, addr: S) -> Result<Self> {
+    /// Creates a new bitcoin client from `config` and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
+    pub async fn from_config<S: AsRef<str> + Send>(
+        config: BlockchainConfig,
+        addr: S,
+    ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
@@ -52,6 +68,11 @@ impl MaybeWsEthereumClient {
         }
     }
 
+    /// Creates a new Ethereum Client from the provided `JsonRpsee` client,
+    /// this method is useful for reusing the same rpc client for ethereum and substrate calls.
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
         let client = EthereumClient::new(config, ws_connection).await?;
@@ -67,57 +88,57 @@ impl BlockchainClient for MaybeWsEthereumClient {
 
     fn config(&self) -> &BlockchainConfig {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.config(),
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.config(),
+            Self::Http(http_client) => http_client.config(),
+            Self::Ws(ws_client) => ws_client.config(),
         }
     }
 
     fn genesis_block(&self) -> &BlockIdentifier {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.genesis_block(),
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.genesis_block(),
+            Self::Http(http_client) => http_client.genesis_block(),
+            Self::Ws(ws_client) => ws_client.genesis_block(),
         }
     }
 
     async fn node_version(&self) -> Result<String> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.node_version().await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.node_version().await,
+            Self::Http(http_client) => http_client.node_version().await,
+            Self::Ws(ws_client) => ws_client.node_version().await,
         }
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.current_block().await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.current_block().await,
+            Self::Http(http_client) => http_client.current_block().await,
+            Self::Ws(ws_client) => ws_client.current_block().await,
         }
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.finalized_block().await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.finalized_block().await,
+            Self::Http(http_client) => http_client.finalized_block().await,
+            Self::Ws(ws_client) => ws_client.finalized_block().await,
         }
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.balance(address, block).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.balance(address, block).await,
+            Self::Http(http_client) => http_client.balance(address, block).await,
+            Self::Ws(ws_client) => ws_client.balance(address, block).await,
         }
     }
 
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.coins(address, block).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.coins(address, block).await,
+            Self::Http(http_client) => http_client.coins(address, block).await,
+            Self::Ws(ws_client) => ws_client.coins(address, block).await,
         }
     }
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.faucet(address, param).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.faucet(address, param).await,
+            Self::Http(http_client) => http_client.faucet(address, param).await,
+            Self::Ws(ws_client) => ws_client.faucet(address, param).await,
         }
     }
 
@@ -127,24 +148,22 @@ impl BlockchainClient for MaybeWsEthereumClient {
         options: &Self::MetadataParams,
     ) -> Result<EthereumMetadata> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => {
-                http_client.metadata(public_key, options).await
-            }
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.metadata(public_key, options).await,
+            Self::Http(http_client) => http_client.metadata(public_key, options).await,
+            Self::Ws(ws_client) => ws_client.metadata(public_key, options).await,
         }
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.submit(transaction).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.submit(transaction).await,
+            Self::Http(http_client) => http_client.submit(transaction).await,
+            Self::Ws(ws_client) => ws_client.submit(transaction).await,
         }
     }
 
     async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.block(block_identifier).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block(block_identifier).await,
+            Self::Http(http_client) => http_client.block(block_identifier).await,
+            Self::Ws(ws_client) => ws_client.block(block_identifier).await,
         }
     }
 
@@ -154,27 +173,25 @@ impl BlockchainClient for MaybeWsEthereumClient {
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => {
-                http_client.block_transaction(block, tx).await
-            }
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
+            Self::Http(http_client) => http_client.block_transaction(block, tx).await,
+            Self::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
         }
     }
 
     async fn call(&self, req: &CallRequest) -> Result<Value> {
         match self {
-            MaybeWsEthereumClient::Http(http_client) => http_client.call(req).await,
-            MaybeWsEthereumClient::Ws(ws_client) => ws_client.call(req).await,
+            Self::Http(http_client) => http_client.call(req).await,
+            Self::Ws(ws_client) => ws_client.call(req).await,
         }
     }
 
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         match self {
-            MaybeWsEthereumClient::Http(_) => Ok(None),
-            MaybeWsEthereumClient::Ws(ws_client) => {
+            Self::Http(_) => Ok(None),
+            Self::Ws(ws_client) => {
                 let subscription = ws_client.listen().await?;
                 Ok(Some(subscription))
-            }
+            },
         }
     }
 }
@@ -182,12 +199,10 @@ impl BlockchainClient for MaybeWsEthereumClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethers_solc::artifacts::Source;
-    use ethers_solc::{CompilerInput, EvmVersion, Solc};
+    use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_docker::Env;
     use sha3::Digest;
-    use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::{collections::BTreeMap, path::Path};
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
@@ -250,12 +265,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new(
-            "ethereum-smart-contract",
-            config.clone(),
-            client_from_config,
-        )
-        .await?;
+        let env = Env::new("ethereum-smart-contract", config.clone(), client_from_config).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
@@ -272,15 +282,12 @@ mod tests {
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt
-            .get("contractAddress")
-            .and_then(|v| v.as_str())
-            .unwrap();
-        let tx_hash = wallet
-            .eth_send_call(contract_address, "function emitEvent()", &[], 0)
-            .await?;
+        let contract_address =
+            receipt.get("contractAddress").and_then(serde_json::Value::as_str).unwrap();
+        let tx_hash =
+            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let logs = receipt.get("logs").and_then(|v| v.as_array()).unwrap();
+        let logs = receipt.get("logs").and_then(serde_json::Value::as_array).unwrap();
         assert_eq!(logs.len(), 1);
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
@@ -293,12 +300,8 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new(
-            "ethereum-smart-contract-view",
-            config.clone(),
-            client_from_config,
-        )
-        .await?;
+        let env =
+            Env::new("ethereum-smart-contract-view", config.clone(), client_from_config).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;

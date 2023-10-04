@@ -1,6 +1,10 @@
-use ethers::types::{Bytes, EIP1186ProofResponse};
-use ethers::utils::keccak256;
-use ethers::utils::rlp::{decode_list, RlpStream};
+use ethers::{
+    types::{Bytes, EIP1186ProofResponse},
+    utils::{
+        keccak256,
+        rlp::{decode_list, RlpStream},
+    },
+};
 
 pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec<u8>) -> bool {
     let mut expected_hash = root.to_vec();
@@ -14,25 +18,22 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec
         let node_list: Vec<Vec<u8>> = decode_list(node);
 
         if node_list.len() == 17 {
+            // exclusion proof
+            let nibble = get_nibble(path, path_offset);
             if i == proof.len() - 1 {
-                // exclusion proof
-                let nibble = get_nibble(path, path_offset);
                 let node = &node_list[nibble as usize];
-
                 if node.is_empty() && is_empty_value(value) {
                     return true;
                 }
             } else {
-                let nibble = get_nibble(path, path_offset);
                 expected_hash = node_list[nibble as usize].clone();
-
                 path_offset += 1;
             }
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 // exclusion proof
-                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset)
-                    && is_empty_value(value)
+                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset) &&
+                    is_empty_value(value)
                 {
                     return true;
                 }
@@ -95,6 +96,7 @@ fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
     ret
 }
 
+#[allow(clippy::unwrap_used)]
 fn is_empty_value(value: &Vec<u8>) -> bool {
     let mut stream = RlpStream::new();
     stream.begin_list(4);
@@ -114,10 +116,7 @@ fn is_empty_value(value: &Vec<u8>) -> bool {
 fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
     let skip_length = skip_length(node_path);
 
-    let len = std::cmp::min(
-        node_path.len() * 2 - skip_length,
-        path.len() * 2 - path_offset,
-    );
+    let len = std::cmp::min(node_path.len() * 2 - skip_length, path.len() * 2 - path_offset);
     let mut prefix_len = 0;
 
     for i in 0..len {
@@ -141,15 +140,13 @@ fn skip_length(node: &Vec<u8>) -> usize {
 
     let nibble = get_nibble(node, 0);
     match nibble {
-        0 => 2,
-        1 => 1,
-        2 => 2,
-        3 => 1,
+        0 | 2 => 2,
+        1 | 3 => 1,
         _ => 0,
     }
 }
 
-fn get_nibble(path: &[u8], offset: usize) -> u8 {
+const fn get_nibble(path: &[u8], offset: usize) -> u8 {
     let byte = path[offset / 2];
     if offset % 2 == 0 {
         byte >> 4

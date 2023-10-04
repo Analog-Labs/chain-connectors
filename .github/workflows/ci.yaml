@@ -28,7 +28,7 @@ jobs:
       run: dprint check
 
     - name: cargo fmt
-      run: cargo fmt --all -- --check
+      run: cargo +nightly fmt --all -- --check
 
     - name: Run ShellCheck
       uses: ludeeus/action-shellcheck@master
@@ -51,7 +51,7 @@ jobs:
         components: clippy
 
     - name: cargo clippy
-      run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings
+      run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::nursery -D clippy::pedantic -A clippy::module_name_repetitions
 
   cargo-deny:
     runs-on: self-hosted

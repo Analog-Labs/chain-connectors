@@ -7,7 +7,7 @@ use jsonrpsee::{
 /// Ten megabytes.
 pub const TEN_MB_SIZE_BYTES: usize = 10 * 1024 * 1024;
 
-/// Supported WebSocket transport clients.
+/// Supported websocket transport clients.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum WsTransportClient {
     /// Auto will try to use Socketto first, if it fails, it will fallback to Tungstenite.
@@ -34,7 +34,8 @@ pub enum RetryStrategyConfig {
     /// The power corresponds to the number of past attempts.
     ExponentialBackoff {
         /// base duration in milliseconds.
-        /// The resulting duration is calculated by taking the base to the n-th power, where n denotes the number of past attempts.
+        /// The resulting duration is calculated by taking the base to the n-th power, where n
+        /// denotes the number of past attempts.
         base: u64,
         /// A multiplicative factor that will be applied to the retry delay.
         /// For example, using a factor of 1000 will make each delay in units of seconds.
@@ -46,8 +47,10 @@ pub enum RetryStrategyConfig {
 
     /// A retry strategy driven by the fibonacci series.
     /// Each retry uses a delay which is the sum of the two previous delays.
-    /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead to better throughput than the ExponentialBackoff strategy.
-    /// See "A Performance Comparison of Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for more details.
+    /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead
+    /// to better throughput than the ExponentialBackoff strategy. See "A Performance Comparison of
+    /// Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for
+    /// more details.
     FibonacciBackoff {
         /// Initial base duration in milliseconds.
         initial: u64,
@@ -105,8 +108,10 @@ pub struct RpcClientConfig {
     /// JSON-RPC max concurrent requests (default is 256).
     pub rpc_max_concurrent_requests: usize,
 
-    /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the subscription will be dropped (default is 1024).
-    /// You may prevent the subscription from being dropped by polling often enough Subscription::next() such that it can keep with the rate as server produces new items on the subscription.
+    /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the
+    /// subscription will be dropped (default is 1024). You may prevent the subscription from being
+    /// dropped by polling often enough Subscription::next() such that it can keep with the rate as
+    /// server produces new items on the subscription.
     pub rpc_max_buffer_capacity_per_subscription: NonZeroUsize,
 
     /// JSON-RPC request object id data type. (default is IdKind::Number)
@@ -121,9 +126,11 @@ pub struct RpcClientConfig {
     ///
     /// Periodically submitting pings at a defined interval has mainly two benefits:
     ///  - Directly, it acts as a "keep-alive" alternative in the WebSocket world.
-    ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to messages.
+    ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to
+    ///    messages.
     ///
-    /// The underlying implementation does not make any assumptions about at which intervals pongs are received.
+    /// The underlying implementation does not make any assumptions about at which intervals pongs
+    /// are received.
     ///
     /// Note: The interval duration is restarted when
     ///  - a frontend command is submitted
@@ -168,7 +175,7 @@ impl Default for RpcClientConfig {
 
 impl From<&RpcClientConfig> for ClientBuilder {
     fn from(config: &RpcClientConfig) -> Self {
-        let mut builder = ClientBuilder::new()
+        let mut builder = Self::new()
             .request_timeout(config.rpc_request_timeout)
             .max_concurrent_requests(config.rpc_max_concurrent_requests)
             .max_buffer_capacity_per_subscription(
@@ -185,8 +192,9 @@ impl From<&RpcClientConfig> for ClientBuilder {
 
 impl From<&RpcClientConfig> for WsTransportClientBuilder {
     fn from(config: &RpcClientConfig) -> Self {
-        let message_size = config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES) as u32;
-        let mut builder = WsTransportClientBuilder::default()
+        let message_size =
+            u32::try_from(config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES)).unwrap_or(u32::MAX);
+        let mut builder = Self::default()
             .max_request_size(message_size)
             .max_response_size(message_size)
             .max_redirections(5);

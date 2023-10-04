@@ -1,11 +1,7 @@
-use ethers::prelude::*;
-use ethers::providers::PubsubClient;
-use futures_util::future::BoxFuture;
-use futures_util::FutureExt;
+use ethers::{prelude::*, providers::PubsubClient};
+use futures_util::{future::BoxFuture, FutureExt};
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::Poll;
+use std::{pin::Pin, sync::Arc, task::Poll};
 
 // Maximum number of failures in sequence before closing the stream
 const FAILURE_THRESHOLD: u32 = 10;
@@ -19,8 +15,8 @@ pub struct EthereumEventStream<'a, P: PubsubClient> {
     pub finalized_block_failures: u32,
     /// Count the number of failed attempts to retrieve the latest block
     pub latest_block_failures: u32,
-    /// Cache the best finalized block, we use this to avoid emitting two [`ClientEvent::NewFinalized`]
-    /// for the same block
+    /// Cache the best finalized block, we use this to avoid emitting two
+    /// [`ClientEvent::NewFinalized`] for the same block
     pub best_finalized_block: Option<BlockIdentifier>,
     /// Ethereum client doesn't support subscribing for finalized blocks, as workaround
     /// everytime we receive a new head, we query the latest finalized block
@@ -49,24 +45,15 @@ where
     fn finalized_block(&self) -> BoxFuture<'static, Result<Option<Block<TxHash>>, ProviderError>> {
         // Clone client to make BoxFuture 'static
         let client = Arc::clone(&self.client);
-        async move {
-            client
-                .get_block(BlockId::Number(BlockNumber::Finalized))
-                .await
-        }
-        .boxed()
+        async move { client.get_block(BlockId::Number(BlockNumber::Finalized)).await }.boxed()
     }
 }
 
 /// Converts [`Block`] to [`BlockIdentifier`]
-fn block_to_identifier(block: Block<TxHash>) -> Result<BlockIdentifier, &'static str> {
-    let Some(number) = block.number else {
-        return Err("block number is missing");
-    };
+fn block_to_identifier(block: &Block<TxHash>) -> Result<BlockIdentifier, &'static str> {
+    let Some(number) = block.number else { return Err("block number is missing") };
 
-    let Some(hash) = block.hash else {
-        return Err("block hash is missing");
-    };
+    let Some(hash) = block.hash else { return Err("block hash is missing") };
 
     Ok(BlockIdentifier::new(number.as_u64(), hex::encode(hash)))
 }
@@ -97,13 +84,13 @@ where
                 match finalized_block_future.poll_unpin(cx) {
                     Poll::Ready(Ok(Some(block))) => {
                         // Convert raw block to block identifier
-                        let block_identifier = match block_to_identifier(block) {
+                        let block_identifier = match block_to_identifier(&block) {
                             Ok(block_identifier) => block_identifier,
                             Err(error) => {
                                 this.finalized_block_failures += 1;
                                 tracing::error!("finalized block: {error}");
                                 break;
-                            }
+                            },
                         };
 
                         // Reset failure counter
@@ -125,25 +112,25 @@ where
                         return Poll::Ready(Some(ClientEvent::NewFinalized(
                             BlockOrIdentifier::Identifier(block_identifier),
                         )));
-                    }
+                    },
                     Poll::Ready(Ok(None)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
                         tracing::error!("finalized block not found");
                         this.finalized_block_failures += 1;
                         continue;
-                    }
+                    },
                     Poll::Ready(Err(error)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
                         tracing::error!("failed to retrieve finalized block: {error:?}");
                         this.finalized_block_failures += 1;
                         continue;
-                    }
+                    },
                     Poll::Pending => {
                         this.finalized_block_future = Some(finalized_block_future);
                         break;
-                    }
+                    },
                 }
             }
         }
@@ -159,13 +146,13 @@ where
             match this.new_head.poll_next_unpin(cx) {
                 Poll::Ready(Some(block)) => {
                     // Convert raw block to block identifier
-                    let block_identifier = match block_to_identifier(block) {
+                    let block_identifier = match block_to_identifier(&block) {
                         Ok(block_identifier) => block_identifier,
                         Err(error) => {
                             this.latest_block_failures += 1;
                             tracing::error!("latest block: {error}");
                             continue;
-                        }
+                        },
                     };
 
                     // Reset failure counter
@@ -179,7 +166,7 @@ where
                     return Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(
                         block_identifier,
                     ))));
-                }
+                },
                 Poll::Ready(None) => return Poll::Ready(None),
                 Poll::Pending => return Poll::Pending,
             };

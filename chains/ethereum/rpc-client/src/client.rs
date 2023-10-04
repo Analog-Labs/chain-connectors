@@ -2,10 +2,11 @@ use crate::{error::EthError, extension::impl_client_trait, params::EthRpcParams}
 use async_trait::async_trait;
 use ethers::providers::JsonRpcClient;
 use jsonrpsee::core::client::ClientT;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::fmt::{Debug, Formatter};
-use std::ops::{Deref, DerefMut};
+use serde::{de::DeserializeOwned, Serialize};
+use std::{
+    fmt::{Debug, Formatter},
+    ops::{Deref, DerefMut},
+};
 
 /// Adapter for [`jsonrpsee::core::client::ClientT`] to [`ethers::providers::JsonRpcClient`].
 #[repr(transparent)]
@@ -17,7 +18,7 @@ impl<C> EthClientAdapter<C>
 where
     C: ClientT + Debug + Send + Sync,
 {
-    pub fn new(client: C) -> Self {
+    pub const fn new(client: C) -> Self {
         Self { client }
     }
 }
@@ -35,9 +36,7 @@ where
     C: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ClientAdapter")
-            .field("client", &self.client)
-            .finish()
+        f.debug_struct("ClientAdapter").field("client", &self.client).finish()
     }
 }
 
@@ -46,9 +45,7 @@ where
     C: Clone,
 {
     fn clone(&self) -> Self {
-        Self {
-            client: self.client.clone(),
-        }
+        Self { client: self.client.clone() }
     }
 }
 

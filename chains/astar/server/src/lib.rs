@@ -40,20 +40,25 @@ pub struct AstarClient {
 }
 
 impl AstarClient {
+    /// Creates a new polkadot client, loading the config from `network` and connects to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn new(network: &str, url: &str) -> Result<Self> {
         let config = rosetta_config_astar::config(network)?;
         Self::from_config(config, url).await
     }
 
+    /// Creates a new polkadot client using the provided `config` and connects to `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
         let client = default_client(url, None).await?;
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client.clone())).await?;
         let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, client).await?;
-        Ok(Self {
-            client: ethereum_client,
-            ws_client: substrate_client,
-        })
+        Ok(Self { client: ethereum_client, ws_client: substrate_client })
     }
 
     async fn account_info(
@@ -80,30 +85,28 @@ impl AstarClient {
                 .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
         };
 
-        let account_info = self
-            .ws_client
-            .storage()
-            .at(block_hash)
-            .fetch(&storage_query)
-            .await?;
+        let account_info = self.ws_client.storage().at(block_hash).fetch(&storage_query).await?;
 
-        if let Some(account_info) = account_info {
-            <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
-                .map_err(|_| anyhow::anyhow!("invalid format"))
-        } else {
-            Ok(AccountInfo::<u32, AccountData<u128>> {
-                nonce: 0,
-                consumers: 0,
-                providers: 0,
-                sufficients: 0,
-                data: AccountData {
-                    free: 0,
-                    reserved: 0,
-                    frozen: 0,
-                    flags: astar_metadata::runtime_types::pallet_balances::types::ExtraFlags(0),
-                },
-            })
-        }
+        account_info.map_or_else(
+            || {
+                Ok(AccountInfo::<u32, AccountData<u128>> {
+                    nonce: 0,
+                    consumers: 0,
+                    providers: 0,
+                    sufficients: 0,
+                    data: AccountData {
+                        free: 0,
+                        reserved: 0,
+                        frozen: 0,
+                        flags: astar_metadata::runtime_types::pallet_balances::types::ExtraFlags(0),
+                    },
+                })
+            },
+            |account_info| {
+                <AccountInfo<u32, AccountData<u128>>>::decode(&mut account_info.encoded())
+                    .map_err(|_| anyhow::anyhow!("invalid format"))
+            },
+        )
     }
 }
 
@@ -138,7 +141,7 @@ impl BlockchainClient for AstarClient {
             AddressFormat::Ss58(_) => {
                 let account_info = self.account_info(address, Some(block)).await?;
                 account_info.data.free
-            }
+            },
             AddressFormat::Eip55 => {
                 // Frontier `eth_getBalance` returns the reducible_balance instead the free balance:
                 // https://github.com/paritytech/frontier/blob/polkadot-v0.9.43/frame/evm/src/lib.rs#L853-L855
@@ -148,10 +151,8 @@ impl BlockchainClient for AstarClient {
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
                 let account_info = self.account_info(&address, Some(block)).await?;
                 account_info.data.free
-            }
-            _ => {
-                return Err(anyhow::anyhow!("invalid address format"));
-            }
+            },
+            AddressFormat::Bech32(_) => return Err(anyhow::anyhow!("invalid address format")),
         };
         Ok(balance)
     }
@@ -192,9 +193,7 @@ impl BlockchainClient for AstarClient {
         public_key: &PublicKey,
         options: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        Ok(AstarMetadata(
-            self.client.metadata(public_key, &options.0).await?,
-        ))
+        Ok(AstarMetadata(self.client.metadata(public_key, &options.0).await?))
     }
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
@@ -225,12 +224,10 @@ impl BlockchainClient for AstarClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethers_solc::artifacts::Source;
-    use ethers_solc::{CompilerInput, EvmVersion, Solc};
+    use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_docker::Env;
     use sha3::Digest;
-    use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::{collections::BTreeMap, path::Path};
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<AstarClient> {
         let url = config.node_uri.to_string();
@@ -301,13 +298,9 @@ mod tests {
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt
-            .get("contractAddress")
-            .and_then(Value::as_str)
-            .unwrap();
-        let tx_hash = wallet
-            .eth_send_call(contract_address, "function emitEvent()", &[], 0)
-            .await?;
+        let contract_address = receipt.get("contractAddress").and_then(Value::as_str).unwrap();
+        let tx_hash =
+            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
         let logs = receipt.get("logs").and_then(Value::as_array).unwrap();
         assert_eq!(logs.len(), 1);

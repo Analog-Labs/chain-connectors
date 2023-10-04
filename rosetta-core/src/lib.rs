@@ -1,17 +1,19 @@
 mod node_uri;
 
-use crate::crypto::address::{Address, AddressFormat};
-use crate::crypto::{Algorithm, PublicKey, SecretKey};
-use crate::types::{
-    Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
-    PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
+use crate::{
+    crypto::{
+        address::{Address, AddressFormat},
+        Algorithm, PublicKey, SecretKey,
+    },
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
+        PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
+    },
 };
 use anyhow::Result;
 use async_trait::async_trait;
-pub use futures_util::future;
-pub use futures_util::stream;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+pub use futures_util::{future, stream};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -44,6 +46,7 @@ pub struct BlockchainConfig {
 }
 
 impl BlockchainConfig {
+    #[must_use]
     pub fn network(&self) -> NetworkIdentifier {
         NetworkIdentifier {
             blockchain: self.blockchain.into(),
@@ -52,6 +55,7 @@ impl BlockchainConfig {
         }
     }
 
+    #[must_use]
     pub fn currency(&self) -> Currency {
         Currency {
             symbol: self.currency_symbol.into(),
@@ -60,10 +64,12 @@ impl BlockchainConfig {
         }
     }
 
+    #[must_use]
     pub fn node_url(&self) -> String {
         self.node_uri.with_host("rosetta.analog.one").to_string()
     }
 
+    #[must_use]
     pub fn connector_url(&self) -> String {
         format!("http://rosetta.analog.one:{}", self.connector_port)
     }
@@ -135,56 +141,56 @@ where
     type EventStream<'a> = <T as BlockchainClient>::EventStream<'a>;
 
     fn config(&self) -> &BlockchainConfig {
-        BlockchainClient::config(Arc::as_ref(self))
+        BlockchainClient::config(Self::as_ref(self))
     }
     fn genesis_block(&self) -> &BlockIdentifier {
-        BlockchainClient::genesis_block(Arc::as_ref(self))
+        BlockchainClient::genesis_block(Self::as_ref(self))
     }
     async fn node_version(&self) -> Result<String> {
-        BlockchainClient::node_version(Arc::as_ref(self)).await
+        BlockchainClient::node_version(Self::as_ref(self)).await
     }
     async fn current_block(&self) -> Result<BlockIdentifier> {
-        BlockchainClient::current_block(Arc::as_ref(self)).await
+        BlockchainClient::current_block(Self::as_ref(self)).await
     }
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        BlockchainClient::finalized_block(Arc::as_ref(self)).await
+        BlockchainClient::finalized_block(Self::as_ref(self)).await
     }
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        BlockchainClient::balance(Arc::as_ref(self), address, block).await
+        BlockchainClient::balance(Self::as_ref(self), address, block).await
     }
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        BlockchainClient::coins(Arc::as_ref(self), address, block).await
+        BlockchainClient::coins(Self::as_ref(self), address, block).await
     }
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        BlockchainClient::faucet(Arc::as_ref(self), address, param).await
+        BlockchainClient::faucet(Self::as_ref(self), address, param).await
     }
     async fn metadata(
         &self,
         public_key: &PublicKey,
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
-        BlockchainClient::metadata(Arc::as_ref(self), public_key, params).await
+        BlockchainClient::metadata(Self::as_ref(self), public_key, params).await
     }
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
-        BlockchainClient::submit(Arc::as_ref(self), transaction).await
+        BlockchainClient::submit(Self::as_ref(self), transaction).await
     }
     async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
-        BlockchainClient::block(Arc::as_ref(self), block).await
+        BlockchainClient::block(Self::as_ref(self), block).await
     }
     async fn block_transaction(
         &self,
         block: &BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        BlockchainClient::block_transaction(Arc::as_ref(self), block, tx).await
+        BlockchainClient::block_transaction(Self::as_ref(self), block, tx).await
     }
     async fn call(&self, req: &CallRequest) -> Result<Value> {
-        BlockchainClient::call(Arc::as_ref(self), req).await
+        BlockchainClient::call(Self::as_ref(self), req).await
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-        BlockchainClient::listen(Arc::as_ref(self)).await
+        BlockchainClient::listen(Self::as_ref(self)).await
     }
 }
 
@@ -196,21 +202,19 @@ pub trait RosettaAlgorithm {
 impl RosettaAlgorithm for Algorithm {
     fn to_signature_type(self) -> SignatureType {
         match self {
-            Algorithm::EcdsaSecp256k1 => SignatureType::Ecdsa,
-            Algorithm::EcdsaRecoverableSecp256k1 => SignatureType::EcdsaRecovery,
-            Algorithm::EcdsaSecp256r1 => SignatureType::Ecdsa,
-            Algorithm::Ed25519 => SignatureType::Ed25519,
-            Algorithm::Sr25519 => SignatureType::Sr25519,
+            Self::EcdsaSecp256k1 | Self::EcdsaSecp256r1 => SignatureType::Ecdsa,
+            Self::EcdsaRecoverableSecp256k1 => SignatureType::EcdsaRecovery,
+            Self::Ed25519 => SignatureType::Ed25519,
+            Self::Sr25519 => SignatureType::Sr25519,
         }
     }
 
     fn to_curve_type(self) -> CurveType {
         match self {
-            Algorithm::EcdsaSecp256k1 => CurveType::Secp256k1,
-            Algorithm::EcdsaRecoverableSecp256k1 => CurveType::Secp256k1,
-            Algorithm::EcdsaSecp256r1 => CurveType::Secp256r1,
-            Algorithm::Ed25519 => CurveType::Edwards25519,
-            Algorithm::Sr25519 => CurveType::Schnorrkel,
+            Self::EcdsaSecp256k1 | Self::EcdsaRecoverableSecp256k1 => CurveType::Secp256k1,
+            Self::EcdsaSecp256r1 => CurveType::Secp256r1,
+            Self::Ed25519 => CurveType::Edwards25519,
+            Self::Sr25519 => CurveType::Schnorrkel,
         }
     }
 }
@@ -219,8 +223,16 @@ pub trait TransactionBuilder: Default + Sized {
     type MetadataParams: Serialize + Clone;
     type Metadata: DeserializeOwned + Sized + Send + Sync + 'static;
 
+    /// Returns the transfer metadata parameters
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams>;
 
+    /// Returns the call metadata parameters
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn method_call(
         &self,
         contract: &str,
@@ -229,6 +241,10 @@ pub trait TransactionBuilder: Default + Sized {
         amount: u128,
     ) -> Result<Self::MetadataParams>;
 
+    /// Retrieve the metadata parameters for deploying a smart-contract
+    ///
+    /// # Errors
+    /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<Self::MetadataParams>;
 
     fn create_and_sign(

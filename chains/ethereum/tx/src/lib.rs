@@ -1,11 +1,16 @@
 use anyhow::Result;
 use ethabi::token::{LenientTokenizer, Tokenizer};
-use ethers_core::abi::HumanReadableParser;
-use ethers_core::types::{Eip1559TransactionRequest, NameOrAddress, Signature, H160};
+use ethers_core::{
+    abi::HumanReadableParser,
+    types::{
+        transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress, Signature, H160,
+    },
+};
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
-use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::SecretKey;
-use rosetta_core::{BlockchainConfig, TransactionBuilder};
+use rosetta_core::{
+    crypto::{address::Address, SecretKey},
+    BlockchainConfig, TransactionBuilder,
+};
 use sha3::{Digest, Keccak256};
 
 pub use ethers_core::types::U256;
@@ -64,6 +69,7 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         metadata: &Self::Metadata,
         secret_key: &SecretKey,
     ) -> Vec<u8> {
+        #[allow(clippy::unwrap_used)]
         let from = secret_key
             .public_key()
             .to_address(config.address_format)
@@ -82,7 +88,7 @@ impl TransactionBuilder for EthereumTransactionBuilder {
             value: Some(U256(metadata_params.amount)),
             data: Some(metadata_params.data.clone().into()),
             nonce: Some(metadata.nonce.into()),
-            access_list: Default::default(),
+            access_list: AccessList::default(),
             max_priority_fee_per_gas: Some(U256(metadata.max_priority_fee_per_gas)),
             max_fee_per_gas: Some(U256(metadata.max_fee_per_gas)),
             chain_id: Some(metadata.chain_id.into()),
@@ -91,11 +97,12 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         hasher.update([0x02]);
         hasher.update(tx.rlp());
         let hash = hasher.finalize();
+        #[allow(clippy::unwrap_used)]
         let signature = secret_key.sign_prehashed(&hash).unwrap().to_bytes();
         let rlp = tx.rlp_signed(&Signature {
             r: U256::from_big_endian(&signature[..32]),
             s: U256::from_big_endian(&signature[32..64]),
-            v: signature[64] as _,
+            v: u64::from(signature[64]),
         });
         let mut tx = Vec::with_capacity(rlp.len() + 1);
         tx.push(0x02);

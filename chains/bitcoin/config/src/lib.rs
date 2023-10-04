@@ -1,9 +1,14 @@
 use anyhow::Result;
-use rosetta_core::crypto::address::AddressFormat;
-use rosetta_core::crypto::Algorithm;
-use rosetta_core::{BlockchainConfig, NodeUri};
+use rosetta_core::{
+    crypto::{address::AddressFormat, Algorithm},
+    BlockchainConfig, NodeUri,
+};
 use std::sync::Arc;
 
+/// Retrieve the [`BlockchainConfig`] from the provided `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
 pub fn config(network: &str) -> Result<BlockchainConfig> {
     let (network, symbol, bip44_id) = match network {
         "regtest" => ("regtest", "tBTC", 1),

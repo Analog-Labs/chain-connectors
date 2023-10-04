@@ -1,14 +1,16 @@
 use ethers::types::U256;
-use futures_util::future::BoxFuture;
-use futures_util::{FutureExt, Stream, StreamExt};
-use jsonrpsee::core::client::Subscription;
-use jsonrpsee::core::error::Error as JsonRpseeError;
+use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
+use jsonrpsee::core::{client::Subscription, error::Error as JsonRpseeError};
 use pin_project::pin_project;
 use serde_json::value::RawValue;
-use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::{
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    task::{Context, Poll},
+};
 
 /// Max number of failures in sequence before unsubscribing
 /// A Failure occur when the publisher submits an invalid json
@@ -21,7 +23,8 @@ enum EthSubscriptionState {
     Unsubscribing(BoxFuture<'static, Result<(), JsonRpseeError>>),
 }
 
-/// Adapter for [`jsonrpsee::core::client::Subscription`] to EventStream from [`ethers::providers::PubsubClient`].
+/// Adapter for [`jsonrpsee::core::client::Subscription`] to EventStream from
+/// [`ethers::providers::PubsubClient`].
 #[pin_project(project = SubscriptionStreamProj)]
 pub struct EthSubscription {
     id: U256,
@@ -62,21 +65,20 @@ impl Stream for EthSubscription {
                 Some(EthSubscriptionState::Idle(stream)) => {
                     if this.should_unsubscribe.load(Ordering::SeqCst) {
                         tracing::info!("unsubscribing...");
-                        *this.state = Some(EthSubscriptionState::Unsubscribing(
-                            stream.unsubscribe().boxed(),
-                        ));
+                        *this.state =
+                            Some(EthSubscriptionState::Unsubscribing(stream.unsubscribe().boxed()));
                     } else {
                         *this.state = Some(EthSubscriptionState::Receiving(stream));
                     }
                     continue;
-                }
+                },
                 Some(EthSubscriptionState::Receiving(mut stream)) => {
                     let result = match stream.poll_next_unpin(cx) {
                         Poll::Ready(result) => result,
                         Poll::Pending => {
                             *this.state = Some(EthSubscriptionState::Receiving(stream));
                             return Poll::Pending;
-                        }
+                        },
                     };
 
                     // Stream is close, no unsubscribe needed
@@ -94,7 +96,7 @@ impl Stream for EthSubscription {
                         Ok(value) => {
                             *this.state = Some(EthSubscriptionState::Idle(stream));
                             return Poll::Ready(Some(value));
-                        }
+                        },
                         Err(error) => {
                             *this.failure_count += 1;
                             this.span.record("failures", *this.failure_count);
@@ -119,26 +121,26 @@ impl Stream for EthSubscription {
                                 *this.state = Some(EthSubscriptionState::Idle(stream));
                             }
                             continue;
-                        }
+                        },
                     }
-                }
+                },
                 Some(EthSubscriptionState::Unsubscribing(mut future)) => {
                     return match future.poll_unpin(cx) {
                         Poll::Ready(Ok(_)) => Poll::Ready(None),
                         Poll::Ready(Err(error)) => {
                             tracing::error!("Failed to unsubscribe: {:?}", error);
                             Poll::Ready(None)
-                        }
+                        },
                         Poll::Pending => {
                             *this.state = Some(EthSubscriptionState::Unsubscribing(future));
                             Poll::Pending
-                        }
-                    };
-                }
+                        },
+                    }
+                },
                 None => {
                     tracing::error!("stream must not be polled after being closed`");
                     return Poll::Ready(None);
-                }
+                },
             }
         }
     }
