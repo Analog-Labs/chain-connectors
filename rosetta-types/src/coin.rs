@@ -21,9 +21,6 @@ impl Coin {
     /// `Coin` contains its unique identifier and the amount it represents.
     #[must_use]
     pub const fn new(coin_identifier: crate::CoinIdentifier, amount: crate::Amount) -> Self {
-        Self {
-            coin_identifier,
-            amount,
-        }
+        Self { coin_identifier, amount }
     }
 }

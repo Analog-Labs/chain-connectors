@@ -5,19 +5,24 @@ use crate::eth_types::{
     SUCCESS_STATUS, TESTNET_CHAIN_CONFIG, UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
 };
 use anyhow::{bail, Context, Result};
-use ethers::{prelude::*, utils::to_checksum};
 use ethers::{
+    prelude::*,
     providers::Middleware,
     types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
+    utils::to_checksum,
 };
-use rosetta_core::types as rosetta_types;
-use rosetta_core::types::{
-    AccountIdentifier, Amount, Currency, Operation, OperationIdentifier, TransactionIdentifier,
+use rosetta_core::{
+    types as rosetta_types,
+    types::{
+        AccountIdentifier, Amount, Currency, Operation, OperationIdentifier, TransactionIdentifier,
+    },
+    BlockchainConfig,
 };
-use rosetta_core::BlockchainConfig;
 use serde_json::json;
-use std::collections::{HashMap, VecDeque};
-use std::str::FromStr;
+use std::{
+    collections::{HashMap, VecDeque},
+    str::FromStr,
+};
 
 pub async fn get_transaction<P: JsonRpcClient, T: Send>(
     client: &Provider<P>,
@@ -37,11 +42,7 @@ pub async fn get_transaction<P: JsonRpcClient, T: Send>(
         .await?
         .context("Transaction receipt not found")?;
 
-    if tx_receipt
-        .block_hash
-        .context("Block hash not found in tx receipt")?
-        != block_hash
-    {
+    if tx_receipt.block_hash.context("Block hash not found in tx receipt")? != block_hash {
         bail!("Transaction receipt block hash does not match block hash");
     }
 
@@ -65,9 +66,7 @@ pub async fn get_transaction<P: JsonRpcClient, T: Send>(
     };
 
     Ok(rosetta_types::Transaction {
-        transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(tx.hash),
-        },
+        transaction_identifier: TransactionIdentifier { hash: hex::encode(tx.hash) },
         operations,
         related_transactions: None,
         metadata: Some(json!({
@@ -87,17 +86,12 @@ fn get_fee_operations<T>(
 ) -> Result<Vec<Operation>> {
     let miner = block.author.context("block has no author")?;
     let base_fee = block.base_fee_per_gas.context("block has no base fee")?;
-    let tx_type = tx
-        .transaction_type
-        .context("transaction type unavailable")?;
+    let tx_type = tx.transaction_type.context("transaction type unavailable")?;
     let tx_gas_price = tx.gas_price.context("gas price is not available")?;
     let tx_max_priority_fee_per_gas = tx.max_priority_fee_per_gas.unwrap_or_default();
     let gas_used = receipt.gas_used.context("gas used is not available")?;
-    let gas_price = if tx_type.as_u64() == 2 {
-        base_fee + tx_max_priority_fee_per_gas
-    } else {
-        tx_gas_price
-    };
+    let gas_price =
+        if tx_type.as_u64() == 2 { base_fee + tx_max_priority_fee_per_gas } else { tx_gas_price };
     let fee_amount = gas_used * gas_price;
     let fee_burned = gas_used * base_fee;
     let miner_earned_reward = fee_amount - fee_burned;
@@ -105,10 +99,7 @@ fn get_fee_operations<T>(
     let mut operations = vec![];
 
     let first_op = Operation {
-        operation_identifier: OperationIdentifier {
-            index: 0,
-            network_index: None,
-        },
+        operation_identifier: OperationIdentifier { index: 0, network_index: None },
         related_operations: None,
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
@@ -127,14 +118,8 @@ fn get_fee_operations<T>(
     };
 
     let second_op = Operation {
-        operation_identifier: OperationIdentifier {
-            index: 1,
-            network_index: None,
-        },
-        related_operations: Some(vec![OperationIdentifier {
-            index: 0,
-            network_index: None,
-        }]),
+        operation_identifier: OperationIdentifier { index: 1, network_index: None },
+        related_operations: Some(vec![OperationIdentifier { index: 0, network_index: None }]),
         r#type: FEE_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
         account: Some(AccountIdentifier {
@@ -156,10 +141,7 @@ fn get_fee_operations<T>(
 
     if fee_burned != U256::from(0) {
         let burned_operation = Operation {
-            operation_identifier: OperationIdentifier {
-                index: 2,
-                network_index: None,
-            },
+            operation_identifier: OperationIdentifier { index: 2, network_index: None },
             related_operations: None,
             r#type: FEE_OP_TYPE.into(),
             status: Some(SUCCESS_STATUS.into()),
@@ -218,15 +200,11 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
     let mut destroyed_accs: HashMap<String, u64> = HashMap::new();
 
     if traces.is_empty() {
-        return Ok(operations);
+        return Ok(operations)
     }
 
     for trace in traces {
-        let operation_status = if trace.revert {
-            FAILURE_STATUS
-        } else {
-            SUCCESS_STATUS
-        };
+        let operation_status = if trace.revert { FAILURE_STATUS } else { SUCCESS_STATUS };
 
         let zero_value = trace.value.is_zero();
 
@@ -238,8 +216,8 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
         if should_add {
             let mut from_operation = Operation {
                 operation_identifier: OperationIdentifier {
-                    index: op_len
-                        + i64::try_from(operations.len()).context("operation.index overflow")?,
+                    index: op_len +
+                        i64::try_from(operations.len()).context("operation.index overflow")?,
                     network_index: None,
                 },
                 related_operations: None,
@@ -274,12 +252,12 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
         if trace.trace_type == SELF_DESTRUCT_OP_TYPE {
             //assigning destroyed from to an empty number
             if from == to {
-                continue;
+                continue
             }
         }
 
         if to.is_empty() {
-            continue;
+            continue
         }
 
         // If the account is resurrected, we remove it from
@@ -329,7 +307,7 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
 
         for (k, v) in &destroyed_accs {
             if v == &0 {
-                continue;
+                continue
             }
 
             if v < &0 {
@@ -398,10 +376,7 @@ pub async fn block_reward_transaction<P: JsonRpcClient>(
 
     let mut operations = vec![];
     let mining_reward_operation = Operation {
-        operation_identifier: OperationIdentifier {
-            index: 0,
-            network_index: None,
-        },
+        operation_identifier: OperationIdentifier { index: 0, network_index: None },
         related_operations: None,
         r#type: MINING_REWARD_OP_TYPE.into(),
         status: Some(SUCCESS_STATUS.into()),
@@ -451,9 +426,7 @@ pub async fn block_reward_transaction<P: JsonRpcClient>(
     }
 
     Ok(rosetta_types::Transaction {
-        transaction_identifier: TransactionIdentifier {
-            hash: hex::encode(block_hash),
-        },
+        transaction_identifier: TransactionIdentifier { hash: hex::encode(block_hash) },
         related_transactions: None,
         operations,
         metadata: None,

@@ -1,7 +1,5 @@
 //! Support for various blockchain address formats.
-use crate::bip32::DerivedPublicKey;
-use crate::error::AddressError;
-use crate::PublicKey;
+use crate::{bip32::DerivedPublicKey, error::AddressError, PublicKey};
 use ethers::types::H160;
 use sp_core::{
     crypto::{AccountId32, Ss58Codec},
@@ -70,12 +68,10 @@ impl Address {
     /// Will return `Err` when `self.address` is not a valid 160bit hex string
     pub fn evm_to_ss58(&self, ss58format: Ss58AddressFormat) -> Result<Self, AddressError> {
         if self.format != AddressFormat::Eip55 {
-            return Err(AddressError::InvalidAddressFormat);
+            return Err(AddressError::InvalidAddressFormat)
         }
-        let address: H160 = self
-            .address
-            .parse()
-            .map_err(|_| AddressError::FailedToDecodeAddress)?;
+        let address: H160 =
+            self.address.parse().map_err(|_| AddressError::FailedToDecodeAddress)?;
         let mut data = [0u8; 24];
         data[0..4].copy_from_slice(b"evm:");
         data[4..24].copy_from_slice(&address[..]);
@@ -93,18 +89,14 @@ impl Address {
     /// Will return `Err` when:
     /// * self.format is not [`AddressFormat::Ss58`]
     /// * self.address is not a valid SS58 address string
-    ///
     pub fn ss58_to_evm(&self) -> Result<Self, AddressError> {
         if !matches!(self.format, AddressFormat::Ss58(_)) {
-            return Err(AddressError::InvalidAddressFormat);
+            return Err(AddressError::InvalidAddressFormat)
         }
         let ss58_addr = <AccountId32 as Ss58Codec>::from_string(&self.address)
             .map_err(|_| AddressError::FailedToDecodeAddress)?;
         let bytes: [u8; 32] = ss58_addr.into();
-        Ok(Self {
-            format: AddressFormat::Eip55,
-            address: hex::encode(&bytes[0..20]),
-        })
+        Ok(Self { format: AddressFormat::Eip55, address: hex::encode(&bytes[0..20]) })
     }
 
     /// Returns the format of the address.

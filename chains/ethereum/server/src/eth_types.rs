@@ -31,15 +31,11 @@ pub struct ChainConfig {
     pub constantinople_block: u64,
 }
 
-pub const _MAINNET_CHAIN_CONFIG: ChainConfig = ChainConfig {
-    byzantium_block: 4_370_000,
-    constantinople_block: 7_280_000,
-};
+pub const _MAINNET_CHAIN_CONFIG: ChainConfig =
+    ChainConfig { byzantium_block: 4_370_000, constantinople_block: 7_280_000 };
 
-pub const TESTNET_CHAIN_CONFIG: ChainConfig = ChainConfig {
-    byzantium_block: 0,
-    constantinople_block: 0,
-};
+pub const TESTNET_CHAIN_CONFIG: ChainConfig =
+    ChainConfig { byzantium_block: 0, constantinople_block: 0 };
 
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct Trace {

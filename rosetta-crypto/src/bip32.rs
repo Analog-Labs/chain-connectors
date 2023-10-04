@@ -1,7 +1,5 @@
 //! BIP32 implementation.
-use crate::bip39::Mnemonic;
-use crate::bip44::ChildNumber;
-use crate::{Algorithm, PublicKey, SecretKey};
+use crate::{bip39::Mnemonic, bip44::ChildNumber, Algorithm, PublicKey, SecretKey};
 use anyhow::Result;
 use hmac::{Hmac, Mac};
 use sha2::Sha512;
@@ -34,9 +32,8 @@ impl SecretKey {
     fn tweak_add(&self, secret_key: &Self) -> Result<Option<Self>> {
         use ecdsa::elliptic_curve::NonZeroScalar;
         match (self, secret_key) {
-            (Self::EcdsaSecp256k1(secret), Self::EcdsaSecp256k1(secret2))
-            | (Self::EcdsaRecoverableSecp256k1(secret), Self::EcdsaRecoverableSecp256k1(secret2)) =>
-            {
+            (Self::EcdsaSecp256k1(secret), Self::EcdsaSecp256k1(secret2)) |
+            (Self::EcdsaRecoverableSecp256k1(secret), Self::EcdsaRecoverableSecp256k1(secret2)) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =
@@ -50,7 +47,7 @@ impl SecretKey {
                 } else {
                     Self::EcdsaSecp256k1(signing_key)
                 }))
-            }
+            },
             (Self::EcdsaSecp256r1(secret), Self::EcdsaSecp256r1(secret2)) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
@@ -60,7 +57,7 @@ impl SecretKey {
                     || Ok(None),
                     |scalar| Ok(Some(Self::EcdsaSecp256r1(ecdsa::SigningKey::from(scalar)))),
                 )
-            }
+            },
             _ => anyhow::bail!("unsupported key type"),
         }
     }
@@ -129,9 +126,8 @@ impl DerivedSecretKey {
     /// Derives a BIP32 master key. See SLIP0010 for extension to secp256r1 and ed25519 curves.
     fn bip32_master_key(seed: &[u8], algorithm: Algorithm) -> Result<Self> {
         let curve_name = match algorithm {
-            Algorithm::EcdsaRecoverableSecp256k1 | Algorithm::EcdsaSecp256k1 => {
-                &b"Bitcoin seed"[..]
-            }
+            Algorithm::EcdsaRecoverableSecp256k1 | Algorithm::EcdsaSecp256k1 =>
+                &b"Bitcoin seed"[..],
             Algorithm::EcdsaSecp256r1 => &b"Nist256p1 seed"[..],
             Algorithm::Ed25519 => &b"ed25519 seed"[..],
             Algorithm::Sr25519 => anyhow::bail!("sr25519 does not support bip32 derivation"),
@@ -150,16 +146,13 @@ impl DerivedSecretKey {
                 Ok(secret_key) => secret_key,
                 _ if algorithm.uses_slip10_retry() => {
                     retry = Some(result.into());
-                    continue;
-                }
+                    continue
+                },
                 _ => {
                     anyhow::bail!("failed to derive a valid secret key");
-                }
+                },
             };
-            return Ok(Self {
-                secret_key,
-                chain_code: chain_code.try_into()?,
-            });
+            return Ok(Self { secret_key, chain_code: chain_code.try_into()? })
         }
     }
 
@@ -234,25 +227,22 @@ impl DerivedSecretKey {
                 _ if algorithm.uses_bip32_retry() => return self.bip32_derive(child + 1),
                 _ => {
                     anyhow::bail!("failed to derive a valid secret key");
-                }
+                },
             };
 
             if algorithm.supports_non_hardened_derivation() {
                 if let Some(tweaked_secret_key) = secret_key.tweak_add(&self.secret_key)? {
                     secret_key = tweaked_secret_key;
                 } else if algorithm.uses_slip10_retry() {
-                    continue;
+                    continue
                 } else if algorithm.uses_bip32_retry() {
-                    return self.bip32_derive(child + 1);
+                    return self.bip32_derive(child + 1)
                 } else {
                     anyhow::bail!("invalid tweak");
                 }
             }
 
-            return Ok(Self {
-                secret_key,
-                chain_code,
-            });
+            return Ok(Self { secret_key, chain_code })
         }
     }
 
@@ -260,7 +250,8 @@ impl DerivedSecretKey {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if the derivation is invalid or if the [`SecretKey`] doesn't support derivation
+    /// Will return `Err` if the derivation is invalid or if the [`SecretKey`] doesn't support
+    /// derivation
     pub fn derive(&self, child: ChildNumber) -> Result<Self> {
         match &self.secret_key {
             SecretKey::Sr25519(secret, _) => {
@@ -279,7 +270,7 @@ impl DerivedSecretKey {
                     secret_key: SecretKey::Sr25519(secret, minisecret),
                     chain_code: chain_code.0,
                 })
-            }
+            },
             _ => self.bip32_derive(child),
         }
     }
@@ -296,10 +287,7 @@ impl DerivedPublicKey {
     /// Constructs a derived public key from a public key and a chain code.
     #[must_use]
     pub const fn new(public_key: PublicKey, chain_code: [u8; 32]) -> Self {
-        Self {
-            public_key,
-            chain_code,
-        }
+        Self { public_key, chain_code }
     }
 
     /// The public key used to verify messages.
@@ -343,18 +331,15 @@ impl DerivedPublicKey {
                 Some(public_key) => public_key,
                 _ if algorithm.uses_slip10_retry() => {
                     retry = Some(chain_code);
-                    continue;
-                }
+                    continue
+                },
                 _ if algorithm.uses_bip32_retry() => return self.bip32_derive(child + 1),
                 _ => {
                     anyhow::bail!("failed to derive a valid public key");
-                }
+                },
             };
 
-            return Ok(Self {
-                public_key,
-                chain_code,
-            });
+            return Ok(Self { public_key, chain_code })
         }
     }
 
@@ -370,11 +355,8 @@ impl DerivedPublicKey {
                 use schnorrkel::derive::Derivation;
                 let chain_code = schnorrkel::derive::ChainCode(child.to_substrate_chain_code());
                 let (public, _) = public.derived_key_simple(chain_code, b"");
-                Ok(Self {
-                    public_key: PublicKey::Sr25519(public),
-                    chain_code: chain_code.0,
-                })
-            }
+                Ok(Self { public_key: PublicKey::Sr25519(public), chain_code: chain_code.0 })
+            },
             _ => self.bip32_derive(child),
         }
     }
@@ -415,11 +397,7 @@ mod tests {
         }
 
         fn assert(&self, chain_code: &str, private: &str, public: &str) {
-            assert_eq!(
-                hex::encode(self.secret.chain_code()),
-                chain_code,
-                "secret chain code"
-            );
+            assert_eq!(hex::encode(self.secret.chain_code()), chain_code, "secret chain code");
             assert_eq!(
                 // in sr25519 soft derivations the nonce part of the secret key is computed
                 // randomly so only the first 32 bytes are deterministic. all other keys are
@@ -428,29 +406,17 @@ mod tests {
                 private,
                 "secret key"
             );
-            assert_eq!(
-                hex::encode(self.public.chain_code()),
-                chain_code,
-                "secret chain code"
-            );
-            assert_eq!(
-                hex::encode(self.public.public_key().to_bytes()),
-                public,
-                "public key"
-            );
+            assert_eq!(hex::encode(self.public.chain_code()), chain_code, "secret chain code");
+            assert_eq!(hex::encode(self.public.public_key().to_bytes()), public, "public key");
         }
 
         fn assert_bip32(&self, xprv: &str, xpub: &str) {
             assert_eq!(&xprv[..4], "xprv");
             assert_eq!(&xpub[..4], "xpub");
-            let xprv = bs58::decode(xprv)
-                .with_alphabet(bs58::Alphabet::BITCOIN)
-                .into_vec()
-                .unwrap();
-            let xpub = bs58::decode(xpub)
-                .with_alphabet(bs58::Alphabet::BITCOIN)
-                .into_vec()
-                .unwrap();
+            let xprv =
+                bs58::decode(xprv).with_alphabet(bs58::Alphabet::BITCOIN).into_vec().unwrap();
+            let xpub =
+                bs58::decode(xpub).with_alphabet(bs58::Alphabet::BITCOIN).into_vec().unwrap();
             let chain_code1 = &xprv[13..45];
             let chain_code2 = &xpub[13..45];
             assert_eq!(chain_code1, chain_code2);
@@ -464,10 +430,7 @@ mod tests {
     #[test]
     fn bip32_derive_secp256k1_1() -> Result<()> {
         // test vectors from SLIP0010
-        for algorithm in [
-            Algorithm::EcdsaSecp256k1,
-            Algorithm::EcdsaRecoverableSecp256k1,
-        ] {
+        for algorithm in [Algorithm::EcdsaSecp256k1, Algorithm::EcdsaRecoverableSecp256k1] {
             let key = DerivedKey::bip32_master_key(algorithm, "000102030405060708090a0b0c0d0e0f")?;
             key.assert(
                 "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508",
@@ -646,10 +609,7 @@ mod tests {
     #[test]
     fn bip32_derive_secp256k1_2() -> Result<()> {
         // test vectors from SLIP0010
-        for algorithm in [
-            Algorithm::EcdsaSecp256k1,
-            Algorithm::EcdsaRecoverableSecp256k1,
-        ] {
+        for algorithm in [Algorithm::EcdsaSecp256k1, Algorithm::EcdsaRecoverableSecp256k1] {
             let key = DerivedKey::bip32_master_key(algorithm, SEED2)?;
             key.assert(
                 "60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689",

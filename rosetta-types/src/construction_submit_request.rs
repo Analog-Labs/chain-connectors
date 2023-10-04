@@ -24,9 +24,6 @@ impl ConstructionSubmitRequest {
         network_identifier: crate::NetworkIdentifier,
         signed_transaction: String,
     ) -> Self {
-        Self {
-            network_identifier,
-            signed_transaction,
-        }
+        Self { network_identifier, signed_transaction }
     }
 }

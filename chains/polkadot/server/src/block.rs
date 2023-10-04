@@ -8,9 +8,8 @@ use rosetta_core::{
     BlockchainConfig,
 };
 use serde_json::{json, Value};
-use subxt::blocks::ExtrinsicEvents;
 use subxt::{
-    blocks::ExtrinsicDetails,
+    blocks::{ExtrinsicDetails, ExtrinsicEvents},
     config::Hasher,
     events::EventDetails,
     ext::scale_value::{scale::TypeId, Composite, Primitive, ValueDef},
@@ -21,9 +20,7 @@ use subxt::{
 pub fn get_transaction_identifier<T: Config<Hash = H256>>(
     extrinsic: &ExtrinsicDetails<T, OnlineClient<T>>,
 ) -> TransactionIdentifier {
-    TransactionIdentifier {
-        hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())),
-    }
+    TransactionIdentifier { hash: hex::encode(T::Hasher::hash_of(&extrinsic.bytes())) }
 }
 
 pub fn get_transaction<T: Config<Hash = H256> + Send>(
@@ -46,19 +43,13 @@ pub fn get_transaction<T: Config<Hash = H256> + Send>(
         }
         let op_metadata = Value::Array(fields);
 
-        let op_from: Option<AccountIdentifier> =
-            event_parsed_data.from.map(|address| AccountIdentifier {
-                address,
-                sub_account: None,
-                metadata: None,
-            });
+        let op_from: Option<AccountIdentifier> = event_parsed_data
+            .from
+            .map(|address| AccountIdentifier { address, sub_account: None, metadata: None });
 
-        let op_neg_amount: Option<Amount> =
-            event_parsed_data.amount.as_ref().map(|amount| Amount {
-                value: format!("-{amount}"),
-                currency: config.currency(),
-                metadata: None,
-            });
+        let op_neg_amount: Option<Amount> = event_parsed_data.amount.as_ref().map(|amount| {
+            Amount { value: format!("-{amount}"), currency: config.currency(), metadata: None }
+        });
 
         let operation = Operation {
             operation_identifier: OperationIdentifier {
@@ -84,16 +75,8 @@ pub fn get_transaction<T: Config<Hash = H256> + Send>(
                 related_operations: None,
                 r#type: event_parsed_data.event_type,
                 status: None,
-                account: Some(AccountIdentifier {
-                    address: to,
-                    sub_account: None,
-                    metadata: None,
-                }),
-                amount: Some(Amount {
-                    value: amount,
-                    currency: config.currency(),
-                    metadata: None,
-                }),
+                account: Some(AccountIdentifier { address: to, sub_account: None, metadata: None }),
+                amount: Some(Amount { value: amount, currency: config.currency(), metadata: None }),
                 coin_change: None,
                 metadata: Some(op_metadata),
             });
@@ -119,9 +102,8 @@ fn get_operation_data<T: Config<Hash = H256>>(
     let event_fields = event.field_values()?;
     let parsed_data = match event_fields {
         Composite::Named(value) => {
-            let mut from_data = value
-                .iter()
-                .filter(|(k, _)| k == "from" || k == "who" || k == "account");
+            let mut from_data =
+                value.iter().filter(|(k, _)| k == "from" || k == "who" || k == "account");
 
             let sender_address: Option<String> = if let Some(data) = from_data.next() {
                 let address = generate_address(config, &data.1.value)?;
@@ -130,15 +112,14 @@ fn get_operation_data<T: Config<Hash = H256>>(
                 None
             };
 
-            let amount: Option<String> = if let Some(value) = value
-                .iter()
-                .find(|(k, _)| k == "amount" || k == "actual_fee")
+            let amount: Option<String> = if let Some(value) =
+                value.iter().find(|(k, _)| k == "amount" || k == "actual_fee")
             {
                 match &value.1.value {
                     ValueDef::Primitive(Primitive::U128(amount)) => Some(amount.to_string()),
                     _ => {
                         anyhow::bail!("invalid operation");
-                    }
+                    },
                 }
             } else {
                 None
@@ -153,10 +134,10 @@ fn get_operation_data<T: Config<Hash = H256>>(
                 };
 
             (sender_address, amount, to_address)
-        }
+        },
         Composite::Unnamed(_) => {
             anyhow::bail!("invalid operation");
-        }
+        },
     };
 
     Ok(TransactionOperationStatus {
@@ -177,10 +158,10 @@ struct TransactionOperationStatus {
 fn generate_address(config: &BlockchainConfig, val: &ValueDef<TypeId>) -> Result<String> {
     let mut addr_array = vec![];
     match val {
-        ValueDef::Composite(Composite::Unnamed(unamed_data)) => {
+        ValueDef::Composite(Composite::Unnamed(unamed_data)) =>
             for value_data in unamed_data {
                 match &value_data.value {
-                    ValueDef::Composite(data) => {
+                    ValueDef::Composite(data) =>
                         for data in data.values() {
                             match data.value {
                                 ValueDef::Primitive(Primitive::U128(val)) => {
@@ -189,15 +170,13 @@ fn generate_address(config: &BlockchainConfig, val: &ValueDef<TypeId>) -> Result
                                         anyhow::bail!("overflow: {val} > 255");
                                     };
                                     addr_array.push(val);
-                                }
+                                },
                                 _ => anyhow::bail!("invalid operation"),
                             }
-                        }
-                    }
+                        },
                     _ => anyhow::bail!("invalid operation"),
                 }
-            }
-        }
+            },
         _ => anyhow::bail!("invalid operation"),
     }
 

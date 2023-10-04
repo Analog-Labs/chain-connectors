@@ -13,13 +13,12 @@
 pub struct NetworkIdentifier {
     #[serde(rename = "blockchain")]
     pub blockchain: String,
-    /// If a blockchain has a specific chain-id or network identifier, it should go in this field. It is up to the client to determine which network-specific identifier is mainnet or testnet.
+    /// If a blockchain has a specific chain-id or network identifier, it should go in this field.
+    /// It is up to the client to determine which network-specific identifier is mainnet or
+    /// testnet.
     #[serde(rename = "network")]
     pub network: String,
-    #[serde(
-        rename = "sub_network_identifier",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(rename = "sub_network_identifier", skip_serializing_if = "Option::is_none")]
     pub sub_network_identifier: Option<crate::SubNetworkIdentifier>,
 }
 
@@ -27,10 +26,6 @@ impl NetworkIdentifier {
     /// The `network_identifier` specifies which network a particular object is associated with.
     #[must_use]
     pub const fn new(blockchain: String, network: String) -> Self {
-        Self {
-            blockchain,
-            network,
-            sub_network_identifier: None,
-        }
+        Self { blockchain, network, sub_network_identifier: None }
     }
 }

@@ -1,16 +1,16 @@
 #![allow(missing_docs)]
-use crate::crypto::address::Address;
-use crate::crypto::PublicKey;
-use crate::types::{
-    Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-    TransactionIdentifier,
+use crate::{
+    crypto::{address::Address, PublicKey},
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+        TransactionIdentifier,
+    },
+    Blockchain, BlockchainConfig,
 };
-use crate::{Blockchain, BlockchainConfig};
 use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
-use rosetta_core::BlockchainClient;
-use rosetta_core::ClientEvent;
+use rosetta_core::{BlockchainClient, ClientEvent};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
@@ -19,8 +19,7 @@ use rosetta_server_ethereum::{
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::pin::Pin;
-use std::str::FromStr;
+use std::{pin::Pin, str::FromStr};
 
 /// Generic Client
 pub enum GenericClient {
@@ -37,23 +36,23 @@ impl GenericClient {
             Blockchain::Bitcoin => {
                 let client = BitcoinClient::new(network, url).await?;
                 Self::Bitcoin(client)
-            }
+            },
             Blockchain::Ethereum => {
                 let client = EthereumClient::new("ethereum", network, url).await?;
                 Self::Ethereum(client)
-            }
+            },
             Blockchain::Polygon => {
                 let client = EthereumClient::new("polygon", network, url).await?;
                 Self::Ethereum(client)
-            }
+            },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
-            }
+            },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
-            }
+            },
         })
     }
 
@@ -63,19 +62,19 @@ impl GenericClient {
             Blockchain::Bitcoin => {
                 let client = BitcoinClient::from_config(config, url).await?;
                 Self::Bitcoin(client)
-            }
+            },
             Blockchain::Ethereum | Blockchain::Polygon => {
                 let client = EthereumClient::from_config(config, url).await?;
                 Self::Ethereum(client)
-            }
+            },
             Blockchain::Astar => {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
-            }
+            },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
-            }
+            },
         })
     }
 }
@@ -153,18 +152,14 @@ impl BlockchainClient for GenericClient {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
         Ok(match (self, params) {
-            (Self::Bitcoin(client), GenericMetadataParams::Bitcoin(params)) => {
-                client.metadata(public_key, params).await?.into()
-            }
-            (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) => {
-                client.metadata(public_key, params).await?.into()
-            }
-            (Self::Astar(client), GenericMetadataParams::Astar(params)) => {
-                client.metadata(public_key, params).await?.into()
-            }
-            (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) => {
-                client.metadata(public_key, params).await?.into()
-            }
+            (Self::Bitcoin(client), GenericMetadataParams::Bitcoin(params)) =>
+                client.metadata(public_key, params).await?.into(),
+            (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) =>
+                client.metadata(public_key, params).await?.into(),
+            (Self::Astar(client), GenericMetadataParams::Astar(params)) =>
+                client.metadata(public_key, params).await?.into(),
+            (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) =>
+                client.metadata(public_key, params).await?.into(),
             _ => anyhow::bail!("invalid params"),
         })
     }
@@ -191,8 +186,9 @@ impl BlockchainClient for GenericClient {
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-        Ok(dispatch!(self.listen().await?.map(|s| Pin::new(
-            Box::new(s) as Box<dyn Stream<Item = ClientEvent> + Send + Unpin>
-        ))))
+        Ok(dispatch!(self
+            .listen()
+            .await?
+            .map(|s| Pin::new(Box::new(s) as Box<dyn Stream<Item = ClientEvent> + Send + Unpin>))))
     }
 }

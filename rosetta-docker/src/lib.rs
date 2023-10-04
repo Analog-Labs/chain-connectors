@@ -1,17 +1,17 @@
 mod config;
 
 use anyhow::{Context, Result};
-use docker_api::conn::TtyChunk;
-use docker_api::opts::{
-    ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
+use docker_api::{
+    conn::TtyChunk,
+    opts::{
+        ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
+    },
+    ApiVersion, Container, Docker,
 };
-use docker_api::{ApiVersion, Container, Docker};
 use futures::stream::StreamExt;
 use rosetta_client::Wallet;
 use rosetta_core::{BlockchainClient, BlockchainConfig};
-use std::future::Future;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{future::Future, sync::Arc, time::Duration};
 use tokio_retry::{strategy::ExponentialBackoff, RetryIf};
 
 pub struct Env<T> {
@@ -38,22 +38,16 @@ impl<T: BlockchainClient> Env<T> {
         builder.stop_container(&builder.node_name(&config)).await?;
         let node = builder.run_node(&config).await?;
 
-        let client = match builder
-            .run_connector::<T, Fut, F>(start_connector, config)
-            .await
-        {
+        let client = match builder.run_connector::<T, Fut, F>(start_connector, config).await {
             Ok(connector) => connector,
             Err(e) => {
                 let opts = ContainerStopOpts::builder().build();
                 let _ = node.stop(&opts).await;
-                return Err(e);
-            }
+                return Err(e)
+            },
         };
 
-        Ok(Self {
-            client: Arc::new(client),
-            node,
-        })
+        Ok(Self { client: Arc::new(client), node })
     }
 
     #[must_use]
@@ -96,10 +90,7 @@ impl<'a> EnvBuilder<'a> {
     }
 
     fn node_name(&self, config: &BlockchainConfig) -> String {
-        format!(
-            "{}-node-{}-{}",
-            self.prefix, config.blockchain, config.network
-        )
+        format!("{}-node-{}-{}", self.prefix, config.blockchain, config.network)
     }
 
     async fn stop_container(&self, name: &str) -> Result<()> {
@@ -117,11 +108,9 @@ impl<'a> EnvBuilder<'a> {
                     container.id.context("container doesn't have id")?,
                 );
                 log::info!("stopping {}", name);
-                container
-                    .stop(&ContainerStopOpts::builder().build())
-                    .await?;
+                container.stop(&ContainerStopOpts::builder().build()).await?;
                 container.delete().await.ok();
-                break;
+                break
             }
         }
         Ok(())
@@ -136,26 +125,21 @@ impl<'a> EnvBuilder<'a> {
         log::info!("starting {}", name);
         let container = Container::new(self.docker.clone(), id.clone());
         tokio::task::spawn(async move {
-            let opts = LogsOpts::builder()
-                .all()
-                .follow(true)
-                .stdout(true)
-                .stderr(true)
-                .build();
+            let opts = LogsOpts::builder().all().follow(true).stdout(true).stderr(true).build();
             let mut logs = container.logs(&opts);
             while let Some(chunk) = logs.next().await {
                 match chunk {
                     Ok(TtyChunk::StdOut(stdout)) => {
                         let stdout = std::str::from_utf8(&stdout).unwrap_or_default();
                         log::info!("{}: stdout: {}", name, stdout);
-                    }
+                    },
                     Ok(TtyChunk::StdErr(stderr)) => {
                         let stderr = std::str::from_utf8(&stderr).unwrap_or_default();
                         log::info!("{}: stderr: {}", name, stderr);
-                    }
+                    },
                     Err(err) => {
                         log::error!("{}", err);
-                    }
+                    },
                     Ok(TtyChunk::StdIn(_)) => unreachable!(),
                 }
             }
@@ -168,7 +152,7 @@ impl<'a> EnvBuilder<'a> {
                 Some(Health::Unhealthy) => anyhow::bail!("healthcheck reports unhealthy"),
                 Some(Health::Starting) => {
                     tokio::time::sleep(Duration::from_millis(100)).await;
-                }
+                },
                 _ => break,
             }
         }
@@ -217,7 +201,7 @@ impl<'a> EnvBuilder<'a> {
         if let Some(err) = maybe_error {
             log::error!("node failed to start: {}", err);
             let _ = container.stop(&ContainerStopOpts::default()).await;
-            return Err(err);
+            return Err(err)
         }
         Ok(container)
     }
@@ -244,15 +228,15 @@ impl<'a> EnvBuilder<'a> {
                     Ok(client) => {
                         if let Err(error) = client.finalized_block().await {
                             result = Err(error);
-                            continue;
+                            continue
                         }
                         result = Ok(client);
-                        break;
-                    }
+                        break
+                    },
                     Err(error) => {
                         result = Err(error);
                         tokio::time::sleep(delay).await;
-                    }
+                    },
                 }
             }
             result?
@@ -279,13 +263,8 @@ enum Health {
 
 async fn health(container: &Container) -> Result<Option<Health>> {
     let inspect = container.inspect().await?;
-    let status = inspect
-        .state
-        .and_then(|state| state.health)
-        .and_then(|health| health.status);
-    let Some(status) = status else {
-        return Ok(None);
-    };
+    let status = inspect.state.and_then(|state| state.health).and_then(|health| health.status);
+    let Some(status) = status else { return Ok(None) };
     Ok(Some(match status.as_str() {
         "none" => Health::None,
         "starting" => Health::Starting,
@@ -317,10 +296,10 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
                     // Check if the container exited
                     let health_status = health(container).await;
                     if matches!(health_status, Err(_) | Ok(Some(Health::Unhealthy))) {
-                        return Err(RetryError::ContainerExited(err.into_inner()));
+                        return Err(RetryError::ContainerExited(err.into_inner()))
                     }
                     Err(RetryError::Retry(err.into_inner()))
-                }
+                },
             }
         },
         // Retry Condition
@@ -358,22 +337,15 @@ pub mod tests {
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-network-status"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env =
+            Env::new(&format!("{env_id}-network-status"), config.clone(), start_connector).await?;
 
         let client = env.node();
 
         // Check if the genesis is consistent
         let expected_genesis = client.genesis_block().clone();
         let actual_genesis = client
-            .block(&PartialBlockIdentifier {
-                index: Some(0),
-                hash: None,
-            })
+            .block(&PartialBlockIdentifier { index: Some(0), hash: None })
             .await?
             .block_identifier;
         assert_eq!(expected_genesis, actual_genesis);
@@ -412,12 +384,7 @@ pub mod tests {
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-account"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env = Env::new(&format!("{env_id}-account"), config.clone(), start_connector).await?;
 
         let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
@@ -439,12 +406,8 @@ pub mod tests {
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-construction"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env =
+            Env::new(&format!("{env_id}-construction"), config.clone(), start_connector).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);

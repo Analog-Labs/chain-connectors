@@ -1,17 +1,19 @@
 mod node_uri;
 
-use crate::crypto::address::{Address, AddressFormat};
-use crate::crypto::{Algorithm, PublicKey, SecretKey};
-use crate::types::{
-    Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
-    PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
+use crate::{
+    crypto::{
+        address::{Address, AddressFormat},
+        Algorithm, PublicKey, SecretKey,
+    },
+    types::{
+        Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
+        PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
+    },
 };
 use anyhow::Result;
 use async_trait::async_trait;
-pub use futures_util::future;
-pub use futures_util::stream;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+pub use futures_util::{future, stream};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 

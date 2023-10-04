@@ -9,10 +9,7 @@ use jsonrpsee::{client_transport::ws::WsHandshakeError, core::Error as JsonRpsee
 pub enum EthError {
     /// Thrown if the response could not be parsed
     #[error("{original}")]
-    JsonRpsee {
-        original: JsonRpseeError,
-        message: Option<EthJsonRpcError>,
-    },
+    JsonRpsee { original: JsonRpseeError, message: Option<EthJsonRpcError> },
 
     /// Failed to parse the data.
     #[allow(clippy::enum_variant_names)]
@@ -37,32 +34,23 @@ impl From<JsonRpseeError> for EthError {
         match error {
             JsonRpseeError::Call(call) => {
                 let code = i64::from(call.code());
-                let data = call
-                    .data()
-                    .and_then(|raw_value| serde_json::value::to_value(raw_value).ok());
+                let data =
+                    call.data().and_then(|raw_value| serde_json::value::to_value(raw_value).ok());
                 let message = call.message().to_string();
                 Self::JsonRpsee {
                     original: JsonRpseeError::Call(call),
-                    message: Some(EthJsonRpcError {
-                        code,
-                        message,
-                        data,
-                    }),
+                    message: Some(EthJsonRpcError { code, message, data }),
                 }
-            }
+            },
             JsonRpseeError::ParseError(serde_error) => Self::ParseError(serde_error),
             JsonRpseeError::RestartNeeded(reason) => Self::RestartNeeded(reason),
             error => {
                 let message = format!("{}", &error);
                 Self::JsonRpsee {
                     original: error,
-                    message: Some(EthJsonRpcError {
-                        code: 9999,
-                        message,
-                        data: None,
-                    }),
+                    message: Some(EthJsonRpcError { code: 9999, message, data: None }),
                 }
-            }
+            },
         }
     }
 }

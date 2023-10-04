@@ -24,9 +24,6 @@ impl MempoolTransactionRequest {
         network_identifier: crate::NetworkIdentifier,
         transaction_identifier: crate::TransactionIdentifier,
     ) -> Self {
-        Self {
-            network_identifier,
-            transaction_identifier,
-        }
+        Self { network_identifier, transaction_identifier }
     }
 }

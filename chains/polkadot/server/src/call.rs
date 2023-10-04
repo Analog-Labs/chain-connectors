@@ -1,11 +1,10 @@
 use anyhow::{Context, Result};
-use scale_info::PortableRegistry;
 use scale_info::{
-    form::PortableForm, TypeDef, TypeDefArray, TypeDefBitSequence, TypeDefCompact,
-    TypeDefComposite, TypeDefPrimitive, TypeDefSequence, TypeDefTuple, TypeDefVariant,
+    form::PortableForm, PortableRegistry, TypeDef, TypeDefArray, TypeDefBitSequence,
+    TypeDefCompact, TypeDefComposite, TypeDefPrimitive, TypeDefSequence, TypeDefTuple,
+    TypeDefVariant,
 };
-use serde_json::Value;
-use serde_json::{Map, Value as SerdeValue};
+use serde_json::{Map, Value, Value as SerdeValue};
 use subxt::{
     dynamic::Value as SubxtValue,
     ext::scale_value::{self, scale::TypeId, BitSequence, ValueDef},
@@ -63,12 +62,7 @@ pub async fn dynamic_storage_req(
 
     let storage_address = subxt::dynamic::storage(pallet_name, storage_name, params);
 
-    let data = subxt
-        .storage()
-        .at_latest()
-        .await?
-        .fetch_or_default(&storage_address)
-        .await?;
+    let data = subxt.storage().at_latest().await?.fetch_or_default(&storage_address).await?;
 
     let serde_val = if data.encoded() == [0] {
         Value::Null
@@ -89,7 +83,7 @@ fn set_params_acc_to_storage(values: Vec<SubxtValue>) -> Vec<SubxtValue> {
                 modified_value.push(inner_val);
             }
         } else {
-            return values;
+            return values
         }
     }
     modified_value
@@ -149,10 +143,8 @@ fn make_variant(
         if let Ok(obtained_types) = obtained_result {
             if let Some(obtained_type) = obtained_types.into_iter().next() {
                 if is_named {
-                    vec_of_named_data.push((
-                        field.name.context("invalid metadata")?.to_string(),
-                        obtained_type,
-                    ));
+                    vec_of_named_data
+                        .push((field.name.context("invalid metadata")?.to_string(), obtained_type));
                 } else {
                     vec_of_unnamed_data.push(obtained_type);
                 }
@@ -194,7 +186,7 @@ fn make_composite(
                     }
                 }
             }
-        }
+        },
         std::cmp::Ordering::Greater => {
             let json_value = json_value.as_array().context("invalid params")?;
             for (value_received, field) in json_value.iter().zip(fields) {
@@ -214,10 +206,10 @@ fn make_composite(
                     }
                 }
             }
-        }
+        },
         std::cmp::Ordering::Less => {
             //keep the vector empty
-        }
+        },
     }
 
     if is_named {
@@ -257,7 +249,7 @@ fn make_array(
         }
         let referenced_vec = &vec_value;
         let bytes_data: &[u8] = referenced_vec;
-        return Ok(SubxtValue::from_bytes(bytes_data));
+        return Ok(SubxtValue::from_bytes(bytes_data))
     }
     anyhow::bail!("expected array");
 }
@@ -289,7 +281,7 @@ fn make_primitive(json_value: Value, _type_from_pallet: &TypeDefPrimitive) -> Re
             let number_string = val.to_string();
             let number_i128 = number_string.parse::<u128>()?;
             Ok(SubxtValue::u128(number_i128))
-        }
+        },
         Value::String(val) => Ok(SubxtValue::string(val)),
         _ => anyhow::bail!("expected bool number or string"),
     }
@@ -304,7 +296,7 @@ fn make_compact(
             let number_string = val.to_string();
             let number_i128 = number_string.parse::<u128>()?;
             Ok(SubxtValue::u128(number_i128))
-        }
+        },
         _ => anyhow::bail!("expected number"),
     }
 }
@@ -321,7 +313,7 @@ fn make_bit_sequence(
                 Value::Number(val) => {
                     let number = val.as_u64().context("invalid params")?;
                     bits_array.push(number != 0);
-                }
+                },
                 _ => anyhow::bail!("expected bit sequence"),
             }
         }
@@ -338,31 +330,30 @@ fn scale_to_serde_json(data: ValueDef<TypeId>) -> Result<SerdeValue> {
                     map.insert(key, scale_to_serde_json(value.value)?);
                 }
                 Ok(SerdeValue::Object(map))
-            }
+            },
             scale_value::Composite::Unnamed(val) => {
                 let mut vec_of_array = vec![];
                 for value in val {
                     vec_of_array.push(scale_to_serde_json(value.value)?);
                 }
                 Ok(SerdeValue::Array(vec_of_array))
-            }
+            },
         },
-        scale_value::ValueDef::Variant(val) => {
+        scale_value::ValueDef::Variant(val) =>
             if val.values.is_empty() {
                 Ok(SerdeValue::String(val.name))
             } else {
                 let mut map = Map::new();
                 map.insert(val.name, scale_to_serde_json(val.values.into())?);
                 Ok(SerdeValue::Object(map))
-            }
-        }
+            },
         scale_value::ValueDef::BitSequence(val) => {
             let mut vec_of_array = vec![];
             for i in val {
                 vec_of_array.push(SerdeValue::Bool(i));
             }
             Ok(SerdeValue::Array(vec_of_array))
-        }
+        },
         scale_value::ValueDef::Primitive(val) => match val {
             scale_value::Primitive::Bool(val) => Ok(SerdeValue::Bool(val)),
             scale_value::Primitive::Char(val) => Ok(SerdeValue::String(val.to_string())),

@@ -1,8 +1,9 @@
 use anyhow::Result;
 use rosetta_config_astar::config as astar_config;
-use rosetta_core::crypto::address::AddressFormat;
-use rosetta_core::crypto::Algorithm;
-use rosetta_core::{BlockchainConfig, NodeUri};
+use rosetta_core::{
+    crypto::{address::AddressFormat, Algorithm},
+    BlockchainConfig, NodeUri,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -69,11 +70,7 @@ fn evm_config(
         node_image: "ethereum/client-go:v1.12.2",
         node_command: Arc::new(|network, port| {
             let mut params = if network == "dev" {
-                vec![
-                    "--dev".into(),
-                    "--dev.period=1".into(),
-                    "--ipcdisable".into(),
-                ]
+                vec!["--dev".into(), "--dev.period=1".into(), "--ipcdisable".into()]
             } else {
                 vec!["--syncmode=full".into()]
             };

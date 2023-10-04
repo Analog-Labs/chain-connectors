@@ -1,13 +1,16 @@
 use anyhow::Result;
 use ethabi::token::{LenientTokenizer, Tokenizer};
-use ethers_core::abi::HumanReadableParser;
-use ethers_core::types::{
-    transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress, Signature, H160,
+use ethers_core::{
+    abi::HumanReadableParser,
+    types::{
+        transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress, Signature, H160,
+    },
 };
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
-use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::SecretKey;
-use rosetta_core::{BlockchainConfig, TransactionBuilder};
+use rosetta_core::{
+    crypto::{address::Address, SecretKey},
+    BlockchainConfig, TransactionBuilder,
+};
 use sha3::{Digest, Keccak256};
 
 pub use ethers_core::types::U256;

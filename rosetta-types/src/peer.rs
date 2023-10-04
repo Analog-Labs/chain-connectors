@@ -21,9 +21,6 @@ impl Peer {
     /// A Peer is a representation of a node's peer.
     #[must_use]
     pub const fn new(peer_id: String) -> Self {
-        Self {
-            peer_id,
-            metadata: None,
-        }
+        Self { peer_id, metadata: None }
     }
 }

@@ -7,15 +7,19 @@ mod reconnect_impl;
 mod retry_strategy;
 mod tungstenite_jsonrpsee;
 
-use crate::ws::reconnect::{AutoReconnectClient, Reconnect};
-use crate::ws::reconnect_impl::{Config as ReconnectConfig, DefaultStrategy};
-use crate::ws::retry_strategy::RetryStrategy;
+use crate::ws::{
+    reconnect::{AutoReconnectClient, Reconnect},
+    reconnect_impl::{Config as ReconnectConfig, DefaultStrategy},
+    retry_strategy::RetryStrategy,
+};
 pub use config::{RpcClientConfig, WsTransportClient};
 use futures_util::{future::BoxFuture, FutureExt};
-use jsonrpsee::core::Error as JsonRpseeError;
 use jsonrpsee::{
     client_transport::ws::WsTransportClientBuilder,
-    core::client::{Client, ClientBuilder},
+    core::{
+        client::{Client, ClientBuilder},
+        Error as JsonRpseeError,
+    },
 };
 use std::time::Duration;
 use tide::http::url::Url;
@@ -34,19 +38,19 @@ async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, Jso
                     tracing::warn!("Socketto failed: {}", error);
                     tracing::trace!("Retrying to connect using Tungstenite.");
                     build_tungstenite_client(builder, url, &config).await?
-                }
+                },
             }
-        }
+        },
         WsTransportClient::Socketto => {
             let client = build_socketto_client(builder, url.clone(), &config).await?;
             tracing::info!("Connected to {} using Socketto", url);
             client
-        }
+        },
         WsTransportClient::Tungstenite => {
             let client = build_tungstenite_client(builder, url.clone(), &config).await?;
             tracing::info!("Connected to {} using Tungstenite", url);
             client
-        }
+        },
     };
     Ok(client)
 }
@@ -101,9 +105,7 @@ pub async fn default_client(
         .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
     let reconnect_config = DefaultReconnectConfig { url, config };
 
-    DefaultStrategy::connect(reconnect_config)
-        .await
-        .map(Reconnect::into_client)
+    DefaultStrategy::connect(reconnect_config).await.map(Reconnect::into_client)
 }
 
 /// Creates a default jsonrpsee client using socketto.

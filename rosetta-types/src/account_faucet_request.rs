@@ -19,10 +19,6 @@ impl AccountFaucetRequest {
         account_identifier: AccountIdentifier,
         faucet_parameter: u128,
     ) -> Self {
-        Self {
-            network_identifier,
-            account_identifier,
-            faucet_parameter,
-        }
+        Self { network_identifier, account_identifier, faucet_parameter }
     }
 }

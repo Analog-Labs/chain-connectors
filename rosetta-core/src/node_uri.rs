@@ -35,10 +35,12 @@ pub struct NodeUri<'a> {
 
 impl<'a> NodeUri<'a> {
     /// Parses a URI reference from a byte sequence into a Uri<&str>.
-    /// This function validates the input strictly except that UTF-8 validation is not performed on a percent-encoded registered name (see Section 3.2.2, RFC 3986 ). Care should be taken when dealing with such cases.
-    /// # Errors
+    /// This function validates the input strictly except that UTF-8 validation is not performed on
+    /// a percent-encoded registered name (see Section 3.2.2, RFC 3986 ). Care should be taken when
+    /// dealing with such cases. # Errors
     ///
-    /// The provided url must contain [`fluent_uri::Scheme`], [`fluent_uri::Host`] and port, otherwise returns `Err`
+    /// The provided url must contain [`fluent_uri::Scheme`], [`fluent_uri::Host`] and port,
+    /// otherwise returns `Err`
     pub fn parse(s: &'a str) -> Result<Self, NodeUriError> {
         let uri = Uri::parse(s).map_err(|_| NodeUriError::InvalidUri)?;
 
@@ -48,12 +50,12 @@ impl<'a> NodeUri<'a> {
             .map(fluent_uri::Scheme::as_str)
             .ok_or(NodeUriError::InvalidScheme)?;
         if scheme.is_empty() {
-            return Err(NodeUriError::InvalidScheme);
+            return Err(NodeUriError::InvalidScheme)
         }
         let authority = uri.authority().ok_or(NodeUriError::InvalidHost)?;
         let host = authority.host().as_str();
         if host.is_empty() {
-            return Err(NodeUriError::InvalidHost);
+            return Err(NodeUriError::InvalidHost)
         }
         let port = authority
             .port()

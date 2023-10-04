@@ -1,7 +1,8 @@
 use anyhow::Result;
-use rosetta_core::crypto::address::AddressFormat;
-use rosetta_core::crypto::Algorithm;
-use rosetta_core::{BlockchainConfig, NodeUri};
+use rosetta_core::{
+    crypto::{address::AddressFormat, Algorithm},
+    BlockchainConfig, NodeUri,
+};
 use std::sync::Arc;
 
 /// Retrieve the [`BlockchainConfig`] from the provided `network`

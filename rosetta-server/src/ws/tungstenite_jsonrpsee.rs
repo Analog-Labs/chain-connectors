@@ -50,10 +50,8 @@ impl TungsteniteClient {
             response.status()
         );
 
-        let sender = Sender {
-            inner: send,
-            max_request_size: config.max_message_size.unwrap_or(usize::MAX),
-        };
+        let sender =
+            Sender { inner: send, max_request_size: config.max_message_size.unwrap_or(usize::MAX) };
 
         let receiver = Receiver { inner: receive };
 
@@ -89,7 +87,7 @@ impl TransportSenderT for Sender {
             return Err(WsError::Capacity(CapacityError::MessageTooLong {
                 size: body.len(),
                 max_size: self.max_request_size,
-            }));
+            }))
         }
 
         tracing::trace!("send: {}", body);
@@ -120,14 +118,14 @@ impl TransportReceiverT for Receiver {
     async fn receive(&mut self) -> Result<ReceivedMessage, Self::Error> {
         loop {
             let Some(result) = self.inner.next().await else {
-                return Err(WsError::ConnectionClosed);
+                return Err(WsError::ConnectionClosed)
             };
 
             match result? {
                 Message::Text(text) => break Ok(ReceivedMessage::Text(text)),
                 Message::Binary(bytes) => break Ok(ReceivedMessage::Bytes(bytes)),
                 Message::Pong(_) => break Ok(ReceivedMessage::Pong),
-                Message::Close(_) | Message::Ping(_) | Message::Frame(_) => {}
+                Message::Close(_) | Message::Ping(_) | Message::Frame(_) => {},
             }
         }
     }

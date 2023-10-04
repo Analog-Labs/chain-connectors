@@ -1,11 +1,13 @@
-use crate::crypto::{
-    address::Address,
-    bip32::{DerivedPublicKey, DerivedSecretKey},
-    bip39::Mnemonic,
-    bip44::ChildNumber,
-    Algorithm,
+use crate::{
+    crypto::{
+        address::Address,
+        bip32::{DerivedPublicKey, DerivedSecretKey},
+        bip39::Mnemonic,
+        bip44::ChildNumber,
+        Algorithm,
+    },
+    types::{AccountIdentifier, CurveType, PublicKey},
 };
-use crate::types::{AccountIdentifier, CurveType, PublicKey};
 use anyhow::Result;
 
 /// Signer derives keys from a mnemonic.
@@ -27,13 +29,7 @@ impl Signer {
         let secp256r1 = DerivedSecretKey::new(mnemonic, password, Algorithm::EcdsaSecp256r1)?;
         let ed25519 = DerivedSecretKey::new(mnemonic, password, Algorithm::Ed25519)?;
         let sr25519 = DerivedSecretKey::new(mnemonic, password, Algorithm::Sr25519)?;
-        Ok(Self {
-            secp256k1,
-            secp256k1_recoverable,
-            secp256r1,
-            ed25519,
-            sr25519,
-        })
+        Ok(Self { secp256k1, secp256k1_recoverable, secp256r1, ed25519, sr25519 })
     }
 
     /// Creates a new ephemeral signer.
@@ -81,9 +77,8 @@ impl RosettaPublicKey for DerivedPublicKey {
     fn to_rosetta(&self) -> PublicKey {
         PublicKey {
             curve_type: match self.public_key().algorithm() {
-                Algorithm::EcdsaSecp256k1 | Algorithm::EcdsaRecoverableSecp256k1 => {
-                    CurveType::Secp256k1
-                }
+                Algorithm::EcdsaSecp256k1 | Algorithm::EcdsaRecoverableSecp256k1 =>
+                    CurveType::Secp256k1,
                 Algorithm::EcdsaSecp256r1 => CurveType::Secp256r1,
                 Algorithm::Ed25519 => CurveType::Edwards25519,
                 Algorithm::Sr25519 => CurveType::Schnorrkel,
@@ -101,10 +96,6 @@ pub trait RosettaAccount {
 
 impl RosettaAccount for Address {
     fn to_rosetta(&self) -> AccountIdentifier {
-        AccountIdentifier {
-            address: self.address().into(),
-            sub_account: None,
-            metadata: None,
-        }
+        AccountIdentifier { address: self.address().into(), sub_account: None, metadata: None }
     }
 }

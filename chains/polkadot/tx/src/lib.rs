@@ -1,9 +1,10 @@
 use anyhow::{bail, Context, Result};
 use parity_scale_codec::{Compact, Decode, Encode};
 use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
-use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::SecretKey;
-use rosetta_core::{BlockchainConfig, TransactionBuilder};
+use rosetta_core::{
+    crypto::{address::Address, SecretKey},
+    BlockchainConfig, TransactionBuilder,
+};
 
 #[derive(Debug, Decode, Encode)]
 struct AccountId32([u8; 32]);
@@ -44,7 +45,7 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
             let lower = (data[0] << 2) | (data[1] >> 6);
             let upper = data[1] & 0b0011_1111;
             (2, u16::from(lower) | (u16::from(upper) << 8))
-        }
+        },
         _ => anyhow::bail!("ss58: invalid prefix"),
     };
     if data.len() != prefix_len + body_len + CHECKSUM_LEN {
@@ -62,9 +63,7 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
         anyhow::bail!("invalid checksum");
     }
 
-    let result = data[prefix_len..body_len + prefix_len]
-        .try_into()
-        .context("ss58: bad length")?;
+    let result = data[prefix_len..body_len + prefix_len].try_into().context("ss58: bad length")?;
     Ok(AccountId32(result))
 }
 

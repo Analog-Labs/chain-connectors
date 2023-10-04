@@ -24,9 +24,6 @@ impl BlockRequest {
         network_identifier: crate::NetworkIdentifier,
         block_identifier: crate::PartialBlockIdentifier,
     ) -> Self {
-        Self {
-            network_identifier,
-            block_identifier,
-        }
+        Self { network_identifier, block_identifier }
     }
 }

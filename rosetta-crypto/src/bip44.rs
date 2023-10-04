@@ -67,9 +67,8 @@ impl FromStr for ChildNumber {
     type Err = anyhow::Error;
 
     fn from_str(child: &str) -> Result<Self> {
-        let (child, mask) = child
-            .strip_suffix('\'')
-            .map_or((child, 0), |child| (child, HARDENED_BIT));
+        let (child, mask) =
+            child.strip_suffix('\'').map_or((child, 0), |child| (child, HARDENED_BIT));
 
         let index: u32 = child.parse()?;
 
@@ -97,9 +96,7 @@ impl FromStr for DerivationPath {
             anyhow::bail!("invalid derivation path");
         }
 
-        Ok(Self {
-            path: path.map(str::parse).collect::<Result<Vec<ChildNumber>>>()?,
-        })
+        Ok(Self { path: path.map(str::parse).collect::<Result<Vec<ChildNumber>>>()? })
     }
 }
 

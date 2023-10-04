@@ -72,7 +72,7 @@ impl MaybeWsEthereumClient {
     /// this method is useful for reusing the same rpc client for ethereum and substrate calls.
     ///
     /// # Errors
-    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.    
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
         let client = EthereumClient::new(config, ws_connection).await?;
@@ -191,7 +191,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
             Self::Ws(ws_client) => {
                 let subscription = ws_client.listen().await?;
                 Ok(Some(subscription))
-            }
+            },
         }
     }
 }
@@ -199,12 +199,10 @@ impl BlockchainClient for MaybeWsEthereumClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ethers_solc::artifacts::Source;
-    use ethers_solc::{CompilerInput, EvmVersion, Solc};
+    use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_docker::Env;
     use sha3::Digest;
-    use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::{collections::BTreeMap, path::Path};
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
@@ -267,12 +265,7 @@ mod tests {
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new(
-            "ethereum-smart-contract",
-            config.clone(),
-            client_from_config,
-        )
-        .await?;
+        let env = Env::new("ethereum-smart-contract", config.clone(), client_from_config).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
@@ -289,18 +282,12 @@ mod tests {
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt
-            .get("contractAddress")
-            .and_then(serde_json::Value::as_str)
-            .unwrap();
-        let tx_hash = wallet
-            .eth_send_call(contract_address, "function emitEvent()", &[], 0)
-            .await?;
+        let contract_address =
+            receipt.get("contractAddress").and_then(serde_json::Value::as_str).unwrap();
+        let tx_hash =
+            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let logs = receipt
-            .get("logs")
-            .and_then(serde_json::Value::as_array)
-            .unwrap();
+        let logs = receipt.get("logs").and_then(serde_json::Value::as_array).unwrap();
         assert_eq!(logs.len(), 1);
         let topic = logs[0]["topics"][0].as_str().unwrap();
         let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
@@ -313,12 +300,8 @@ mod tests {
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
-        let env = Env::new(
-            "ethereum-smart-contract-view",
-            config.clone(),
-            client_from_config,
-        )
-        .await?;
+        let env =
+            Env::new("ethereum-smart-contract-view", config.clone(), client_from_config).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;

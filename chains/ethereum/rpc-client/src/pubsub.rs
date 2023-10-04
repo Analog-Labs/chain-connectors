@@ -1,15 +1,17 @@
-use crate::client::EthClientAdapter;
-use crate::prelude::ToRpcParams;
-use crate::subscription::EthSubscription;
 use crate::{
+    client::EthClientAdapter,
     error::EthError,
     extension::{impl_client_trait, impl_subscription_trait},
     params::EthRpcParams,
+    prelude::ToRpcParams,
+    subscription::EthSubscription,
 };
 use async_trait::async_trait;
 use dashmap::DashMap;
-use ethers::providers::{JsonRpcClient, PubsubClient};
-use ethers::types::U256;
+use ethers::{
+    providers::{JsonRpcClient, PubsubClient},
+    types::U256,
+};
 use jsonrpsee::{
     core::{
         client::{ClientT, Subscription, SubscriptionClientT, SubscriptionKind},
@@ -17,19 +19,21 @@ use jsonrpsee::{
     },
     types::SubscriptionId,
 };
-use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::ops::{Deref, DerefMut};
-use std::sync::atomic::{AtomicBool, Ordering};
+use serde::{de::DeserializeOwned, Serialize};
 use std::{
     fmt::{Debug, Formatter},
-    sync::Arc,
+    ops::{Deref, DerefMut},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 const ETHEREUM_SUBSCRIBE_METHOD: &str = "eth_subscribe";
 const ETHEREUM_UNSUBSCRIBE_METHOD: &str = "eth_unsubscribe";
 
-/// Adapter for [`jsonrpsee::core::client::SubscriptionClientT`] to [`ethers::providers::PubsubClient`].
+/// Adapter for [`jsonrpsee::core::client::SubscriptionClientT`] to
+/// [`ethers::providers::PubsubClient`].
 pub struct EthPubsubAdapter<C> {
     pub(crate) adapter: EthClientAdapter<C>,
     pub(crate) eth_subscriptions: Arc<DashMap<U256, SubscriptionState>>,
@@ -61,10 +65,7 @@ where
     C: Clone,
 {
     fn clone(&self) -> Self {
-        Self {
-            adapter: self.adapter.clone(),
-            eth_subscriptions: self.eth_subscriptions.clone(),
-        }
+        Self { adapter: self.adapter.clone(), eth_subscriptions: self.eth_subscriptions.clone() }
     }
 }
 
@@ -87,10 +88,7 @@ where
     C: SubscriptionClientT + Debug + Send + Sync,
 {
     pub fn new(client: C) -> Self {
-        Self {
-            adapter: EthClientAdapter::new(client),
-            eth_subscriptions: Arc::new(DashMap::new()),
-        }
+        Self { adapter: EthClientAdapter::new(client), eth_subscriptions: Arc::new(DashMap::new()) }
     }
 
     /// # Errors
@@ -130,12 +128,12 @@ where
                             let size = usize::min(str_bytes.len(), bytes.len());
                             bytes[0..size].copy_from_slice(str_bytes);
                             U256::from_big_endian(bytes.as_slice())
-                        }
+                        },
                     },
                     |id| id,
                 );
                 Some(id)
-            }
+            },
             _ => None,
         }
         .and_then(|subscription_id| {
@@ -151,7 +149,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            });
+            })
         };
 
         let _ = self
@@ -176,7 +174,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            });
+            })
         };
         state.unsubscribe().await?;
 
@@ -201,9 +199,7 @@ where
         match method {
             ETHEREUM_SUBSCRIBE_METHOD => self.eth_subscribe(params).await,
             ETHEREUM_UNSUBSCRIBE_METHOD => self.eth_unsubscribe(params).await,
-            _ => ClientT::request(&self.adapter, method, params)
-                .await
-                .map_err(EthError::from),
+            _ => ClientT::request(&self.adapter, method, params).await.map_err(EthError::from),
         }
     }
 }
@@ -221,7 +217,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            });
+            })
         };
 
         state.subscribe(id).ok_or_else(|| EthError::JsonRpsee {
@@ -257,11 +253,11 @@ impl SubscriptionState {
                 let unsubscribe = Arc::new(AtomicBool::new(false));
                 *self = Self::Subscribed(unsubscribe.clone());
                 Some(EthSubscription::new(id, stream, unsubscribe))
-            }
+            },
             Self::Subscribed(unsubscribe) => {
                 *self = Self::Subscribed(unsubscribe);
                 None
-            }
+            },
             Self::Unsubscribed => None,
         }
     }
@@ -273,7 +269,7 @@ impl SubscriptionState {
             Self::Subscribed(unsubscribe) => {
                 unsubscribe.store(true, Ordering::SeqCst);
                 Ok(())
-            }
+            },
             Self::Unsubscribed => Ok(()),
         }
     }

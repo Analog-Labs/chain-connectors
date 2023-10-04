@@ -10,7 +10,7 @@ pub fn ss58_encode(address_format: Ss58AddressFormat, public_key: &[u8]) -> Stri
             #[allow(clippy::cast_possible_truncation)]
             let ident = ident as u8;
             vec![ident]
-        }
+        },
         64..=16_383 => {
             // upper six bits of the lower byte(!)
             let first = ((ident & 0b0000_0000_1111_1100) as u8) >> 2;
@@ -18,7 +18,7 @@ pub fn ss58_encode(address_format: Ss58AddressFormat, public_key: &[u8]) -> Stri
             // lower bits of the upper byte in the low pos
             let second = ((ident >> 8) as u8) | ((ident & 0b0000_0000_0000_0011) as u8) << 6;
             vec![first | 0b0100_0000, second]
-        }
+        },
         _ => unreachable!("masked out the upper two bits; qed"),
     };
     v.extend(public_key);

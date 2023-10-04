@@ -1,17 +1,17 @@
-use crate::client::{GenericClient, GenericMetadata, GenericMetadataParams};
-use crate::crypto::address::Address;
-use crate::crypto::bip32::DerivedSecretKey;
-use crate::crypto::bip44::ChildNumber;
-use crate::mnemonic::MnemonicStore;
-use crate::signer::{RosettaAccount, RosettaPublicKey, Signer};
-use crate::tx_builder::GenericTransactionBuilder;
-use crate::types::{
-    AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier,
+use crate::{
+    client::{GenericClient, GenericMetadata, GenericMetadataParams},
+    crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
+    mnemonic::MnemonicStore,
+    signer::{RosettaAccount, RosettaPublicKey, Signer},
+    tx_builder::GenericTransactionBuilder,
+    types::{AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier},
+    Blockchain, BlockchainConfig,
 };
-use crate::{Blockchain, BlockchainConfig};
 use anyhow::Result;
-use rosetta_core::types::{Block, CallRequest, PartialBlockIdentifier, Transaction};
-use rosetta_core::{BlockchainClient, RosettaAlgorithm};
+use rosetta_core::{
+    types::{Block, CallRequest, PartialBlockIdentifier, Transaction},
+    BlockchainClient, RosettaAlgorithm,
+};
 use serde_json::json;
 use std::path::Path;
 
@@ -67,22 +67,14 @@ impl Wallet {
             signer.master_key(client.config().algorithm).clone()
         };
         let public_key = secret_key.public_key();
-        let account = public_key
-            .to_address(client.config().address_format)
-            .to_rosetta();
+        let account = public_key.to_address(client.config().address_format).to_rosetta();
         let public_key = public_key.to_rosetta();
 
         if public_key.curve_type != client.config().algorithm.to_curve_type() {
             anyhow::bail!("The signer and client curve type aren't compatible.")
         }
 
-        Ok(Self {
-            client,
-            account,
-            secret_key,
-            public_key,
-            tx,
-        })
+        Ok(Self { client, account, secret_key, public_key, tx })
     }
 
     /// Returns the blockchain config.
@@ -110,10 +102,8 @@ impl Wallet {
     #[allow(clippy::missing_errors_doc)]
     pub async fn balance(&self) -> Result<Amount> {
         let block = self.client.current_block().await?;
-        let address = Address::new(
-            self.client.config().address_format,
-            self.account.address.clone(),
-        );
+        let address =
+            Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = self.client.balance(&address, &block).await?;
         Ok(Amount {
             value: format!("{balance}"),
@@ -147,9 +137,7 @@ impl Wallet {
         block_identifer: BlockIdentifier,
         tx_identifier: TransactionIdentifier,
     ) -> Result<Transaction> {
-        self.client
-            .block_transaction(&block_identifer, &tx_identifier)
-            .await
+        self.client.block_transaction(&block_identifer, &tx_identifier).await
     }
 
     /// Extension of rosetta-api does multiple things
@@ -175,10 +163,8 @@ impl Wallet {
     #[allow(clippy::missing_errors_doc)]
     pub async fn coins(&self) -> Result<Vec<Coin>> {
         let block = self.client.current_block().await?;
-        let address = Address::new(
-            self.client.config().address_format,
-            self.account.address.clone(),
-        );
+        let address =
+            Address::new(self.client.config().address_format, self.account.address.clone());
         self.client.coins(&address, &block).await
     }
 
@@ -235,10 +221,8 @@ impl Wallet {
     /// - `faucet_parameter`: the amount to seed the account with
     #[allow(clippy::missing_errors_doc)]
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<Vec<u8>> {
-        let address = Address::new(
-            self.client.config().address_format,
-            self.account.address.clone(),
-        );
+        let address =
+            Address::new(self.client.config().address_format, self.account.address.clone());
         self.client.faucet(&address, faucet_parameter).await
     }
 
@@ -259,8 +243,7 @@ impl Wallet {
         amount: u128,
     ) -> Result<Vec<u8>> {
         let metadata_params =
-            self.tx
-                .method_call(contract_address, method_signature, params, amount)?;
+            self.tx.method_call(contract_address, method_signature, params, amount)?;
         self.construct(&metadata_params).await
     }
 
@@ -274,8 +257,7 @@ impl Wallet {
         amount: u128,
     ) -> Result<u128> {
         let metadata_params =
-            self.tx
-                .method_call(contract_address, method_signature, params, amount)?;
+            self.tx.method_call(contract_address, method_signature, params, amount)?;
         let metadata = match self.metadata(&metadata_params).await? {
             GenericMetadata::Ethereum(metadata) => metadata,
             GenericMetadata::Astar(metadata) => metadata.0,

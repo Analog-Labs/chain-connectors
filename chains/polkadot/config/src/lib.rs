@@ -1,7 +1,11 @@
 use anyhow::Result;
-use rosetta_core::crypto::address::{AddressFormat, Ss58AddressFormatRegistry};
-use rosetta_core::crypto::Algorithm;
-use rosetta_core::{BlockchainConfig, NodeUri};
+use rosetta_core::{
+    crypto::{
+        address::{AddressFormat, Ss58AddressFormatRegistry},
+        Algorithm,
+    },
+    BlockchainConfig, NodeUri,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use subxt::ext::sp_core::crypto::Ss58AddressFormat;
@@ -31,11 +35,7 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
         // All blockchains in polkadot have "dev", "local" and "staging" variants
 
         // "dev" and "polkadot-dev" are the same
-        let chain = if value == "dev" {
-            "polkadot-dev"
-        } else {
-            value
-        };
+        let chain = if value == "dev" { "polkadot-dev" } else { value };
 
         // Split blockchain and network
         let (blockchain, network) = chain.split_once('-').unwrap_or((chain, ""));

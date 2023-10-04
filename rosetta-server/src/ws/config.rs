@@ -34,7 +34,8 @@ pub enum RetryStrategyConfig {
     /// The power corresponds to the number of past attempts.
     ExponentialBackoff {
         /// base duration in milliseconds.
-        /// The resulting duration is calculated by taking the base to the n-th power, where n denotes the number of past attempts.
+        /// The resulting duration is calculated by taking the base to the n-th power, where n
+        /// denotes the number of past attempts.
         base: u64,
         /// A multiplicative factor that will be applied to the retry delay.
         /// For example, using a factor of 1000 will make each delay in units of seconds.
@@ -46,8 +47,10 @@ pub enum RetryStrategyConfig {
 
     /// A retry strategy driven by the fibonacci series.
     /// Each retry uses a delay which is the sum of the two previous delays.
-    /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead to better throughput than the ExponentialBackoff strategy.
-    /// See "A Performance Comparison of Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for more details.
+    /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead
+    /// to better throughput than the ExponentialBackoff strategy. See "A Performance Comparison of
+    /// Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for
+    /// more details.
     FibonacciBackoff {
         /// Initial base duration in milliseconds.
         initial: u64,
@@ -105,8 +108,10 @@ pub struct RpcClientConfig {
     /// JSON-RPC max concurrent requests (default is 256).
     pub rpc_max_concurrent_requests: usize,
 
-    /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the subscription will be dropped (default is 1024).
-    /// You may prevent the subscription from being dropped by polling often enough Subscription::next() such that it can keep with the rate as server produces new items on the subscription.
+    /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the
+    /// subscription will be dropped (default is 1024). You may prevent the subscription from being
+    /// dropped by polling often enough Subscription::next() such that it can keep with the rate as
+    /// server produces new items on the subscription.
     pub rpc_max_buffer_capacity_per_subscription: NonZeroUsize,
 
     /// JSON-RPC request object id data type. (default is IdKind::Number)
@@ -121,9 +126,11 @@ pub struct RpcClientConfig {
     ///
     /// Periodically submitting pings at a defined interval has mainly two benefits:
     ///  - Directly, it acts as a "keep-alive" alternative in the WebSocket world.
-    ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to messages.
+    ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to
+    ///    messages.
     ///
-    /// The underlying implementation does not make any assumptions about at which intervals pongs are received.
+    /// The underlying implementation does not make any assumptions about at which intervals pongs
+    /// are received.
     ///
     /// Note: The interval duration is restarted when
     ///  - a frontend command is submitted
