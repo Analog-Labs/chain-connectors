@@ -58,7 +58,7 @@ pub fn docker_endpoint() -> String {
 
     // Try to load the endpoint from the `DOCKER_HOST` environment variable
     if let Some(host) = env_vars::non_empty_var(DOCKER_HOST) {
-        return host
+        return host;
     }
 
     // If the config directory exists, try to load the endpoint from the config.json file
@@ -89,7 +89,7 @@ pub fn docker_config_dir() -> anyhow::Result<PathBuf> {
     if let Some(config) =
         env_vars::non_empty_var(DOCKER_CONFIG).and_then(|path| PathBuf::from_str(&path).ok())
     {
-        return directory_exists(config)
+        return directory_exists(config);
     }
 
     // Use the default config directory at $HOME/.docker/

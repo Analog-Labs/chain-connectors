@@ -200,7 +200,7 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
     let mut destroyed_accs: HashMap<String, u64> = HashMap::new();
 
     if traces.is_empty() {
-        return Ok(operations)
+        return Ok(operations);
     }
 
     for trace in traces {
@@ -252,12 +252,12 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
         if trace.trace_type == SELF_DESTRUCT_OP_TYPE {
             //assigning destroyed from to an empty number
             if from == to {
-                continue
+                continue;
             }
         }
 
         if to.is_empty() {
-            continue
+            continue;
         }
 
         // If the account is resurrected, we remove it from
@@ -307,7 +307,7 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
 
         for (k, v) in &destroyed_accs {
             if v == &0 {
-                continue
+                continue;
             }
 
             if v < &0 {

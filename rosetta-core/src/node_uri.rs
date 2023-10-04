@@ -51,12 +51,12 @@ impl<'a> NodeUri<'a> {
             .map(fluent_uri::Scheme::as_str)
             .ok_or(NodeUriError::InvalidScheme)?;
         if scheme.is_empty() {
-            return Err(NodeUriError::InvalidScheme)
+            return Err(NodeUriError::InvalidScheme);
         }
         let authority = uri.authority().ok_or(NodeUriError::InvalidHost)?;
         let host = authority.host().as_str();
         if host.is_empty() {
-            return Err(NodeUriError::InvalidHost)
+            return Err(NodeUriError::InvalidHost);
         }
         let port = authority
             .port()

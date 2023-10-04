@@ -70,21 +70,21 @@ impl Stream for EthSubscription {
                     } else {
                         *this.state = Some(EthSubscriptionState::Receiving(stream));
                     }
-                    continue
+                    continue;
                 },
                 Some(EthSubscriptionState::Receiving(mut stream)) => {
                     let result = match stream.poll_next_unpin(cx) {
                         Poll::Ready(result) => result,
                         Poll::Pending => {
                             *this.state = Some(EthSubscriptionState::Receiving(stream));
-                            return Poll::Pending
+                            return Poll::Pending;
                         },
                     };
 
                     // Stream is close, no unsubscribe needed
                     let Some(result) = result else {
                         tracing::info!("Stream closed unexpectedly, no unsubscribe needed");
-                        return Poll::Ready(None)
+                        return Poll::Ready(None);
                     };
 
                     // Parse the json result
@@ -95,7 +95,7 @@ impl Stream for EthSubscription {
                     match result {
                         Ok(value) => {
                             *this.state = Some(EthSubscriptionState::Idle(stream));
-                            return Poll::Ready(Some(value))
+                            return Poll::Ready(Some(value));
                         },
                         Err(error) => {
                             *this.failure_count += 1;
@@ -120,7 +120,7 @@ impl Stream for EthSubscription {
                                 this.span.record("failures", 0);
                                 *this.state = Some(EthSubscriptionState::Idle(stream));
                             }
-                            continue
+                            continue;
                         },
                     }
                 },
@@ -139,7 +139,7 @@ impl Stream for EthSubscription {
                 },
                 None => {
                     tracing::error!("stream must not be polled after being closed`");
-                    return Poll::Ready(None)
+                    return Poll::Ready(None);
                 },
             }
         }

@@ -87,7 +87,7 @@ where
             let Some(latest_block) =
                 self.client.get_block(BlockId::Number(BlockNumber::Latest)).await?
             else {
-                return Ok(self.genesis_block.clone())
+                return Ok(self.genesis_block.clone());
             };
 
             let Some(block_number) = latest_block.number else {
@@ -100,7 +100,7 @@ where
             // and polygon block interval is ~2 seconds, 30 minutes / 2 seconds == 900 blocks.
             let block_number = block_number.saturating_sub(U64::from(900u32));
             if block_number.is_zero() {
-                return Ok(self.genesis_block.clone())
+                return Ok(self.genesis_block.clone());
             }
 
             let Some(finalized_block) = self
@@ -117,7 +117,7 @@ where
         {
             finalized_block
         } else {
-            return Ok(self.genesis_block.clone())
+            return Ok(self.genesis_block.clone());
         };
 
         Ok(BlockIdentifier {
@@ -287,9 +287,9 @@ where
             .as_ref()
             .map(|block_identifier| -> Result<BlockId> {
                 if let Some(block_hash) = block_identifier.hash.as_ref() {
-                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"))
+                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"));
                 } else if let Some(block_number) = block_identifier.index {
-                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(block_number))))
+                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(block_number))));
                 };
                 bail!("invalid block identifier")
             })

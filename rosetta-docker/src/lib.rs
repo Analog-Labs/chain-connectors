@@ -43,7 +43,7 @@ impl<T: BlockchainClient> Env<T> {
             Err(e) => {
                 let opts = ContainerStopOpts::builder().build();
                 let _ = node.stop(&opts).await;
-                return Err(e)
+                return Err(e);
             },
         };
 
@@ -110,7 +110,7 @@ impl<'a> EnvBuilder<'a> {
                 log::info!("stopping {}", name);
                 container.stop(&ContainerStopOpts::builder().build()).await?;
                 container.delete().await.ok();
-                break
+                break;
             }
         }
         Ok(())
@@ -201,7 +201,7 @@ impl<'a> EnvBuilder<'a> {
         if let Some(err) = maybe_error {
             log::error!("node failed to start: {}", err);
             let _ = container.stop(&ContainerStopOpts::default()).await;
-            return Err(err)
+            return Err(err);
         }
         Ok(container)
     }
@@ -228,10 +228,10 @@ impl<'a> EnvBuilder<'a> {
                     Ok(client) => {
                         if let Err(error) = client.finalized_block().await {
                             result = Err(error);
-                            continue
+                            continue;
                         }
                         result = Ok(client);
-                        break
+                        break;
                     },
                     Err(error) => {
                         result = Err(error);
@@ -296,7 +296,7 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
                     // Check if the container exited
                     let health_status = health(container).await;
                     if matches!(health_status, Err(_) | Ok(Some(Health::Unhealthy))) {
-                        return Err(RetryError::ContainerExited(err.into_inner()))
+                        return Err(RetryError::ContainerExited(err.into_inner()));
                     }
                     Err(RetryError::Retry(err.into_inner()))
                 },

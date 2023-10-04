@@ -83,7 +83,7 @@ fn set_params_acc_to_storage(values: Vec<SubxtValue>) -> Vec<SubxtValue> {
                 modified_value.push(inner_val);
             }
         } else {
-            return values
+            return values;
         }
     }
     modified_value
@@ -249,7 +249,7 @@ fn make_array(
         }
         let referenced_vec = &vec_value;
         let bytes_data: &[u8] = referenced_vec;
-        return Ok(SubxtValue::from_bytes(bytes_data))
+        return Ok(SubxtValue::from_bytes(bytes_data));
     }
     anyhow::bail!("expected array");
 }

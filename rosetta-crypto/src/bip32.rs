@@ -147,13 +147,13 @@ impl DerivedSecretKey {
                 Ok(secret_key) => secret_key,
                 _ if algorithm.uses_slip10_retry() => {
                     retry = Some(result.into());
-                    continue
+                    continue;
                 },
                 _ => {
                     anyhow::bail!("failed to derive a valid secret key");
                 },
             };
-            return Ok(Self { secret_key, chain_code: chain_code.try_into()? })
+            return Ok(Self { secret_key, chain_code: chain_code.try_into()? });
         }
     }
 
@@ -235,15 +235,15 @@ impl DerivedSecretKey {
                 if let Some(tweaked_secret_key) = secret_key.tweak_add(&self.secret_key)? {
                     secret_key = tweaked_secret_key;
                 } else if algorithm.uses_slip10_retry() {
-                    continue
+                    continue;
                 } else if algorithm.uses_bip32_retry() {
-                    return self.bip32_derive(child + 1)
+                    return self.bip32_derive(child + 1);
                 } else {
                     anyhow::bail!("invalid tweak");
                 }
             }
 
-            return Ok(Self { secret_key, chain_code })
+            return Ok(Self { secret_key, chain_code });
         }
     }
 
@@ -332,7 +332,7 @@ impl DerivedPublicKey {
                 Some(public_key) => public_key,
                 _ if algorithm.uses_slip10_retry() => {
                     retry = Some(chain_code);
-                    continue
+                    continue;
                 },
                 _ if algorithm.uses_bip32_retry() => return self.bip32_derive(child + 1),
                 _ => {
@@ -340,7 +340,7 @@ impl DerivedPublicKey {
                 },
             };
 
-            return Ok(Self { public_key, chain_code })
+            return Ok(Self { public_key, chain_code });
         }
     }
 

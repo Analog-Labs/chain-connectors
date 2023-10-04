@@ -68,7 +68,7 @@ impl Address {
     /// Will return `Err` when `self.address` is not a valid 160bit hex string
     pub fn evm_to_ss58(&self, ss58format: Ss58AddressFormat) -> Result<Self, AddressError> {
         if self.format != AddressFormat::Eip55 {
-            return Err(AddressError::InvalidAddressFormat)
+            return Err(AddressError::InvalidAddressFormat);
         }
         let address: H160 =
             self.address.parse().map_err(|_| AddressError::FailedToDecodeAddress)?;
@@ -91,7 +91,7 @@ impl Address {
     /// * self.address is not a valid SS58 address string
     pub fn ss58_to_evm(&self) -> Result<Self, AddressError> {
         if !matches!(self.format, AddressFormat::Ss58(_)) {
-            return Err(AddressError::InvalidAddressFormat)
+            return Err(AddressError::InvalidAddressFormat);
         }
         let ss58_addr = <AccountId32 as Ss58Codec>::from_string(&self.address)
             .map_err(|_| AddressError::FailedToDecodeAddress)?;

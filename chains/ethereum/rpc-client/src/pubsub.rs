@@ -149,7 +149,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            })
+            });
         };
 
         let _ = self
@@ -174,7 +174,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            })
+            });
         };
         state.unsubscribe().await?;
 
@@ -217,7 +217,7 @@ where
             return Err(EthError::JsonRpsee {
                 original: JsonRpseeError::InvalidSubscriptionId,
                 message: None,
-            })
+            });
         };
 
         state.subscribe(id).ok_or_else(|| EthError::JsonRpsee {

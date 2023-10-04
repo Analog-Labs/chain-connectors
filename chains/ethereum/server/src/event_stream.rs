@@ -78,7 +78,7 @@ where
                 if this.finalized_block_failures >= FAILURE_THRESHOLD {
                     return Poll::Ready(Some(ClientEvent::Close(
                         "More than 10 failures in sequence".into(),
-                    )))
+                    )));
                 }
 
                 match finalized_block_future.poll_unpin(cx) {
@@ -89,7 +89,7 @@ where
                             Err(error) => {
                                 this.finalized_block_failures += 1;
                                 tracing::error!("finalized block: {error}");
-                                break
+                                break;
                             },
                         };
 
@@ -101,7 +101,7 @@ where
                             if block_identifier == best_finalized_block {
                                 tracing::debug!("finalized block unchanged");
                                 this.best_finalized_block = Some(best_finalized_block);
-                                break
+                                break;
                             }
                         }
 
@@ -111,25 +111,25 @@ where
                         // Return the best finalized block
                         return Poll::Ready(Some(ClientEvent::NewFinalized(
                             BlockOrIdentifier::Identifier(block_identifier),
-                        )))
+                        )));
                     },
                     Poll::Ready(Ok(None)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
                         tracing::error!("finalized block not found");
                         this.finalized_block_failures += 1;
-                        continue
+                        continue;
                     },
                     Poll::Ready(Err(error)) => {
                         // Retry to retrieve the latest finalized block.
                         this.finalized_block_future = Some(this.finalized_block());
                         tracing::error!("failed to retrieve finalized block: {error:?}");
                         this.finalized_block_failures += 1;
-                        continue
+                        continue;
                     },
                     Poll::Pending => {
                         this.finalized_block_future = Some(finalized_block_future);
-                        break
+                        break;
                     },
                 }
             }
@@ -140,7 +140,7 @@ where
             if this.latest_block_failures >= FAILURE_THRESHOLD {
                 return Poll::Ready(Some(ClientEvent::Close(
                     "More than 10 failures in sequence".into(),
-                )))
+                )));
             }
 
             match this.new_head.poll_next_unpin(cx) {
@@ -151,7 +151,7 @@ where
                         Err(error) => {
                             this.latest_block_failures += 1;
                             tracing::error!("latest block: {error}");
-                            continue
+                            continue;
                         },
                     };
 
@@ -165,7 +165,7 @@ where
 
                     return Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(
                         block_identifier,
-                    ))))
+                    ))));
                 },
                 Poll::Ready(None) => return Poll::Ready(None),
                 Poll::Pending => return Poll::Pending,
