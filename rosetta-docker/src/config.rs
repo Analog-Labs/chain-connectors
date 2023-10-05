@@ -10,7 +10,7 @@ const DEFAULT_DOCKER_ENDPOINT: &str = "unix:///var/run/docker.sock";
 
 /// For windows the default endpoint is "npipe:////./pipe/docker_engine"
 /// But currently this is not supported by docker-api, using to default tcp endpoint instead
-/// https://github.com/vv9k/docker-api-rs/issues/57
+/// (https://github.com/vv9k/docker-api-rs/issues/57)
 #[cfg(not(unix))]
 const DEFAULT_DOCKER_ENDPOINT: &str = "tcp://127.0.0.1:2375";
 
@@ -21,7 +21,8 @@ pub mod env_vars {
     /// The location of your client configuration files.
     pub const DOCKER_CONFIG: &str = "DOCKER_CONFIG";
 
-    /// Name of the `docker context` to use (overrides `DOCKER_HOST` env var and default context set with `docker context use`)
+    /// Name of the `docker context` to use (overrides `DOCKER_HOST` env var and default context set
+    /// with `docker context use`)
     pub const DOCKER_CONTEXT: &str = "DOCKER_CONTEXT";
 
     /// Daemon socket to connect to.
@@ -73,7 +74,7 @@ pub fn docker_endpoint() -> String {
 /// of the configuration files via the `DOCKER_CONFIG` environment variable
 ///
 /// Reference:
-/// https://github.com/docker/cli/blob/v24.0.5/man/docker-config-json.5.md
+/// <https://github.com/docker/cli/blob/v24.0.5/man/docker-config-json.5.md>
 pub fn docker_config_dir() -> anyhow::Result<PathBuf> {
     // Verifies if the config directory exists
     let directory_exists = |directory: PathBuf| {
@@ -103,8 +104,8 @@ pub fn docker_config_dir() -> anyhow::Result<PathBuf> {
 /// of the configuration files via the `DOCKER_CONFIG` environment variable
 ///
 /// Reference:
-/// https://github.com/docker/cli/blob/v24.0.5/man/docker-config-json.5.md
-/// https://github.com/docker/cli/blob/v24.0.5/cli/config/configfile/file.go#L17-L44
+/// - <https://github.com/docker/cli/blob/v24.0.5/man/docker-config-json.5.md>
+/// - <https://github.com/docker/cli/blob/v24.0.5/cli/config/configfile/file.go#L17-L44>
 pub fn endpoint_from_config(config_dir: PathBuf) -> anyhow::Result<String> {
     // Extract the current context from config.json file
     let config_file = config_dir.join("config.json");
@@ -118,9 +119,8 @@ pub fn endpoint_from_config(config_dir: PathBuf) -> anyhow::Result<String> {
         .parse::<serde_json::Value>()
         .context("config.json is not a valid json")?
         .get("currentContext")
-        .and_then(|value| value.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| "default".to_string());
+        .and_then(serde_json::Value::as_str)
+        .map_or_else(|| "default".to_string(), str::to_string);
 
     // Find the endpoint
     find_context_endpoint(config_dir, &current_context)
@@ -172,7 +172,7 @@ fn sha256_digest(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use docker_api::Docker;
+    use docker_api::{opts::ContainerListOpts, Docker};
 
     #[test]
     fn test_sha256_digest() {
@@ -187,7 +187,7 @@ mod tests {
         // Obs: docker must be running
         let host = docker_endpoint();
         let docker = Docker::new(&host).unwrap();
-        let result = docker.containers().list(&Default::default()).await;
+        let result = docker.containers().list(&ContainerListOpts::default()).await;
         assert!(result.is_ok());
     }
 }

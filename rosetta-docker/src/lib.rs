@@ -1,17 +1,17 @@
 mod config;
 
-use anyhow::Result;
-use docker_api::conn::TtyChunk;
-use docker_api::opts::{
-    ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
+use anyhow::{Context, Result};
+use docker_api::{
+    conn::TtyChunk,
+    opts::{
+        ContainerCreateOpts, ContainerListOpts, ContainerStopOpts, HostPort, LogsOpts, PublishPort,
+    },
+    ApiVersion, Container, Docker,
 };
-use docker_api::{ApiVersion, Container, Docker};
 use futures::stream::StreamExt;
 use rosetta_client::Wallet;
 use rosetta_core::{BlockchainClient, BlockchainConfig};
-use std::future::Future;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{future::Future, sync::Arc, time::Duration};
 use tokio_retry::{strategy::ExponentialBackoff, RetryIf};
 
 pub struct Env<T> {
@@ -20,52 +20,55 @@ pub struct Env<T> {
 }
 
 impl<T: BlockchainClient> Env<T> {
+    #[allow(clippy::missing_errors_doc)]
     pub async fn new<Fut, F>(
         prefix: &str,
         mut config: BlockchainConfig,
         start_connector: F,
-    ) -> Result<Env<T>>
+    ) -> Result<Self>
     where
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
-        let node_port = builder.random_port();
+        let node_port = random_port();
         config.node_uri.port = node_port;
         log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
         let node = builder.run_node(&config).await?;
 
-        let client = match builder
-            .run_connector::<T, Fut, F>(start_connector, config)
-            .await
-        {
+        let client = match builder.run_connector::<T, Fut, F>(start_connector, config).await {
             Ok(connector) => connector,
             Err(e) => {
                 let opts = ContainerStopOpts::builder().build();
                 let _ = node.stop(&opts).await;
                 return Err(e);
-            }
+            },
         };
 
-        Ok(Self {
-            client: Arc::new(client),
-            node,
-        })
+        Ok(Self { client: Arc::new(client), node })
     }
 
+    #[must_use]
     pub fn node(&self) -> Arc<T> {
         Arc::clone(&self.client)
     }
 
+    /// Creates a new ephemeral wallet
+    ///
+    /// # Errors
+    /// Returns `Err` if the node uri is invalid or keyfile doesn't exists
     pub async fn ephemeral_wallet(&self) -> Result<Wallet> {
         let config = self.client.config().clone();
         let node_uri = config.node_uri.to_string();
-        println!("Ephemeral wallet: {}", node_uri);
         Wallet::from_config(config, &node_uri, None).await
     }
 
+    /// Stop all containers
+    ///
+    /// # Errors
+    /// Will return `Err` if it fails to stop the container for some reason
     pub async fn shutdown(self) -> Result<()> {
         let opts = ContainerStopOpts::builder().build();
         self.node.stop(&opts).await?;
@@ -86,17 +89,8 @@ impl<'a> EnvBuilder<'a> {
         Ok(Self { prefix, docker })
     }
 
-    fn random_port(&self) -> u16 {
-        let mut bytes = [0; 2];
-        getrandom::getrandom(&mut bytes).unwrap();
-        u16::from_le_bytes(bytes)
-    }
-
     fn node_name(&self, config: &BlockchainConfig) -> String {
-        format!(
-            "{}-node-{}-{}",
-            self.prefix, config.blockchain, config.network
-        )
+        format!("{}-node-{}-{}", self.prefix, config.blockchain, config.network)
     }
 
     async fn stop_container(&self, name: &str) -> Result<()> {
@@ -105,15 +99,16 @@ impl<'a> EnvBuilder<'a> {
             if container
                 .names
                 .as_ref()
-                .unwrap()
+                .context("no containers found")?
                 .iter()
                 .any(|n| n.as_str().ends_with(name))
             {
-                let container = Container::new(self.docker.clone(), container.id.unwrap());
+                let container = Container::new(
+                    self.docker.clone(),
+                    container.id.context("container doesn't have id")?,
+                );
                 log::info!("stopping {}", name);
-                container
-                    .stop(&ContainerStopOpts::builder().build())
-                    .await?;
+                container.stop(&ContainerStopOpts::builder().build()).await?;
                 container.delete().await.ok();
                 break;
             }
@@ -130,26 +125,21 @@ impl<'a> EnvBuilder<'a> {
         log::info!("starting {}", name);
         let container = Container::new(self.docker.clone(), id.clone());
         tokio::task::spawn(async move {
-            let opts = LogsOpts::builder()
-                .all()
-                .follow(true)
-                .stdout(true)
-                .stderr(true)
-                .build();
+            let opts = LogsOpts::builder().all().follow(true).stdout(true).stderr(true).build();
             let mut logs = container.logs(&opts);
             while let Some(chunk) = logs.next().await {
                 match chunk {
                     Ok(TtyChunk::StdOut(stdout)) => {
                         let stdout = std::str::from_utf8(&stdout).unwrap_or_default();
                         log::info!("{}: stdout: {}", name, stdout);
-                    }
+                    },
                     Ok(TtyChunk::StdErr(stderr)) => {
                         let stderr = std::str::from_utf8(&stderr).unwrap_or_default();
                         log::info!("{}: stderr: {}", name, stderr);
-                    }
+                    },
                     Err(err) => {
                         log::error!("{}", err);
-                    }
+                    },
                     Ok(TtyChunk::StdIn(_)) => unreachable!(),
                 }
             }
@@ -162,7 +152,7 @@ impl<'a> EnvBuilder<'a> {
                 Some(Health::Unhealthy) => anyhow::bail!("healthcheck reports unhealthy"),
                 Some(Health::Starting) => {
                     tokio::time::sleep(Duration::from_millis(100)).await;
-                }
+                },
                 _ => break,
             }
         }
@@ -179,13 +169,13 @@ impl<'a> EnvBuilder<'a> {
             .auto_remove(true)
             .attach_stdout(true)
             .attach_stderr(true)
-            .publish(PublishPort::tcp(config.node_uri.port as _))
+            .publish(PublishPort::tcp(u32::from(config.node_uri.port)))
             .expose(
-                PublishPort::tcp(config.node_uri.port as _),
-                HostPort::new(config.node_uri.port as u32),
+                PublishPort::tcp(u32::from(config.node_uri.port)),
+                HostPort::new(u32::from(config.node_uri.port)),
             );
         for port in config.node_additional_ports {
-            let port = *port as u32;
+            let port = u32::from(*port);
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build()).await?;
@@ -224,7 +214,7 @@ impl<'a> EnvBuilder<'a> {
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         const MAX_RETRIES: usize = 10;
 
@@ -242,11 +232,11 @@ impl<'a> EnvBuilder<'a> {
                         }
                         result = Ok(client);
                         break;
-                    }
+                    },
                     Err(error) => {
                         result = Err(error);
                         tokio::time::sleep(delay).await;
-                    }
+                    },
                 }
             }
             result?
@@ -254,6 +244,13 @@ impl<'a> EnvBuilder<'a> {
 
         Ok(client)
     }
+}
+
+fn random_port() -> u16 {
+    let mut bytes = [0; 2];
+    #[allow(clippy::unwrap_used)]
+    getrandom::getrandom(&mut bytes).unwrap();
+    u16::from_le_bytes(bytes)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -266,13 +263,8 @@ enum Health {
 
 async fn health(container: &Container) -> Result<Option<Health>> {
     let inspect = container.inspect().await?;
-    let status = inspect
-        .state
-        .and_then(|state| state.health)
-        .and_then(|health| health.status);
-    let Some(status) = status else {
-        return Ok(None);
-    };
+    let status = inspect.state.and_then(|state| state.health).and_then(|health| health.status);
+    let Some(status) = status else { return Ok(None) };
     Ok(Some(match status.as_str() {
         "none" => Health::None,
         "starting" => Health::Starting,
@@ -282,18 +274,18 @@ async fn health(container: &Container) -> Result<Option<Health>> {
     }))
 }
 
-async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<()> {
+#[derive(Debug)]
+enum RetryError {
+    Retry(anyhow::Error),
+    ContainerExited(anyhow::Error),
+}
+
+async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> Result<()> {
     let url = url.as_ref();
     let retry_strategy = ExponentialBackoff::from_millis(2)
         .factor(100)
         .max_delay(Duration::from_secs(2))
         .take(20); // limit to 20 retries
-
-    #[derive(Debug)]
-    enum RetryError {
-        Retry(anyhow::Error),
-        ContainerExited(anyhow::Error),
-    }
 
     RetryIf::spawn(
         retry_strategy,
@@ -307,7 +299,7 @@ async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<(
                         return Err(RetryError::ContainerExited(err.into_inner()));
                     }
                     Err(RetryError::Retry(err.into_inner()))
-                }
+                },
             }
         },
         // Retry Condition
@@ -315,8 +307,7 @@ async fn wait_for_http<S: AsRef<str>>(url: S, container: &Container) -> Result<(
     )
     .await
     .map_err(|err| match err {
-        RetryError::Retry(error) => error,
-        RetryError::ContainerExited(error) => error,
+        RetryError::Retry(error) | RetryError::ContainerExited(error) => error,
     })
 }
 
@@ -335,6 +326,7 @@ pub mod tests {
         )
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn network_status<T, Fut, F>(
         start_connector: F,
         config: BlockchainConfig,
@@ -342,25 +334,18 @@ pub mod tests {
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-network-status"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env =
+            Env::new(&format!("{env_id}-network-status"), config.clone(), start_connector).await?;
 
         let client = env.node();
 
         // Check if the genesis is consistent
         let expected_genesis = client.genesis_block().clone();
         let actual_genesis = client
-            .block(&PartialBlockIdentifier {
-                index: Some(0),
-                hash: None,
-            })
+            .block(&PartialBlockIdentifier { index: Some(0), hash: None })
             .await?
             .block_identifier;
         assert_eq!(expected_genesis, actual_genesis);
@@ -391,19 +376,15 @@ pub mod tests {
         Ok(())
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-account"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env = Env::new(&format!("{env_id}-account"), config.clone(), start_connector).await?;
 
         let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
@@ -417,26 +398,35 @@ pub mod tests {
         Ok(())
     }
 
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
         Fut: Future<Output = Result<T>> + Send,
-        F: FnMut(BlockchainConfig) -> Fut,
+        F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         let env_id = env_id();
-        let env = Env::new(
-            &format!("{env_id}-construction"),
-            config.clone(),
-            start_connector,
-        )
-        .await?;
+        let env =
+            Env::new(&format!("{env_id}-construction"), config.clone(), start_connector).await?;
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let value = u128::pow(10, config.currency_decimals);
         let alice = env.ephemeral_wallet().await?;
-        alice.faucet(faucet).await?;
-
         let bob = env.ephemeral_wallet().await?;
+        assert_ne!(alice.public_key(), bob.public_key());
+
+        // Alice and bob have no balance
+        let balance = alice.balance().await?;
+        assert_eq!(balance.value, "0");
+        let balance = bob.balance().await?;
+        assert_eq!(balance.value, "0");
+
+        // Transfer faucets to alice
+        alice.faucet(faucet).await?;
+        let balance = alice.balance().await?;
+        assert_eq!(balance.value, faucet.to_string());
+
+        // Alice transfers to bob
         alice.transfer(bob.account(), value).await?;
         let amount = bob.balance().await?;
         assert_eq!(amount.value, value.to_string());

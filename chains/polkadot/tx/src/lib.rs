@@ -1,9 +1,10 @@
 use anyhow::{bail, Context, Result};
 use parity_scale_codec::{Compact, Decode, Encode};
 use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
-use rosetta_core::crypto::address::Address;
-use rosetta_core::crypto::SecretKey;
-use rosetta_core::{BlockchainConfig, TransactionBuilder};
+use rosetta_core::{
+    crypto::{address::Address, SecretKey},
+    BlockchainConfig, TransactionBuilder,
+};
 
 #[derive(Debug, Decode, Encode)]
 struct AccountId32([u8; 32]);
@@ -33,8 +34,8 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
     if data.len() < 2 {
         anyhow::bail!("ss58: bad length");
     }
-    let (prefix_len, _ident) = match data[0] {
-        0..=63 => (1, data[0] as u16),
+    let (prefix_len, _ident) = match data.first().context("ss58: invalid prefix")? {
+        0..=63 => (1, u16::from(data[0])),
         64..=127 => {
             // weird bit manipulation owing to the combination of LE encoding and missing two
             // bits from the left.
@@ -42,9 +43,9 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
             // they make the LE-encoded 16-bit value: aaaaaabb 00cccccc
             // so the lower byte is formed of aaaaaabb and the higher byte is 00cccccc
             let lower = (data[0] << 2) | (data[1] >> 6);
-            let upper = data[1] & 0b00111111;
-            (2, (lower as u16) | ((upper as u16) << 8))
-        }
+            let upper = data[1] & 0b0011_1111;
+            (2, u16::from(lower) | (u16::from(upper) << 8))
+        },
         _ => anyhow::bail!("ss58: invalid prefix"),
     };
     if data.len() != prefix_len + body_len + CHECKSUM_LEN {
@@ -62,9 +63,7 @@ fn parse_address(address: &Address) -> Result<AccountId32> {
         anyhow::bail!("invalid checksum");
     }
 
-    let result = data[prefix_len..body_len + prefix_len]
-        .try_into()
-        .context("ss58: bad length")?;
+    let result = data[prefix_len..body_len + prefix_len].try_into().context("ss58: bad length")?;
     Ok(AccountId32(result))
 }
 
@@ -78,6 +77,13 @@ fn ss58hash(data: &[u8]) -> blake2_rfc::blake2b::Blake2bResult {
 #[derive(Default)]
 pub struct PolkadotTransactionBuilder;
 
+#[derive(Debug, Decode, Encode)]
+struct Transfer {
+    pub dest: MultiAddress,
+    #[codec(compact)]
+    pub amount: u128,
+}
+
 impl TransactionBuilder for PolkadotTransactionBuilder {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
@@ -85,12 +91,6 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
     fn transfer(&self, address: &Address, amount: u128) -> Result<Self::MetadataParams> {
         let address: AccountId32 = parse_address(address)?;
         let dest = MultiAddress::Id(address);
-        #[derive(Debug, Decode, Encode)]
-        struct Transfer {
-            pub dest: MultiAddress,
-            #[codec(compact)]
-            pub amount: u128,
-        }
         Ok(PolkadotMetadataParams {
             pallet_name: "Balances".into(),
             call_name: "transfer".into(),
@@ -115,11 +115,12 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         metadata: &Self::Metadata,
         secret_key: &SecretKey,
     ) -> Vec<u8> {
+        #[allow(clippy::unwrap_used)]
         let address = AccountId32(secret_key.public_key().to_bytes().try_into().unwrap());
         let address = MultiAddress::Id(address);
         let extra_parameters = (
             Era::Immortal,
-            Compact(metadata.nonce as u64),
+            Compact(u64::from(metadata.nonce)),
             // plain tip
             Compact(0u128),
         );
@@ -145,13 +146,14 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         } else {
             secret_key.sign(&payload, "substrate")
         };
+        #[allow(clippy::unwrap_used)]
         let signature =
             MultiSignature::Sr25519(signature.to_bytes().as_slice().try_into().unwrap());
 
         // encode transaction
         let mut encoded = vec![];
         // "is signed" + transaction protocol version (4)
-        (0b10000000 + 4u8).encode_to(&mut encoded);
+        (0b1000_0000 + 4u8).encode_to(&mut encoded);
         // from address for signature
         address.encode_to(&mut encoded);
         // signature encode pending to vector
@@ -164,7 +166,8 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         encoded.extend(&metadata_params.call_args);
 
         // now, prefix byte length:
-        let len = Compact(encoded.len() as u32);
+        #[allow(clippy::expect_used)]
+        let len = Compact(u32::try_from(encoded.len()).expect("tx cannot have more than 32 bits"));
         let mut transaction = vec![];
         len.encode_to(&mut transaction);
         transaction.extend(encoded);

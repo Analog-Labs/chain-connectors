@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
-use bitcoincore_rpc_async::bitcoin::BlockHash;
-use bitcoincore_rpc_async::{Auth, Client, RpcApi};
+use bitcoincore_rpc_async::{bitcoin::BlockHash, Auth, Client, RpcApi};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
@@ -22,35 +21,35 @@ pub struct BitcoinClient {
 }
 
 impl BitcoinClient {
+    /// Creates a new bitcoin client from `network`and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn new(network: &str, addr: &str) -> Result<Self> {
         let config = rosetta_config_bitcoin::config(network)?;
         Self::from_config(config, addr).await
     }
 
+    /// Creates a new bitcoin client from `config` and `addr`
+    ///
+    /// # Errors
+    /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = Client::new(
-            addr.to_string(),
-            Auth::UserPass("rosetta".into(), "rosetta".into()),
-        )
-        .await?;
+        let client =
+            Client::new(addr.to_string(), Auth::UserPass("rosetta".into(), "rosetta".into()))
+                .await?;
         let genesis = client.get_block_hash(0).await?;
-        let genesis_block = BlockIdentifier {
-            index: 0,
-            hash: genesis.to_string(),
-        };
+        let genesis_block = BlockIdentifier { index: 0, hash: genesis.to_string() };
 
-        Ok(Self {
-            config,
-            client,
-            genesis_block,
-        })
+        Ok(Self { config, client, genesis_block })
     }
 }
 
 /// Bitcoin community has adopted 6 blocks as a standard confirmation period.
-/// That is, once a transaction is included in a block in the blockchain which is followed up by at least 6 additional blocks
-/// the transaction is called “confirmed.” While this was chosen somewhat arbitrarily, it is a reasonably safe value in practice
-/// as the only time this would have left users vulnerable to double-spending was the atypical March 2013 fork.
+/// That is, once a transaction is included in a block in the blockchain which is followed up by at
+/// least 6 additional blocks the transaction is called “confirmed.” While this was chosen somewhat
+/// arbitrarily, it is a reasonably safe value in practice as the only time this would have left
+/// users vulnerable to double-spending was the atypical March 2013 fork.
 const CONFIRMATION_PERIOD: u64 = 6;
 
 #[async_trait::async_trait]
@@ -79,23 +78,13 @@ impl BlockchainClient for BitcoinClient {
     async fn current_block(&self) -> Result<BlockIdentifier> {
         let hash = self.client.get_best_block_hash().await?;
         let info = self.client.get_block_info(&hash).await?;
-        Ok(BlockIdentifier {
-            index: info.height as u64,
-            hash: hash.to_string(),
-        })
+        Ok(BlockIdentifier { index: info.height as u64, hash: hash.to_string() })
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        let index = self
-            .client
-            .get_block_count()
-            .await?
-            .saturating_sub(CONFIRMATION_PERIOD);
+        let index = self.client.get_block_count().await?.saturating_sub(CONFIRMATION_PERIOD);
         let hash = self.client.get_block_hash(index).await?;
-        Ok(BlockIdentifier {
-            index,
-            hash: hash.to_string(),
-        })
+        Ok(BlockIdentifier { index, hash: hash.to_string() })
     }
 
     async fn balance(&self, _address: &Address, _block: &BlockIdentifier) -> Result<u128> {
@@ -127,28 +116,24 @@ impl BlockchainClient for BitcoinClient {
             (Some(block_hash), _) => {
                 let hash = BlockHash::from_str(block_hash).context("Invalid block hash")?;
                 self.client.get_block(&hash).await?
-            }
+            },
             (None, Some(height)) => {
-                let block_bash = self
-                    .client
-                    .get_block_hash(height)
-                    .await
-                    .context("cannot find by index")?;
+                let block_bash =
+                    self.client.get_block_hash(height).await.context("cannot find by index")?;
                 self.client.get_block(&block_bash).await?
-            }
+            },
             (None, None) => anyhow::bail!("the block hash or index must be specified"),
         };
 
-        let block_height = match block.bip34_block_height().ok() {
-            Some(height) => height,
-            None => {
-                let info = self
-                    .client
-                    .get_block_info(&block.block_hash())
-                    .await
-                    .context("Cannot find block height")?;
-                info.height as u64
-            }
+        let block_height = if let Ok(height) = block.bip34_block_height() {
+            height
+        } else {
+            let info = self
+                .client
+                .get_block_info(&block.block_hash())
+                .await
+                .context("Cannot find block height")?;
+            info.height as u64
         };
 
         let transactions = block
@@ -171,7 +156,7 @@ impl BlockchainClient for BitcoinClient {
                 index: block_height.saturating_sub(1),
                 hash: block.header.prev_blockhash.to_string(),
             },
-            timestamp: (block.header.time as i64) * 1000,
+            timestamp: i64::from(block.header.time) * 1000,
             transactions,
             metadata: None,
         })

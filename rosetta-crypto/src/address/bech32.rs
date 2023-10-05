@@ -1,6 +1,7 @@
 use bech32::{u5, ToBase32, Variant};
 use sha2::Digest;
 
+#[allow(clippy::unwrap_used)]
 pub fn bech32_encode(hrp: &str, public_key: &[u8]) -> String {
     let sha2 = sha2::Sha256::digest(public_key);
     let ripemd = ripemd::Ripemd160::digest(sha2);

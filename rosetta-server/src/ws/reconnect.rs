@@ -1,19 +1,22 @@
 use super::jsonrpsee_client::Params as RpcParams;
 use async_trait::async_trait;
-use jsonrpsee::core::client::BatchResponse;
-use jsonrpsee::core::params::BatchRequestBuilder;
 use jsonrpsee::core::{
-    client::{ClientT, Subscription, SubscriptionClientT},
+    client::{BatchResponse, ClientT, Subscription, SubscriptionClientT},
+    params::BatchRequestBuilder,
     traits::ToRpcParams,
     Error,
 };
 use serde::de::DeserializeOwned;
-use std::fmt::{Debug, Display, Formatter};
-use std::future::Future;
-use std::ops::{Deref, DerefMut};
+use std::{
+    fmt::{Debug, Display, Formatter},
+    future::Future,
+    ops::{Deref, DerefMut},
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 /// Reconnect trait.
-/// This trait exposes callbacks which are called when the server returns a RestartNeeded error.
+/// This trait exposes callbacks which are called when the server returns a [`Error::RestartNeeded`]
+/// error.
 pub trait Reconnect: 'static + Sized + Send + Sync {
     type Client: SubscriptionClientT + 'static + Send + Sync;
     type ClientRef: AsRef<Self::Client> + Send + Sync;
@@ -38,9 +41,9 @@ pub trait Reconnect: 'static + Sized + Send + Sync {
     /// Here is the right place to block the requests until the client reconnects.
     fn ready(&self) -> Self::ReadyFuture<'_>;
 
-    /// Callback called when the client returns a RestartNeeded error.
+    /// Callback called when the client returns a [`Error::RestartNeeded`] error.
     /// # Params
-    /// - `client` - The client which returned the RestartNeeded error.
+    /// - `client` - The client which returned the [`Error::RestartNeeded`] error.
     fn restart_needed(&self, client: Self::ClientRef) -> Self::RestartNeededFuture<'_>;
 
     /// Force reconnect and return a new client.
@@ -48,12 +51,49 @@ pub trait Reconnect: 'static + Sized + Send + Sync {
 
     /// Return a reference to the client.
     fn into_client(self) -> AutoReconnectClient<Self> {
-        AutoReconnectClient { client: self }
+        AutoReconnectClient::new(self)
     }
 }
 
 pub struct AutoReconnectClient<T> {
     client: T,
+    reconnect_count: AtomicU32,
+    span: tracing::Span,
+}
+
+impl<T> AutoReconnectClient<T>
+where
+    T: Reconnect,
+    T::Client: ClientT,
+{
+    pub fn new(client: T) -> Self {
+        Self {
+            client,
+            reconnect_count: AtomicU32::new(0),
+            span: tracing::info_span!("rpc_client", reconnects = 0),
+        }
+    }
+
+    async fn ready(&self) -> Result<T::ClientRef, Error> {
+        Reconnect::ready(&self.client).await.map_err(|error| {
+            tracing::error!("rpc client is unavailable: {error:?}");
+            error
+        })
+    }
+
+    async fn restart_needed(
+        &self,
+        reason: String,
+        client: T::ClientRef,
+    ) -> Result<T::ClientRef, Error> {
+        let reconnect_count = self.reconnect_count.fetch_add(1, Ordering::SeqCst) + 1;
+        self.span.record("reconnects", reconnect_count);
+        tracing::error!("Reconneting RPC client due error: {reason}");
+        Reconnect::restart_needed(&self.client, client).await.map_err(|error| {
+            tracing::error!("rpc client is unavailable: {error:?}");
+            error
+        })
+    }
 }
 
 impl<T> Clone for AutoReconnectClient<T>
@@ -61,8 +101,11 @@ where
     T: Clone,
 {
     fn clone(&self) -> Self {
+        let reconnects = self.reconnect_count.load(Ordering::SeqCst);
         Self {
             client: self.client.clone(),
+            reconnect_count: AtomicU32::new(reconnects),
+            span: tracing::info_span!("rpc_client", reconnects = reconnects),
         }
     }
 }
@@ -111,15 +154,19 @@ where
     where
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let _enter = self.span.enter();
+        let client = self.ready().await?;
         let params = RpcParams::new(params)?;
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
-            Err(Error::RestartNeeded(_)) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+            Err(Error::RestartNeeded(message)) => {
+                let client = self.restart_needed(message, client).await?;
                 ClientT::notification(client.as_ref(), method, params).await
-            }
-            Err(error) => Err(error),
+            },
+            Err(error) => {
+                tracing::error!("notification '{method}' failed: {error:?}");
+                Err(error)
+            },
         }
     }
 
@@ -128,7 +175,8 @@ where
         R: DeserializeOwned,
         Params: ToRpcParams + Send,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let _enter = self.span.enter();
+        let client = self.ready().await?;
         let params = RpcParams::new(params)?;
         let error = match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
             Ok(r) => return Ok(r),
@@ -136,11 +184,14 @@ where
         };
 
         match error {
-            Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+            Error::RestartNeeded(message) => {
+                let client = self.restart_needed(message, client).await?;
                 ClientT::request::<R, _>(client.as_ref(), method, params).await
-            }
-            error => Err(error),
+            },
+            error => {
+                tracing::error!("rpc request '{method}' failed: {error:?}");
+                Err(error)
+            },
         }
     }
 
@@ -151,18 +202,22 @@ where
     where
         R: DeserializeOwned + Debug + 'a,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let _enter = self.span.enter();
+        let client = self.ready().await?;
         let error = match ClientT::batch_request(client.as_ref(), batch.clone()).await {
             Ok(r) => return Ok(r),
             Err(error) => error,
         };
 
         match error {
-            Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+            Error::RestartNeeded(message) => {
+                let client = self.restart_needed(message, client).await?;
                 ClientT::batch_request(client.as_ref(), batch).await
-            }
-            error => Err(error),
+            },
+            error => {
+                tracing::error!("batch request failed: {error:?}");
+                Err(error)
+            },
         }
     }
 }
@@ -183,7 +238,8 @@ where
         Params: ToRpcParams + Send,
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let _enter = self.span.enter();
+        let client = self.ready().await?;
         let params = RpcParams::new(params)?;
         let error = match SubscriptionClientT::subscribe::<Notif, _>(
             client.as_ref(),
@@ -198,8 +254,8 @@ where
         };
 
         match error {
-            Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+            Error::RestartNeeded(message) => {
+                let client = self.restart_needed(message, client).await?;
                 SubscriptionClientT::subscribe::<Notif, _>(
                     client.as_ref(),
                     subscribe_method,
@@ -207,8 +263,11 @@ where
                     unsubscribe_method,
                 )
                 .await
-            }
-            error => Err(error),
+            },
+            error => {
+                tracing::error!("subscription to '{subscribe_method}' failed: {error:?}");
+                Err(error)
+            },
         }
     }
 
@@ -219,18 +278,22 @@ where
     where
         Notif: DeserializeOwned,
     {
-        let client = Reconnect::ready(&self.client).await?;
+        let _enter = self.span.enter();
+        let client = self.ready().await?;
         let error = match SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await {
             Ok(subscription) => return Ok(subscription),
             Err(error) => error,
         };
 
         match error {
-            Error::RestartNeeded(_) => {
-                let client = Reconnect::restart_needed(&self.client, client).await?;
+            Error::RestartNeeded(message) => {
+                let client = self.restart_needed(message, client).await?;
                 SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await
-            }
-            error => Err(error),
+            },
+            error => {
+                tracing::error!("subscription to '{method}' failed: {error:?}");
+                Err(error)
+            },
         }
     }
 }

@@ -25,50 +25,52 @@ impl From<&RpcClientConfig> for WebSocketConfig {
             max_message_size: config.max_message_size,
             max_frame_size: config.max_frame_size,
             accept_unmasked_frames: config.accept_unmasked_frames,
-            ..WebSocketConfig::default()
+            ..Self::default()
         }
     }
 }
 
-/// Tungstenite WebSocket transport for Jsonrpsee.
+/// Tungstenite websocket transport for Jsonrpsee.
 pub struct TungsteniteClient {
     sender: Sender,
     receiver: Receiver,
 }
 
 impl TungsteniteClient {
+    /// Creates a websocket client using the provided `config` and performs the handshare to `url`.
+    ///
+    /// # Errors
+    /// Returns `Err` if the handshake fails
     pub async fn new(url: Url, config: &RpcClientConfig) -> Result<Self, WsError> {
         let config = WebSocketConfig::from(config);
         let (ws_stream, response) = connect_async_with_config(url, Some(config), false).await?;
         let (send, receive) = ws_stream.split();
-        log::trace!(
+        tracing::trace!(
             "Successfully connected to the server using Tungstenite. Handshake HTTP code: {}",
             response.status()
         );
 
-        let sender = Sender {
-            inner: send,
-            max_request_size: config.max_message_size.unwrap_or(usize::MAX),
-        };
+        let sender =
+            Sender { inner: send, max_request_size: config.max_message_size.unwrap_or(usize::MAX) };
 
         let receiver = Receiver { inner: receive };
 
         Ok(Self { sender, receiver })
     }
 
-    pub fn split(self) -> (Sender, Receiver) {
+    pub(crate) fn split(self) -> (Sender, Receiver) {
         (self.sender, self.receiver)
     }
 }
 
-/// Sending end of WebSocket transport.
+/// Sending end of websocket transport.
 #[derive(Debug)]
 pub struct Sender {
     inner: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
     max_request_size: usize,
 }
 
-/// Receiving end of WebSocket transport.
+/// Receiving end of websocket transport.
 #[derive(Debug)]
 pub struct Receiver {
     inner: SplitStream<WebSocketStream<MaybeTlsStream<TcpStream>>>,
@@ -88,7 +90,7 @@ impl TransportSenderT for Sender {
             }));
         }
 
-        log::trace!("send: {}", body);
+        tracing::trace!("send: {}", body);
         self.inner.send(Message::Text(body)).await?;
         self.inner.flush().await?;
         Ok(())
@@ -97,7 +99,6 @@ impl TransportSenderT for Sender {
     /// Sends out a ping request. Returns a `Future` that finishes when the request has been
     /// successfully sent.
     async fn send_ping(&mut self) -> Result<(), Self::Error> {
-        log::debug!("Send ping");
         self.inner.send(Message::Ping(Vec::default())).await?;
         self.inner.flush().await?;
         Ok(())
@@ -124,9 +125,7 @@ impl TransportReceiverT for Receiver {
                 Message::Text(text) => break Ok(ReceivedMessage::Text(text)),
                 Message::Binary(bytes) => break Ok(ReceivedMessage::Bytes(bytes)),
                 Message::Pong(_) => break Ok(ReceivedMessage::Pong),
-                Message::Close(_) => {}
-                Message::Ping(_) => {}
-                Message::Frame(_) => {}
+                Message::Close(_) | Message::Ping(_) | Message::Frame(_) => {},
             }
         }
     }

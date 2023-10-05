@@ -1,5 +1,5 @@
 use crate::crypto::bip39::{Language, Mnemonic};
-use anyhow::Result;
+use anyhow::{Context, Result};
 #[cfg(not(target_family = "wasm"))]
 use std::fs::OpenOptions;
 #[cfg(not(target_family = "wasm"))]
@@ -67,9 +67,10 @@ impl MnemonicStore {
 
     /// Sets the stored mnemonic.
     pub fn set(&self, mnemonic: &Mnemonic) -> Result<()> {
-        std::fs::create_dir_all(self.path.parent().unwrap())?;
         #[cfg(unix)]
         use std::os::unix::fs::OpenOptionsExt;
+
+        std::fs::create_dir_all(self.path.parent().context("cannot create config dir")?)?;
         let mut opts = OpenOptions::new();
         opts.create(true).write(true).truncate(true);
         #[cfg(unix)]

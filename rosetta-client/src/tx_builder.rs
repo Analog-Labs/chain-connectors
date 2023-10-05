@@ -1,7 +1,8 @@
-use crate::client::{GenericMetadata, GenericMetadataParams};
-use crate::crypto::address::Address;
-use crate::crypto::SecretKey;
-use crate::BlockchainConfig;
+use crate::{
+    client::{GenericMetadata, GenericMetadataParams},
+    crypto::{address::Address, SecretKey},
+    BlockchainConfig,
+};
 use anyhow::Result;
 use rosetta_core::TransactionBuilder;
 use rosetta_server_astar::AstarMetadataParams;
@@ -15,9 +16,9 @@ pub enum GenericTransactionBuilder {
 impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
-            "astar" => Self::Astar(Default::default()),
-            "ethereum" => Self::Ethereum(Default::default()),
-            "polkadot" => Self::Polkadot(Default::default()),
+            "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "ethereum" => Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "polkadot" => Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
             _ => anyhow::bail!("unsupported blockchain"),
         })
     }
@@ -40,7 +41,7 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Astar(tx) => {
                 AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into()
-            }
+            },
             Self::Ethereum(tx) => tx.method_call(contract, method, params, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, method, params, amount)?.into(),
         })

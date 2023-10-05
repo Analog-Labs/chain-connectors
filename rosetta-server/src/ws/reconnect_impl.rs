@@ -13,8 +13,7 @@ use std::{
     num::NonZeroU32,
     ops::Deref,
     pin::Pin,
-    sync::Arc,
-    sync::RwLock,
+    sync::{Arc, RwLock},
     task::{Context, Poll},
     time::Duration,
 };
@@ -34,8 +33,9 @@ pub trait Config: 'static + Sized + Send + Sync + Debug {
     /// and a reconnect strategy.
     ///
     /// # Example of Retry Strategies:
-    /// - FixedInterval: A retry is performed in fixed intervals.
-    /// - Exponential Backoff: The resulting duration is calculated by taking the base to the `n`-th power,
+    /// - Fixed Interval: A retry is performed in fixed intervals.
+    /// - Exponential Backoff: The resulting duration is calculated by taking the base to the `n`-th
+    ///   power,
     /// where `n` denotes the number of past attempts.
     fn retry_strategy(&self) -> Self::RetryStrategy;
 
@@ -52,7 +52,7 @@ pub trait Config: 'static + Sized + Send + Sync + Debug {
 /// The default reconnect strategy.
 ///
 /// This strategy will reconnect the client using the following algorithm:
-/// - When the client returns a RestartNeeded error, the strategy will try to reconnect
+/// - When the client returns a [`Error::RestartNeeded`] error, the strategy will try to reconnect
 /// - Thread-safety: one single reconnect attempt is allowed at the same time
 /// - After reconnecting, this strategy will retry to process the request
 /// - While reconnecting, this strategy will hold all the requests until the reconnect finishes
@@ -70,9 +70,7 @@ pub struct DefaultStrategy<T: Config> {
 
 impl<T: Config> Clone for DefaultStrategy<T> {
     fn clone(&self) -> Self {
-        Self {
-            inner: Arc::clone(&self.inner),
-        }
+        Self { inner: Arc::clone(&self.inner) }
     }
 }
 
@@ -91,27 +89,27 @@ impl<T: Config> DefaultStrategy<T> {
         self.inner.clone()
     }
 
-    /// Creates a future that is immediately ready if the client is idle. or pending if reconnecting.
+    /// Creates a future that is immediately ready if the client is idle. or pending if
+    /// reconnecting.
     pub fn acquire_client(&self) -> ReadyOrWaitFuture<T> {
-        let guard = match self.inner.connection_status.read() {
-            Ok(guard) => guard,
+        let connection_status = match self.inner.connection_status.read() {
+            Ok(guard) => guard.deref().clone(),
             Err(error) => {
                 return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
                     "FATAL ERROR, client lock was poisoned: {error}"
-                ))));
-            }
+                ))))
+            },
         };
 
-        match guard.deref().clone() {
+        match connection_status {
             ConnectionStatus::Ready(client) => ReadyOrWaitFuture::ready(Ok(client)),
             ConnectionStatus::Reconnecting(future) => {
                 ReadyOrWaitFuture::<T>::wait(self.inner.config.max_pending_delay(), future)
-            }
+            },
         }
     }
 
-    /// Creates a future that reconnects the client, the reconnect only works when the provided
-    /// client_id is greater than the current client id, this is a mechanism for avoid racing conditions.
+    /// Creates a future that reconnects or waits for the client reconnects
     pub fn reconnect_or_wait(&self) -> ReadyOrWaitFuture<T> {
         // Acquire write lock, making sure only one thread is handling the reconnect
         let mut guard = match self.inner.connection_status.write() {
@@ -119,12 +117,12 @@ impl<T: Config> DefaultStrategy<T> {
             Err(error) => {
                 return ReadyOrWaitFuture::ready(Err(Error::Custom(format!(
                     "FATAL ERROR, client lock was poisoned: {error}"
-                ))));
-            }
+                ))))
+            },
         };
 
         // If the client is already reconnecting, reuse the same future
-        if let ConnectionStatus::Reconnecting(future) = guard.deref() {
+        if let ConnectionStatus::Reconnecting(future) = &*guard {
             return ReadyOrWaitFuture::wait(self.inner.config.max_pending_delay(), future.clone());
         };
 
@@ -132,7 +130,7 @@ impl<T: Config> DefaultStrategy<T> {
         // TODO: Reconnect in another task/thread
         let reconnect_future = ReconnectFuture::new(self.inner.clone()).shared();
         *guard = ConnectionStatus::Reconnecting(reconnect_future.clone());
-
+        drop(guard);
         ReadyOrWaitFuture::wait(self.inner.config.max_pending_delay(), reconnect_future)
     }
 }
@@ -198,17 +196,13 @@ pub struct ReadyOrWaitFuture<T: Config> {
 }
 
 impl<T: Config> ReadyOrWaitFuture<T> {
-    pub fn ready(result: Result<Arc<T::Client>, Error>) -> Self {
-        Self {
-            state: Some(ReadyOrWaitState::Ready(result)),
-        }
+    pub const fn ready(result: Result<Arc<T::Client>, Error>) -> Self {
+        Self { state: Some(ReadyOrWaitState::Ready(result)) }
     }
 
     pub fn wait(timeout: Duration, future: Shared<ReconnectFuture<T>>) -> Self {
         let future = futures_util::future::select(Delay::new(timeout), future);
-        Self {
-            state: Some(ReadyOrWaitState::Waiting(future)),
-        }
+        Self { state: Some(ReadyOrWaitState::Waiting(future)) }
     }
 }
 
@@ -233,22 +227,22 @@ impl<T: Config> Future for ReadyOrWaitFuture<T> {
                             return Poll::Ready(Err(Error::Custom(
                                 "Timeout: cannot process request, client reconnecting..."
                                     .to_string(),
-                            )));
-                        }
+                            )))
+                        },
                         // The client was reconnected!
                         Poll::Ready(Either::Right((Ok(client), _))) => {
-                            return Poll::Ready(Ok(client));
-                        }
+                            return Poll::Ready(Ok(client))
+                        },
                         // Failed to reconnect
                         Poll::Ready(Either::Right((Err(result), _))) => {
-                            return Poll::Ready(Err(result.into_inner()));
-                        }
+                            return Poll::Ready(Err(result.into_inner()))
+                        },
                         Poll::Pending => {
                             *this.state = Some(ReadyOrWaitState::Waiting(future));
                             return Poll::Pending;
-                        }
+                        },
                     }
-                }
+                },
                 None => panic!("ClientReadyFuture polled after completion"),
             }
         }
@@ -267,9 +261,10 @@ pub enum ReconnectStateMachine<T: Config> {
     /// 3 - The next retry attempt will be in 3 seconds
     ///
     /// # State Transitions
-    /// 1 - [`ReconnectStateMachine::Reconnecting`] if the reconnect attempt takes longer than the retry delay
-    /// 2 - [`ReconnectStateMachine::Failure`] if reconnect fails before the retry delay, the delay is passed as parameter
-    /// 3 - [`ReconnectStateMachine::Success`] if reconnect succeeds
+    /// 1 - [`ReconnectStateMachine::Reconnecting`] if the reconnect attempt takes longer than the
+    /// retry delay 2 - [`ReconnectStateMachine::Failure`] if reconnect fails before the retry
+    /// delay, the delay is passed as parameter 3 - [`ReconnectStateMachine::Success`] if reconnect
+    /// succeeds
     ReconnectAndWaitDelay(Select<Delay, T::ConnectFuture>),
 
     /// Waiting for reconnecting to complete, retry immediately if fails
@@ -298,16 +293,14 @@ pub enum ReconnectStateMachine<T: Config> {
     /// # State Transitions
     /// 1 - [`ReconnectStateMachine::Retry`] if no delay is provided
     /// 2 - [`ReconnectStateMachine::Waiting`] if a delay is provided
-    Failure {
-        error: Error,
-        maybe_delay: Option<Delay>,
-    },
+    Failure { error: Error, maybe_delay: Option<Delay> },
 
     /// Retrying to connect
     ///
     /// # State Transitions
-    /// 1 - if retry_strategy.next() is Some(delay), transition to [`ReconnectStateMachine::ReconnectAndWaitDelay`]
-    /// 2 - if retry_strategy.next() is None, transition to [`ReconnectStateMachine::Reconnecting`]
+    /// 1 - if retry_strategy.next() is Some(delay), transition to
+    /// [`ReconnectStateMachine::ReconnectAndWaitDelay`] 2 - if retry_strategy.next() is None,
+    /// transition to [`ReconnectStateMachine::Reconnecting`]
     Retry,
 
     /// The connection was reestablished successfully
@@ -316,25 +309,22 @@ pub enum ReconnectStateMachine<T: Config> {
     /// Update the ConnectionStatus on the [`SharedState`] and return the client
     ///
     /// # State Transitions
-    /// This state is final, may return an error if the `connection_status` at [`SharedState`] was poisoned
+    /// This state is final, may return an error if the `connection_status` at [`SharedState`] was
+    /// poisoned
     Success(T::Client),
 }
 
 impl<T: Config> Debug for ReconnectStateMachine<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ReconnectStateMachine::ReconnectAndWaitDelay(_) => {
+            Self::ReconnectAndWaitDelay(_) => {
                 f.debug_struct("ReconnectStateMachine::ReconnectAndWaitDelay")
-            }
-            ReconnectStateMachine::Reconnecting(_) => {
-                f.debug_struct("ReconnectStateMachine::Reconnecting")
-            }
-            ReconnectStateMachine::Waiting(_) => f.debug_struct("ReconnectStateMachine::Waiting"),
-            ReconnectStateMachine::Failure { .. } => {
-                f.debug_struct("ReconnectStateMachine::Failure")
-            }
-            ReconnectStateMachine::Retry => f.debug_struct("ReconnectStateMachine::Retry"),
-            ReconnectStateMachine::Success(_) => f.debug_struct("ReconnectStateMachine::Success"),
+            },
+            Self::Reconnecting(_) => f.debug_struct("ReconnectStateMachine::Reconnecting"),
+            Self::Waiting(_) => f.debug_struct("ReconnectStateMachine::Waiting"),
+            Self::Failure { .. } => f.debug_struct("ReconnectStateMachine::Failure"),
+            Self::Retry => f.debug_struct("ReconnectStateMachine::Retry"),
+            Self::Success(_) => f.debug_struct("ReconnectStateMachine::Success"),
         }
         .finish()
     }
@@ -349,6 +339,7 @@ pub struct ReconnectFuture<T: Config> {
     pub retry_strategy: T::RetryStrategy,
     pub state: Arc<SharedState<T>>,
     pub state_machine: Option<ReconnectStateMachine<T>>,
+    pub span: tracing::Span,
 }
 
 impl<T: Config> ReconnectFuture<T> {
@@ -361,15 +352,17 @@ impl<T: Config> ReconnectFuture<T> {
                 let delay = Delay::new(delay);
                 let future = futures_util::future::select(delay, reconnect);
                 ReconnectStateMachine::ReconnectAndWaitDelay(future)
-            }
+            },
         };
 
+        #[allow(clippy::expect_used)]
         let attempt = NonZeroU32::new(1).expect("non zero; qed");
         Self {
             attempt,
             retry_strategy,
             state,
             state_machine: Some(state_machine),
+            span: tracing::info_span!("reconnect_attempt"),
         }
     }
 }
@@ -377,19 +370,22 @@ impl<T: Config> ReconnectFuture<T> {
 impl<T: Config> Future for ReconnectFuture<T> {
     type Output = Result<Arc<T::Client>, CloneableError>;
 
+    #[allow(clippy::too_many_lines)]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
+        let _enter = this.span.enter();
         loop {
             match this.state_machine.take() {
                 // Client is reconnecting and the retry delay is counting
                 Some(ReconnectStateMachine::ReconnectAndWaitDelay(mut future)) => {
                     match future.poll_unpin(cx) {
-                        // Reconnect attempt timeout, wait for reconnect complete and retry to reconnect immediatly
+                        // Reconnect attempt timeout, wait for reconnect complete and retry to
+                        // reconnect immediatly
                         Poll::Ready(Either::Left((_, reconnect_future))) => {
                             *this.state_machine =
                                 Some(ReconnectStateMachine::Reconnecting(reconnect_future));
                             continue;
-                        }
+                        },
 
                         // Reconnect attempt failed before the retry timeout.
                         Poll::Ready(Either::Right((Err(error), delay))) => {
@@ -398,22 +394,22 @@ impl<T: Config> Future for ReconnectFuture<T> {
                                 maybe_delay: Some(delay),
                             });
                             continue;
-                        }
+                        },
 
                         // Reconnect attempt succeeded!
                         Poll::Ready(Either::Right((Ok(client), _))) => {
                             *this.state_machine = Some(ReconnectStateMachine::Success(client));
                             continue;
-                        }
+                        },
 
                         // Pending
                         Poll::Pending => {
                             *this.state_machine =
                                 Some(ReconnectStateMachine::ReconnectAndWaitDelay(future));
                             return Poll::Pending;
-                        }
+                        },
                     }
-                }
+                },
 
                 // Retry timeout was reached, now just wait for the reconnect to complete
                 Some(ReconnectStateMachine::Reconnecting(mut future)) => {
@@ -422,24 +418,22 @@ impl<T: Config> Future for ReconnectFuture<T> {
                         Poll::Ready(Ok(client)) => {
                             *this.state_machine = Some(ReconnectStateMachine::Success(client));
                             continue;
-                        }
+                        },
 
                         // Reconnect attempt failed, don't need to wait for the next retry
                         Poll::Ready(Err(error)) => {
-                            *this.state_machine = Some(ReconnectStateMachine::Failure {
-                                error,
-                                maybe_delay: None,
-                            });
+                            *this.state_machine =
+                                Some(ReconnectStateMachine::Failure { error, maybe_delay: None });
                             continue;
-                        }
+                        },
 
                         // Pending
                         Poll::Pending => {
                             *this.state_machine = Some(ReconnectStateMachine::Reconnecting(future));
                             break;
-                        }
+                        },
                     }
-                }
+                },
 
                 // Waiting for next reconnect attempt
                 Some(ReconnectStateMachine::Waiting(mut delay)) => match delay.poll_unpin(cx) {
@@ -447,32 +441,26 @@ impl<T: Config> Future for ReconnectFuture<T> {
                     Poll::Ready(_) => {
                         *this.state_machine = Some(ReconnectStateMachine::Retry);
                         continue;
-                    }
+                    },
                     Poll::Pending => {
                         *this.state_machine = Some(ReconnectStateMachine::Waiting(delay));
                         break;
-                    }
+                    },
                 },
 
                 // Reconnect attempt failed, retry to reconnect after delay or immediately
                 Some(ReconnectStateMachine::Failure { error, maybe_delay }) => {
-                    log::error!(
+                    tracing::error!(
                         "Reconnect attempt {} failed with error: {:?}",
                         *this.attempt,
                         error
                     );
-                    *this.state_machine = match maybe_delay {
-                        Some(delay) => {
-                            // Wait for delay
-                            Some(ReconnectStateMachine::Waiting(delay))
-                        }
-                        None => {
-                            // Retry immediately
-                            Some(ReconnectStateMachine::Retry)
-                        }
-                    };
+                    *this.state_machine = maybe_delay.map_or_else(
+                        || Some(ReconnectStateMachine::Retry),
+                        |delay| Some(ReconnectStateMachine::Waiting(delay)),
+                    );
                     continue;
-                }
+                },
 
                 // Increment the attempt counter and retry to connect
                 Some(ReconnectStateMachine::Retry) => {
@@ -484,38 +472,39 @@ impl<T: Config> Future for ReconnectFuture<T> {
                             let delay = Delay::new(delay);
                             let future = futures_util::future::select(delay, reconnect);
                             ReconnectStateMachine::ReconnectAndWaitDelay(future)
-                        }
+                        },
                     };
                     *this.state_machine = Some(next_state);
                     continue;
-                }
+                },
 
                 // Reconnect Succeeded! update the connection status and return the client
                 Some(ReconnectStateMachine::Success(client)) => {
-                    log::info!("Reconnect attempt {} succeeded!!", *this.attempt);
+                    tracing::info!("Reconnect attempt {} succeeded!!", *this.attempt);
                     let client = Arc::new(client);
 
                     // Update connection status
                     let mut guard = match this.state.connection_status.write() {
                         Ok(guard) => guard,
                         Err(error) => {
-                            log::error!("FATAL ERROR: client lock was poisoned: {error}");
+                            tracing::error!("FATAL ERROR: client lock was poisoned: {error}");
                             return Poll::Ready(Err(CloneableError::from(Error::Custom(format!(
                                 "FATAL ERROR: client lock was poisoned: {error}"
                             )))));
-                        }
+                        },
                     };
 
-                    if let ConnectionStatus::Ready(client) = guard.deref() {
-                        log::warn!(
+                    if let ConnectionStatus::Ready(client) = &*guard {
+                        tracing::warn!(
                             "Racing condition detected, two reconnects running at the same time"
                         );
                         return Poll::Ready(Ok(client.clone()));
                     }
 
                     *guard = ConnectionStatus::Ready(client.clone());
+                    drop(guard);
                     return Poll::Ready(Ok(client));
-                }
+                },
                 None => panic!("ReconnectFuture polled after completion"),
             }
         }
