@@ -1,4 +1,5 @@
 mod node_uri;
+pub mod traits;
 
 use crate::{
     crypto::{

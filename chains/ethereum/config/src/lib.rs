@@ -1,3 +1,5 @@
+pub mod types;
+
 use anyhow::Result;
 use rosetta_config_astar::config as astar_config;
 use rosetta_core::{

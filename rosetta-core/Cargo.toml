@@ -11,6 +11,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 fluent-uri = "0.1.4"
 futures-util = "0.3"
+parity-scale-codec = { version = "3.6", features = ["derive"] }
 rosetta-crypto = { version = "0.4.0", path = "../rosetta-crypto" }
 rosetta-types = { version = "0.4.0", path = "../rosetta-types" }
 serde = "1.0"
