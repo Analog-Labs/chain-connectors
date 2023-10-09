@@ -24,7 +24,13 @@ use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 use std::sync::Arc;
 use subxt::{
-    dynamic::Value as SubtxValue, rpc::types::BlockNumber, tx::PairSigner, utils::AccountId32,
+    backend::{
+        legacy::{rpc_methods::BlockNumber, LegacyBackend, LegacyRpcMethods},
+        rpc::RpcClient,
+    },
+    dynamic::Value as SubtxValue,
+    tx::PairSigner,
+    utils::AccountId32,
     OnlineClient, PolkadotConfig,
 };
 
@@ -37,6 +43,7 @@ pub struct AstarMetadata(pub EthereumMetadata);
 pub struct AstarClient {
     client: MaybeWsEthereumClient,
     ws_client: OnlineClient<PolkadotConfig>,
+    rpc_methods: LegacyRpcMethods<PolkadotConfig>,
 }
 
 impl AstarClient {
@@ -54,11 +61,14 @@ impl AstarClient {
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
-        let client = default_client(url, None).await?;
+        let ws_client = default_client(url, None).await?;
+        let rpc_client = RpcClient::new(ws_client.clone());
+        let rpc_methods = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client.clone());
+        let backend = LegacyBackend::new(rpc_client);
         let substrate_client =
-            OnlineClient::<PolkadotConfig>::from_rpc_client(Arc::new(client.clone())).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, client).await?;
-        Ok(Self { client: ethereum_client, ws_client: substrate_client })
+            OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
+        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        Ok(Self { client: ethereum_client, ws_client: substrate_client, rpc_methods })
     }
 
     async fn account_info(
@@ -78,9 +88,8 @@ impl AstarClient {
 
         let block_hash = {
             let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
-            self.ws_client
-                .rpc()
-                .block_hash(block_number)
+            self.rpc_methods
+                .chain_get_block_hash(block_number)
                 .await?
                 .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
         };
