@@ -72,6 +72,11 @@ where
     ) -> Poll<Option<Self::Item>> {
         let this = &mut *self;
 
+        // Check if the stream is close
+        if this.new_head.is_none() && this.finalized_block_future.is_none() {
+            return Poll::Ready(None);
+        }
+
         // Query the latest finalized block
         if let Some(mut finalized_block_future) = this.finalized_block_future.take() {
             loop {
@@ -136,6 +141,7 @@ where
         }
 
         let Some(mut new_head_stream) = this.new_head.take() else {
+            this.finalized_block_future = None;
             return Poll::Ready(None);
         };
 
