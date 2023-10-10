@@ -73,6 +73,7 @@ impl Stream for EthSubscription {
                     continue;
                 },
                 Some(EthSubscriptionState::Receiving(mut stream)) => {
+                    // Poll next stream event
                     let result = match stream.poll_next_unpin(cx) {
                         Poll::Ready(result) => result,
                         Poll::Pending => {
@@ -83,7 +84,7 @@ impl Stream for EthSubscription {
 
                     // Stream is close, no unsubscribe needed
                     let Some(result) = result else {
-                        tracing::info!("Stream closed unexpectedly, no unsubscribe needed");
+                        tracing::warn!("Stream closed unexpectedly, maybe it was disconnected before closing the stream");
                         return Poll::Ready(None);
                     };
 
@@ -126,21 +127,34 @@ impl Stream for EthSubscription {
                 },
                 Some(EthSubscriptionState::Unsubscribing(mut future)) => {
                     return match future.poll_unpin(cx) {
-                        Poll::Ready(Ok(_)) => Poll::Ready(None),
+                        Poll::Ready(Ok(())) => Poll::Ready(None),
                         Poll::Ready(Err(error)) => {
-                            tracing::error!("Failed to unsubscribe: {:?}", error);
+                            match error {
+                                // Skip connection errors
+                                JsonRpseeError::Transport(_) |
+                                JsonRpseeError::RestartNeeded(_) |
+                                JsonRpseeError::InvalidSubscriptionId |
+                                JsonRpseeError::InvalidRequestId(_) |
+                                JsonRpseeError::UnregisteredNotification(_) |
+                                JsonRpseeError::SubscriptionNameConflict(_) |
+                                JsonRpseeError::RequestTimeout |
+                                JsonRpseeError::AlreadyStopped => {},
+                                JsonRpseeError::Custom(reason) => {
+                                    tracing::warn!("failed to unsubscribe: \"{reason}\"");
+                                },
+                                error => {
+                                    tracing::warn!("failed to unsubscribe: {:?}", error);
+                                },
+                            }
                             Poll::Ready(None)
                         },
                         Poll::Pending => {
                             *this.state = Some(EthSubscriptionState::Unsubscribing(future));
                             Poll::Pending
                         },
-                    }
+                    };
                 },
-                None => {
-                    tracing::error!("stream must not be polled after being closed`");
-                    return Poll::Ready(None);
-                },
+                None => return Poll::Ready(None),
             }
         }
     }
