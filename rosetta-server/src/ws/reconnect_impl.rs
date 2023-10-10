@@ -381,7 +381,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
                     match future.poll_unpin(cx) {
                         // Reconnect attempt timeout, wait for reconnect complete and retry to
                         // reconnect immediatly
-                        Poll::Ready(Either::Left((_, reconnect_future))) => {
+                        Poll::Ready(Either::Left(((), reconnect_future))) => {
                             *this.state_machine =
                                 Some(ReconnectStateMachine::Reconnecting(reconnect_future));
                             continue;
@@ -438,7 +438,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
                 // Waiting for next reconnect attempt
                 Some(ReconnectStateMachine::Waiting(mut delay)) => match delay.poll_unpin(cx) {
                     // Retry timeout reached, retry to reconnect
-                    Poll::Ready(_) => {
+                    Poll::Ready(()) => {
                         *this.state_machine = Some(ReconnectStateMachine::Retry);
                         continue;
                     },
