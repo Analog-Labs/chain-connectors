@@ -17,6 +17,5 @@ members = [
   "rosetta-docker",
   "rosetta-server",
   "rosetta-types",
-  "connector-test",
 ]
 resolver = "2"
