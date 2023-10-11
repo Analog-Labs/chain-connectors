@@ -1,4 +1,0 @@
-{
-    "rust-analyzer.check.command": "clippy",
-    "rust-analyzer.check.extraArgs": ["--", "-Dwarnings", "-Dclippy::unwrap_used", "-Dclippy::expect_used", "-Dclippy::nursery", "-Dclippy::pedantic", "-Aclippy::module_name_repetitions"]
-  }
