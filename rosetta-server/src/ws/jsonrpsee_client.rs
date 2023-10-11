@@ -9,8 +9,8 @@ use jsonrpsee::{
     types::SubscriptionId,
 };
 use subxt::{
+    backend::rpc::{RawRpcFuture, RawRpcSubscription, RawValue, RpcClientT},
     error::RpcError,
-    rpc::{RawValue, RpcClientT, RpcFuture, RpcSubscription},
 };
 
 #[derive(Clone)]
@@ -41,7 +41,7 @@ where
         &'a self,
         method: &'a str,
         params: Option<Box<RawValue>>,
-    ) -> RpcFuture<'a, Box<RawValue>> {
+    ) -> RawRpcFuture<'a, Box<RawValue>> {
         Box::pin(async move {
             let res = ClientT::request(self, method, Params(params))
                 .await
@@ -55,7 +55,7 @@ where
         sub: &'a str,
         params: Option<Box<RawValue>>,
         unsub: &'a str,
-    ) -> RpcFuture<'a, RpcSubscription> {
+    ) -> RawRpcFuture<'a, RawRpcSubscription> {
         Box::pin(async move {
             let stream = SubscriptionClientT::subscribe::<Box<RawValue>, _>(
                 self,
@@ -74,7 +74,7 @@ where
             };
 
             let stream = stream.map_err(|e| RpcError::ClientError(Box::new(e))).boxed();
-            Ok(RpcSubscription { stream, id })
+            Ok(RawRpcSubscription { stream, id })
         })
     }
 }

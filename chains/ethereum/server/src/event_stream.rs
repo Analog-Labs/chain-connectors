@@ -10,7 +10,7 @@ pub struct EthereumEventStream<'a, P: PubsubClient> {
     /// Ethereum client
     pub client: Arc<Provider<P>>,
     /// Ethereum subscription for new heads
-    pub new_head: SubscriptionStream<'a, P, Block<H256>>,
+    pub new_head: Option<SubscriptionStream<'a, P, Block<H256>>>,
     /// Count the number of failed attempts to retrieve the finalized block
     pub finalized_block_failures: u32,
     /// Count the number of failed attempts to retrieve the latest block
@@ -34,7 +34,7 @@ where
     ) -> Self {
         Self {
             client,
-            new_head: subscription,
+            new_head: Some(subscription),
             finalized_block_failures: 0,
             latest_block_failures: 0,
             best_finalized_block: None,
@@ -71,6 +71,11 @@ where
         cx: &mut std::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = &mut *self;
+
+        // Check if the stream is close
+        if this.new_head.is_none() && this.finalized_block_future.is_none() {
+            return Poll::Ready(None);
+        }
 
         // Query the latest finalized block
         if let Some(mut finalized_block_future) = this.finalized_block_future.take() {
@@ -135,6 +140,11 @@ where
             }
         }
 
+        let Some(mut new_head_stream) = this.new_head.take() else {
+            this.finalized_block_future = None;
+            return Poll::Ready(None);
+        };
+
         // Query new heads
         loop {
             if this.latest_block_failures >= FAILURE_THRESHOLD {
@@ -143,7 +153,7 @@ where
                 )));
             }
 
-            match this.new_head.poll_next_unpin(cx) {
+            match new_head_stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(block)) => {
                     // Convert raw block to block identifier
                     let block_identifier = match block_to_identifier(&block) {
@@ -163,12 +173,16 @@ where
                         this.finalized_block_future = Some(this.finalized_block());
                     }
 
+                    this.new_head = Some(new_head_stream);
                     return Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(
                         block_identifier,
                     ))));
                 },
                 Poll::Ready(None) => return Poll::Ready(None),
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => {
+                    this.new_head = Some(new_head_stream);
+                    return Poll::Pending;
+                },
             };
         }
     }

@@ -24,7 +24,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sp-core = { version = "21.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "24.0"
-subxt = { version = "0.31", default-features = false, features = ["substrate-compat"] }
+subxt = { version = "0.32", default-features = false, features = ["substrate-compat"] }
 tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]

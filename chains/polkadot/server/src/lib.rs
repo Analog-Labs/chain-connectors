@@ -15,9 +15,12 @@ use serde_json::Value;
 use sp_keyring::AccountKeyring;
 use std::time::Duration;
 use subxt::{
+    backend::{
+        legacy::{rpc_methods::BlockNumber, LegacyRpcMethods},
+        rpc::RpcClient,
+    },
     config::{Hasher, Header},
     dynamic::Value as SubtxValue,
-    rpc::types::BlockNumber,
     tx::{PairSigner, SubmittableExtrinsic},
     utils::{AccountId32, MultiAddress},
     Config, OnlineClient, PolkadotConfig,
@@ -29,6 +32,7 @@ mod call;
 pub struct PolkadotClient {
     config: BlockchainConfig,
     client: OnlineClient<PolkadotConfig>,
+    rpc_methods: LegacyRpcMethods<PolkadotConfig>,
     genesis_block: BlockIdentifier,
 }
 
@@ -47,13 +51,18 @@ impl PolkadotClient {
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
     pub async fn from_config(config: BlockchainConfig, addr: &str) -> Result<Self> {
-        let client = {
+        let (client, rpc_methods) = {
             let ws_client = default_client(addr, None).await?;
-            OnlineClient::<PolkadotConfig>::from_rpc_client(std::sync::Arc::new(ws_client)).await?
+            let rpc_client = RpcClient::new(ws_client);
+            let rpc_methods = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client.clone());
+            let backend = subxt::backend::legacy::LegacyBackend::new(rpc_client);
+            let client =
+                OnlineClient::<PolkadotConfig>::from_backend(std::sync::Arc::new(backend)).await?;
+            (client, rpc_methods)
         };
         let genesis = client.genesis_hash();
         let genesis_block = BlockIdentifier { index: 0, hash: hex::encode(genesis.as_ref()) };
-        Ok(Self { config, client, genesis_block })
+        Ok(Self { config, client, rpc_methods, genesis_block })
     }
 
     async fn account_info(
@@ -73,9 +82,8 @@ impl PolkadotClient {
 
         let block_hash = {
             let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
-            self.client
-                .rpc()
-                .block_hash(block_number)
+            self.rpc_methods
+                .chain_get_block_hash(block_number)
                 .await?
                 .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
         };
@@ -115,22 +123,21 @@ impl BlockchainClient for PolkadotClient {
     }
 
     async fn node_version(&self) -> Result<String> {
-        Ok(self.client.rpc().system_version().await?)
+        self.rpc_methods.system_version().await.map_err(anyhow::Error::from)
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {
-        let block = self.client.rpc().block(None).await?.context("no current block")?;
+        let block = self.rpc_methods.chain_get_block(None).await?.context("no current block")?;
         let index = u64::from(block.block.header.number);
         let hash = block.block.header.hash();
         Ok(BlockIdentifier { index, hash: hex::encode(hash.as_ref()) })
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        let finalized_head = self.client.rpc().finalized_head().await?;
+        let finalized_head = self.rpc_methods.chain_get_finalized_head().await?;
         let block = self
-            .client
-            .rpc()
-            .block(Some(finalized_head))
+            .rpc_methods
+            .chain_get_block(Some(finalized_head))
             .await?
             .context("no finalized block")?;
         let index = u64::from(block.block.header.number);
@@ -214,22 +221,21 @@ impl BlockchainClient for PolkadotClient {
         let block_hash = if let Some(hash) = block_identifier.hash.as_ref() {
             hash.parse()?
         } else {
-            self.client
-                .rpc()
-                .block_hash(block_identifier.index.map(BlockNumber::from))
+            self.rpc_methods
+                .chain_get_block_hash(block_identifier.index.map(BlockNumber::from))
                 .await?
                 .context("block not found")?
         };
 
         let block = self.client.blocks().at(block_hash).await?;
+        let extrinsics = block.extrinsics().await?;
 
         // Build timestamp query
         let timestamp_now_query = polkadot_metadata::storage().timestamp().now();
-
         let timestamp = block.storage().fetch_or_default(&timestamp_now_query).await?;
-        let body = block.body().await?;
+
         let mut transactions = vec![];
-        for extrinsic in body.extrinsics().iter().filter_map(Result::ok) {
+        for extrinsic in extrinsics.iter().filter_map(Result::ok) {
             let transaction_identifier = crate::block::get_transaction_identifier(&extrinsic);
             let events = extrinsic.events().await?;
             let transaction =
@@ -257,11 +263,12 @@ impl BlockchainClient for PolkadotClient {
         block_identifier: &BlockIdentifier,
         transaction_identifier: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        let block_hash = block_identifier.hash.parse()?;
+        let block_hash = block_identifier.hash.parse::<<PolkadotConfig as Config>::Hash>()?;
         let transaction_hash = transaction_identifier.hash.parse()?;
-        let body = self.client.blocks().at(block_hash).await?.body().await?;
-        let extrinsic = body
+        let block = self.client.blocks().at(block_hash).await?;
+        let extrinsic = block
             .extrinsics()
+            .await?
             .iter()
             .filter_map(Result::ok)
             .find(|extrinsic| {
