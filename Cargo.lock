@@ -1041,15 +1041,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "connector-test"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "rosetta-client",
- "tokio",
-]
-
-[[package]]
 name = "const-hex"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

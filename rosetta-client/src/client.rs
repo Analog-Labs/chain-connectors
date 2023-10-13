@@ -48,7 +48,7 @@ impl GenericClient {
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = EthereumClient::new("Arbitrum", network, url).await?;
+                let client = EthereumClient::new("arbitrum", network, url).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {

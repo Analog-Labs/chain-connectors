@@ -44,7 +44,7 @@ impl MaybeWsEthereumClient {
         let config = match blockchain {
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "ethereum" => rosetta_config_ethereum::config(network)?,
-            "Arbitrum" => rosetta_config_ethereum::config(network)?,
+            "arbitrum" => rosetta_config_ethereum::config(network)?,
             blockchain => anyhow::bail!("1unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr).await
