@@ -83,7 +83,7 @@ where
 
     pub async fn finalized_block(&self) -> Result<BlockIdentifier> {
         // TODO: ISSUE-176 Create a new connector for polygon
-        let block = if self.config.blockchain == "polygon" {
+        let block = if self.config.blockchain == "polygon" || self.config.blockchain == "Arbitrum" {
             let Some(latest_block) =
                 self.client.get_block(BlockId::Number(BlockNumber::Latest)).await?
             else {

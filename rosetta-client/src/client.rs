@@ -47,6 +47,10 @@ impl GenericClient {
                 let client = EthereumClient::new("polygon", network, url).await?;
                 Self::Ethereum(client)
             },
+            Blockchain::Arbitrum => {
+                let client = EthereumClient::new("arbitrum", network, url).await?;
+                Self::Ethereum(client)
+            },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
@@ -65,7 +69,7 @@ impl GenericClient {
                 let client = BitcoinClient::from_config(config, url).await?;
                 Self::Bitcoin(client)
             },
-            Blockchain::Ethereum | Blockchain::Polygon => {
+            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
                 let client = EthereumClient::from_config(config, url).await?;
                 Self::Ethereum(client)
             },

@@ -22,6 +22,21 @@ pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
     Ok(evm_config("polygon", network, "MATIC", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided arbitrum `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn arbitrum_config(network: &str) -> Result<BlockchainConfig> {
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "goerli" => ("goerli", 1, true),
+        "mainnet" => ("mainnet", 42161, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+
+    Ok(evm_config("arbitrum", network, "ARB", bip44_id, is_dev))
+}
+
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
@@ -39,6 +54,12 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
 
         // Astar
         "astar-local" => return astar_config("dev"),
+
+        // Arbitrum
+        "arbitrum-local" => return arbitrum_config("dev"),
+        "arbitrum" => return arbitrum_config("mainnet"),
+        "arbitrum-goerli" => return arbitrum_config("goerli"),
+
         network => return astar_config(network),
     };
 
