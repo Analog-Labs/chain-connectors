@@ -7,7 +7,6 @@ use std::{cmp::Ordering, pin::Pin, task::Poll};
 // Maximum number of failures in sequence before closing the stream
 const FAILURE_THRESHOLD: u32 = 10;
 
-#[pin_project::pin_project(project=EthereumEventStreamProjection)]
 pub struct EthereumEventStream<'a, P: PubsubClient + 'static> {
     /// Ethereum subscription for new heads
     new_head_stream: Option<SubscriptionStream<'a, P, Block<H256>>>,
@@ -134,6 +133,7 @@ where
     best_finalized_block: Option<NonPendingBlock>,
     /// Count the number of failed attempts to retrieve the finalized block
     failures: u32,
+    /// Waker used to wake up the stream when a new block is available
     waker: Option<std::task::Waker>,
 }
 

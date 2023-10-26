@@ -41,8 +41,6 @@ pub enum BlockFinalityStrategy {
     Finalized,
     /// Use the number of confirmations to determine the finalized block
     Confirmations(u64),
-    // TODO: ISSUE-176 for polygon the finalized block is stored on ethereum mainnet
-    // Polygon,
 }
 
 impl BlockFinalityStrategy {
