@@ -15,6 +15,7 @@ ethers = { version = "2.0", default-features = true, features = ["abigen", "rust
 futures-timer = "3.0"
 futures-util = "0.3"
 hex = "0.4"
+pin-project = "1.0"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 rosetta-ethereum-rpc-client = { version = "0.1.0", path = "../rpc-client" }

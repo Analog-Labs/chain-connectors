@@ -114,7 +114,6 @@ notice = "deny"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-  'RUSTSEC-2020-0071', # Potential segfault in the time crate
   'RUSTSEC-2021-0060', # Create `aes-soft` has been merged into the `aes` crate
   'RUSTSEC-2021-0064', # Crate `cpuid-bool` has been renamed to `cpufeatures`
   'RUSTSEC-2021-0139', # ansi_term is Unmaintained
