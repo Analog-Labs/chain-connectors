@@ -13,7 +13,7 @@ derive_more = "0.99"
 dirs-next = "2.0.0"
 fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3"
-getrandom = "0.2.8"
+getrandom = "0.2"
 hex = "0.4.3"
 log = "0.4"
 num-traits = "0.2"
@@ -28,7 +28,7 @@ serde = "1.0"
 serde_json = "1.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.2.8", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["Storage", "Window"] }

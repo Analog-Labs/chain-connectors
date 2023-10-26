@@ -83,7 +83,7 @@ pub enum ClientEvent<T: Client> {
     TxStatus { id: T::TransactionId, status: TxStatus<T> },
 
     /// Query Result
-    Query { id: T::QueryId, result: <T::Config as Config>::QueryResult },
+    Query { id: T::QueryId, result: Result<<T::Config as Config>::QueryResult, T::Error> },
 
     /// Close the connection for the given reason.
     Close(T::Error),

@@ -15,12 +15,15 @@ ethers = { version = "2.0", default-features = true, features = ["abigen", "rust
 futures-timer = "3.0"
 futures-util = "0.3"
 hex = "0.4"
+jsonrpsee = { version = "0.20", default-features = false, features = ["macros"] }
+pin-project = "1.0"
 rosetta-config-ethereum = { version = "0.4.0", path = "../config" }
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 rosetta-ethereum-rpc-client = { version = "0.1.0", path = "../rpc-client" }
 rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
 serde = "1.0"
 serde_json = "1.0"
+thiserror = "1.0"
 tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"
 url = "2.4.0"

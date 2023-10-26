@@ -4,7 +4,11 @@ members = [
   "chains/astar/server",
   "chains/bitcoin/config",
   "chains/bitcoin/server",
+  "chains/ethereum/backend",
   "chains/ethereum/config",
+  "chains/ethereum/executor",
+  "chains/ethereum/playground", # TODO: Remove
+  "chains/ethereum/primitives",
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
   "chains/ethereum/tx",

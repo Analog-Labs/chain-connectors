@@ -1,0 +1,28 @@
+[package]
+name = "rosetta-ethereum-backend"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Ethereum backend"
+
+[features]
+default = ["std"]
+with-codec = ["parity-scale-codec", "scale-info", "rosetta-ethereum-primitives/with-codec"]
+with-serde = ["serde", "rosetta-ethereum-primitives/with-serde"]
+std = [
+  "rosetta-ethereum-primitives/std",
+  "parity-scale-codec/std",
+  "scale-info/std",
+  "serde/std",
+]
+jsonrpsee = ["jsonrpsee-core", "with-serde"]
+
+[dependencies]
+async-trait = "0.1"
+auto_impl = "1.1"
+jsonrpsee-core = { version = "0.20", default-features = false, features = ["client"], optional = true }
+parity-scale-codec = { version = "3.6", default-features = false, features = ["derive"], optional = true }
+rosetta-ethereum-primitives = { version = "0.1.0", path = "../primitives", default-features = false }
+scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }

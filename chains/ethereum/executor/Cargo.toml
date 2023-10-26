@@ -1,0 +1,48 @@
+[package]
+name = "rosetta-ethereum-executor"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Connector ethereum primitives"
+
+[features]
+default = ["std"]
+with-codec = [
+  "dep:parity-scale-codec",
+  "dep:scale-info",
+  "sputnik-evm/with-codec",
+  "rosetta-ethereum-backend/with-codec",
+  "rosetta-ethereum-primitives/with-codec",
+]
+with-serde = [
+  "dep:serde",
+  "sputnik-evm/with-serde",
+  "rosetta-ethereum-primitives/with-serde",
+]
+rust-evm = ["dep:revm", "dep:tracing"]
+sputnik-evm = ["dep:sputnik-evm", "dep:tracing"]
+std = [
+  "dep:thiserror",
+  "parity-scale-codec/std",
+  "revm/std",
+  "rosetta-ethereum-backend/std",
+  "rosetta-ethereum-primitives/std",
+  "scale-info/std",
+  "serde/std",
+  "sputnik-evm/std",
+  "tracing/std",
+]
+jsonrpsee = ["rosetta-ethereum-backend/jsonrpsee"]
+
+[dependencies]
+async-trait = "0.1"
+parity-scale-codec = { version = "3.6", default-features = false, features = ["derive"], optional = true }
+revm = { version = "3.5", default-features = false, features = ["std", "c-kzg", "secp256k1", "optional_no_base_fee", "optional_block_gas_limit", "optional_eip3607"], optional = true }
+rosetta-ethereum-backend = { version = "0.1.0", default-features = false, path = "../backend" }
+rosetta-ethereum-primitives = { version = "0.1.0", default-features = false, path = "../primitives" }
+scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+sputnik-evm = { package = "evm", version = "0.40", default-features = false, optional = true }
+thiserror = { version = "1.0", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["attributes"], optional = true }

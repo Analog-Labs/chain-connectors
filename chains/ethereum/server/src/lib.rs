@@ -15,6 +15,7 @@ use serde_json::Value;
 use url::Url;
 
 mod client;
+pub mod client_impl;
 mod eth_types;
 mod event_stream;
 mod proof;

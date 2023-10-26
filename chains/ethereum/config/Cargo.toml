@@ -8,9 +8,12 @@ description = "Ethereum configuration."
 
 [dependencies]
 anyhow = "1.0"
-ethereum = { version = "0.14", features = ["with-codec"] }
+bytes = "1.5"
+const-hex = "1.9"
+ethereum = { version = "0.14", features = ["with-codec", "with-serde"] }
 ethereum-types = { version = "0.14", features = ["codec"] }
-parity-scale-codec = { version = "3.6", features = ["derive"] }
+parity-scale-codec = { version = "3.6", features = ["derive", "bytes"] }
 rosetta-config-astar = { version = "0.4.0", default-features = false, path = "../../astar/config" }
 rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
 serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
