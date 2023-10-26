@@ -81,6 +81,18 @@ pub enum BlockOrIdentifier {
     Block(Block),
 }
 
+impl From<BlockIdentifier> for BlockOrIdentifier {
+    fn from(identifier: BlockIdentifier) -> Self {
+        Self::Identifier(identifier)
+    }
+}
+
+impl From<Block> for BlockOrIdentifier {
+    fn from(block: Block) -> Self {
+        Self::Block(block)
+    }
+}
+
 /// Event produced by a handler.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ClientEvent {
