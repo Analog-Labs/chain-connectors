@@ -10,9 +10,7 @@ const FAILURE_THRESHOLD: u32 = 10;
 #[pin_project::pin_project(project=EthereumEventStreamProjection)]
 pub struct EthereumEventStream<'a, P: PubsubClient> {
     /// Ethereum client
-    // #[pin]
     pub client: &'a crate::EthereumClient<P>,
-    // pub client: Arc<crate::EthereumClientProvider<P>>,
     /// Ethereum subscription for new heads
     pub new_head: Option<SubscriptionStream<'a, P, Block<H256>>>,
     /// Count the number of failed attempts to retrieve the finalized block
@@ -35,7 +33,6 @@ where
     P: PubsubClient + 'static,
 {
     pub fn new<'a>(
-        // client: Arc<Provider<P>>,
         client: &'a crate::EthereumClient<P>,
         subscription: SubscriptionStream<'a, P, Block<H256>>,
     ) -> EthereumEventStream<'a, P> {
@@ -49,23 +46,6 @@ where
             latest_block: None,
         }
     }
-
-    // fn finalized_block<'a>(self: Pin<&'a mut Self>) -> BoxFuture<'a,
-    // anyhow::Result<NonPendingBlock>> {     self.client.finalized_block(None).boxed()
-    //     // Clone client to make BoxFuture 'static
-    //     // let client = Arc::clone(&self.client);
-    //     // async move { client.get_block(BlockId::Number(BlockNumber::Finalized)).await }.boxed()
-    // }
-
-    // fn finalized_block<'a, 'b: 'a>(self: &mut Pin<&'b mut Self>) {
-    //     let fut = EthereumClient::finalized_block(self.client, None).boxed();
-    //     let this = self.project();
-    //     *this.finalized_block_future = Some(fut);
-    //     // (&mut *self).finalized_block_future = Some(self.client.finalized_block(None).boxed());
-    //     // Clone client to make BoxFuture 'static
-    //     // let client = Arc::clone(&self.client);
-    //     // async move { client.get_block(BlockId::Number(BlockNumber::Finalized)).await }.boxed()
-    // }
 }
 
 impl<'a, 'b, P> EthereumEventStreamProjection<'a, 'b, P>
@@ -77,13 +57,6 @@ where
         let client = &self.client;
         EthereumClient::finalized_block(client, latest_block_number).boxed()
     }
-    // fn inc_finalized_failures(&mut self) {
-    //     let failures = *self.finalized_block_failures;
-    //     std::mem::replace(self.finalized_block_failures, failures + 1);
-    //     // Clone client to make BoxFuture 'static
-    //     // let client = Arc::clone(&self.client);
-    //     // async move { client.get_block(BlockId::Number(BlockNumber::Finalized)).await }.boxed()
-    // }
 }
 
 impl<P> Stream for EthereumEventStream<'_, P>

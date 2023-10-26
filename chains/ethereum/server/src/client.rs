@@ -139,28 +139,6 @@ where
             anyhow::bail!("Cannot find finalized block at {number}");
         };
         Ok(finalized_block)
-
-        // TODO: ISSUE-176 Create a new connector for polygon
-        // if matches!(self.config.blockchain, "polygon" | "arbitrum") {
-        //     // TODO: ISSUE-176 Replace this hack by querying polygon checkpoints
-        //     // Polygon finalized blocks are stored on ethereum mainnet roughly every 30 minutes
-        //     // and polygon block interval is ~2 seconds, 30 minutes / 2 seconds == 900 blocks.
-        //     let block_number = latest_block.number.saturating_sub(900u64);
-        //     if block_number == 0 {
-        //         return Ok(self.genesis_block.clone());
-        //     }
-
-        //     let Some(finalized_block) = get_non_pending_block(Arc::clone(&self.client),
-        // U64::from(block_number)).await? else {         anyhow::bail!("Cannot find block
-        // number {block_number}");     };
-
-        //     return Ok(finalized_block);
-        // }
-
-        // let Some(finalized_block) = get_non_pending_block(Arc::clone(&self.client),
-        // BlockNumber::Finalized).await? else {     anyhow::bail!("Cannot find block number
-        // {block_number}"); };
-        // Ok(finalized_block)
     }
 
     pub async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
@@ -437,7 +415,6 @@ where
 {
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_head_subscription = self.client.subscribe_blocks().await?;
-        // let get_finalized = self.finalized_block(None);
         Ok(EthereumEventStream::new(self, new_head_subscription))
     }
 }
