@@ -51,7 +51,7 @@ where
             return Err(PrefetchError::BlockNotFound(at));
         };
 
-        // Make sure we use the same block hash for all subsequent calls
+        // Make sure we use the same block hash for all calls
         let at = AtBlock::At(BlockIdentifier::Hash(block.hash));
 
         // Store block hash

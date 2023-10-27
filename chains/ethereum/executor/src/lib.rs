@@ -3,7 +3,7 @@
 extern crate alloc;
 
 #[cfg(feature="rust-evm")]
-mod evm;
+mod rust_evm;
 #[cfg(feature="sputnik-evm")]
 mod sputnik_evm;
 mod state;
@@ -17,7 +17,7 @@ pub use types::{ExecutionResult, ExitError, ExitSucceed, Log, ExecutionError, Ex
 #[cfg(any(feature="rust-evm",feature="sputnik-evm"))]
 pub mod vms {
     #[cfg(feature="rust-evm")]
-    pub use super::evm::{Executor as RustEVM, Error, EvmError};
+    pub use super::rust_evm::{Executor as RustEVM, Error, EvmError};
     
     #[cfg(feature="sputnik-evm")]
     pub use super::sputnik_evm::{SputnikExecutor as SputnikEVM, SputnikConfig};

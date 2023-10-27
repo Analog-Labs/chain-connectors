@@ -24,7 +24,6 @@ pub enum Error<ERR> {
 pub trait SputnikConfig {
     type PrecompileSet: sputnik_evm::executor::stack::PrecompileSet;
 
-    fn base_fee(&self) -> U256;
     fn config(&self) -> &sputnik_evm::Config;
     fn precompile_set(&self) -> &Self::PrecompileSet;
 }
@@ -45,10 +44,6 @@ impl TestEnv {
 
 impl SputnikConfig for TestEnv {
     type PrecompileSet = ();
-
-    fn base_fee(&self) -> U256 {
-        U256::zero()
-    }
 
     fn config(&self) -> &sputnik_evm::Config {
         &self.config
