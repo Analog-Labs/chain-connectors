@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-server-astar"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -8,27 +8,26 @@ description = "Astar rosetta server."
 
 [dependencies]
 anyhow = "1.0"
-async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1"
-ethers = "2.0.7"
+ethers = "2.0"
 futures = { version = "0.3", default-features = false, features = ["std"] }
-hex = "0.4.3"
+hex = "0.4"
 log = "0.4"
-parity-scale-codec = "3.6"
-rosetta-config-astar = { version = "0.4.0", path = "../config" }
-rosetta-config-ethereum = { version = "0.4.0", path = "../../ethereum/config" }
-rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
-rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
-rosetta-server-ethereum = { version = "0.4.0", path = "../../ethereum/server" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+parity-scale-codec = { workspace = true, features = ["derive"] }
+rosetta-config-astar.workspace = true
+rosetta-config-ethereum.workspace = true
+rosetta-core.workspace = true
+rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
+rosetta-server-ethereum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sp-core = { version = "21.0", default-features = false, features = ["blake2", "std"] }
 sp-keyring = "24.0"
-subxt = { version = "0.32", default-features = false, features = ["substrate-compat"] }
-tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
+subxt = { workspace = true, features = ["substrate-compat"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-ethers-solc = "2.0.1"
-rosetta-client = { version = "0.4.0", path = "../../../rosetta-client" }
-rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker", features = ["tests"] }
-sha3 = "0.10.6"
+ethers-solc = "2.0"
+rosetta-client.workspace = true
+rosetta-docker = { workspace = true, features = ["tests"] }
+sha3 = "0.10"

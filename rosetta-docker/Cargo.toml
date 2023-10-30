@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-docker"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -12,20 +12,19 @@ tests = ["dep:nanoid"]
 [dependencies]
 anyhow = "1.0"
 dirs = "5.0"
-docker-api = "0.14.0"
-env_logger = "0.10.0"
+docker-api = "0.14"
 futures = "0.3"
-getrandom = "0.2.8"
-hex = "0.4.3"
+getrandom = "0.2"
+hex = "0.4"
 log = "0.4"
-nanoid = { version = "0.4.0", optional = true }
-rosetta-client = { version = "0.4.0", path = "../rosetta-client" }
-rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
+nanoid = { version = "0.4", optional = true }
+rosetta-client.workspace = true
+rosetta-core.workspace = true
 serde_json = "1.0"
-sha2 = "0.10.7"
+sha2 = "0.10"
 surf = { version = "2.3", default-features = false, features = ["h1-client-no-tls"] }
-tokio = "1.32"
+tokio = { workspace = true }
 tokio-retry = "0.3"
 
 [dev-dependencies]
-tokio = { version = "1.32", features = ["macros"] }
+tokio = { workspace = true, features = ["macros"] }
