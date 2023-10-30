@@ -30,7 +30,6 @@ impl<T: BlockchainClient> Env<T> {
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
-        env_logger::try_init().ok();
         let builder = EnvBuilder::new(prefix)?;
         let node_port = random_port();
         config.node_uri.port = node_port;

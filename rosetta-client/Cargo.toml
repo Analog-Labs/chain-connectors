@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-client"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -10,25 +10,25 @@ description = "Client library for interacting with connectors."
 anyhow = "1.0"
 async-trait = "0.1"
 derive_more = "0.99"
-dirs-next = "2.0.0"
-fraction = { version = "0.13.1", default-features = false, features = ["with-bigint", "with-decimal"] }
+dirs-next = "2.0"
+fraction = { version = "0.13", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3"
-getrandom = "0.2.8"
-hex = "0.4.3"
+getrandom = "0.2"
+hex = "0.4"
 log = "0.4"
 num-traits = "0.2"
-rosetta-core = { version = "0.4.0", path = "../rosetta-core" }
-rosetta-server-astar = { version = "0.4.0", path = "../chains/astar/server" }
-rosetta-server-bitcoin = { version = "0.4.0", path = "../chains/bitcoin/server" }
-rosetta-server-ethereum = { version = "0.4.0", path = "../chains/ethereum/server" }
-rosetta-server-polkadot = { version = "0.4.0", path = "../chains/polkadot/server" }
-rosetta-tx-ethereum = { version = "0.4.0", path = "../chains/ethereum/tx" }
-rosetta-tx-polkadot = { version = "0.4.0", path = "../chains/polkadot/tx" }
-serde = "1.0"
-serde_json = "1.0"
+rosetta-core.workspace = true
+rosetta-server-astar.workspace = true
+rosetta-server-bitcoin.workspace = true
+rosetta-server-ethereum.workspace = true
+rosetta-server-polkadot.workspace = true
+rosetta-tx-ethereum.workspace = true
+rosetta-tx-polkadot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { version = "0.2.8", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 js-sys = "0.3"
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = ["Storage", "Window"] }

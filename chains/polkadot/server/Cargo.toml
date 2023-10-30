@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-server-polkadot"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -8,20 +8,19 @@ description = "Polkadot rosetta server."
 
 [dependencies]
 anyhow = "1.0"
-async-std = { version = "1.12.0", features = ["tokio1"] }
 async-trait = "0.1"
-hex = "0.4.3"
-parity-scale-codec = "3.4.0"
-rosetta-config-polkadot = { version = "0.4.0", path = "../config" }
-rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
-rosetta-server = { version = "0.4.0", path = "../../../rosetta-server", default-features = false, features = ["ws", "webpki-tls"] }
-scale-info = "2.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+hex = "0.4"
+parity-scale-codec = { workspace = true, features = ["derive"] }
+rosetta-config-polkadot.workspace = true
+rosetta-core.workspace = true
+rosetta-server = { workspace = true, default-features = false, features = ["ws", "webpki-tls"] }
+scale-info.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sp-keyring = "24.0"
-subxt = { version = "0.32", default-features = false, features = ["substrate-compat", "native"] }
-tokio = { version = "1.32", features = ["rt-multi-thread", "macros"] }
+subxt = { workspace = true, features = ["substrate-compat", "native"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"
 
 [dev-dependencies]
-rosetta-docker = { version = "0.4.0", path = "../../../rosetta-docker", features = ["tests"] }
+rosetta-docker = { workspace = true, features = ["tests"] }
