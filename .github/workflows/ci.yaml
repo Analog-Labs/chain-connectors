@@ -3,6 +3,7 @@ on:
     branches:
     - master
     - staging
+    - release-v*
   pull_request:
 
 name: rosetta-wallet
@@ -12,7 +13,7 @@ jobs:
     runs-on: self-hosted
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
@@ -42,7 +43,7 @@ jobs:
     runs-on: self-hosted
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
@@ -57,16 +58,23 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: cargo-deny check
         uses: EmbarkStudios/cargo-deny-action@v1
 
-  test:
+  # Test each client individually, once testing the whole workspace can hide some compilation errors
+  # ex: testing using --workspace enable the same feature flags for all crates
+  test-client:
+    needs: [rustfmt, clippy]
+    strategy:
+      matrix:
+        crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
+    name: test ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
     - name: Checkout sources
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
@@ -77,7 +85,63 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+        components: clippy
         target: x86_64-unknown-linux-musl
+    
+    - name: cargo clippy (${{ matrix.crate }})
+      run: |
+        cargo clippy --locked -p ${{ matrix.crate }} --examples --tests -- \
+          -Dwarnings \
+          -Dclippy::unwrap_used \
+          -Dclippy::expect_used \
+          -Dclippy::nursery \
+          -Dclippy::pedantic \
+          -Aclippy::module_name_repetitions
+  
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
+
+    - name: Pull nodes
+      run: ./scripts/pull_nodes.sh
+
+    - name: test (${{ matrix.crate }})
+      run: cargo test --locked -p ${{ matrix.crate }}
+  
+  # Test all crates, excluding the clients
+  test:
+    needs: [rustfmt, clippy]
+    runs-on: self-hosted
+    steps:
+    - name: Checkout sources
+      uses: actions/checkout@v4
+
+    - run: sudo add-apt-repository ppa:ethereum/ethereum
+    - run: sudo apt-get update -y
+    - name: Install deps
+      run: sudo apt-get install -y musl-dev musl-tools solc
+
+    - name: Install rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: clippy
+        target: x86_64-unknown-linux-musl
+    
+    - name: clippy
+      run: |
+        cargo clippy --locked --workspace --examples --tests --all-features \
+          --exclude rosetta-server-astar \
+          --exclude rosetta-server-bitcoin \
+          --exclude rosetta-server-ethereum \
+          --exclude rosetta-server-polkadot \
+          --exclude rosetta-client \
+          -- \
+          -Dwarnings \
+          -Dclippy::unwrap_used \
+          -Dclippy::expect_used \
+          -Dclippy::nursery \
+          -Dclippy::pedantic \
+          -Aclippy::module_name_repetitions
 
     - name: Cleanup Docker
       run: ./scripts/reset_docker.sh
@@ -86,4 +150,10 @@ jobs:
       run: ./scripts/pull_nodes.sh
 
     - name: cargo test
-      run: cargo test --locked --all-features --workspace
+      run: |
+        cargo test --locked --workspace --all-features \
+          --exclude rosetta-server-astar \
+          --exclude rosetta-server-bitcoin \
+          --exclude rosetta-server-ethereum \
+          --exclude rosetta-server-polkadot \
+          --exclude rosetta-client
