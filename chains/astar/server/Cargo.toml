@@ -14,7 +14,7 @@ futures = { version = "0.3", default-features = false, features = ["std"] }
 hex = "0.4"
 log = "0.4"
 parity-scale-codec = { workspace = true, features = ["derive"] }
-rosetta-config-astar.workspace = true
+rosetta-config-astar = { workspace = true, features = ["astar-metadata"] }
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
