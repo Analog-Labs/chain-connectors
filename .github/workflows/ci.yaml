@@ -1,3 +1,5 @@
+name: test
+
 on:
   push:
     branches:
@@ -5,8 +7,6 @@ on:
     - staging
     - release-v*
   pull_request:
-
-name: rosetta-wallet
 
 jobs:
   rustfmt:
@@ -20,7 +20,6 @@ jobs:
       with:
         toolchain: stable
         components: rustfmt, clippy
-        targets: x86_64-unknown-linux-musl
 
     - name: Install dprint
       run: cargo install --locked dprint
@@ -39,21 +38,6 @@ jobs:
         severity: style
         scandir: './scripts'
 
-  clippy:
-    runs-on: self-hosted
-    steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-
-    - name: Install rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        components: clippy
-
-    - name: cargo clippy
-      run: cargo clippy --locked --workspace --examples --tests --all-features -- -D warnings -D clippy::unwrap_used -D clippy::expect_used -D clippy::nursery -D clippy::pedantic -A clippy::module_name_repetitions
-
   cargo-deny:
     runs-on: self-hosted
     steps:
@@ -66,11 +50,11 @@ jobs:
   # Test each client individually, once testing the whole workspace can hide some compilation errors
   # ex: testing using --workspace enable the same feature flags for all crates
   test-client:
-    needs: [rustfmt, clippy]
+    needs: [rustfmt]
     strategy:
       matrix:
         crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
-    name: test ${{ matrix.crate }}
+    name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
     - name: Checkout sources
@@ -109,8 +93,9 @@ jobs:
   
   # Test all crates, excluding the clients
   test:
-    needs: [rustfmt, clippy]
+    needs: [rustfmt]
     runs-on: self-hosted
+    name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
