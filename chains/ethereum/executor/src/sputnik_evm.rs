@@ -1,23 +1,23 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use crate::{
-    state::{StateDB, PrefetchError},
-    types::{ExecutionResult, ExitError, ExitSucceed, ExecutionSucceed, ExecutionReverted, ExecutionError},
+    state::{PrefetchError, StateDB},
+    types::{
+        ExecutionError, ExecutionResult, ExecutionReverted, ExecutionSucceed, ExitError,
+        ExitSucceed,
+    },
 };
 use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason, TransactionCall};
-use rosetta_ethereum_primitives::{Block, BlockIdentifier, H256, U256, U64, Address};
+use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, H256, U256, U64};
 
 #[derive(Debug)]
-#[cfg_attr(feature="std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error<ERR> {
-    #[cfg_attr(feature="std", error("RPC error: {0:?}"))]
+    #[cfg_attr(feature = "std", error("RPC error: {0:?}"))]
     Rpc(ERR),
-    #[cfg_attr(feature="std", error("Result mismatch"))]
-    ResultMismatch {
-        vm: ExitReason,
-        rpc: ERR,
-    },
-    #[cfg_attr(feature="std", error("Prefetch failed: {0}"))]
+    #[cfg_attr(feature = "std", error("Result mismatch"))]
+    ResultMismatch { vm: ExitReason, rpc: ERR },
+    #[cfg_attr(feature = "std", error("Prefetch failed: {0}"))]
     PrefetchFailed(PrefetchError<ERR>),
 }
 
@@ -35,10 +35,7 @@ struct TestEnv {
 
 impl TestEnv {
     pub const fn new() -> Self {
-        Self {
-            config: sputnik_evm::Config::istanbul(),
-            precompile_set: (),
-        }
+        Self { config: sputnik_evm::Config::istanbul(), precompile_set: () }
     }
 }
 
@@ -74,7 +71,14 @@ where
         tx: &TransactionCall,
         block: &Block<H256>,
     ) -> ExecutionResult {
-        use sputnik_evm::{executor::stack::{PrecompileSet, IsPrecompileResult, StackSubstateMetadata, MemoryStackState, StackExecutor}, backend::{MemoryAccount, MemoryBackend}, ExitFatal};
+        use sputnik_evm::{
+            backend::{MemoryAccount, MemoryBackend},
+            executor::stack::{
+                IsPrecompileResult, MemoryStackState, PrecompileSet, StackExecutor,
+                StackSubstateMetadata,
+            },
+            ExitFatal,
+        };
 
         let source = tx.from.unwrap_or_default();
         let gas_limit = tx.gas_limit.unwrap_or(U64::MAX).as_u64();
@@ -83,28 +87,24 @@ where
         let config = env.config();
 
         // The precompile check is only used for transactional invocations. However, here we always
-		// execute the check, because the check has side effects.
+        // execute the check, because the check has side effects.
         let gas_limit = match precompiles.is_precompile(source, gas_limit) {
-			IsPrecompileResult::Answer { extra_cost, .. } => {
-				gas_limit.saturating_sub(extra_cost)
-			}
-			IsPrecompileResult::OutOfGas => {
-				return ExecutionError {
-                    reason: ExitError::OutOfGas,
-                    gas_used: gas_limit,
-                }.into();
-			}
-		};
+            IsPrecompileResult::Answer { extra_cost, .. } => gas_limit.saturating_sub(extra_cost),
+            IsPrecompileResult::OutOfGas => {
+                return ExecutionError { reason: ExitError::OutOfGas, gas_used: gas_limit }.into();
+            },
+        };
 
-        // Only check the restrictions of EIP-3607 if the source of the EVM operation is from an external transaction.
-		// If the source of this EVM operation is from an internal call, like from `eth_call` or `eth_estimateGas` RPC,
-		// we will skip the checks for the EIP-3607.
-		//
-		// EIP-3607: https://eips.ethereum.org/EIPS/eip-3607
-		// Do not allow transactions for which `tx.sender` has any code deployed.
-		// if is_transactional && self.db.accounts.get(&tx.from.unwrap_or_default()).map(|bla| bla.code_hash) {
-		// 	return Err(Error::TransactionMustComeFromEOA);
-		// }
+        // Only check the restrictions of EIP-3607 if the source of the EVM operation is from an
+        // external transaction. If the source of this EVM operation is from an internal
+        // call, like from `eth_call` or `eth_estimateGas` RPC, we will skip the checks for
+        // the EIP-3607.
+        //
+        // EIP-3607: https://eips.ethereum.org/EIPS/eip-3607
+        // Do not allow transactions for which `tx.sender` has any code deployed.
+        // if is_transactional && self.db.accounts.get(&tx.from.unwrap_or_default()).map(|bla|
+        // bla.code_hash) { 	return Err(Error::TransactionMustComeFromEOA);
+        // }
 
         // Execute the EVM call.
         let vicinity = sputnik_evm::backend::MemoryVicinity {
@@ -150,7 +150,7 @@ where
             tx.gas_limit.unwrap_or(U64::MAX).as_u64(),
             Vec::new(),
         );
-        
+
         // Clear contract state
         self.db.clear();
 
@@ -161,27 +161,30 @@ where
                 gas_refunded: 0,
                 logs: Vec::with_capacity(0),
                 output: bytes.into(),
-            }.into(),
-            sputnik_evm::ExitReason::Revert(_) => ExecutionReverted {
-                output: bytes.into(),
-                gas_used: executor.used_gas(),
-            }.into(),
-            sputnik_evm::ExitReason::Error(error) | sputnik_evm::ExitReason::Fatal(ExitFatal::CallErrorAsFatal(error)) => ExecutionError {
-                reason: ExitError::from(error),
-                gas_used: executor.used_gas(),
-            }.into(),
-            sputnik_evm::ExitReason::Fatal(ExitFatal::Other(error)) => ExecutionError {
-                reason: ExitError::Other(error),
-                gas_used: executor.used_gas(),
-            }.into(),
+            }
+            .into(),
+            sputnik_evm::ExitReason::Revert(_) => {
+                ExecutionReverted { output: bytes.into(), gas_used: executor.used_gas() }.into()
+            },
+            sputnik_evm::ExitReason::Error(error) |
+            sputnik_evm::ExitReason::Fatal(ExitFatal::CallErrorAsFatal(error)) => {
+                ExecutionError { reason: ExitError::from(error), gas_used: executor.used_gas() }
+                    .into()
+            },
+            sputnik_evm::ExitReason::Fatal(ExitFatal::Other(error)) => {
+                ExecutionError { reason: ExitError::Other(error), gas_used: executor.used_gas() }
+                    .into()
+            },
             sputnik_evm::ExitReason::Fatal(ExitFatal::NotSupported) => ExecutionError {
                 reason: ExitError::Other("NotSupported".into()),
                 gas_used: executor.used_gas(),
-            }.into(),
+            }
+            .into(),
             sputnik_evm::ExitReason::Fatal(ExitFatal::UnhandledInterrupt) => ExecutionError {
                 reason: ExitError::Other("UnhandledInterrupt".into()),
                 gas_used: executor.used_gas(),
-            }.into(),
+            }
+            .into(),
         }
     }
 
@@ -198,7 +201,11 @@ where
         let vm_result = self.execute(&config, tx, &prefetch.block);
 
         if vm_result.gas_used() != prefetch.gas_used {
-            tracing::warn!("gas used mismatch EVM({}) != RPC({})", vm_result.gas_used(), prefetch.gas_used);
+            tracing::warn!(
+                "gas used mismatch EVM({}) != RPC({})",
+                vm_result.gas_used(),
+                prefetch.gas_used
+            );
         }
 
         // Execute transaction using RPC
@@ -213,7 +220,11 @@ where
             // Check if VM and RPC results aren't equals returns the RPC result
             (ExecutionResult::Succeed(mut vm_result), Ok(ExitReason::Succeed(bytes))) => {
                 if vm_result.output.ne(&bytes) {
-                    tracing::warn!("result mismatch EVM({:?}) != RPC({:?})", vm_result.output, bytes);
+                    tracing::warn!(
+                        "result mismatch EVM({:?}) != RPC({:?})",
+                        vm_result.output,
+                        bytes
+                    );
                     vm_result.output = bytes;
                     vm_result.gas_used = prefetch.gas_used;
                 }
@@ -221,7 +232,11 @@ where
             },
             (ExecutionResult::Revert(mut vm_result), Ok(ExitReason::Revert(bytes))) => {
                 if vm_result.output.ne(&bytes) {
-                    tracing::warn!("result mismatch EVM({:?}) != RPC({:?})", vm_result.output, bytes);
+                    tracing::warn!(
+                        "result mismatch EVM({:?}) != RPC({:?})",
+                        vm_result.output,
+                        bytes
+                    );
                     vm_result.output = bytes;
                     vm_result.gas_used = prefetch.gas_used;
                 }

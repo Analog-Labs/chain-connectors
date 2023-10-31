@@ -1,15 +1,9 @@
-use rosetta_ethereum_primitives::{
-    Address, Bytes, H256,
-    U256, U64,
-};
 use alloc::vec::Vec;
+use rosetta_ethereum_primitives::{Address, Bytes, H256, U256, U64};
 
 /// Parameters for sending a transaction
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
-#[cfg_attr(
-    feature = "with-codec",
-    derive(parity_scale_codec::Encode, parity_scale_codec::Decode)
-)]
+#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -25,7 +19,10 @@ pub struct TransactionCall {
     pub to: Option<Address>,
 
     /// Supplied gas (None for sensible default)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none", rename = "gas"))]
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(skip_serializing_if = "Option::is_none", rename = "gas")
+    )]
     pub gas_limit: Option<U64>,
 
     /// Gas price (None for sensible default)

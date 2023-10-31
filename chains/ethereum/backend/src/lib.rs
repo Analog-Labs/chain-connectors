@@ -5,21 +5,21 @@ pub mod jsonrpsee;
 mod transaction;
 
 extern crate alloc;
-pub use transaction::TransactionCall;
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use rosetta_ethereum_primitives::{
     Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, TransactionReceipt, TxHash, H256,
     U256, U64,
 };
+pub use transaction::TransactionCall;
 
 /// Re-exports for proc-macro library to not require any additional
 /// dependencies to be explicitly added on the client side.
 #[doc(hidden)]
 pub mod __reexports {
     pub use async_trait::async_trait;
-    pub use rosetta_ethereum_primitives as primitives;
     #[cfg(feature = "with-codec")]
     pub use parity_scale_codec;
+    pub use rosetta_ethereum_primitives as primitives;
     #[cfg(feature = "with-serde")]
     pub use serde;
 }
@@ -160,6 +160,9 @@ pub trait EthereumRpc {
 
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
     async fn estimate_gas(&self, tx: &TransactionCall, at: AtBlock) -> Result<U256, Self::Error>;
+
+    /// Returns the current gas price in wei.
+    async fn gas_price(&self) -> Result<U256, Self::Error>;
 
     /// Submits a pre-signed transaction for broadcast to the Ethereum network.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<TxHash, Self::Error>;

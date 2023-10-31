@@ -6,8 +6,8 @@ use std::{
 };
 
 use futures_util::{future::BoxFuture, FutureExt};
-pub use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use jsonrpsee::core::{client::ClientT, Error};
+pub use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
 use rosetta_config_ethereum::types::{
     config::{EthereumConfig, Query, QueryResult},
     primitives::{Address, BlockIdentifier, Bytes, Call, TransactionReceipt, TxHash, U256},

@@ -1,24 +1,30 @@
-use alloc::{fmt::{Debug, Display}, vec::Vec};
+use alloc::{
+    fmt::{Debug, Display},
+    vec::Vec,
+};
 
 use crate::{
-    state::{StateDB, PrefetchError},
-    types::{ExecutionResult, ExitError, ExitSucceed, Log, ExecutionError, ExecutionReverted, ExecutionSucceed},
+    state::{PrefetchError, StateDB},
+    types::{
+        ExecutionError, ExecutionResult, ExecutionReverted, ExecutionSucceed, ExitError,
+        ExitSucceed, Log,
+    },
 };
-use rosetta_ethereum_backend::{AtBlock, EthereumRpc, TransactionCall, ExitReason};
-use rosetta_ethereum_primitives::{Block, BlockIdentifier, Bytes, H256, Address};
 use revm::{evm_inner, inspectors::NoOpInspector};
+use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason, TransactionCall};
+use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, Bytes, H256};
 
 pub type EvmError = revm::primitives::EVMError<StateError>;
 
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug)]
-#[cfg_attr(feature="std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum StateError {
-    #[cfg_attr(feature="std", error("code not found: {0}"))]
+    #[cfg_attr(feature = "std", error("code not found: {0}"))]
     CodeNotFound(H256),
-    #[cfg_attr(feature="std", error("storage not found for address {0} at index {1}"))]
+    #[cfg_attr(feature = "std", error("storage not found for address {0} at index {1}"))]
     StorageNotFound(Address, H256),
-    #[cfg_attr(feature="std", error("block not found: {0}"))]
+    #[cfg_attr(feature = "std", error("block not found: {0}"))]
     BlockNotFound(u64),
 }
 
@@ -40,7 +46,7 @@ where
             revm::primitives::AccountInfo {
                 balance: revm::primitives::U256::from_limbs(account.balance.0),
                 nonce: account.nonce.as_u64(),
-                code_hash:  revm::primitives::B256::from(account.code_hash.0),
+                code_hash: revm::primitives::B256::from(account.code_hash.0),
                 code,
             }
         });
@@ -94,16 +100,16 @@ where
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature="std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum Error<ERR>
 where
     ERR: Display,
 {
-    #[cfg_attr(feature="std", error("RPC error: {0:?}"))]
+    #[cfg_attr(feature = "std", error("RPC error: {0:?}"))]
     Rpc(ERR),
-    #[cfg_attr(feature="std", error("Prefetch failed: {0:?}"))]
+    #[cfg_attr(feature = "std", error("Prefetch failed: {0:?}"))]
     PrefetchFailed(PrefetchError<ERR>),
-    #[cfg_attr(feature="std", error("EVM error: {0:?}"))]
+    #[cfg_attr(feature = "std", error("EVM error: {0:?}"))]
     EvmError(EvmError),
 }
 
@@ -178,11 +184,10 @@ where
             tx.max_priority_fee_per_gas.map(|v| revm::primitives::U256::from_limbs(v.0));
 
         // Execute transaction
-        let vm_result = evm_inner::<StateDB<RPC>, false>(
-            &mut env,
-            &mut self.db,
-            &mut NoOpInspector,
-        ).transact().map(|result| result.result);
+        let vm_result =
+            evm_inner::<StateDB<RPC>, false>(&mut env, &mut self.db, &mut NoOpInspector)
+                .transact()
+                .map(|result| result.result);
 
         // Clear Contract State
         self.db.clear();
@@ -209,7 +214,11 @@ where
             .await;
 
         if vm_result.gas_used() != prefetch.gas_used {
-            tracing::warn!("gas used mismatch EVM({}) != RPC({})", vm_result.gas_used(), prefetch.gas_used);
+            tracing::warn!(
+                "gas used mismatch EVM({}) != RPC({})",
+                vm_result.gas_used(),
+                prefetch.gas_used
+            );
         }
 
         // Check if the VM and RPC results matches
@@ -217,7 +226,11 @@ where
             // Check if VM and RPC results aren't equals returns the RPC result
             (ExecutionResult::Succeed(mut vm_result), Ok(ExitReason::Succeed(bytes))) => {
                 if vm_result.output.ne(&bytes) {
-                    tracing::warn!("result mismatch EVM({:?}) != RPC({:?})", vm_result.output, bytes);
+                    tracing::warn!(
+                        "result mismatch EVM({:?}) != RPC({:?})",
+                        vm_result.output,
+                        bytes
+                    );
                     vm_result.output = bytes;
                     vm_result.gas_used = prefetch.gas_used;
                 }
@@ -225,7 +238,11 @@ where
             },
             (ExecutionResult::Revert(mut vm_result), Ok(ExitReason::Revert(bytes))) => {
                 if vm_result.output.ne(&bytes) {
-                    tracing::warn!("result mismatch EVM({:?}) != RPC({:?})", vm_result.output, bytes);
+                    tracing::warn!(
+                        "result mismatch EVM({:?}) != RPC({:?})",
+                        vm_result.output,
+                        bytes
+                    );
                     vm_result.output = bytes;
                     vm_result.gas_used = prefetch.gas_used;
                 }
@@ -270,76 +287,81 @@ where
 }
 
 impl From<revm::primitives::Halt> for ExitError {
-	fn from(halt: revm::primitives::Halt) -> Self {
-		use revm::primitives::Halt;
-		match halt {
-			Halt::OutOfGas(_) => Self::OutOfGas,
-			Halt::OpcodeNotFound | Halt::InvalidFEOpcode | Halt::CreateContractStartingWithEF => Self::InvalidCode,
-			Halt::InvalidJump => Self::InvalidJump,
-			Halt::NotActivated => Self::Other("NotActivated".into()),
-			Halt::StackUnderflow => Self::StackUnderflow,
-			Halt::StackOverflow => Self::StackOverflow,
-			Halt::OutOfOffset => Self::OutOfOffset,
-			Halt::CreateCollision => Self::CreateCollision,
-			Halt::PrecompileError => Self::Other("PrecompileError".into()),
-			Halt::NonceOverflow => Self::MaxNonce,
-			Halt::CreateContractSizeLimit | Halt::CreateInitcodeSizeLimit => Self::CreateContractLimit,
-			Halt::OverflowPayment => Self::Other("OverflowPayment".into()),
-			Halt::StateChangeDuringStaticCall => Self::Other("StateChangeDuringStaticCall".into()),
-			Halt::CallNotAllowedInsideStatic => Self::Other("CallNotAllowedInsideStatic".into()),
-			Halt::OutOfFund => Self::OutOfFund,
-			Halt::CallTooDeep => Self::CallTooDeep,
-		}
-	}
+    fn from(halt: revm::primitives::Halt) -> Self {
+        use revm::primitives::Halt;
+        match halt {
+            Halt::OutOfGas(_) => Self::OutOfGas,
+            Halt::OpcodeNotFound | Halt::InvalidFEOpcode | Halt::CreateContractStartingWithEF => {
+                Self::InvalidCode
+            },
+            Halt::InvalidJump => Self::InvalidJump,
+            Halt::NotActivated => Self::Other("NotActivated".into()),
+            Halt::StackUnderflow => Self::StackUnderflow,
+            Halt::StackOverflow => Self::StackOverflow,
+            Halt::OutOfOffset => Self::OutOfOffset,
+            Halt::CreateCollision => Self::CreateCollision,
+            Halt::PrecompileError => Self::Other("PrecompileError".into()),
+            Halt::NonceOverflow => Self::MaxNonce,
+            Halt::CreateContractSizeLimit | Halt::CreateInitcodeSizeLimit => {
+                Self::CreateContractLimit
+            },
+            Halt::OverflowPayment => Self::Other("OverflowPayment".into()),
+            Halt::StateChangeDuringStaticCall => Self::Other("StateChangeDuringStaticCall".into()),
+            Halt::CallNotAllowedInsideStatic => Self::Other("CallNotAllowedInsideStatic".into()),
+            Halt::OutOfFund => Self::OutOfFund,
+            Halt::CallTooDeep => Self::CallTooDeep,
+        }
+    }
 }
 
 impl From<revm::primitives::Log> for Log {
-	fn from(log: revm::primitives::Log) -> Self {
-		Self {
-			address: Address::from(log.address.into_array()),
-			topics: log.topics.into_iter().map(|hash| H256::from(hash.0)).collect(),
-			data: Bytes::from(log.data.0),
-		}
-	}
+    fn from(log: revm::primitives::Log) -> Self {
+        Self {
+            address: Address::from(log.address.into_array()),
+            topics: log.topics.into_iter().map(|hash| H256::from(hash.0)).collect(),
+            data: Bytes::from(log.data.0),
+        }
+    }
 }
 
 impl From<revm::primitives::Eval> for crate::types::ExitSucceed {
-	fn from(eval: revm::primitives::Eval) -> Self {
-		match eval {
-			revm::primitives::Eval::Stop => Self::Stopped,
-			revm::primitives::Eval::Return => Self::Returned,
-			revm::primitives::Eval::SelfDestruct => Self::SelfDestruct,
-		}
-	}
+    fn from(eval: revm::primitives::Eval) -> Self {
+        match eval {
+            revm::primitives::Eval::Stop => Self::Stopped,
+            revm::primitives::Eval::Return => Self::Returned,
+            revm::primitives::Eval::SelfDestruct => Self::SelfDestruct,
+        }
+    }
 }
 
 impl From<revm::primitives::ExecutionResult> for ExecutionResult {
-	fn from(result: revm::primitives::ExecutionResult) -> Self {
-		use revm::primitives::Output;
-		match result {
-			revm::primitives::ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output } => {
-				let output = match output {
-					Output::Call(bytes) | Output::Create(bytes, _) => {
-						Bytes::from(bytes.0)
-					},
-				};
+    fn from(result: revm::primitives::ExecutionResult) -> Self {
+        use revm::primitives::Output;
+        match result {
+            revm::primitives::ExecutionResult::Success {
+                reason,
+                gas_used,
+                gas_refunded,
+                logs,
+                output,
+            } => {
+                let output = match output {
+                    Output::Call(bytes) | Output::Create(bytes, _) => Bytes::from(bytes.0),
+                };
                 Self::Succeed(ExecutionSucceed {
                     reason: ExitSucceed::from(reason),
                     gas_used,
-					gas_refunded,
-					logs: logs.into_iter().map(Into::into).collect(),
-					output,
+                    gas_refunded,
+                    logs: logs.into_iter().map(Into::into).collect(),
+                    output,
                 })
-			},
-			revm::primitives::ExecutionResult::Revert { gas_used, output } => {
-				Self::Revert(ExecutionReverted { gas_used, output: Bytes(output.0) })
-			},
-			revm::primitives::ExecutionResult::Halt { reason, gas_used } => {
-				Self::Error(ExecutionError {
-					reason: ExitError::from(reason),
-					gas_used,
-				})
-			},
-		}
-	}
+            },
+            revm::primitives::ExecutionResult::Revert { gas_used, output } => {
+                Self::Revert(ExecutionReverted { gas_used, output: Bytes(output.0) })
+            },
+            revm::primitives::ExecutionResult::Halt { reason, gas_used } => {
+                Self::Error(ExecutionError { reason: ExitError::from(reason), gas_used })
+            },
+        }
+    }
 }

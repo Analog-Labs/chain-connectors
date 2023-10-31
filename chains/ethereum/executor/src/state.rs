@@ -1,17 +1,21 @@
-use rosetta_ethereum_backend::{AccessListItem, AtBlock, EthereumRpc, TransactionCall, AccessListWithGasUsed};
-use rosetta_ethereum_primitives::{Block, BlockIdentifier, H256, EIP1186ProofResponse, Address, Bytes};
-use alloc::{
-    vec::Vec,
-    collections::BTreeMap,
-    borrow::ToOwned,
+use alloc::{borrow::ToOwned, collections::BTreeMap, vec::Vec};
+use rosetta_ethereum_backend::{
+    AccessListItem, AccessListWithGasUsed, AtBlock, EthereumRpc, TransactionCall,
+};
+use rosetta_ethereum_primitives::{
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, H256,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StateDB<T> {
     client: T,
+    /// Account related data
     pub accounts: BTreeMap<Address, EIP1186ProofResponse>,
+    /// Bytecode related data
     pub code: BTreeMap<H256, Bytes>,
+    /// Storage related data
     pub storage: BTreeMap<Address, BTreeMap<H256, H256>>,
+    /// All retrieved block hashes
     pub blocks_hashes: BTreeMap<u64, H256>,
 }
 
@@ -33,6 +37,7 @@ where
         &self.client
     }
 
+    /// Clears all data stored in this db
     pub fn clear(&mut self) {
         self.accounts.clear();
         self.blocks_hashes.clear();
@@ -55,35 +60,39 @@ where
         let at = AtBlock::At(BlockIdentifier::Hash(block.hash));
 
         // Store block hash
-        self.blocks_hashes.insert(
-            block.number.as_u64(),
-            block.hash,
-        );
+        self.blocks_hashes.insert(block.number.as_u64(), block.hash);
 
         // Load storages
-        let mut access_list = self.client.create_access_list(tx, at).await.map_err(PrefetchError::Client)?;
+        let mut access_list =
+            self.client.create_access_list(tx, at).await.map_err(PrefetchError::Client)?;
 
         // Load contract if not in the access list
         if let Some(address) = tx.to {
             if !access_list.access_list.iter().any(|item| item.address == address) {
-                access_list.access_list.push(AccessListItem { address, storage_keys: Vec::with_capacity(0) });
+                access_list
+                    .access_list
+                    .push(AccessListItem { address, storage_keys: Vec::with_capacity(0) });
             }
         }
 
         // Load accounts
-        for (address, storage_keys) in access_list
-            .access_list
-            .iter()
-            .map(|item| (item.address, &item.storage_keys))
+        for (address, storage_keys) in
+            access_list.access_list.iter().map(|item| (item.address, &item.storage_keys))
         {
-            let account = self.client.get_proof(address, storage_keys, at).await.map_err(PrefetchError::Client)?;
-            let bytecode =  self.client.get_code(address, at).await.map_err(PrefetchError::Client)?;
+            let account = self
+                .client
+                .get_proof(address, storage_keys, at)
+                .await
+                .map_err(PrefetchError::Client)?;
+            let bytecode =
+                self.client.get_code(address, at).await.map_err(PrefetchError::Client)?;
             self.code.insert(account.code_hash, bytecode);
             self.accounts.insert(address, account);
 
             let storage = self.storage.entry(address).or_default();
             for key in storage_keys.iter().map(ToOwned::to_owned) {
-                let value = self.client.storage(address, key, at).await.map_err(PrefetchError::Client)?;
+                let value =
+                    self.client.storage(address, key, at).await.map_err(PrefetchError::Client)?;
                 storage.insert(key, value);
             }
         }
@@ -96,11 +105,11 @@ where
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature="std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum PrefetchError<ERR> {
-    #[cfg_attr(feature="std", error("client call failed: {0}"))]
+    #[cfg_attr(feature = "std", error("client call failed: {0}"))]
     Client(ERR),
-    #[cfg_attr(feature="std", error("block not found: {0}"))]
+    #[cfg_attr(feature = "std", error("block not found: {0}"))]
     BlockNotFound(AtBlock),
 }
 

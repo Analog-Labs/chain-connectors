@@ -7,6 +7,7 @@ members = [
   "chains/ethereum/backend",
   "chains/ethereum/config",
   "chains/ethereum/executor",
+  "chains/ethereum/playground", # TODO: Remove
   "chains/ethereum/primitives",
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
@@ -22,3 +23,25 @@ members = [
   "rosetta-types",
 ]
 resolver = "2"
+
+[patch.crates-io]
+# ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-addressbook = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-contract = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-contract-abigen = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-providers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-signers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-middleware = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-etherscan = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# ethers-solc = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+
+foundry-compilers = { git = "https://github.com/foundry-rs/compilers", rev = "7b63c75c8a06e66e56bcfbb7ba0920fd9ad15fc7" }
+foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "5cbf6d32fa1ba39bc06a0d2b6202a021b3b8f0ff" }
+foundry-common = { git = "https://github.com/foundry-rs/foundry.git", rev = "dee41819c6e6bd1ea5419c613d226498ed7a2c59" }
+# anvil = { git = "https://github.com/foundry-rs/foundry.git", rev = "dee41819c6e6bd1ea5419c613d226498ed7a2c59" }
+
+# alloy-dyn-abi = { git = "https://github.com/alloy-rs/core/" }
+# alloy-primitives = { git = "https://github.com/alloy-rs/core/" }
+# alloy-json-abi = { git = "https://github.com/alloy-rs/core/" }
+# alloy-sol-types = { git = "https://github.com/alloy-rs/core/" }

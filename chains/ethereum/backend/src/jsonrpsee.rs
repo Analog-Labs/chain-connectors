@@ -3,7 +3,10 @@ use ::core::ops::{Deref, DerefMut};
 use crate::{AccessListWithGasUsed, AtBlock, EthereumRpc, ExitReason, TransactionCall};
 use alloc::boxed::Box;
 pub use jsonrpsee_core as core;
-use jsonrpsee_core::{client::{ClientT, SubscriptionClientT}, rpc_params, Error};
+use jsonrpsee_core::{
+    client::{ClientT, SubscriptionClientT},
+    rpc_params, Error,
+};
 use rosetta_ethereum_primitives::{
     Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, TransactionReceipt, TxHash, H256,
     U256, U64,
@@ -13,7 +16,10 @@ use rosetta_ethereum_primitives::{
 #[repr(transparent)]
 pub struct Adapter<T: ClientT + Send + Sync>(pub T);
 
-impl <T> Adapter<T> where T: ClientT + Send + Sync {
+impl<T> Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     pub fn into_inner(self) -> T {
         self.0
     }
@@ -28,19 +34,28 @@ where
     }
 }
 
-impl <T> AsRef<T> for Adapter<T> where T: ClientT + Send + Sync {
+impl<T> AsRef<T> for Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     fn as_ref(&self) -> &T {
         &self.0
     }
 }
 
-impl <T> AsMut<T> for Adapter<T> where T: ClientT + Send + Sync {
+impl<T> AsMut<T> for Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     fn as_mut(&mut self) -> &mut T {
         &mut self.0
     }
 }
 
-impl<T> Deref for Adapter<T> where T: ClientT + Send + Sync {
+impl<T> Deref for Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -48,13 +63,19 @@ impl<T> Deref for Adapter<T> where T: ClientT + Send + Sync {
     }
 }
 
-impl<T> DerefMut for Adapter<T> where T: ClientT + Send + Sync {
+impl<T> DerefMut for Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl <T> Clone for Adapter<T> where T: ClientT + Send + Sync + Clone {
+impl<T> Clone for Adapter<T>
+where
+    T: ClientT + Send + Sync + Clone,
+{
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
@@ -117,6 +138,11 @@ where
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
     async fn estimate_gas(&self, tx: &TransactionCall, at: AtBlock) -> Result<U256, Self::Error> {
         <T as ClientT>::request(&self.0, "eth_estimateGas", rpc_params![tx, at]).await
+    }
+
+    /// Returns the current gas price in wei.
+    async fn gas_price(&self) -> Result<U256, Self::Error> {
+        <T as ClientT>::request(&self.0, "eth_gasPrice", rpc_params![]).await
     }
 
     /// Submits a pre-signed transaction for broadcast to the Ethereum network.
@@ -191,7 +217,10 @@ where
     }
 }
 
-impl<T> ClientT for Adapter<T> where T: ClientT + Send + Sync {
+impl<T> ClientT for Adapter<T>
+where
+    T: ClientT + Send + Sync,
+{
     #[must_use]
     #[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
     fn notification<'life0, 'life1, 'async_trait, Params>(
@@ -200,9 +229,8 @@ impl<T> ClientT for Adapter<T> where T: ClientT + Send + Sync {
         params: Params,
     ) -> ::core::pin::Pin<
         Box<
-            dyn ::core::future::Future<
-                    Output = ::core::result::Result<(), ::jsonrpsee_core::Error>,
-                > + ::core::marker::Send
+            dyn ::core::future::Future<Output = ::core::result::Result<(), ::jsonrpsee_core::Error>>
+                + ::core::marker::Send
                 + 'async_trait,
         >,
     >
@@ -268,7 +296,10 @@ impl<T> ClientT for Adapter<T> where T: ClientT + Send + Sync {
     }
 }
 
-impl<T> SubscriptionClientT for Adapter<T> where T: SubscriptionClientT + Send + Sync {
+impl<T> SubscriptionClientT for Adapter<T>
+where
+    T: SubscriptionClientT + Send + Sync,
+{
     #[must_use]
     #[allow(clippy::type_complexity, clippy::type_repetition_in_bounds)]
     fn subscribe<'a, 'life0, 'async_trait, Notif, Params>(
@@ -278,11 +309,12 @@ impl<T> SubscriptionClientT for Adapter<T> where T: SubscriptionClientT + Send +
         unsubscribe_method: &'a str,
     ) -> ::core::pin::Pin<
         Box<
-            dyn ::core::future::Future<Output = ::core::result::Result<
-                    ::jsonrpsee_core::client::Subscription<Notif>,
-                    ::jsonrpsee_core::Error
-                >>
-                + ::core::marker::Send
+            dyn ::core::future::Future<
+                    Output = ::core::result::Result<
+                        ::jsonrpsee_core::client::Subscription<Notif>,
+                        ::jsonrpsee_core::Error,
+                    >,
+                > + ::core::marker::Send
                 + 'async_trait,
         >,
     >
@@ -310,13 +342,14 @@ impl<T> SubscriptionClientT for Adapter<T> where T: SubscriptionClientT + Send +
         method: &'a str,
     ) -> ::core::pin::Pin<
         Box<
-            dyn ::core::future::Future<Output = ::core::result::Result<
-                ::jsonrpsee_core::client::Subscription<Notif>,
-                ::jsonrpsee_core::Error
-            >>
-            + ::core::marker::Send
-            + 'async_trait,
-        >
+            dyn ::core::future::Future<
+                    Output = ::core::result::Result<
+                        ::jsonrpsee_core::client::Subscription<Notif>,
+                        ::jsonrpsee_core::Error,
+                    >,
+                > + ::core::marker::Send
+                + 'async_trait,
+        >,
     >
     where
         Notif: ::serde::de::DeserializeOwned,
