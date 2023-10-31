@@ -1,10 +1,16 @@
-use crate::bytes::Bytes;
+use crate::{
+    bytes::Bytes,
+    eth_hash::{Address, H256},
+    eth_uint::{U256, U64},
+};
 use alloc::{string::String, vec::Vec};
-use ethereum_types::{Address, H256, U256, U64};
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),

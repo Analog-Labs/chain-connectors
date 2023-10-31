@@ -4,18 +4,20 @@ extern crate alloc;
 
 mod block;
 mod bytes;
+mod eth_hash;
+mod eth_uint;
 mod log;
 mod storage_proof;
 mod tx_receipt;
 
 pub use block::Block;
 pub use bytes::Bytes;
-pub use ethereum_types::{Address, Bloom, H256, H64, U128, U256, U64};
+pub use eth_hash::{Address, Public, Secret, Signature, TxHash, H128, H256, H384, H512, H520};
+pub use eth_uint::{U128, U256, U512, U64};
+pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use tx_receipt::TransactionReceipt;
-
-pub type TxHash = H256;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[cfg_attr(
@@ -25,6 +27,24 @@ pub type TxHash = H256;
 pub enum BlockIdentifier {
     Hash(H256),
     Number(u64),
+}
+
+impl From<u64> for BlockIdentifier {
+    fn from(value: u64) -> Self {
+        Self::Number(value)
+    }
+}
+
+impl From<U64> for BlockIdentifier {
+    fn from(value: U64) -> Self {
+        Self::Number(value.as_u64())
+    }
+}
+
+impl From<H256> for BlockIdentifier {
+    fn from(hash: H256) -> Self {
+        Self::Hash(hash)
+    }
 }
 
 #[cfg(feature = "with-serde")]

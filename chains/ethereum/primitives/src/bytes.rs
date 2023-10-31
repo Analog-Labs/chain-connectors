@@ -27,7 +27,7 @@ impl scale_info::TypeInfo for Bytes {
             .path(scale_info::Path::new("Bytes", module_path!()))
             .composite(
                 scale_info::build::FieldsBuilder::<_, scale_info::build::UnnamedFields>::default()
-                    .field(|f| f.ty::<Vec<u8>>().type_name("Vec<u8>")),
+                    .field(|f| f.ty::<[u8]>().type_name("Vec<u8>")),
             )
     }
 }

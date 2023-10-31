@@ -1,11 +1,18 @@
-use crate::log::Log;
+use crate::{
+    eth_hash::{Address, H256},
+    eth_uint::{U256, U64},
+    log::Log,
+};
 use alloc::vec::Vec;
 use core::cmp::Ordering;
-use ethereum_types::{Address, Bloom, H256, U256, U64};
+use ethbloom::Bloom;
 
 /// "Receipt" of an executed transaction: details of its execution.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),

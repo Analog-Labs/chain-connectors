@@ -1,13 +1,20 @@
-use crate::bytes::Bytes;
+use crate::{
+    bytes::Bytes,
+    eth_hash::{Address, H256, H64},
+    eth_uint::{U256, U64},
+};
 use alloc::vec::Vec;
-use ethereum_types::{Address, Bloom, H256, H64, U256, U64};
+use ethbloom::Bloom;
 
 /// The block type returned from RPC calls.
 ///
 /// This is generic over a `TX` type which will be either the hash or the full transaction,
 /// i.e. `Block<TxHash>` or `Block<Transaction>`.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),

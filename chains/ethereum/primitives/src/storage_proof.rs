@@ -1,6 +1,9 @@
-use crate::bytes::Bytes;
+use crate::{
+    bytes::Bytes,
+    eth_hash::{Address, H256},
+    eth_uint::{U256, U64},
+};
 use alloc::vec::Vec;
-use ethereum_types::{Address, H256, U256, U64};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 #[cfg_attr(
@@ -15,7 +18,10 @@ pub struct StorageProof {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),
