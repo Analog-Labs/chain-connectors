@@ -1,51 +1,14 @@
 use core::{
-    fmt::Debug,
+    fmt::Display,
     pin::Pin,
     task::{Context, Poll},
 };
-use parity_scale_codec::{Decode, Encode};
-
-/// Encodable typed transactions.
-pub trait Encodable {
-    /// Convert self to an owned vector.
-    fn encode(&self) -> Vec<u8>;
-}
-
-impl<T> Encodable for T
-where
-    T: Encode,
-{
-    fn encode(&self) -> Vec<u8> {
-        Encode::encode(self)
-    }
-}
-
-/// Decodable typed transactions.
-pub trait Decodable: Sized {
-    /// Inner payload decoder error.
-    type Error;
-
-    /// Decode raw bytes to a Self type.
-    /// # Errors
-    /// Returns `Err` if the decode fails
-    fn decode(bytes: &[u8]) -> Result<Self, Self::Error>;
-}
-
-// impl<T> Decodable for T
-// where
-//     T: Decode + Sized,
-// {
-//     type Error = parity_scale_codec::Error;
-
-//     fn decode(bytes: &[u8]) -> Result<Self, Self::Error> {
-//         let mut input = bytes.to_vec();
-//         <T as Decode>::decode(input.as_mut_slice())
-//     }
-// }
+use derivative::Derivative;
+pub use parity_scale_codec::{Decode, Encode};
 
 /// Possible transaction statuses returned from our [`TxProgress::next()`] call.
-//#[derive(Derivative)]
-//#[derivative(Debug(bound = "ID: core::fmt::Debug"))]
+#[derive(Derivative)]
+#[derivative(Debug(bound = "ID: core::fmt::Debug"))]
 pub enum TxStatus<ID> {
     /// Transaction is part of the future queue.
     Validated,
@@ -89,6 +52,7 @@ pub enum ClientEvent<T: Client> {
     Close(T::Error),
 }
 
+// Client Primitives
 pub trait Config {
     type Transaction: Encode + Decode;
     type TransactionIdentifier: ToString;
@@ -106,7 +70,7 @@ pub trait Client: Sized {
     type Config: Config;
     type TransactionId;
     type QueryId;
-    type Error: Debug;
+    type Error: Display;
 
     /// Submits a signed transaction
     /// # Errors

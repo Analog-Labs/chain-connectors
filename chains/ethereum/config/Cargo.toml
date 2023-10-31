@@ -1,6 +1,6 @@
 [package]
 name = "rosetta-config-ethereum"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
@@ -12,8 +12,9 @@ bytes = "1.5"
 const-hex = "1.9"
 ethereum = { version = "0.14", features = ["with-codec", "with-serde"] }
 ethereum-types = { version = "0.14", features = ["codec"] }
-parity-scale-codec = { version = "3.6", features = ["derive", "bytes"] }
-rosetta-config-astar = { version = "0.4.0", default-features = false, path = "../../astar/config" }
-rosetta-core = { version = "0.4.0", path = "../../../rosetta-core" }
-serde = { version = "1.0", features = ["derive"] }
+parity-scale-codec = { workspace = true, features = ["std", "derive", "bytes"] }
+rosetta-config-astar = { workspace = true }
+rosetta-core.workspace = true
+rosetta-ethereum-primitives = { workspace = true, features = ["std", "with-codec", "with-serde"] }
+serde.workspace = true
 thiserror = "1.0"

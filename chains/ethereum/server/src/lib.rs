@@ -43,9 +43,9 @@ impl MaybeWsEthereumClient {
         addr: S,
     ) -> Result<Self> {
         let config = match blockchain {
-            "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "ethereum" => rosetta_config_ethereum::config(network)?,
-            "arbitrum" => rosetta_config_ethereum::config(network)?,
+            "polygon" => rosetta_config_ethereum::polygon_config(network)?,
+            "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
             blockchain => anyhow::bail!("1unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr).await
@@ -117,10 +117,11 @@ impl BlockchainClient for MaybeWsEthereumClient {
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        match self {
-            Self::Http(http_client) => http_client.finalized_block().await,
-            Self::Ws(ws_client) => ws_client.finalized_block().await,
-        }
+        let block = match self {
+            Self::Http(http_client) => http_client.finalized_block(None).await?,
+            Self::Ws(ws_client) => ws_client.finalized_block(None).await?,
+        };
+        Ok(BlockIdentifier { index: block.number, hash: hex::encode(block.hash) })
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {

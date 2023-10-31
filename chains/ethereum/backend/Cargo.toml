@@ -22,7 +22,7 @@ jsonrpsee = ["jsonrpsee-core", "with-serde"]
 async-trait = "0.1"
 auto_impl = "1.1"
 jsonrpsee-core = { version = "0.20", default-features = false, features = ["client"], optional = true }
-parity-scale-codec = { version = "3.6", default-features = false, features = ["derive"], optional = true }
-rosetta-ethereum-primitives = { version = "0.1.0", path = "../primitives", default-features = false }
+parity-scale-codec = { workspace = true, features = ["derive"], optional = true }
+rosetta-ethereum-primitives = { workspace = true }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }

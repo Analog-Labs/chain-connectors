@@ -7,7 +7,6 @@ members = [
   "chains/ethereum/backend",
   "chains/ethereum/config",
   "chains/ethereum/executor",
-  "chains/ethereum/playground", # TODO: Remove
   "chains/ethereum/primitives",
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
@@ -24,24 +23,45 @@ members = [
 ]
 resolver = "2"
 
-[patch.crates-io]
-# ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-addressbook = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-contract = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-contract-abigen = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-providers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-signers = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-middleware = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-etherscan = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
-# ethers-solc = { git = "https://github.com/gakonst/ethers-rs", rev = "9754f22d06a2defe5608c4c9b809cc361443a3dc" }
+# Specifying a workspace dependency is similar to package dependencies except:
+# - Dependencies from this table cannot be declared as optional
+# - features declared in this table are additive with the features from [dependencies]
+[workspace.dependencies]
+# Astar
+rosetta-config-astar = { path = "chains/astar/config", default-features = false }
+rosetta-server-astar = { path = "chains/astar/server" }
 
-foundry-compilers = { git = "https://github.com/foundry-rs/compilers", rev = "7b63c75c8a06e66e56bcfbb7ba0920fd9ad15fc7" }
-foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers.git", rev = "5cbf6d32fa1ba39bc06a0d2b6202a021b3b8f0ff" }
-foundry-common = { git = "https://github.com/foundry-rs/foundry.git", rev = "dee41819c6e6bd1ea5419c613d226498ed7a2c59" }
-# anvil = { git = "https://github.com/foundry-rs/foundry.git", rev = "dee41819c6e6bd1ea5419c613d226498ed7a2c59" }
+# Bitcoin
+rosetta-config-bitcoin = { path = "chains/bitcoin/config" }
+rosetta-server-bitcoin = { path = "chains/bitcoin/server" }
 
-# alloy-dyn-abi = { git = "https://github.com/alloy-rs/core/" }
-# alloy-primitives = { git = "https://github.com/alloy-rs/core/" }
-# alloy-json-abi = { git = "https://github.com/alloy-rs/core/" }
-# alloy-sol-types = { git = "https://github.com/alloy-rs/core/" }
+# Ethereum
+rosetta-ethereum-backend = { path = "chains/ethereum/backend", default-features = false }
+rosetta-ethereum-executor = { path = "chains/ethereum/executor", default-features = false }
+rosetta-ethereum-primitives = { path = "chains/ethereum/primitives", default-features = false }
+rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client", default-features = false }
+rosetta-config-ethereum = { path = "chains/ethereum/config" }
+rosetta-server-ethereum = { path = "chains/ethereum/server" }
+rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
+
+# Polkadot
+rosetta-config-polkadot = { path = "chains/polkadot/config" }
+rosetta-server-polkadot = { path = "chains/polkadot/server" }
+rosetta-tx-polkadot = { path = "chains/polkadot/tx" }
+
+# Common
+rosetta-client = { path = "rosetta-client" }
+rosetta-core = { path = "rosetta-core" }
+rosetta-crypto = { path = "rosetta-crypto" }
+rosetta-docker = { path = "rosetta-docker" }
+rosetta-server = { path = "rosetta-server", default-features = false }
+rosetta-types = { path = "rosetta-types" }
+
+## Crates we want all members to use the same version
+jsonrpsee = { version = "0.20", default-features = false }
+parity-scale-codec = { version = "3.6", default-features = false }
+tokio = { version = "1.32" }
+subxt = { version = "0.32", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+scale-info = { version = "2.3" }

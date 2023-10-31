@@ -1,4 +1,8 @@
-use crate::{event_stream::EthereumEventStream, proof::verify_proof};
+use crate::{
+    event_stream::EthereumEventStream,
+    proof::verify_proof,
+    utils::{get_non_pending_block, NonPendingBlock},
+};
 use anyhow::{bail, Context, Result};
 use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::{
@@ -29,10 +33,34 @@ impl Detokenize for Detokenizer {
     }
 }
 
+/// Strategy used to determine the finalized block
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockFinalityStrategy {
+    /// Query the finalized block using `eth_getBlockByNumber("finalized")` json-rpc method
+    #[default]
+    Finalized,
+    /// Use the number of confirmations to determine the finalized block
+    Confirmations(u64),
+}
+
+impl BlockFinalityStrategy {
+    pub fn from_config(config: &BlockchainConfig) -> Self {
+        match (config.blockchain, config.testnet) {
+            // TODO: ISSUE-176 Replace this hack by querying polygon checkpoints
+            // Polygon finalized blocks are stored on ethereum mainnet roughly every 30 minutes
+            // and polygon block interval is ~2 seconds, 30 minutes / 2 seconds == 900 blocks.
+            ("polygon", false) => Self::Confirmations(900),
+            ("polygon", true) => Self::Confirmations(6), // For local testnet use 6 confirmations
+            _ => Self::Finalized,
+        }
+    }
+}
+
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     client: Arc<Provider<P>>,
-    genesis_block: BlockIdentifier,
+    genesis_block: NonPendingBlock,
+    block_finality_strategy: BlockFinalityStrategy,
 }
 
 impl<P> Clone for EthereumClient<P> {
@@ -41,23 +69,24 @@ impl<P> Clone for EthereumClient<P> {
             config: self.config.clone(),
             client: self.client.clone(),
             genesis_block: self.genesis_block.clone(),
+            block_finality_strategy: self.block_finality_strategy,
         }
     }
 }
 
 impl<P> EthereumClient<P>
 where
-    P: JsonRpcClient,
+    P: JsonRpcClient + 'static,
 {
     pub async fn new(config: BlockchainConfig, rpc_client: P) -> Result<Self> {
+        let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
-        let Some(genesis_hash) =
-            client.get_block(0).await?.context("Failed to get genesis block")?.hash
+        let Some(genesis_block) =
+            get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
         else {
-            anyhow::bail!("FATAL: genesis block doesn't have hash");
+            anyhow::bail!("FATAL: genesis block not found");
         };
-        let genesis_block = BlockIdentifier { index: 0, hash: hex::encode(genesis_hash) };
-        Ok(Self { config, client, genesis_block })
+        Ok(Self { config, client, genesis_block, block_finality_strategy })
     }
 
     pub const fn config(&self) -> &BlockchainConfig {
@@ -65,7 +94,7 @@ where
     }
 
     pub const fn genesis_block(&self) -> &BlockIdentifier {
-        &self.genesis_block
+        &self.genesis_block.identifier
     }
 
     pub async fn node_version(&self) -> Result<String> {
@@ -81,49 +110,33 @@ where
         Ok(BlockIdentifier { index, hash: hex::encode(block_hash) })
     }
 
-    pub async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        // TODO: ISSUE-176 Create a new connector for polygon
-        let block = if self.config.blockchain == "polygon" || self.config.blockchain == "Arbitrum" {
-            let Some(latest_block) =
-                self.client.get_block(BlockId::Number(BlockNumber::Latest)).await?
-            else {
-                return Ok(self.genesis_block.clone());
-            };
-
-            let Some(block_number) = latest_block.number else {
-                // This error should not happen once we query the latest block, not pending one.
-                anyhow::bail!("This is a bug, latest block doesn't have block number");
-            };
-
-            // TODO: ISSUE-176 Replace this hack by querying polygon checkpoints
-            // Polygon finalized blocks are stored on ethereum mainnet roughly every 30 minutes
-            // and polygon block interval is ~2 seconds, 30 minutes / 2 seconds == 900 blocks.
-            let block_number = block_number.saturating_sub(U64::from(900u32));
-            if block_number.is_zero() {
-                return Ok(self.genesis_block.clone());
-            }
-
-            let Some(finalized_block) = self
-                .client
-                .get_block(BlockId::Number(BlockNumber::Number(block_number)))
-                .await?
-            else {
-                anyhow::bail!("Cannot find block number {block_number}");
-            };
-
-            finalized_block
-        } else if let Some(finalized_block) =
-            self.client.get_block(BlockId::Number(BlockNumber::Finalized)).await?
-        {
-            finalized_block
-        } else {
-            return Ok(self.genesis_block.clone());
+    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
+        let number = match self.block_finality_strategy {
+            BlockFinalityStrategy::Confirmations(confirmations) => {
+                let latest_block = match latest_block {
+                    Some(number) => number,
+                    None => self
+                        .client
+                        .get_block_number()
+                        .await
+                        .context("Failed to retrieve latest block number")?
+                        .as_u64(),
+                };
+                let block_number = latest_block.saturating_sub(confirmations);
+                // If the number is zero, the latest finalized is the genesis block
+                if block_number == 0 {
+                    return Ok(self.genesis_block.clone());
+                }
+                BlockNumber::Number(U64::from(block_number))
+            },
+            BlockFinalityStrategy::Finalized => BlockNumber::Finalized,
         };
 
-        Ok(BlockIdentifier {
-            index: block.number.context("Block is pending")?.as_u64(),
-            hash: hex::encode(block.hash.context("Block is pending")?),
-        })
+        let Some(finalized_block) = get_non_pending_block(Arc::clone(&self.client), number).await?
+        else {
+            anyhow::bail!("Cannot find finalized block at {number}");
+        };
+        Ok(finalized_block)
     }
 
     pub async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
@@ -400,6 +413,6 @@ where
 {
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_head_subscription = self.client.subscribe_blocks().await?;
-        Ok(EthereumEventStream::new(Arc::clone(&self.client), new_head_subscription))
+        Ok(EthereumEventStream::new(self, new_head_subscription))
     }
 }

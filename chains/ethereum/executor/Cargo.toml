@@ -37,7 +37,7 @@ jsonrpsee = ["rosetta-ethereum-backend/jsonrpsee"]
 
 [dependencies]
 async-trait = "0.1"
-parity-scale-codec = { version = "3.6", default-features = false, features = ["derive"], optional = true }
+parity-scale-codec = { workspace = true, features = ["derive"], optional = true }
 revm = { version = "3.5", default-features = false, features = ["std", "c-kzg", "secp256k1", "optional_no_base_fee", "optional_block_gas_limit", "optional_eip3607"], optional = true }
 rosetta-ethereum-backend = { version = "0.1.0", default-features = false, path = "../backend" }
 rosetta-ethereum-primitives = { version = "0.1.0", default-features = false, path = "../primitives" }

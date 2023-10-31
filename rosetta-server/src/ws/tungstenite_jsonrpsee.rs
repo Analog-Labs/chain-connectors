@@ -5,7 +5,6 @@ use futures::{
     SinkExt,
 };
 use jsonrpsee::core::client::{ReceivedMessage, TransportReceiverT, TransportSenderT};
-use tide::http::url::Url;
 use tokio::net::TcpStream;
 pub use tokio_tungstenite::tungstenite::Error as WsError;
 use tokio_tungstenite::{
@@ -16,6 +15,7 @@ use tokio_tungstenite::{
     },
     MaybeTlsStream, WebSocketStream,
 };
+use url::Url;
 
 impl From<&RpcClientConfig> for WebSocketConfig {
     fn from(config: &RpcClientConfig) -> Self {

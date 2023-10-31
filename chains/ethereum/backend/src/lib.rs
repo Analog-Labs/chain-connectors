@@ -2,6 +2,7 @@
 
 #[cfg(feature = "jsonrpsee")]
 pub mod jsonrpsee;
+pub mod prelude;
 mod transaction;
 
 extern crate alloc;
@@ -98,6 +99,12 @@ impl serde::Serialize for AtBlock {
             Self::Pending => <str as serde::Serialize>::serialize("pending", serializer),
             Self::At(at) => <BlockIdentifier as serde::Serialize>::serialize(at, serializer),
         }
+    }
+}
+
+impl From<BlockIdentifier> for AtBlock {
+    fn from(block: BlockIdentifier) -> Self {
+        Self::At(block)
     }
 }
 

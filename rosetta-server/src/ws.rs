@@ -22,8 +22,8 @@ use jsonrpsee::{
     },
 };
 use std::time::Duration;
-use tide::http::url::Url;
 pub use tungstenite_jsonrpsee::{TungsteniteClient, WsError};
+use url::Url;
 
 pub type DefaultClient = AutoReconnectClient<DefaultStrategy<DefaultReconnectConfig>>;
 

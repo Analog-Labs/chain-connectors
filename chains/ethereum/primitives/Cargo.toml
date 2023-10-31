@@ -12,7 +12,7 @@ const-hex = { version = "1.9", default-features = false, features = ["alloc"] }
 ethereum = { version = "0.15", default-features = false }
 ethereum-types = { version = "0.14", default-features = false, features = ["num-traits"] }
 
-parity-scale-codec = { version = "3.6", default-features = false, features = ["derive", "bytes"], optional = true }
+parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 thiserror = { version = "1.0", optional = true }
