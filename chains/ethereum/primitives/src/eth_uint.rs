@@ -1,4 +1,4 @@
-// ignore clippy warnings in `construct_uint!` macro.
+// ignore clippy warnings from `construct_uint!` macro.
 #![allow(
     clippy::pedantic,
     clippy::reversed_empty_ranges,

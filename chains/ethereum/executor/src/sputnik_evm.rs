@@ -81,7 +81,7 @@ where
         };
 
         let source = tx.from.unwrap_or_default();
-        let gas_limit = tx.gas_limit.unwrap_or(U64::MAX).as_u64();
+        let gas_limit = tx.gas_limit.map_or(u64::MAX, |v| v.as_u64());
 
         let precompiles = env.precompile_set();
         let config = env.config();

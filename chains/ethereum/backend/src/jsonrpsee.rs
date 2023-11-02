@@ -5,7 +5,9 @@ use ::core::{
     pin::Pin,
 };
 
-use crate::{AccessListWithGasUsed, AtBlock, EthereumRpc, ExitReason, TransactionCall};
+use crate::{
+    AccessListWithGasUsed, AtBlock, EthereumPubSub, EthereumRpc, ExitReason, TransactionCall,
+};
 use alloc::boxed::Box;
 pub use jsonrpsee_core as core;
 use jsonrpsee_core::{
@@ -13,8 +15,8 @@ use jsonrpsee_core::{
     rpc_params, Error,
 };
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, TransactionReceipt, TxHash, H256,
-    U256, U64,
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
+    H256, U256, U64,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -219,6 +221,49 @@ where
     /// transaction signing as introduced by EIP-155.
     async fn chain_id(&self) -> Result<U64, Self::Error> {
         <T as ClientT>::request(&self.0, "eth_chainId", rpc_params![]).await
+    }
+}
+
+#[derive(serde::Serialize)]
+struct LogsParams<'a> {
+    address: Address,
+    topics: &'a [H256],
+}
+
+#[async_trait::async_trait]
+impl<T> EthereumPubSub for Adapter<T>
+where
+    T: SubscriptionClientT + Send + Sync,
+{
+    type SubscriptionError = <Self as EthereumRpc>::Error;
+    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<Block<H256>> where Self: 'a;
+    type LogsStream<'a> = jsonrpsee_core::client::Subscription<Log> where Self: 'a;
+
+    /// Returns the balance of the account.
+    async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error> {
+        <T as SubscriptionClientT>::subscribe(
+            &self.0,
+            "eth_subscribe",
+            rpc_params!["newHeads"],
+            "eth_unsubscribe",
+        )
+        .await
+    }
+
+    /// Returns the number of transactions sent from an address.
+    async fn logs<'a>(
+        &'a self,
+        contract: Address,
+        topics: &[H256],
+    ) -> Result<Self::LogsStream<'a>, Self::Error> {
+        let params = LogsParams { address: contract, topics };
+        <T as SubscriptionClientT>::subscribe(
+            &self.0,
+            "eth_subscribe",
+            rpc_params!["logs", params],
+            "eth_unsubscribe",
+        )
+        .await
     }
 }
 

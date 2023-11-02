@@ -37,6 +37,7 @@ with-codec = [
 with-serde = [
   "dep:serde",
   "dep:impl-serde-macro",
+  "const-hex/serde",
   "ethbloom/serialize",
   "primitive-types/serde_no_std",
 ]

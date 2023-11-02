@@ -3,7 +3,10 @@ use rosetta_ethereum_primitives::{Address, Bytes, H256, U256, U64};
 
 /// Parameters for sending a transaction
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),

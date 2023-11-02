@@ -6,7 +6,7 @@ use core::{
     str::FromStr,
 };
 
-/// Wrapper type around Bytes to deserialize/serialize "0x" prefixed ethereum hex strings
+/// Wrapper type around [`bytes::Bytes`] to support "0x" prefixed hex strings.
 #[derive(Clone, Default, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(feature = "with-serde", derive(serde::Serialize, serde::Deserialize))]
@@ -206,7 +206,7 @@ impl PartialEq<bytes::Bytes> for Bytes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(thiserror::Error), error("Failed to parse bytes: {0}"))]
 pub struct ParseBytesError(const_hex::FromHexError);
 
@@ -223,12 +223,12 @@ impl FromStr for Bytes {
 /// # Errors
 /// never fails
 #[cfg(feature = "with-serde")]
-pub fn serialize_bytes<S, T>(x: T, s: S) -> Result<S::Ok, S::Error>
+pub fn serialize_bytes<S, T>(d: T, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
     T: AsRef<[u8]>,
 {
-    serde::Serializer::serialize_str(s, &const_hex::encode_prefixed(x))
+    const_hex::serialize::<S, T>(d, s)
 }
 
 /// Deserialize bytes as "0x" prefixed hex string

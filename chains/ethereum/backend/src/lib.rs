@@ -6,10 +6,12 @@ pub mod prelude;
 mod transaction;
 
 extern crate alloc;
+
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
+use futures_core::future::BoxFuture;
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, TransactionReceipt, TxHash, H256,
-    U256, U64,
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
+    H256, U256, U64,
 };
 pub use transaction::TransactionCall;
 
@@ -138,7 +140,7 @@ pub struct AccessListItem {
 )]
 pub struct AccessListWithGasUsed {
     pub access_list: Vec<AccessListItem>,
-    pub gas_used: U256,
+    pub gas_used: U64,
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
     pub error: Option<String>,
 }
@@ -211,4 +213,119 @@ pub trait EthereumRpc {
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.
     async fn chain_id(&self) -> Result<U64, Self::Error>;
+}
+
+/// EVM backend.
+#[async_trait::async_trait]
+// #[auto_impl::auto_impl(Arc, Box)]
+pub trait EthereumPubSub: EthereumRpc {
+    type SubscriptionError: core::fmt::Display + Send + 'static;
+    type NewHeadsStream<'a>: futures_core::Stream<Item = Result<Block<H256>, Self::SubscriptionError>>
+        + Send
+        + Unpin
+        + 'a
+    where
+        Self: 'a;
+    type LogsStream<'a>: futures_core::Stream<Item = Result<Log, Self::SubscriptionError>>
+        + Send
+        + Unpin
+        + 'a
+    where
+        Self: 'a;
+
+    /// Returns the balance of the account.
+    async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error>;
+
+    /// Returns the number of transactions sent from an address.
+    async fn logs<'a>(
+        &'a self,
+        contract: Address,
+        topics: &[H256],
+    ) -> Result<Self::LogsStream<'a>, Self::Error>;
+}
+
+impl<'b, T: 'b + EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for &'b T {
+    type SubscriptionError = T::SubscriptionError;
+    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
+    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+    fn new_heads<'a, 'async_trait>(
+        &'a self,
+    ) -> BoxFuture<'async_trait, Result<Self::NewHeadsStream<'a>, Self::Error>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::new_heads(self)
+    }
+    fn logs<'a, 'life0, 'async_trait>(
+        &'a self,
+        contract: Address,
+        topics: &'life0 [H256],
+    ) -> BoxFuture<'async_trait, Result<Self::LogsStream<'a>, Self::Error>>
+    where
+        'a: 'async_trait,
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::logs(self, contract, topics)
+    }
+}
+
+// #[auto_impl] doesn't work with generic associated types:
+// https://github.com/auto-impl-rs/auto_impl/issues/93
+impl<T: EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for alloc::sync::Arc<T> {
+    type SubscriptionError = T::SubscriptionError;
+    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
+    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+
+    fn new_heads<'a, 'async_trait>(
+        &'a self,
+    ) -> BoxFuture<'async_trait, Result<Self::NewHeadsStream<'a>, Self::Error>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::new_heads(self)
+    }
+    fn logs<'a, 'life0, 'async_trait>(
+        &'a self,
+        contract: Address,
+        topics: &'life0 [H256],
+    ) -> BoxFuture<'async_trait, Result<T::LogsStream<'a>, T::Error>>
+    where
+        'a: 'async_trait,
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::logs(self, contract, topics)
+    }
+}
+
+impl<T: EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for alloc::boxed::Box<T> {
+    type SubscriptionError = T::SubscriptionError;
+    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
+    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+
+    fn new_heads<'a, 'async_trait>(
+        &'a self,
+    ) -> BoxFuture<'async_trait, Result<T::NewHeadsStream<'a>, T::Error>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::new_heads(self)
+    }
+
+    fn logs<'a, 'life0, 'async_trait>(
+        &'a self,
+        contract: Address,
+        topics: &'life0 [H256],
+    ) -> BoxFuture<'async_trait, Result<T::LogsStream<'a>, T::Error>>
+    where
+        'a: 'async_trait,
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        T::logs(self, contract, topics)
+    }
 }

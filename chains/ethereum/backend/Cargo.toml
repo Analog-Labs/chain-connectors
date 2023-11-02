@@ -11,16 +11,18 @@ default = ["std"]
 with-codec = ["parity-scale-codec", "scale-info", "rosetta-ethereum-primitives/with-codec"]
 with-serde = ["serde", "rosetta-ethereum-primitives/with-serde"]
 std = [
+  "futures-core/std",
   "rosetta-ethereum-primitives/std",
   "parity-scale-codec/std",
   "scale-info/std",
   "serde/std",
 ]
-jsonrpsee = ["jsonrpsee-core", "with-serde"]
+jsonrpsee = ["dep:jsonrpsee-core", "std", "with-serde"]
 
 [dependencies]
 async-trait = "0.1"
 auto_impl = "1.1"
+futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 jsonrpsee-core = { version = "0.20", default-features = false, features = ["client"], optional = true }
 parity-scale-codec = { workspace = true, features = ["derive"], optional = true }
 rosetta-ethereum-primitives = { workspace = true }
