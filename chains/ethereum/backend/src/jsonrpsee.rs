@@ -239,7 +239,11 @@ where
     type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<Block<H256>> where Self: 'a;
     type LogsStream<'a> = jsonrpsee_core::client::Subscription<Log> where Self: 'a;
 
-    /// Returns the balance of the account.
+    /// Fires a notification each time a new header is appended to the chain, including chain
+    /// reorganizations.
+    /// Users can use the bloom filter to determine if the block contains logs that are interested
+    /// to them. Note that if geth receives multiple blocks simultaneously, e.g. catching up after
+    /// being out of sync, only the last block is emitted.
     async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error> {
         <T as SubscriptionClientT>::subscribe(
             &self.0,
@@ -250,7 +254,11 @@ where
         .await
     }
 
-    /// Returns the number of transactions sent from an address.
+    /// Returns logs that are included in new imported blocks and match the given filter criteria.
+    /// In case of a chain reorganization previous sent logs that are on the old chain will be
+    /// resent with the removed property set to true. Logs from transactions that ended up in
+    /// the new chain are emitted. Therefore a subscription can emit logs for the same transaction
+    /// multiple times.
     async fn logs<'a>(
         &'a self,
         contract: Address,
