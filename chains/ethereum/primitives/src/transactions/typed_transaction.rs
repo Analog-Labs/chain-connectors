@@ -1,5 +1,12 @@
 use super::{eip1559::Eip1559Transaction, eip2930::Eip2930Transaction, legacy::LegacyTransaction};
 
+#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+use crate::{
+    eth_hash::{Address, H256},
+    eth_uint::U256,
+    transactions::{access_list::AccessList, signature::Signature, GasPrice, TransactionT},
+};
+
 /// The [`TypedTransaction`] enum represents all Ethereum transaction types.
 ///
 /// Its variants correspond to specific allowed transactions:
@@ -67,5 +74,102 @@ impl From<Eip2930Transaction> for TypedTransaction {
 impl From<Eip1559Transaction> for TypedTransaction {
     fn from(tx: Eip1559Transaction) -> Self {
         Self::Eip1559(tx)
+    }
+}
+
+#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+impl TransactionT for TypedTransaction {
+    type ExtraFields = ();
+
+    fn compute_tx_hash(&self, signature: &Signature) -> H256 {
+        match self {
+            Self::Legacy(tx) => TransactionT::compute_tx_hash(tx, signature),
+            Self::Eip2930(tx) => TransactionT::compute_tx_hash(tx, signature),
+            Self::Eip1559(tx) => TransactionT::compute_tx_hash(tx, signature),
+        }
+    }
+
+    fn chain_id(&self) -> Option<u64> {
+        match self {
+            Self::Legacy(tx) => TransactionT::chain_id(tx),
+            Self::Eip2930(tx) => TransactionT::chain_id(tx),
+            Self::Eip1559(tx) => TransactionT::chain_id(tx),
+        }
+    }
+
+    fn nonce(&self) -> u64 {
+        match self {
+            Self::Legacy(tx) => TransactionT::nonce(tx),
+            Self::Eip2930(tx) => TransactionT::nonce(tx),
+            Self::Eip1559(tx) => TransactionT::nonce(tx),
+        }
+    }
+
+    fn gas_price(&self) -> GasPrice {
+        match self {
+            Self::Legacy(tx) => TransactionT::gas_price(tx),
+            Self::Eip2930(tx) => TransactionT::gas_price(tx),
+            Self::Eip1559(tx) => TransactionT::gas_price(tx),
+        }
+    }
+
+    fn gas_limit(&self) -> U256 {
+        match self {
+            Self::Legacy(tx) => TransactionT::gas_limit(tx),
+            Self::Eip2930(tx) => TransactionT::gas_limit(tx),
+            Self::Eip1559(tx) => TransactionT::gas_limit(tx),
+        }
+    }
+
+    fn to(&self) -> Option<Address> {
+        match self {
+            Self::Legacy(tx) => TransactionT::to(tx),
+            Self::Eip2930(tx) => TransactionT::to(tx),
+            Self::Eip1559(tx) => TransactionT::to(tx),
+        }
+    }
+
+    fn value(&self) -> U256 {
+        match self {
+            Self::Legacy(tx) => TransactionT::value(tx),
+            Self::Eip2930(tx) => TransactionT::value(tx),
+            Self::Eip1559(tx) => TransactionT::value(tx),
+        }
+    }
+
+    fn data(&self) -> &[u8] {
+        match self {
+            Self::Legacy(tx) => TransactionT::data(tx),
+            Self::Eip2930(tx) => TransactionT::data(tx),
+            Self::Eip1559(tx) => TransactionT::data(tx),
+        }
+    }
+
+    fn sighash(&self) -> H256 {
+        match self {
+            Self::Legacy(tx) => TransactionT::sighash(tx),
+            Self::Eip2930(tx) => TransactionT::sighash(tx),
+            Self::Eip1559(tx) => TransactionT::sighash(tx),
+        }
+    }
+
+    fn access_list(&self) -> Option<&AccessList> {
+        match self {
+            Self::Legacy(tx) => TransactionT::access_list(tx),
+            Self::Eip2930(tx) => TransactionT::access_list(tx),
+            Self::Eip1559(tx) => TransactionT::access_list(tx),
+        }
+    }
+
+    fn transaction_type(&self) -> Option<u8> {
+        match self {
+            Self::Legacy(tx) => TransactionT::transaction_type(tx),
+            Self::Eip2930(tx) => TransactionT::transaction_type(tx),
+            Self::Eip1559(tx) => TransactionT::transaction_type(tx),
+        }
+    }
+
+    fn extra_fields(&self) -> Option<Self::ExtraFields> {
+        None
     }
 }
