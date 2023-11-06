@@ -40,7 +40,7 @@ macro_rules! impl_hash {
 
                 Type::builder()
                     .path(Path::new(stringify!($hash), module_path!()))
-                    .type_params(Vec::new())
+                    .type_params(alloc::vec::Vec::new())
                     .composite(Fields::unnamed().field(|f| {
                         f.ty::<[u8; $n_bytes]>().type_name(concat!("[u8; ", $n_bytes, "]"))
                     }))

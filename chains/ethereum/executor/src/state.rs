@@ -1,9 +1,7 @@
 use alloc::{borrow::ToOwned, collections::BTreeMap, vec::Vec};
-use rosetta_ethereum_backend::{
-    AccessListItem, AccessListWithGasUsed, AtBlock, EthereumRpc, TransactionCall,
-};
+use rosetta_ethereum_backend::{AccessListItem, AccessListWithGasUsed, AtBlock, EthereumRpc};
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, H256,
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, CallRequest, H256,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,7 +46,7 @@ where
     #[allow(clippy::missing_errors_doc)]
     pub async fn prefetch_state(
         &mut self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         at: AtBlock,
     ) -> Result<PrefetchResult, PrefetchError<T::Error>> {
         // Load block

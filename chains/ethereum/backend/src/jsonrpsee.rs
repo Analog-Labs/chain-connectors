@@ -6,7 +6,7 @@ use ::core::{
 };
 
 use crate::{
-    AccessListWithGasUsed, AtBlock, EthereumPubSub, EthereumRpc, ExitReason, TransactionCall,
+    AccessListWithGasUsed, AtBlock, EthereumPubSub, EthereumRpc, ExitReason, CallRequest,
 };
 use alloc::boxed::Box;
 pub use jsonrpsee_core as core;
@@ -136,14 +136,14 @@ where
     }
 
     /// Executes a new message call immediately without creating a transaction on the blockchain.
-    async fn call(&self, tx: &TransactionCall, at: AtBlock) -> Result<ExitReason, Self::Error> {
+    async fn call(&self, tx: &CallRequest, at: AtBlock) -> Result<ExitReason, Self::Error> {
         <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", rpc_params![tx, at])
             .await
             .map(ExitReason::Succeed)
     }
 
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
-    async fn estimate_gas(&self, tx: &TransactionCall, at: AtBlock) -> Result<U256, Self::Error> {
+    async fn estimate_gas(&self, tx: &CallRequest, at: AtBlock) -> Result<U256, Self::Error> {
         <T as ClientT>::request(&self.0, "eth_estimateGas", rpc_params![tx, at]).await
     }
 
@@ -169,7 +169,7 @@ where
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     async fn create_access_list(
         &self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         at: AtBlock,
     ) -> Result<AccessListWithGasUsed, Error> {
         <T as ClientT>::request(&self.0, "eth_createAccessList", rpc_params![tx, at]).await

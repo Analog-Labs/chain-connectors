@@ -32,7 +32,7 @@ pub trait Executor {
     #[allow(clippy::missing_errors_doc)]
     fn execute(
         &mut self,
-        tx: &backend::TransactionCall,
+        tx: &primitives::CallRequest,
         at: backend::AtBlock,
     ) -> Result<backend::ExitReason, Self::Error>;
 }

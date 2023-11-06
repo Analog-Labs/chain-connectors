@@ -7,8 +7,10 @@ use crate::{
         ExitSucceed,
     },
 };
-use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason, TransactionCall};
-use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, H256, U256, U64};
+use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason};
+use rosetta_ethereum_primitives::{
+    Address, Block, BlockIdentifier, CallRequest, H256, U256, U64,
+};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
@@ -68,7 +70,7 @@ where
     pub fn execute<C: SputnikConfig>(
         &mut self,
         env: &C,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         block: &Block<H256>,
     ) -> ExecutionResult {
         use sputnik_evm::{
@@ -116,7 +118,7 @@ where
             block_timestamp: block.timestamp,
             block_difficulty: block.difficulty,
             block_gas_limit: block.gas_limit,
-            chain_id: tx.chain_id.unwrap_or_default(),
+            chain_id: tx.chain_id.map(U256::from).unwrap_or_default(),
             block_base_fee_per_gas: block.base_fee_per_gas.unwrap_or_default(),
             block_randomness: None,
         };
@@ -191,7 +193,7 @@ where
     #[allow(clippy::missing_errors_doc)]
     pub async fn call(
         &mut self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         at: AtBlock,
     ) -> Result<ExecutionResult, Error<RPC::Error>> {
         let prefetch = self.db.prefetch_state(tx, at).await.map_err(Error::PrefetchFailed)?;

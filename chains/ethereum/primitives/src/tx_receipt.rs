@@ -32,7 +32,7 @@ pub struct TransactionReceipt {
     pub block_number: Option<U64>,
 
     /// address of the sender.
-    pub from: Address,
+    pub from: Option<Address>,
 
     // address of the receiver. null when its a contract creation transaction.
     pub to: Option<Address>,
@@ -52,27 +52,28 @@ pub struct TransactionReceipt {
     pub logs: Vec<Log>,
 
     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-    pub status: Option<U64>,
+    #[cfg_attr(feature = "with-serde", serde(rename = "status", skip_serializing_if = "Option::is_none"))]
+    pub status_code: Option<U64>,
 
     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
-    pub root: Option<H256>,
+    #[cfg_attr(feature = "with-serde", serde(rename = "root", skip_serializing_if = "Option::is_none"))]
+    pub state_root: Option<H256>,
 
     /// Logs bloom
     pub logs_bloom: Bloom,
-
-    /// Transaction type, Some(1) for AccessList transaction, None for Legacy
-    #[cfg_attr(
-        feature = "with-serde",
-        serde(rename = "type", default, skip_serializing_if = "Option::is_none")
-    )]
-    pub transaction_type: Option<U64>,
 
     /// The price paid post-execution by the transaction (i.e. base fee + priority fee).
     /// Both fields in 1559-style transactions are *maximums* (max fee + max priority fee), the
     /// amount that's actually paid by users can only be determined post-execution
     #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub effective_gas_price: Option<U256>,
+
+    /// EIP-2718 transaction type
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(rename = "type", default, skip_serializing_if = "Option::is_none")
+    )]
+    pub transaction_type: Option<U64>,
 }
 
 // Compares the transaction receipt against another receipt by checking the blocks first and then

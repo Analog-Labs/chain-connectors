@@ -1,5 +1,10 @@
+#![allow(clippy::missing_errors_doc)]
+use crate::{
+    bytes::Bytes,
+    eth_hash::{Address, H256},
+    eth_uint::{U256, U64},
+};
 use alloc::vec::Vec;
-use rosetta_ethereum_primitives::{Address, Bytes, H256, U256, U64};
 
 /// Parameters for sending a transaction
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
@@ -12,7 +17,7 @@ use rosetta_ethereum_primitives::{Address, Bytes, H256, U256, U64};
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-pub struct TransactionCall {
+pub struct CallRequest {
     /// Sender address
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
     pub from: Option<Address>,
@@ -50,7 +55,7 @@ pub struct TransactionCall {
     ///
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub chain_id: Option<U256>,
+    pub chain_id: Option<U64>,
 
     /// The priority fee per gas.
     ///
@@ -81,6 +86,10 @@ pub struct TransactionCall {
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
+
+    /// EIP-2718 type
+    #[cfg_attr(feature = "with-serde", serde(rename = "type", skip_serializing_if = "Option::is_none"))]
+	pub transaction_type: Option<U64>,
 }
 
 #[cfg(feature = "with-serde")]

@@ -2,9 +2,10 @@
 // use rosetta_core::traits::Config;
 
 pub mod queries {
+    use ethereum_types::H256;
     use parity_scale_codec::{Decode, Encode};
     use rosetta_ethereum_primitives::{
-        Address, BlockIdentifier, Bytes, TransactionReceipt, TxHash, U256,
+        Address, BlockIdentifier, Bytes, EIP1186ProofResponse, TransactionReceipt, U256,
     };
     use serde::{Deserialize, Serialize};
 
@@ -52,39 +53,39 @@ pub mod queries {
         /// Account address
         pub address: Address,
         /// integer of the position in the storage.
-        pub at: U256,
+        pub at: H256,
         /// Storage at the block
         pub block: BlockIdentifier,
     }
 
     impl EthQuery for GetStorageAtQuery {
-        type Result = U256;
+        type Result = H256;
     }
 
     /// Returns the account and storage values of the specified account including the Merkle-proof.
     /// This call can be used to verify that the data you are pulling from is not tampered with.
     #[derive(Encode, Decode)]
     pub struct GetTransactionReceiptQuery {
-        tx_hash: TxHash,
+        pub tx_hash: H256,
     }
 
     impl EthQuery for GetTransactionReceiptQuery {
-        type Result = TransactionReceipt;
+        type Result = Option<TransactionReceipt>;
     }
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
     pub struct CallContractQuery {
         /// The address the transaction is sent from.
-        from: Option<Address>,
+        pub from: Option<Address>,
         /// The address the transaction is directed to.
-        to: Address,
+        pub to: Address,
         /// Integer of the value sent with this transaction.
-        value: U256,
+        pub value: U256,
         /// Hash of the method signature and encoded parameters.
-        data: Bytes,
+        pub data: Bytes,
         /// Call at block
-        block: BlockIdentifier,
+        pub block: BlockIdentifier,
     }
 
     /// The result of contract call execution
@@ -94,26 +95,35 @@ pub mod queries {
         Success(Bytes),
         /// Call reverted with message
         Revert(Bytes),
-        /// Account doesn't exists
-        ContractNotFound,
-        /// Out of gas
-        OutOfGas,
-        /// Call is invalid
-        /// Ex: gas price > 64 bits
-        InvalidCall,
+        /// normal EVM error.
+        Error,
     }
 
     impl EthQuery for CallContractQuery {
         type Result = CallResult;
     }
+
+    /// Returns the account and storage values, including the Merkle proof, of the specified
+    /// account.
+    #[derive(Encode, Decode)]
+    pub struct GetProofQuery {
+        pub account: Address,
+        pub storage_keys: Vec<H256>,
+        pub block: BlockIdentifier,
+    }
+
+    impl EthQuery for GetProofQuery {
+        type Result = EIP1186ProofResponse;
+    }
 }
 
 pub mod config {
     use parity_scale_codec::{Decode, Encode};
-    use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, TxHash, H256, U256};
+    use rosetta_ethereum_primitives::{Block, TxHash, H256};
 
     use super::queries::{
-        CallContractQuery, EthQuery, GetBalanceQuery, GetStorageAtQuery, GetTransactionReceiptQuery,
+        CallContractQuery, EthQuery, GetBalanceQuery, GetProofQuery, GetStorageAtQuery,
+        GetTransactionReceiptQuery,
     };
     use rosetta_core::traits::Config;
 
@@ -131,14 +141,7 @@ pub mod config {
         /// Returns the account and storage values of the specified account including the
         /// Merkle-proof. This call can be used to verify that the data you are pulling
         /// from is not tampered with.
-        GetProof {
-            /// Address of the Account
-            address: Address,
-            /// an array of storage-keys that should be proofed and included
-            storage_keys: Vec<U256>,
-            /// State at the block
-            block: BlockIdentifier,
-        },
+        GetProof(GetProofQuery),
     }
 
     #[allow(clippy::large_enum_variant)]
@@ -153,6 +156,9 @@ pub mod config {
         /// Executes a new message call immediately without creating a transaction on the block
         /// chain.
         CallContract(<CallContractQuery as EthQuery>::Result),
+        /// Returns the account and storage values, including the Merkle proof, of the specified
+        /// account.
+        GetProof(<GetProofQuery as EthQuery>::Result),
     }
 
     pub struct EthereumConfig;

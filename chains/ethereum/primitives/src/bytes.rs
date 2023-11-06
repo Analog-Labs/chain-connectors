@@ -32,6 +32,24 @@ impl scale_info::TypeInfo for Bytes {
     }
 }
 
+#[cfg(feature = "with-rlp")]
+impl rlp::Encodable for Bytes {
+    fn rlp_append(&self, s: &mut rlp::RlpStream) {
+        <bytes::Bytes as rlp::Encodable>::rlp_append(&self.0, s);
+    }
+    fn rlp_bytes(&self) -> bytes::BytesMut {
+        <bytes::Bytes as rlp::Encodable>::rlp_bytes(&self.0)
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Decodable for Bytes {
+    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        let bytes = <bytes::Bytes as rlp::Decodable>::decode(rlp)?;
+        Ok(Self(bytes))
+    }
+}
+
 impl const_hex::FromHex for Bytes {
     type Error = const_hex::FromHexError;
 
@@ -90,8 +108,16 @@ impl Bytes {
         Self(bytes::Bytes::from_static(bytes))
     }
 
-    fn hex_encode(&self) -> String {
+    pub fn hex_encode(&self) -> String {
         const_hex::encode(self.0.as_ref())
+    }
+
+    pub const fn len(&self) -> usize {
+        bytes::Bytes::len(&self.0)
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        bytes::Bytes::is_empty(&self.0)
     }
 }
 

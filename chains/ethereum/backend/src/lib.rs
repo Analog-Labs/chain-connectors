@@ -3,17 +3,15 @@
 #[cfg(feature = "jsonrpsee")]
 pub mod jsonrpsee;
 pub mod prelude;
-mod transaction;
 
 extern crate alloc;
 
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use futures_core::future::BoxFuture;
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
-    H256, U256, U64,
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, CallRequest,
+    TransactionReceipt, TxHash, H256, U256, U64,
 };
-pub use transaction::TransactionCall;
 
 /// Re-exports for proc-macro library to not require any additional
 /// dependencies to be explicitly added on the client side.
@@ -165,10 +163,10 @@ pub trait EthereumRpc {
     async fn get_code(&self, address: Address, at: AtBlock) -> Result<Bytes, Self::Error>;
 
     /// Executes a new message call immediately without creating a transaction on the blockchain.
-    async fn call(&self, tx: &TransactionCall, at: AtBlock) -> Result<ExitReason, Self::Error>;
+    async fn call(&self, tx: &CallRequest, at: AtBlock) -> Result<ExitReason, Self::Error>;
 
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
-    async fn estimate_gas(&self, tx: &TransactionCall, at: AtBlock) -> Result<U256, Self::Error>;
+    async fn estimate_gas(&self, tx: &CallRequest, at: AtBlock) -> Result<U256, Self::Error>;
 
     /// Returns the current gas price in wei.
     async fn gas_price(&self) -> Result<U256, Self::Error>;
@@ -186,7 +184,7 @@ pub trait EthereumRpc {
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     async fn create_access_list(
         &self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         at: AtBlock,
     ) -> Result<AccessListWithGasUsed, Self::Error>;
 

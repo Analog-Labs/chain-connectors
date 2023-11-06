@@ -1,0 +1,133 @@
+#![allow(clippy::missing_errors_doc)]
+use crate::{eth_hash::H256, eth_uint::U64};
+
+/// An ECDSA signature
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+#[cfg_attr(feature = "with-rlp", derive(rlp_derive::RlpEncodable, rlp_derive::RlpDecodable))]
+pub struct Signature {
+    /// The ECDSA recovery id, this value encodes the parity of the y-coordinate of the secp256k1
+    /// signature. May also encode the chain_id for legacy EIP-155 transactions.
+    pub v: RecoveryId,
+    /// The ECDSA signature r
+    pub r: H256,
+    /// The ECDSA signature s
+    pub s: H256,
+}
+
+/// The ECDSA recovery id, encodes the parity of the y-coordinate and for EIP-155 compatible
+/// transactions also encodes the chain id
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(
+    feature = "with-serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+#[cfg_attr(
+    feature = "with-rlp",
+    derive(rlp_derive::RlpEncodableWrapper, rlp_derive::RlpDecodableWrapper)
+)]
+pub struct RecoveryId(U64);
+
+impl RecoveryId {
+    #[must_use]
+    pub fn new(v: u64) -> Self {
+        debug_assert!(v >= 35 || matches!(v, 0 | 1 | 27 | 28));
+        Self(U64([v]))
+    }
+
+    #[must_use]
+    pub const fn as_u64(&self) -> u64 {
+        self.0 .0[0]
+    }
+
+    /// Returns the parity (0 for even, 1 for odd) of the y-value of a secp256k1 signature.
+    #[must_use]
+    pub const fn y_parity(&self) -> u64 {
+        let v = self.as_u64();
+
+        // if v is greather or equal to 35, it is an EIP-155 signature
+        // [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+        if v >= 35 {
+            return (v - 35) & 1;
+        }
+
+        // 27 or 28, it is a legacy signature
+        if v == 27 || v == 28 {
+            return v - 27;
+        }
+
+        // otherwise, simply return the parity of the least significant bit
+        v & 1
+    }
+
+    #[must_use]
+    pub const fn chain_id(&self) -> Option<u64> {
+        let v = self.as_u64();
+        if v >= 35 {
+            Some((v - 35) >> 1)
+        } else {
+            None
+        }
+    }
+
+    #[must_use]
+    pub const fn is_eip155(&self) -> bool {
+        self.chain_id().is_some()
+    }
+
+    /// Applies [EIP155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md)
+    #[must_use]
+    pub fn as_eip155<I: Into<u64>>(&self, chain_id: I) -> u64 {
+        let chain_id = chain_id.into();
+        self.y_parity() + 35 + (chain_id * 2)
+    }
+
+    /// the recovery id is encoded as 0 or 1 for EIP-2930.
+    #[must_use]
+    pub const fn is_eip2930(&self) -> bool {
+        self.as_u64() < 2
+    }
+
+    /// Returns a legacy signature, with
+    #[must_use]
+    pub const fn as_legacy(&self) -> u64 {
+        self.y_parity() + 27
+    }
+}
+
+impl From<RecoveryId> for u64 {
+    fn from(v: RecoveryId) -> Self {
+        v.as_u64()
+    }
+}
+
+impl From<u64> for RecoveryId {
+    fn from(v: u64) -> Self {
+        Self::new(v)
+    }
+}
+
+impl From<RecoveryId> for U64 {
+    fn from(recovery_id: RecoveryId) -> Self {
+        Self([recovery_id.as_u64()])
+    }
+}
+
+impl From<U64> for RecoveryId {
+    fn from(v: U64) -> Self {
+        Self(v)
+    }
+}
