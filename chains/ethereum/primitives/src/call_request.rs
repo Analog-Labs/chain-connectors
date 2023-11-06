@@ -1,10 +1,13 @@
 #![allow(clippy::missing_errors_doc)]
 use crate::{
     bytes::Bytes,
-    eth_hash::{Address, H256},
+    eth_hash::Address,
     eth_uint::{U256, U64},
+    transactions::{
+        access_list::AccessList, eip1559::Eip1559Transaction, eip2930::Eip2930Transaction,
+        legacy::LegacyTransaction, typed_transaction::TypedTransaction,
+    },
 };
-use alloc::vec::Vec;
 
 /// Parameters for sending a transaction
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
@@ -47,7 +50,7 @@ pub struct CallRequest {
 
     /// The nonce of the transaction. If set to `None`, no checks are performed.
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub nonce: Option<U256>,
+    pub nonce: Option<U64>,
 
     /// The chain ID of the transaction. If set to `None`, no checks are performed.
     ///
@@ -73,11 +76,11 @@ pub struct CallRequest {
     #[cfg_attr(
         feature = "with-serde",
         serde(
-            skip_serializing_if = "Vec::is_empty",
+            skip_serializing_if = "AccessList::is_empty",
             deserialize_with = "deserialize_null_default"
         )
     )]
-    pub access_list: Vec<(Address, Vec<H256>)>,
+    pub access_list: AccessList,
 
     /// The max fee per gas.
     ///
@@ -88,8 +91,11 @@ pub struct CallRequest {
     pub max_fee_per_gas: Option<U256>,
 
     /// EIP-2718 type
-    #[cfg_attr(feature = "with-serde", serde(rename = "type", skip_serializing_if = "Option::is_none"))]
-	pub transaction_type: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(rename = "type", skip_serializing_if = "Option::is_none")
+    )]
+    pub transaction_type: Option<U64>,
 }
 
 #[cfg(feature = "with-serde")]
@@ -100,4 +106,71 @@ where
 {
     let opt = <Option<T> as serde::Deserialize<'de>>::deserialize(deserializer)?;
     Ok(opt.unwrap_or_default())
+}
+
+impl From<LegacyTransaction> for CallRequest {
+    fn from(tx: LegacyTransaction) -> Self {
+        Self {
+            from: None,
+            to: tx.to,
+            gas_limit: Some(tx.gas_limit),
+            gas_price: Some(tx.gas_price),
+            value: Some(tx.value),
+            data: Some(tx.data.clone()),
+            nonce: Some(tx.nonce),
+            chain_id: tx.chain_id,
+            max_priority_fee_per_gas: None,
+            access_list: AccessList::default(),
+            max_fee_per_gas: None,
+            transaction_type: Some(U64([0x00])),
+        }
+    }
+}
+
+impl From<Eip2930Transaction> for CallRequest {
+    fn from(tx: Eip2930Transaction) -> Self {
+        Self {
+            from: None,
+            to: tx.to,
+            gas_limit: Some(tx.gas_limit),
+            gas_price: Some(tx.gas_price),
+            value: Some(tx.value),
+            data: Some(tx.data.clone()),
+            nonce: Some(tx.nonce),
+            chain_id: Some(tx.chain_id),
+            max_priority_fee_per_gas: None,
+            access_list: tx.access_list,
+            max_fee_per_gas: None,
+            transaction_type: Some(U64([0x01])),
+        }
+    }
+}
+
+impl From<Eip1559Transaction> for CallRequest {
+    fn from(tx: Eip1559Transaction) -> Self {
+        Self {
+            from: None,
+            to: tx.to,
+            gas_limit: Some(tx.gas_limit),
+            gas_price: None,
+            max_priority_fee_per_gas: Some(tx.max_priority_fee_per_gas),
+            max_fee_per_gas: Some(tx.max_fee_per_gas),
+            value: Some(tx.value),
+            data: Some(tx.data.clone()),
+            nonce: Some(tx.nonce),
+            chain_id: Some(tx.chain_id),
+            access_list: tx.access_list,
+            transaction_type: Some(U64([0x02])),
+        }
+    }
+}
+
+impl From<TypedTransaction> for CallRequest {
+    fn from(tx: TypedTransaction) -> Self {
+        match tx {
+            TypedTransaction::Legacy(tx) => tx.into(),
+            TypedTransaction::Eip2930(tx) => tx.into(),
+            TypedTransaction::Eip1559(tx) => tx.into(),
+        }
+    }
 }

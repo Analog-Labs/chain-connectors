@@ -5,9 +5,7 @@ use ::core::{
     pin::Pin,
 };
 
-use crate::{
-    AccessListWithGasUsed, AtBlock, EthereumPubSub, EthereumRpc, ExitReason, CallRequest,
-};
+use crate::{AccessListWithGasUsed, AtBlock, CallRequest, EthereumPubSub, EthereumRpc, ExitReason};
 use alloc::boxed::Box;
 pub use jsonrpsee_core as core;
 use jsonrpsee_core::{

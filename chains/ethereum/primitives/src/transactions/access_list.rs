@@ -27,6 +27,25 @@ impl AccessList {
     }
 }
 
+impl From<Vec<(Address, Vec<H256>)>> for AccessList {
+    fn from(src: Vec<(Address, Vec<H256>)>) -> Self {
+        Self(
+            src.into_iter()
+                .map(|(address, storage_keys)| AccessListItem { address, storage_keys })
+                .collect(),
+        )
+    }
+}
+
+impl IntoIterator for AccessList {
+    type Item = AccessListItem;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(
     feature = "with-codec",

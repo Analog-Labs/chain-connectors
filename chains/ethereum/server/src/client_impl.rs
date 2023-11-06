@@ -11,7 +11,7 @@ use rosetta_config_ethereum::types::config::{EthereumConfig, Query, QueryResult}
 use rosetta_core::traits::{Client, ClientEvent, Config};
 use rosetta_ethereum_backend::{
     AtBlock, EthereumPubSub, EthereumRpc,
-    __reexports::primitives::{CallRequest, TxHash},
+    __reexports::primitives::{AccessList, CallRequest, TxHash},
 };
 
 type QueryFuture<ERR> = IdentifiableFuture<u32, BoxFuture<'static, Result<QueryResult, ERR>>>;
@@ -75,7 +75,7 @@ where
                     nonce: None,
                     chain_id: None,
                     max_priority_fee_per_gas: None,
-                    access_list: Vec::with_capacity(0),
+                    access_list: AccessList::default(),
                     max_fee_per_gas: None,
                     transaction_type: None,
                 };

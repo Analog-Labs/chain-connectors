@@ -1,3 +1,4 @@
+use crate::transactions::signature::Signature;
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 
 pub trait RlpStreamExt {
@@ -45,5 +46,47 @@ impl RlpExt for Rlp<'_> {
             }
         };
         Ok(to)
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+pub trait RlpEncodableTransaction {
+    fn rlp_append(&self, s: &mut rlp::RlpStream, signature: Option<&Signature>);
+
+    fn rlp_unsigned(&self) -> bytes::Bytes {
+        let mut stream = rlp::RlpStream::new();
+        self.rlp_append(&mut stream, None);
+        stream.out().freeze()
+    }
+
+    fn rlp_signed(&self, signature: &Signature) -> bytes::Bytes {
+        let mut stream = rlp::RlpStream::new();
+        self.rlp_append(&mut stream, Some(signature));
+        stream.out().freeze()
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+pub trait RlpDecodableTransaction: Sized {
+    /// Decode a raw transaction, returning the decoded transaction and the signature if present.
+    /// # Errors
+    /// Returns an error if the transaction or signature is invalid.
+    fn rlp_decode(
+        rlp: &Rlp,
+        decode_signature: bool,
+    ) -> Result<(Self, Option<Signature>), rlp::DecoderError>;
+
+    /// Decode a raw transaction without signature
+    /// # Errors
+    /// Returns an error if the transaction is invalid.
+    fn rlp_decode_unsigned(rlp: &Rlp) -> Result<Self, DecoderError> {
+        Self::rlp_decode(rlp, false).map(|tx| tx.0)
+    }
+
+    /// Decode a raw transaction with signature
+    /// # Errors
+    /// Returns an error if the transaction or signature is invalid.
+    fn rlp_decode_signed(rlp: &Rlp) -> Result<(Self, Option<Signature>), rlp::DecoderError> {
+        Self::rlp_decode(rlp, true)
     }
 }

@@ -12,6 +12,7 @@ const-hex = { version = "1.9", default-features = false, features = ["alloc"] }
 ethbloom = { version = "0.13", default-features = false }
 primitive-types = { version = "0.12", default-features = false, features = ["byteorder", "rustc-hex", "num-traits"] }
 uint = { version = "0.9", default-features = false }
+void = { version = "1.0", default-features = false }
 
 fixed-hash = { version = "0.8", default-features = false, features = ["byteorder", "rustc-hex"] }
 impl-codec-macro = { package = "impl-codec", version = "0.6", default-features = false, optional = true }
@@ -62,6 +63,7 @@ std = [
   "ethbloom/std",
   "primitive-types/std",
   "uint/std",
+  "void/std",
   "fixed-hash/std",
   "parity-scale-codec/std",
   "scale-info/std",

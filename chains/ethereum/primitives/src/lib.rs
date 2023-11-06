@@ -4,24 +4,28 @@ extern crate alloc;
 
 mod block;
 mod bytes;
+mod call_request;
 mod eth_hash;
 mod eth_uint;
 mod log;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
 mod storage_proof;
-mod call_request;
 pub mod transactions;
 mod tx_receipt;
 
 pub use block::Block;
 pub use bytes::Bytes;
+pub use call_request::CallRequest;
 pub use eth_hash::{Address, Public, Secret, Signature, TxHash, H128, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512, U64};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
-pub use call_request::CallRequest;
+pub use transactions::{
+    access_list::{AccessList, AccessListItem, AccessListWithGasUsed},
+    typed_transaction::TypedTransaction,
+};
 pub use tx_receipt::TransactionReceipt;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

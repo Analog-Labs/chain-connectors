@@ -52,11 +52,17 @@ pub struct TransactionReceipt {
     pub logs: Vec<Log>,
 
     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-    #[cfg_attr(feature = "with-serde", serde(rename = "status", skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(rename = "status", skip_serializing_if = "Option::is_none")
+    )]
     pub status_code: Option<U64>,
 
     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-    #[cfg_attr(feature = "with-serde", serde(rename = "root", skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(rename = "root", skip_serializing_if = "Option::is_none")
+    )]
     pub state_root: Option<H256>,
 
     /// Logs bloom

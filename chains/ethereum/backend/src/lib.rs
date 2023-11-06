@@ -9,7 +9,7 @@ extern crate alloc;
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use futures_core::future::BoxFuture;
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, CallRequest,
+    Address, Block, BlockIdentifier, Bytes, CallRequest, EIP1186ProofResponse, Log,
     TransactionReceipt, TxHash, H256, U256, U64,
 };
 

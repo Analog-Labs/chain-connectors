@@ -3,17 +3,18 @@ pub mod eip1559;
 pub mod eip2930;
 pub mod legacy;
 pub mod signature;
+pub mod signed_transaction;
+pub mod typed_transaction;
 
-use eip1559::Eip1559Transaction;
-use eip2930::Eip2930Transaction;
-use legacy::LegacyTransaction;
+use core::default::Default;
 
-/// The [`TypedTransaction`] enum represents all Ethereum transaction types.
-///
-/// Its variants correspond to specific allowed transactions:
-/// 1. Legacy (pre-EIP2718) [`LegacyTransaction`]
-/// 2. EIP2930 (state access lists) [`Eip2930Transaction`]
-/// 3. EIP1559 [`Eip1559Transaction`]
+use crate::{
+    eth_hash::{Address, H256},
+    eth_uint::U256,
+};
+use access_list::AccessList;
+use signature::Signature;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(
     feature = "with-codec",
@@ -22,40 +23,42 @@ use legacy::LegacyTransaction;
 #[cfg_attr(
     feature = "with-serde",
     derive(serde::Serialize, serde::Deserialize),
-    serde(tag = "type")
+    serde(rename_all = "camelCase")
 )]
-pub enum TypedTransaction {
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x00"))]
-    Legacy(LegacyTransaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x01"))]
-    Eip2930(Eip2930Transaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x02"))]
-    Eip1559(Eip1559Transaction),
+pub enum GasPrice {
+    Legacy(U256),
+    Eip1559 { max_priority_fee_per_gas: U256, max_fee_per_gas: U256 },
 }
 
-#[cfg(feature = "with-rlp")]
-impl rlp::Encodable for TypedTransaction {
-    fn rlp_append(&self, s: &mut rlp::RlpStream) {
-        match self {
-            Self::Legacy(tx) => tx.rlp_append(s),
-            Self::Eip2930(tx) => tx.rlp_append(s),
-            Self::Eip1559(tx) => tx.rlp_append(s),
-        }
+impl Default for GasPrice {
+    fn default() -> Self {
+        Self::Legacy(U256::zero())
     }
 }
 
-#[cfg(feature = "with-rlp")]
-impl rlp::Decodable for TypedTransaction {
-    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
-        // The first byte of the RLP-encoded transaction is the transaction type.
-        // [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
-        let first = *rlp.data()?.first().ok_or(rlp::DecoderError::RlpIsTooShort)?;
-        match first {
-            0x01 => Ok(Self::Eip2930(Eip2930Transaction::decode(rlp)?)),
-            0x02 => Ok(Self::Eip1559(Eip1559Transaction::decode(rlp)?)),
-            // legacy transaction types always start with a byte >= 0xc0.
-            v if v >= 0xc0 => Ok(Self::Legacy(LegacyTransaction::decode(rlp)?)),
-            _ => Err(rlp::DecoderError::Custom("unknown transaction type")),
-        }
-    }
+pub trait TransactionT {
+    type ExtraFields: Send + Sync + Clone + PartialEq + Eq;
+
+    // Compute the tx-hash using the provided signature
+    fn compute_tx_hash(&self, signature: &Signature) -> H256;
+
+    fn chain_id(&self) -> Option<u64>;
+    fn nonce(&self) -> u64;
+    fn gas_price(&self) -> GasPrice;
+    fn gas_limit(&self) -> U256;
+    fn to(&self) -> Option<Address>;
+    fn value(&self) -> U256;
+    fn data(&self) -> &[u8];
+    /// The hash of the transaction without signature
+    fn sighash(&self) -> H256;
+    /// EIP-2930 access list
+    fn access_list(&self) -> Option<&AccessList>;
+    /// EIP-2718 transaction type
+    fn transaction_type(&self) -> Option<u8>;
+    fn extra_fields(&self) -> Option<Self::ExtraFields>;
+}
+
+pub trait SignedTransactionT: TransactionT {
+    fn tx_hash(&self) -> H256;
+    fn signature(&self) -> Signature;
 }

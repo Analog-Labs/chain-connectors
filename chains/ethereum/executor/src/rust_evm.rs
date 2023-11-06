@@ -12,7 +12,7 @@ use crate::{
 };
 use revm::{evm_inner, inspectors::NoOpInspector};
 use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason};
-use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, Bytes, TransactionCall, H256};
+use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, Bytes, CallRequest, H256};
 
 pub type EvmError = revm::primitives::EVMError<StateError>;
 
@@ -139,7 +139,7 @@ where
     #[allow(clippy::missing_errors_doc)]
     pub fn execute(
         &mut self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         block: &Block<H256>,
     ) -> Result<ExecutionResult, EvmError> {
         let mut env = revm::primitives::Env::default();
@@ -198,7 +198,7 @@ where
     #[allow(clippy::missing_errors_doc)]
     pub async fn call(
         &mut self,
-        tx: &TransactionCall,
+        tx: &CallRequest,
         at: AtBlock,
     ) -> Result<ExecutionResult, Error<RPC::Error>> {
         let prefetch = self.db.prefetch_state(tx, at).await.map_err(Error::PrefetchFailed)?;

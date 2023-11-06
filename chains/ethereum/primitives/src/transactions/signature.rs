@@ -35,10 +35,6 @@ pub struct Signature {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-#[cfg_attr(
-    feature = "with-rlp",
-    derive(rlp_derive::RlpEncodableWrapper, rlp_derive::RlpDecodableWrapper)
-)]
 pub struct RecoveryId(U64);
 
 impl RecoveryId {
@@ -129,5 +125,21 @@ impl From<RecoveryId> for U64 {
 impl From<U64> for RecoveryId {
     fn from(v: U64) -> Self {
         Self(v)
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Encodable for RecoveryId {
+    fn rlp_append(&self, s: &mut rlp::RlpStream) {
+        let v = self.as_u64();
+        <u64 as rlp::Encodable>::rlp_append(&v, s);
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Decodable for RecoveryId {
+    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        let v = <u64 as rlp::Decodable>::decode(rlp)?;
+        Ok(Self::new(v))
     }
 }
