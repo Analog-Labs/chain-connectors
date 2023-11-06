@@ -1,5 +1,3 @@
-use rlp::Rlp;
-
 use super::{
     access_list::AccessList, signature::Signature, GasPrice, SignedTransactionT, TransactionT,
 };
@@ -52,7 +50,7 @@ where
     T: RlpDecodableTransaction + TransactionT,
 {
     // For SignedTransaction we always decode the signature
-    fn rlp_decode_unsigned(rlp: &Rlp) -> Result<Self, rlp::DecoderError> {
+    fn rlp_decode_unsigned(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
         let (payload, signature) = <T as RlpDecodableTransaction>::rlp_decode(rlp, true)?;
         let signature = signature.ok_or(rlp::DecoderError::Custom("tx signature is missing"))?;
         let tx_hash = payload.compute_tx_hash(&signature);
@@ -60,7 +58,7 @@ where
     }
 
     fn rlp_decode(
-        rlp: &Rlp,
+        rlp: &rlp::Rlp,
         _decode_signature: bool,
     ) -> Result<(Self, Option<Signature>), rlp::DecoderError> {
         let signed_tx = <Self as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)?;
@@ -74,7 +72,7 @@ impl<T> rlp::Decodable for SignedTransaction<T>
 where
     T: RlpDecodableTransaction + TransactionT,
 {
-    fn decode(rlp: &Rlp) -> Result<Self, rlp::DecoderError> {
+    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
         let (payload, signature) = <T as RlpDecodableTransaction>::rlp_decode(rlp, true)?;
         let signature = signature.ok_or(rlp::DecoderError::Custom("tx signature is missing"))?;
         let tx_hash = payload.compute_tx_hash(&signature);

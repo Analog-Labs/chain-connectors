@@ -3,6 +3,7 @@ use crate::{
     eth_hash::{Address, H256},
     eth_uint::U256,
 };
+use alloc::vec::Vec;
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
@@ -87,11 +88,10 @@ pub struct AccessListItem {
     pub storage_keys: Vec<H256>,
 }
 
-#[cfg(all(test, any(feature = "with-serde", feature = "with-rlp")))]
+#[cfg(all(test, feature = "with-serde"))]
 mod tests {
     use super::{AccessList, AccessListItem, Address, H256};
 
-    #[cfg(feature = "with-serde")]
     #[test]
     fn serde_encode_works() {
         let access_list = AccessList(vec![AccessListItem {
