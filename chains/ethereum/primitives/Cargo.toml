@@ -22,7 +22,7 @@ impl-rlp-macro = { package = "impl-rlp", version = "0.3", default-features = fal
 impl-serde-macro = { package = "impl-serde", version = "0.4", default-features = false, optional = true }
 rlp-derive = { version = "0.1", optional = true }
 
-libsecp256k1 = { version = "0.7", default-features = true, optional = true }
+libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"], optional = true }
 parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
 rlp = { version = "0.5", default-features = false, optional = true }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
@@ -60,6 +60,7 @@ with-rlp = [
 ]
 with-crypto = ["dep:sha3", "dep:libsecp256k1"]
 std = [
+  "dep:thiserror",
   "bytes/std",
   "const-hex/std",
   "ethbloom/std",
@@ -67,10 +68,10 @@ std = [
   "uint/std",
   "void/std",
   "fixed-hash/std",
-  "libsecp256k1/std",
-  "parity-scale-codec/std",
-  "scale-info/std",
-  "serde/std",
-  "sha3/std",
-  "thiserror",
+  "libsecp256k1?/std",
+  "parity-scale-codec?/std",
+  "rlp?/std",
+  "scale-info?/std",
+  "serde?/std",
+  "sha3?/std",
 ]

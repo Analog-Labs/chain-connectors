@@ -10,7 +10,7 @@ description = "Ethereum rosetta server."
 anyhow = "1.0"
 async-trait = "0.1"
 ethabi = "18.0"
-ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
+ethers = { version = "2.0", default-features = false, features = ["abigen", "rustls"] }
 futures-timer = "3.0"
 futures-util = "0.3"
 hex = "0.4"

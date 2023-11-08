@@ -6,18 +6,19 @@ use std::{
 
 use crate::executor::QueryExecutor;
 use futures_util::{
-    future::BoxFuture, stream::FuturesUnordered, Future, FutureExt, Stream, StreamExt,
+    stream::{FuturesUnordered, StreamExt},
+    Future, FutureExt, Stream,
 };
-use rosetta_config_ethereum::types::config::{EthereumConfig, Query, QueryResult};
+use rosetta_config_ethereum::types::config::{EthereumConfig, Query};
 use rosetta_core::traits::{Client, ClientEvent, Config};
 use rosetta_ethereum_backend::__reexports::primitives::TxHash;
 
-type QueryFuture<ERR> = IdentifiableFuture<u32, BoxFuture<'static, Result<QueryResult, ERR>>>;
+type QueryFuture<Fut> = IdentifiableFuture<u32, Fut>;
 
 pub struct EthereumClient<T: QueryExecutor> {
     executor: T,
     id_sequence: u32,
-    pending_requests: FuturesUnordered<QueryFuture<T::Error>>,
+    pending_requests: FuturesUnordered<IdentifiableFuture<u32, T::QueryFuture>>,
 }
 
 impl<T: QueryExecutor> EthereumClient<T> {
@@ -44,8 +45,8 @@ where
     }
 
     fn query(&mut self, query: Query) -> Result<Self::QueryId, Self::Error> {
-        self.id_sequence += 1;
         let id = self.id_sequence;
+        self.id_sequence += 1;
         let future = self.executor.execute(query);
         self.pending_requests.push(QueryFuture { id, future });
         Ok(id)

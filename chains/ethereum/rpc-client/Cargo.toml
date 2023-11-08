@@ -9,7 +9,7 @@ description = "Adapters for JsonRpsee RPC client and ethers-rs."
 [dependencies]
 async-trait = "0.1"
 dashmap = "5.5"
-ethers = { version = "2.0", default-features = true }
+ethers = { version = "2.0" }
 futures-util = "0.3"
 jsonrpsee = { workspace = true, features = ["macros"] }
 pin-project = "1.1"

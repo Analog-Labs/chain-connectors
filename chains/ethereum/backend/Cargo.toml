@@ -6,25 +6,25 @@ license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
 description = "Ethereum backend"
 
-[features]
-default = ["std"]
-with-codec = ["parity-scale-codec", "scale-info", "rosetta-ethereum-primitives/with-codec"]
-with-serde = ["serde", "rosetta-ethereum-primitives/with-serde"]
-std = [
-  "futures-core/std",
-  "rosetta-ethereum-primitives/std",
-  "parity-scale-codec/std",
-  "scale-info/std",
-  "serde/std",
-]
-jsonrpsee = ["dep:jsonrpsee-core", "std", "with-serde"]
-
 [dependencies]
 async-trait = "0.1"
 auto_impl = "1.1"
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 jsonrpsee-core = { version = "0.20", default-features = false, features = ["client"], optional = true }
 parity-scale-codec = { workspace = true, features = ["derive"], optional = true }
-rosetta-ethereum-primitives = { workspace = true }
+rosetta-ethereum-primitives = { workspace = true, features = ["with-rlp"] }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+
+[features]
+default = ["std"]
+with-codec = ["dep:parity-scale-codec", "dep:scale-info", "rosetta-ethereum-primitives/with-codec"]
+with-serde = ["dep:serde", "rosetta-ethereum-primitives/with-serde"]
+std = [
+  "futures-core/std",
+  "rosetta-ethereum-primitives/std",
+  "parity-scale-codec?/std",
+  "scale-info?/std",
+  "serde?/std",
+]
+jsonrpsee = ["dep:jsonrpsee-core", "std", "with-serde"]

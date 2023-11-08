@@ -1,7 +1,10 @@
 #![allow(clippy::missing_errors_doc)]
 use std::sync::Arc;
 
-use futures_util::future::{BoxFuture, FutureExt};
+use futures_util::{
+    future::{BoxFuture, FutureExt},
+    Future,
+};
 use rosetta_config_ethereum::types::config::{Query, QueryResult};
 use rosetta_ethereum_backend::{
     AtBlock, EthereumRpc, ExitReason,
@@ -11,7 +14,9 @@ use rosetta_ethereum_backend::{
 pub trait QueryExecutor {
     type Error;
 
-    fn execute(&self, query: Query) -> BoxFuture<'static, Result<QueryResult, Self::Error>>;
+    type QueryFuture: Future<Output = Result<QueryResult, Self::Error>> + Send + Unpin + 'static;
+
+    fn execute(&self, query: Query) -> Self::QueryFuture;
 }
 
 pub struct RpcQueryExecutor<T: EthereumRpc> {
@@ -35,7 +40,9 @@ where
 {
     type Error = T::Error;
 
-    fn execute(&self, query: Query) -> BoxFuture<'static, Result<QueryResult, Self::Error>> {
+    type QueryFuture = BoxFuture<'static, Result<QueryResult, Self::Error>>;
+
+    fn execute(&self, query: Query) -> Self::QueryFuture {
         let client = Arc::clone(&self.rpc_client);
         execute_query(client, query).boxed()
     }
