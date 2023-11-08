@@ -133,25 +133,7 @@ where
         <T as ClientT>::request(&self.0, "eth_getCode", rpc_params![account, at]).await
     }
 
-    // /// Executes a new message call immediately without creating a transaction on the blockchain.
-    // fn call<'life0, 'async_trait, TX>(
-    //     &'life0 self,
-    //     tx: TX,
-    //     at: AtBlock,
-    // ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
-    // where
-    //     TX: 'async_trait + AsRef<CallRequest>,
-    //     'life0: 'async_trait,
-    //     Self: 'async_trait,
-    // {
-    //     let params = rpc_params![tx.as_ref(), at];
-    //     Box::pin(async move {
-    //         <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", params)
-    //             .await
-    //             .map(ExitReason::Succeed)
-    //     })
-    // }
-
+    /// Executes a new message call immediately without creating a transaction on the blockchain.
     fn call<'life0, 'life1, 'async_trait>(
         &'life0 self,
         tx: &'life1 CallRequest,
@@ -217,23 +199,6 @@ where
         let params = rpc_params![tx, at];
         <T as ClientT>::request(&self.0, "eth_createAccessList", params)
     }
-
-    // fn get_proof<'life0, 'async_trait, KEYS>(
-    //     &'life0 self,
-    //     address: Address,
-    //     storage_keys: KEYS,
-    //     at: AtBlock,
-    // ) -> Pin<
-    //     Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send +
-    // 'async_trait>, >
-    // where
-    //     KEYS: 'async_trait + AsRef<[H256]>,
-    //     'life0: 'async_trait,
-    //     Self: 'async_trait,
-    // {
-    //     let params = rpc_params![address, storage_keys.as_ref(), at];
-    //     <T as ClientT>::request(&self.0, "eth_getProof", params)
-    // }
 
     /// Returns the account and storage values, including the Merkle proof, of the specified
     /// account.

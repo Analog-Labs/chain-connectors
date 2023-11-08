@@ -208,19 +208,6 @@ pub trait EthereumRpc {
         'life0: 'async_trait,
         Self: 'async_trait;
 
-    // async fn create_access_list(
-    //     &self,
-    //     tx: &CallRequest,
-    //     at: AtBlock,
-    // ) -> Result<AccessListWithGasUsed, Self::Error>;
-
-    // async fn get_proof<KEYS: AsRef<[H256]>>(
-    //     &self,
-    //     address: Address,
-    //     storage_keys: KEYS,
-    //     at: AtBlock,
-    // ) -> Result<EIP1186ProofResponse, Self::Error>;
-
     /// Returns the account and storage values, including the Merkle proof, of the specified
     /// account.
     fn get_proof<'life0, 'life1, 'async_trait>(
