@@ -5,6 +5,7 @@ extern crate alloc;
 mod block;
 mod bytes;
 mod call_request;
+pub mod crypto;
 mod eth_hash;
 mod eth_uint;
 mod log;
@@ -24,11 +25,12 @@ pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
     access_list::{AccessList, AccessListItem, AccessListWithGasUsed},
+    signed_transaction::SignedTransaction,
     typed_transaction::TypedTransaction,
 };
 pub use tx_receipt::TransactionReceipt;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)

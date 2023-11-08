@@ -1,10 +1,18 @@
 use super::{eip1559::Eip1559Transaction, eip2930::Eip2930Transaction, legacy::LegacyTransaction};
 
+#[cfg(feature = "with-rlp")]
+use crate::{
+    crypto::Crypto,
+    eth_hash::H256,
+    rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction},
+    transactions::signature::Signature,
+};
+
 #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
 use crate::{
-    eth_hash::{Address, H256},
+    eth_hash::Address,
     eth_uint::U256,
-    transactions::{access_list::AccessList, signature::Signature, GasPrice, TransactionT},
+    transactions::{access_list::AccessList, GasPrice, TransactionT},
 };
 
 /// The [`TypedTransaction`] enum represents all Ethereum transaction types.
@@ -13,7 +21,7 @@ use crate::{
 /// 1. Legacy (pre-EIP2718) [`LegacyTransaction`]
 /// 2. EIP2930 (state access lists) [`Eip2930Transaction`]
 /// 3. EIP1559 [`Eip1559Transaction`]
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -33,12 +41,102 @@ pub enum TypedTransaction {
 }
 
 #[cfg(feature = "with-rlp")]
+impl TypedTransaction {
+    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
+        match self {
+            Self::Legacy(tx) => LegacyTransaction::tx_hash::<C>(tx, signature),
+            Self::Eip2930(tx) => Eip2930Transaction::tx_hash::<C>(tx, signature),
+            Self::Eip1559(tx) => Eip1559Transaction::tx_hash::<C>(tx, signature),
+        }
+    }
+
+    pub fn sighash<C: Crypto>(&self) -> H256 {
+        match self {
+            Self::Legacy(tx) => LegacyTransaction::sighash::<C>(tx),
+            Self::Eip2930(tx) => Eip2930Transaction::sighash::<C>(tx),
+            Self::Eip1559(tx) => Eip1559Transaction::sighash::<C>(tx),
+        }
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl RlpEncodableTransaction for TypedTransaction {
+    fn rlp_append(&self, s: &mut rlp::RlpStream, signature: Option<&Signature>) {
+        match self {
+            Self::Legacy(tx) => RlpEncodableTransaction::rlp_append(tx, s, signature),
+            Self::Eip2930(tx) => RlpEncodableTransaction::rlp_append(tx, s, signature),
+            Self::Eip1559(tx) => RlpEncodableTransaction::rlp_append(tx, s, signature),
+        };
+    }
+}
+
+#[cfg(feature = "with-rlp")]
 impl rlp::Encodable for TypedTransaction {
     fn rlp_append(&self, s: &mut rlp::RlpStream) {
-        match self {
-            Self::Legacy(tx) => tx.rlp_append(s),
-            Self::Eip2930(tx) => tx.rlp_append(s),
-            Self::Eip1559(tx) => tx.rlp_append(s),
+        <Self as RlpEncodableTransaction>::rlp_append(self, s, None);
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl RlpDecodableTransaction for TypedTransaction {
+    fn rlp_decode(
+        rlp: &rlp::Rlp,
+        decode_signature: bool,
+    ) -> Result<(Self, Option<Signature>), rlp::DecoderError> {
+        // The first byte of the RLP-encoded transaction is the transaction type.
+        // [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
+        let first = *rlp.as_raw().first().ok_or(rlp::DecoderError::RlpIsTooShort)?;
+        match first {
+            0x01 => {
+                <Eip2930Transaction as RlpDecodableTransaction>::rlp_decode(rlp, decode_signature)
+                    .map(|(tx, sig)| (Self::Eip2930(tx), sig))
+            },
+            0x02 => {
+                <Eip1559Transaction as RlpDecodableTransaction>::rlp_decode(rlp, decode_signature)
+                    .map(|(tx, sig)| (Self::Eip1559(tx), sig))
+            },
+            // legacy transaction types always start with a byte >= 0xc0.
+            v if v >= 0xc0 => {
+                <LegacyTransaction as RlpDecodableTransaction>::rlp_decode(rlp, decode_signature)
+                    .map(|(tx, sig)| (Self::Legacy(tx), sig))
+            },
+            _ => Err(rlp::DecoderError::Custom("unknown transaction type")),
+        }
+    }
+
+    fn rlp_decode_unsigned(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        // The first byte of the RLP-encoded transaction is the transaction type.
+        // [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
+        let first = *rlp.as_raw().first().ok_or(rlp::DecoderError::RlpIsTooShort)?;
+        match first {
+            0x01 => <Eip2930Transaction as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)
+                .map(Self::Eip2930),
+            0x02 => <Eip1559Transaction as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)
+                .map(Self::Eip1559),
+            // legacy transaction types always start with a byte >= 0xc0.
+            v if v >= 0xc0 => {
+                <LegacyTransaction as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)
+                    .map(Self::Legacy)
+            },
+            _ => Err(rlp::DecoderError::Custom("unknown transaction type")),
+        }
+    }
+
+    fn rlp_decode_signed(rlp: &rlp::Rlp) -> Result<(Self, Option<Signature>), rlp::DecoderError> {
+        // The first byte of the RLP-encoded transaction is the transaction type.
+        // [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
+        let first = *rlp.as_raw().first().ok_or(rlp::DecoderError::RlpIsTooShort)?;
+        match first {
+            0x01 => <Eip2930Transaction as RlpDecodableTransaction>::rlp_decode_signed(rlp)
+                .map(|(tx, sig)| (Self::Eip2930(tx), sig)),
+            0x02 => <Eip1559Transaction as RlpDecodableTransaction>::rlp_decode_signed(rlp)
+                .map(|(tx, sig)| (Self::Eip1559(tx), sig)),
+            // legacy transaction types always start with a byte >= 0xc0.
+            v if v >= 0xc0 => {
+                <LegacyTransaction as RlpDecodableTransaction>::rlp_decode_signed(rlp)
+                    .map(|(tx, sig)| (Self::Legacy(tx), sig))
+            },
+            _ => Err(rlp::DecoderError::Custom("unknown transaction type")),
         }
     }
 }
@@ -46,16 +144,7 @@ impl rlp::Encodable for TypedTransaction {
 #[cfg(feature = "with-rlp")]
 impl rlp::Decodable for TypedTransaction {
     fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
-        // The first byte of the RLP-encoded transaction is the transaction type.
-        // [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
-        let first = *rlp.data()?.first().ok_or(rlp::DecoderError::RlpIsTooShort)?;
-        match first {
-            0x01 => Ok(Self::Eip2930(Eip2930Transaction::decode(rlp)?)),
-            0x02 => Ok(Self::Eip1559(Eip1559Transaction::decode(rlp)?)),
-            // legacy transaction types always start with a byte >= 0xc0.
-            v if v >= 0xc0 => Ok(Self::Legacy(LegacyTransaction::decode(rlp)?)),
-            _ => Err(rlp::DecoderError::Custom("unknown transaction type")),
-        }
+        <Self as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)
     }
 }
 

@@ -23,6 +23,15 @@ pub struct Signature {
     pub s: H256,
 }
 
+impl Signature {
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn to_raw_signature(&self, output: &mut [u8; 65]) {
+        output[0..32].copy_from_slice(self.r.as_fixed_bytes());
+        output[32..64].copy_from_slice(self.s.as_fixed_bytes());
+        output[64] = self.v.y_parity() as u8;
+    }
+}
+
 /// The ECDSA recovery id, encodes the parity of the y-coordinate and for EIP-155 compatible
 /// transactions also encodes the chain id
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

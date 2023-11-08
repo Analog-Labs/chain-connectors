@@ -189,9 +189,9 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn call(
-        &mut self,
-        tx: &CallRequest,
+    pub async fn call<'a: 'p, 'p>(
+        &'a mut self,
+        tx: &'p CallRequest,
         at: AtBlock,
     ) -> Result<ExecutionResult, Error<RPC::Error>> {
         let prefetch = self.db.prefetch_state(tx, at).await.map_err(Error::PrefetchFailed)?;

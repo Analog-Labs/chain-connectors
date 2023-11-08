@@ -8,6 +8,7 @@ use crate::{
 
 #[cfg(feature = "with-rlp")]
 use crate::{
+    crypto::Crypto,
     eth_hash::H256,
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
     transactions::signature::{RecoveryId, Signature},
@@ -16,7 +17,7 @@ use crate::{
 /// Legacy transaction that use the transaction format existing before typed transactions were
 /// introduced in EIP-2718. Legacy transactions don’t use access lists or incorporate EIP-1559 fee
 /// market changes.
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -55,6 +56,19 @@ pub struct LegacyTransaction {
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
     pub chain_id: Option<U64>,
+}
+
+#[cfg(feature = "with-rlp")]
+impl LegacyTransaction {
+    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
+        let encoded = RlpEncodableTransaction::rlp_signed(self, signature);
+        C::keccak256(encoded)
+    }
+
+    pub fn sighash<C: Crypto>(&self) -> H256 {
+        let encoded = RlpEncodableTransaction::rlp_unsigned(self);
+        C::keccak256(encoded)
+    }
 }
 
 #[cfg(feature = "with-rlp")]
@@ -377,33 +391,37 @@ mod tests {
     #[test]
     fn compute_legacy_sighash() {
         use super::super::TransactionT;
-        use crate::eth_hash::H256;
+        use crate::{crypto::DefaultCrypto, eth_hash::H256};
 
         let tx = build_legacy(false).0;
         let expected =
             H256(hex!("c8519e5053848e75bc9c6dc20710410d56c9186b486a9b27900eb3355fed085e"));
-        assert_eq!(expected, tx.sighash());
+        assert_eq!(expected, TransactionT::sighash(&tx));
+        assert_eq!(expected, LegacyTransaction::sighash::<DefaultCrypto>(&tx));
 
         let tx = build_legacy(true).0;
         let expected =
             H256(hex!("bb88aee10d01fe0a01135bf346a6eba268e1c5f3ab3e3045c14a97b02245f90f"));
-        assert_eq!(expected, tx.sighash());
+        assert_eq!(expected, TransactionT::sighash(&tx));
+        assert_eq!(expected, LegacyTransaction::sighash::<DefaultCrypto>(&tx));
     }
 
     #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
     #[test]
     fn compute_legacy_tx_hash() {
         use super::super::TransactionT;
-        use crate::eth_hash::H256;
+        use crate::{crypto::DefaultCrypto, eth_hash::H256};
 
         let (tx, sig) = build_legacy(false);
         let expected =
             H256(hex!("5a2dbc3b236ddf99c6a380a1a057023ff5d2f35ada1e38b5cbe125ee87cd4777"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
+        assert_eq!(expected, LegacyTransaction::tx_hash::<DefaultCrypto>(&tx, &sig));
 
         let (tx, sig) = build_legacy(true);
         let expected =
             H256(hex!("df99f8176f765d84ed1c00a12bba00206c6da97986c802a532884aca5aaa3809"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
+        assert_eq!(expected, LegacyTransaction::tx_hash::<DefaultCrypto>(&tx, &sig));
     }
 }

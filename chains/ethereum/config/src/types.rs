@@ -14,7 +14,7 @@ pub mod queries {
     }
 
     /// Parameters for sending a transaction
-    #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Debug)]
+    #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Debug, Hash)]
     pub struct Call {
         /// Sender address or ENS name
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -35,7 +35,7 @@ pub mod queries {
     }
 
     ///·Returns·the·balance·of·the·account·of·given·address.
-    #[derive(Encode, Decode)]
+    #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, Hash)]
     pub struct GetBalanceQuery {
         /// Account address
         pub address: Address,
@@ -48,7 +48,7 @@ pub mod queries {
     }
 
     /// Returns the value from a storage position at a given address.
-    #[derive(Encode, Decode)]
+    #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, Hash)]
     pub struct GetStorageAtQuery {
         /// Account address
         pub address: Address,
@@ -64,7 +64,7 @@ pub mod queries {
 
     /// Returns the account and storage values of the specified account including the Merkle-proof.
     /// This call can be used to verify that the data you are pulling from is not tampered with.
-    #[derive(Encode, Decode)]
+    #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, Hash)]
     pub struct GetTransactionReceiptQuery {
         pub tx_hash: H256,
     }
@@ -74,7 +74,7 @@ pub mod queries {
     }
 
     /// Executes a new message call immediately without creating a transaction on the block chain.
-    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Hash)]
     pub struct CallContractQuery {
         /// The address the transaction is sent from.
         pub from: Option<Address>,
@@ -89,7 +89,7 @@ pub mod queries {
     }
 
     /// The result of contract call execution
-    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
+    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, Hash)]
     pub enum CallResult {
         /// Call executed succesfully
         Success(Bytes),
@@ -105,7 +105,7 @@ pub mod queries {
 
     /// Returns the account and storage values, including the Merkle proof, of the specified
     /// account.
-    #[derive(Encode, Decode)]
+    #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, Hash)]
     pub struct GetProofQuery {
         pub account: Address,
         pub storage_keys: Vec<H256>,
@@ -119,7 +119,7 @@ pub mod queries {
 
 pub mod config {
     use parity_scale_codec::{Decode, Encode};
-    use rosetta_ethereum_primitives::{Block, TxHash, H256};
+    use rosetta_ethereum_primitives::{Block, SignedTransaction, TxHash, TypedTransaction, H256};
 
     use super::queries::{
         CallContractQuery, EthQuery, GetBalanceQuery, GetProofQuery, GetStorageAtQuery,
@@ -127,7 +127,9 @@ pub mod config {
     };
     use rosetta_core::traits::Config;
 
-    #[derive(Decode, Encode)]
+    pub type Transaction = SignedTransaction<TypedTransaction>;
+
+    #[derive(Debug, Decode, Encode, Clone, PartialEq, Eq)]
     pub enum Query {
         /// Returns the balance of the account of given address.
         GetBalance(GetBalanceQuery),
@@ -145,7 +147,7 @@ pub mod config {
     }
 
     #[allow(clippy::large_enum_variant)]
-    #[derive(Decode, Encode)]
+    #[derive(Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     pub enum QueryResult {
         /// Returns the balance of the account of given address.
         GetBalance(<GetBalanceQuery as EthQuery>::Result),
@@ -165,7 +167,7 @@ pub mod config {
 
     // TODO implement scale codec for primitive types
     impl Config for EthereumConfig {
-        type Transaction = ();
+        type Transaction = Transaction;
         type TransactionIdentifier = TxHash;
 
         type Block = Block<TxHash>;

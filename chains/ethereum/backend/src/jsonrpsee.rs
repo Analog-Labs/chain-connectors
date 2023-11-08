@@ -133,16 +133,54 @@ where
         <T as ClientT>::request(&self.0, "eth_getCode", rpc_params![account, at]).await
     }
 
-    /// Executes a new message call immediately without creating a transaction on the blockchain.
-    async fn call(&self, tx: &CallRequest, at: AtBlock) -> Result<ExitReason, Self::Error> {
-        <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", rpc_params![tx, at])
-            .await
-            .map(ExitReason::Succeed)
+    // /// Executes a new message call immediately without creating a transaction on the blockchain.
+    // fn call<'life0, 'async_trait, TX>(
+    //     &'life0 self,
+    //     tx: TX,
+    //     at: AtBlock,
+    // ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
+    // where
+    //     TX: 'async_trait + AsRef<CallRequest>,
+    //     'life0: 'async_trait,
+    //     Self: 'async_trait,
+    // {
+    //     let params = rpc_params![tx.as_ref(), at];
+    //     Box::pin(async move {
+    //         <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", params)
+    //             .await
+    //             .map(ExitReason::Succeed)
+    //     })
+    // }
+
+    fn call<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+        at: AtBlock,
+    ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        let params = rpc_params![tx, at];
+        Box::pin(async move {
+            <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", params)
+                .await
+                .map(ExitReason::Succeed)
+        })
     }
 
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
-    async fn estimate_gas(&self, tx: &CallRequest, at: AtBlock) -> Result<U256, Self::Error> {
-        <T as ClientT>::request(&self.0, "eth_estimateGas", rpc_params![tx, at]).await
+    fn estimate_gas<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+        at: AtBlock,
+    ) -> Pin<Box<dyn Future<Output = Result<U256, Self::Error>> + Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        let params = rpc_params![tx, at];
+        <T as ClientT>::request(&self.0, "eth_estimateGas", params)
     }
 
     /// Returns the current gas price in wei.
@@ -165,24 +203,54 @@ where
 
     /// Creates an EIP-2930 access list that you can include in a transaction.
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    async fn create_access_list(
-        &self,
-        tx: &CallRequest,
+    fn create_access_list<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Result<AccessListWithGasUsed, Error> {
-        <T as ClientT>::request(&self.0, "eth_createAccessList", rpc_params![tx, at]).await
+    ) -> Pin<
+        Box<dyn Future<Output = Result<AccessListWithGasUsed, Self::Error>> + Send + 'async_trait>,
+    >
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        let params = rpc_params![tx, at];
+        <T as ClientT>::request(&self.0, "eth_createAccessList", params)
     }
+
+    // fn get_proof<'life0, 'async_trait, KEYS>(
+    //     &'life0 self,
+    //     address: Address,
+    //     storage_keys: KEYS,
+    //     at: AtBlock,
+    // ) -> Pin<
+    //     Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send +
+    // 'async_trait>, >
+    // where
+    //     KEYS: 'async_trait + AsRef<[H256]>,
+    //     'life0: 'async_trait,
+    //     Self: 'async_trait,
+    // {
+    //     let params = rpc_params![address, storage_keys.as_ref(), at];
+    //     <T as ClientT>::request(&self.0, "eth_getProof", params)
+    // }
 
     /// Returns the account and storage values, including the Merkle proof, of the specified
     /// account.
-    async fn get_proof(
-        &self,
+    fn get_proof<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         address: Address,
-        storage_keys: &[H256],
+        storage_keys: &'life1 [H256],
         at: AtBlock,
-    ) -> Result<EIP1186ProofResponse, Self::Error> {
-        <T as ClientT>::request(&self.0, "eth_getProof", rpc_params![address, storage_keys, at])
-            .await
+    ) -> Pin<
+        Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send + 'async_trait>,
+    >
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        let params = rpc_params![address, storage_keys, at];
+        <T as ClientT>::request(&self.0, "eth_getProof", params)
     }
 
     /// Get storage value of address at index.

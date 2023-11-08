@@ -15,6 +15,6 @@ ethereum-types = { version = "0.14", features = ["codec"] }
 parity-scale-codec = { workspace = true, features = ["std", "derive", "bytes"] }
 rosetta-config-astar = { workspace = true }
 rosetta-core.workspace = true
-rosetta-ethereum-primitives = { workspace = true, features = ["std", "with-codec", "with-serde"] }
+rosetta-ethereum-primitives = { workspace = true, features = ["std", "with-codec", "with-serde", "with-rlp", "with-crypto"] }
 serde.workspace = true
 thiserror = "1.0"

@@ -8,15 +8,17 @@ use crate::{
 };
 
 #[cfg(feature = "with-rlp")]
-use super::signature::Signature;
-
-#[cfg(feature = "with-rlp")]
-use crate::rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt};
+use crate::{
+    crypto::Crypto,
+    eth_hash::H256,
+    rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
+    transactions::Signature,
+};
 
 /// Transactions with type 0x1 are transactions introduced in EIP-2930. They contain, along with the
 /// legacy parameters, an access list which specifies an array of addresses and storage keys that
 /// the transaction plans to access (an access list)
-#[derive(Clone, Default, PartialEq, Eq, Debug)]
+#[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -62,6 +64,19 @@ pub struct Eip2930Transaction {
         serde(default, skip_serializing_if = "AccessList::is_empty")
     )]
     pub access_list: AccessList,
+}
+
+#[cfg(feature = "with-rlp")]
+impl Eip2930Transaction {
+    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
+        let encoded = RlpEncodableTransaction::rlp_signed(self, signature);
+        C::keccak256(encoded)
+    }
+
+    pub fn sighash<C: Crypto>(&self) -> H256 {
+        let encoded = RlpEncodableTransaction::rlp_unsigned(self);
+        C::keccak256(encoded)
+    }
 }
 
 #[cfg(feature = "with-rlp")]
@@ -356,10 +371,12 @@ mod tests {
     #[test]
     fn compute_eip2930_sighash() {
         use super::super::TransactionT;
+        use crate::crypto::DefaultCrypto;
         let tx = build_eip2930().0;
         let expected =
             H256(hex!("9af0ea823342c8b7755010d69e9c81fd11d487dbbaad02034757ff117f95f522"));
-        assert_eq!(expected, tx.sighash());
+        assert_eq!(expected, TransactionT::sighash(&tx));
+        assert_eq!(expected, Eip2930Transaction::sighash::<DefaultCrypto>(&tx));
     }
 
     #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]

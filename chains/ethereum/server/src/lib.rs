@@ -18,6 +18,7 @@ mod client;
 pub mod client_impl;
 mod eth_types;
 mod event_stream;
+pub mod executor;
 mod proof;
 mod utils;
 

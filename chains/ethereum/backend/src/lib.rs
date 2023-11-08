@@ -5,9 +5,10 @@ pub mod jsonrpsee;
 pub mod prelude;
 
 extern crate alloc;
+use core::pin::Pin;
 
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
-use futures_core::future::BoxFuture;
+use futures_core::{future::BoxFuture, Future};
 use rosetta_ethereum_primitives::{
     Address, Block, BlockIdentifier, Bytes, CallRequest, EIP1186ProofResponse, Log,
     TransactionReceipt, TxHash, H256, U256, U64,
@@ -163,10 +164,24 @@ pub trait EthereumRpc {
     async fn get_code(&self, address: Address, at: AtBlock) -> Result<Bytes, Self::Error>;
 
     /// Executes a new message call immediately without creating a transaction on the blockchain.
-    async fn call(&self, tx: &CallRequest, at: AtBlock) -> Result<ExitReason, Self::Error>;
+    fn call<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+        at: AtBlock,
+    ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait;
 
     /// Returns an estimate of how much gas is necessary to allow the transaction to complete.
-    async fn estimate_gas(&self, tx: &CallRequest, at: AtBlock) -> Result<U256, Self::Error>;
+    fn estimate_gas<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+        at: AtBlock,
+    ) -> Pin<Box<dyn Future<Output = Result<U256, Self::Error>> + Send + 'async_trait>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait;
 
     /// Returns the current gas price in wei.
     async fn gas_price(&self) -> Result<U256, Self::Error>;
@@ -182,20 +197,43 @@ pub trait EthereumRpc {
 
     /// Creates an EIP-2930 access list that you can include in a transaction.
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    async fn create_access_list(
-        &self,
-        tx: &CallRequest,
+    fn create_access_list<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Result<AccessListWithGasUsed, Self::Error>;
+    ) -> Pin<
+        Box<dyn Future<Output = Result<AccessListWithGasUsed, Self::Error>> + Send + 'async_trait>,
+    >
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait;
+
+    // async fn create_access_list(
+    //     &self,
+    //     tx: &CallRequest,
+    //     at: AtBlock,
+    // ) -> Result<AccessListWithGasUsed, Self::Error>;
+
+    // async fn get_proof<KEYS: AsRef<[H256]>>(
+    //     &self,
+    //     address: Address,
+    //     storage_keys: KEYS,
+    //     at: AtBlock,
+    // ) -> Result<EIP1186ProofResponse, Self::Error>;
 
     /// Returns the account and storage values, including the Merkle proof, of the specified
     /// account.
-    async fn get_proof(
-        &self,
+    fn get_proof<'life0, 'life1, 'async_trait>(
+        &'life0 self,
         address: Address,
-        storage_keys: &[H256],
+        storage_keys: &'life1 [H256],
         at: AtBlock,
-    ) -> Result<EIP1186ProofResponse, Self::Error>;
+    ) -> Pin<
+        Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send + 'async_trait>,
+    >
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait;
 
     /// Get storage value of address at index.
     async fn storage(
