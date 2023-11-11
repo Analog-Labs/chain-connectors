@@ -1,3 +1,4 @@
+#![allow(clippy::similar_names, clippy::many_single_char_names)]
 use super::{Precompile, PrecompileResult};
 use sputnik_evm::{
     executor::stack::{PrecompileFailure, PrecompileHandle, PrecompileOutput},
@@ -12,7 +13,7 @@ impl Blake2F {
 
 impl Precompile for Blake2F {
     /// Format of `input`:
-    /// [4 bytes for rounds][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for t_1][1
+    /// [4 bytes for rounds][64 bytes for h][128 bytes for m][8 bytes for t_0][8 bytes for `t_1`][1
     /// byte for f]
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
         const BLAKE2_F_ARG_LEN: usize = 213;
@@ -104,8 +105,9 @@ const SIGMA: [[usize; 16]; 10] = [
     [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0],
 ];
 
-/// IV is the initialization vector for `BLAKE2b`. See https://tools.ietf.org/html/rfc7693#section-2.6
+/// IV is the initialization vector for `BLAKE2b`. See [rfc7693#section-2.6](https://tools.ietf.org/html/rfc7693#section-2.6)
 /// for details.
+#[allow(clippy::unreadable_literal)]
 const IV: [u64; 8] = [
     0x6a09e667f3bcc908,
     0xbb67ae8584caa73b,
@@ -117,7 +119,8 @@ const IV: [u64; 8] = [
     0x5be0cd19137e2179,
 ];
 
-/// The G mixing function. See https://tools.ietf.org/html/rfc7693#section-3.1
+/// The G mixing function. See [rfc7693#section-3.1](https://tools.ietf.org/html/rfc7693#section-3.1)
+#[allow(clippy::inline_always)]
 #[inline(always)]
 fn g(v: &mut [u64], a: usize, b: usize, c: usize, d: usize, x: u64, y: u64) {
     v[a] = v[a].wrapping_add(v[b]).wrapping_add(x);
@@ -130,7 +133,7 @@ fn g(v: &mut [u64], a: usize, b: usize, c: usize, d: usize, x: u64, y: u64) {
     v[b] = (v[b] ^ v[c]).rotate_right(63);
 }
 
-/// The Blake2 compression function F. See https://tools.ietf.org/html/rfc7693#section-3.2
+/// The Blake2 compression function F. See [rfc7693#section-3.2](https://tools.ietf.org/html/rfc7693#section-3.2)
 /// Takes as an argument the state vector `h`, message block vector `m`, offset counter `t`, final
 /// block indicator flag `f`, and number of rounds `rounds`. The state vector provided as the first
 /// parameter is modified by the function.

@@ -1,3 +1,4 @@
+#![allow(clippy::similar_names)]
 use super::{Precompile, PrecompileResult};
 use alloc::vec::Vec;
 use rosetta_ethereum_primitives::U256;
