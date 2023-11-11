@@ -23,7 +23,7 @@ mod tests {
 
     #[test]
     fn process_consensus_tests_for_sha256() {
-        let data = include_str!("../res/common_sha256.json");
+        let data = include_str!("../../res/common_sha256.json");
         test_precompile_test_vectors::<Sha256>(data);
     }
 }

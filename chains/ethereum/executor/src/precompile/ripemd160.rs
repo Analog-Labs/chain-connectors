@@ -26,7 +26,7 @@ mod tests {
     // TODO: this fails on the test "InvalidHighV-bits-1" where it is expected to return ""
     #[test]
     fn process_consensus_tests_for_ecrecover() {
-        let data = include_str!("../res/common_ripemd.json");
+        let data = include_str!("../../res/common_ripemd.json");
         test_precompile_test_vectors::<Ripemd160>(data);
     }
 }

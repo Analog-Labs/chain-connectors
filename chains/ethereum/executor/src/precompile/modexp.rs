@@ -225,7 +225,7 @@ mod tests {
 
     #[test]
     fn process_consensus_tests() {
-        let data = include_str!("../res/modexp_eip2565.json");
+        let data = include_str!("../../res/modexp_eip2565.json");
         test_precompile_test_vectors::<Modexp>(data);
     }
 

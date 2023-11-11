@@ -248,19 +248,19 @@ mod tests {
 
     #[test]
     fn process_consensus_tests_for_add() {
-        let data = include_str!("../res/common_bnadd.json");
+        let data = include_str!("../../res/common_bnadd.json");
         test_precompile_test_vectors::<Bn128Add>(data);
     }
 
     #[test]
     fn process_consensus_tests_for_mul() {
-        let data = include_str!("../res/common_bnmul.json");
+        let data = include_str!("../../res/common_bnmul.json");
         test_precompile_test_vectors::<Bn128Mul>(data);
     }
 
     #[test]
     fn process_consensus_tests_for_pair() {
-        let data = include_str!("../res/common_bnpair.json");
+        let data = include_str!("../../res/common_bnpair.json");
         test_precompile_test_vectors::<Bn128Pairing>(data);
     }
 }
