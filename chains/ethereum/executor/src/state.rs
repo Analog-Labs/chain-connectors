@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned, collections::BTreeMap, vec::Vec};
 use rosetta_ethereum_backend::{AccessListItem, AccessListWithGasUsed, AtBlock, EthereumRpc};
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, CallRequest, EIP1186ProofResponse, H256,
+    rpc::CallRequest, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, H256,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-/// Parameters for sending a transaction
+/// Call request for `eth_call` and adjacent methods.
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 #[cfg_attr(
     feature = "with-codec",

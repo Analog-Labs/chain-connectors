@@ -198,7 +198,6 @@ mod tests {
         (tx, signature)
     }
 
-    #[cfg(feature = "with-serde")]
     #[test]
     fn serde_encode_works() {
         use crate::SignedTransaction;

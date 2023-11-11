@@ -8,7 +8,7 @@ use futures_util::{
 use rosetta_config_ethereum::types::config::{Query, QueryResult};
 use rosetta_ethereum_backend::{
     AtBlock, EthereumRpc, ExitReason,
-    __reexports::primitives::{AccessList, CallRequest},
+    __reexports::primitives::{rpc::CallRequest, AccessList},
 };
 
 pub trait QueryExecutor {

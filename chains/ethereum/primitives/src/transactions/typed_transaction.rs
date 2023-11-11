@@ -32,11 +32,11 @@ use crate::{
     serde(tag = "type")
 )]
 pub enum TypedTransaction {
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x00"))]
+    #[cfg_attr(feature = "with-serde", serde(rename = "0x0"))]
     Legacy(LegacyTransaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x01"))]
+    #[cfg_attr(feature = "with-serde", serde(rename = "0x1"))]
     Eip2930(Eip2930Transaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x02"))]
+    #[cfg_attr(feature = "with-serde", serde(rename = "0x2"))]
     Eip1559(Eip1559Transaction),
 }
 

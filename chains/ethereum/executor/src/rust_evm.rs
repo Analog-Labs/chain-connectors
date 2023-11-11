@@ -12,7 +12,7 @@ use crate::{
 };
 use revm::{evm_inner, inspectors::NoOpInspector};
 use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason};
-use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, Bytes, CallRequest, H256};
+use rosetta_ethereum_primitives::{rpc::CallRequest, Address, Block, BlockIdentifier, Bytes, H256};
 
 pub type EvmError = revm::primitives::EVMError<StateError>;
 

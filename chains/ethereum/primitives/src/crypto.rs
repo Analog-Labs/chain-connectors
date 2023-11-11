@@ -17,8 +17,8 @@ pub trait Crypto {
 
     /// Verify and recover a `SECP256k1` ECDSA signature.
     ///
-    /// - `sig` is passed in RSV format. V should be either `0/1` or `27/28`.
-    /// - `msg` is the keccak256 hash of the message.
+    /// - `signature` is signature passed in RSV format.
+    /// - `message_hash` is the keccak256 hash of the message.
     ///
     /// # Errors
     /// Returns `Err` if the signature is bad, otherwise the recovered address.

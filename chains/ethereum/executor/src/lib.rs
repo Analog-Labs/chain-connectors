@@ -2,6 +2,8 @@
 
 extern crate alloc;
 
+#[cfg(feature = "sputnik-evm")]
+mod precompile;
 #[cfg(feature = "rust-evm")]
 mod rust_evm;
 #[cfg(feature = "sputnik-evm")]
@@ -32,7 +34,7 @@ pub trait Executor {
     #[allow(clippy::missing_errors_doc)]
     fn execute(
         &mut self,
-        tx: &primitives::CallRequest,
+        tx: &primitives::rpc::CallRequest,
         at: backend::AtBlock,
     ) -> Result<backend::ExitReason, Self::Error>;
 }

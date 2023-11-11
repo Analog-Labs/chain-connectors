@@ -8,7 +8,9 @@ use crate::{
     },
 };
 use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason};
-use rosetta_ethereum_primitives::{Address, Block, BlockIdentifier, CallRequest, H256, U256, U64};
+use rosetta_ethereum_primitives::{
+    rpc::CallRequest, Address, Block, BlockIdentifier, H256, U256, U64,
+};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]

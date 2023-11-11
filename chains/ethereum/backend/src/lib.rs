@@ -10,7 +10,7 @@ use core::pin::Pin;
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use futures_core::{future::BoxFuture, Future};
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, CallRequest, EIP1186ProofResponse, Log,
+    rpc::CallRequest, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log,
     TransactionReceipt, TxHash, H256, U256, U64,
 };
 
@@ -240,7 +240,6 @@ pub trait EthereumRpc {
 
 /// EVM backend.
 #[async_trait::async_trait]
-// #[auto_impl::auto_impl(Arc, Box)]
 pub trait EthereumPubSub: EthereumRpc {
     type SubscriptionError: core::fmt::Display + Send + 'static;
     type NewHeadsStream<'a>: futures_core::Stream<Item = Result<Block<H256>, Self::SubscriptionError>>

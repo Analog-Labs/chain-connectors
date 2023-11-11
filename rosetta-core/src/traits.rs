@@ -98,4 +98,65 @@ pub trait Client: Sized {
     ) -> Poll<ClientEvent<Self>>
     where
         Self: 'd;
+    // fn poll_next_event(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<ClientEvent<Self>>;
+    // fn poll_next_event<'a: 'b, 'b, 'c: 'a, 'd>(self: Pin<&'b mut Self>, cx: &'d mut Context<'c>)
+    // -> Poll<ClientEvent<Self>> where Self: 'a;
 }
+
+// pub trait Query {
+//     type Result: Sized;
+// }
+
+// pub trait Transaction: Sized {
+//     type ID: 'static + Send + Sync + Sized + Clone + PartialEq + Eq + Display;
+//     type DecodeError: Display;
+
+//     fn id(&self) -> Self::ID;
+// }
+
+// pub trait Client2 {
+//     type Transaction: Transaction;
+//     type Subscription;
+//     type Query;
+//     type QueryResult;
+//     type Event;
+//     type Error: std::error::Error;
+
+//     type ClientEvent = ClientEvent<
+//         Self::Event,
+//         Self::TransactionId,
+//         Self::QueryId,
+//         Result<Self::QueryResult, Self::Error>,
+//         Self::
+
+//     type SubmitTransactionFuture<'a>: Future<Output = Result<Self::TransactionId, Self::Error>> +
+// 'a + Send + Unpin where Self: 'a;     type QueryFuture<'a>: Future<Output = Result<<Self::Query
+// as Query>::Result, Self::Error>> + 'a + Send + Unpin where Self: 'a;
+
+//     /// Submits a signed transaction
+//     /// # Errors
+//     /// Should return `Err` if the transaction is invalid
+//     fn submit<'a>(
+//         &'a self,
+//         tx: <Self::Config as Config>::Transaction,
+//     ) -> Self::SubmitTransactionFuture<'a>;
+
+//     /// Submits a signed transaction
+//     /// # Errors
+//     /// Should return `Err` if the transaction is invalid
+//     fn subscribe<'a>(
+//         &'a self,
+//         tx: <Self::Config as Config>::Transaction,
+//     ) -> Self::SubmitTransactionFuture<'a>;
+
+//     /// Query some read-only data
+//     /// # Errors
+//     /// Should return `Err` if the query is invalid
+//     fn query<'a>(
+//         &'a self,
+//         query: Self::Query,
+//     ) -> Self::QueryFuture<'a>;
+
+//     /// Should behave like `Stream::poll()`.
+//     fn poll_next_event(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<ClientEvent<Self>>;
+// }
