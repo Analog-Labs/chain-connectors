@@ -12,8 +12,14 @@ use crate::{
     eth_hash::{Address, H256},
     eth_uint::U256,
 };
-use access_list::AccessList;
-use signature::Signature;
+pub use access_list::AccessList;
+pub use eip1559::Eip1559Transaction;
+pub use eip2930::Eip2930Transaction;
+pub use legacy::LegacyTransaction;
+pub use signature::Signature;
+pub use signed_transaction::SignedTransaction;
+pub use typed_transaction::TypedTransaction;
+pub type Transaction = SignedTransaction<TypedTransaction>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(

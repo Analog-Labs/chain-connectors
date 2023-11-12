@@ -169,8 +169,7 @@ pub fn compress(h: &mut [u64; 8], m: [u64; 16], t: [u64; 2], f: bool, rounds: us
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        super::test_utils::test_precompile_test_vectors, Blake2F};
+    use super::{super::test_utils::test_precompile_test_vectors, Blake2F};
 
     #[test]
     fn process_consensus_tests() {

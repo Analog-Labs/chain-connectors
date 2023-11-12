@@ -1,6 +1,7 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use crate::{
+    precompile::DefaultPrecompileSet,
     state::{PrefetchError, StateDB},
     types::{
         ExecutionError, ExecutionResult, ExecutionReverted, ExecutionSucceed, ExitError,
@@ -8,9 +9,7 @@ use crate::{
     },
 };
 use rosetta_ethereum_backend::{AtBlock, EthereumRpc, ExitReason};
-use rosetta_ethereum_primitives::{
-    rpc::CallRequest, Address, Block, BlockIdentifier, H256, U256, U64,
-};
+use rosetta_ethereum_primitives::{rpc::CallRequest, Address, Block, BlockIdentifier, H256, U256};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
@@ -83,7 +82,7 @@ where
         };
 
         let source = tx.from.unwrap_or_default();
-        let gas_limit = tx.gas_limit.map_or(u64::MAX, |v| v.as_u64());
+        let gas_limit = tx.gas_limit.unwrap_or(u64::MAX);
 
         let precompiles = env.precompile_set();
         let config = env.config();
@@ -113,7 +112,7 @@ where
             gas_price: U256::zero(),
             origin: tx.from.unwrap_or_default(),
             block_hashes: self.db.blocks_hashes.values().copied().collect(),
-            block_number: U256::from(block.number.as_u64()),
+            block_number: U256::from(block.number),
             block_coinbase: block.miner.unwrap_or_default(),
             block_timestamp: block.timestamp,
             block_difficulty: block.difficulty,
@@ -126,7 +125,7 @@ where
         let mut state = BTreeMap::<Address, MemoryAccount>::new();
         for account in self.db.accounts.values() {
             let entry = state.entry(account.address).or_default();
-            entry.nonce = U256::from(account.nonce.as_u64());
+            entry.nonce = U256::from(account.nonce);
             entry.balance = account.balance;
 
             if let Some(code) = self.db.code.get(&account.code_hash) {
@@ -141,7 +140,7 @@ where
         let mut backend = MemoryBackend::new(&vicinity, state);
         let metadata = StackSubstateMetadata::new(gas_limit, config);
         let state = MemoryStackState::new(metadata, &mut backend);
-        let precompiles = BTreeMap::new();
+        let precompiles = DefaultPrecompileSet;
         let mut executor = StackExecutor::new_with_precompiles(state, config, &precompiles);
 
         let (exit_reason, bytes) = executor.transact_call(
@@ -149,7 +148,7 @@ where
             tx.to.unwrap_or_default(),
             tx.value.unwrap_or_default(),
             tx.data.as_ref().map(|bytes| bytes.0.to_vec()).unwrap_or_default(),
-            tx.gas_limit.unwrap_or(U64::MAX).as_u64(),
+            tx.gas_limit.unwrap_or(u64::MAX),
             Vec::new(),
         );
 

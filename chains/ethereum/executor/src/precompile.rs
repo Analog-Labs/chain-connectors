@@ -6,6 +6,7 @@ pub mod modexp;
 pub mod ripemd160;
 pub mod sha256;
 
+use alloc::vec::Vec;
 use blake2f::Blake2F;
 use bn128::{Bn128Add, Bn128Mul, Bn128Pairing};
 use ecrecover::ECRecover;
@@ -74,7 +75,7 @@ fn ensure_linear_cost(
     Ok(cost)
 }
 
-struct DefaultPrecompileSet;
+pub struct DefaultPrecompileSet;
 
 impl PrecompileSet for DefaultPrecompileSet {
     fn execute(
@@ -100,8 +101,11 @@ impl PrecompileSet for DefaultPrecompileSet {
         }
     }
 
-    fn is_precompile(&self, _address: Address, _remaining_gas: u64) -> IsPrecompileResult {
-        todo!()
+    fn is_precompile(&self, address: Address, _remaining_gas: u64) -> IsPrecompileResult {
+        IsPrecompileResult::Answer {
+            is_precompile: !address.is_zero() && address < Address::from_low_u64_ne(10),
+            extra_cost: 0,
+        }
     }
 }
 

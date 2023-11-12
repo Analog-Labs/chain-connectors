@@ -58,7 +58,7 @@ where
         let at = AtBlock::At(BlockIdentifier::Hash(block.hash));
 
         // Store block hash
-        self.blocks_hashes.insert(block.number.as_u64(), block.hash);
+        self.blocks_hashes.insert(block.number, block.hash);
 
         // Load storages
         let mut access_list =

@@ -1,8 +1,10 @@
 #![allow(clippy::missing_errors_doc)]
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 use crate::{
     bytes::Bytes,
     eth_hash::Address,
-    eth_uint::{U256, U64},
+    eth_uint::U256,
     transactions::{
         access_list::AccessList, eip1559::Eip1559Transaction, eip2930::Eip2930Transaction,
         legacy::LegacyTransaction, typed_transaction::TypedTransaction,
@@ -32,9 +34,14 @@ pub struct CallRequest {
     /// Supplied gas (None for sensible default)
     #[cfg_attr(
         feature = "with-serde",
-        serde(skip_serializing_if = "Option::is_none", rename = "gas")
+        serde(
+            skip_serializing_if = "Option::is_none",
+            rename = "gas",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
     )]
-    pub gas_limit: Option<U64>,
+    pub gas_limit: Option<u64>,
 
     /// Gas price (None for sensible default)
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -49,16 +56,30 @@ pub struct CallRequest {
     pub data: Option<Bytes>,
 
     /// The nonce of the transaction. If set to `None`, no checks are performed.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub nonce: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
+    )]
+    pub nonce: Option<u64>,
 
     /// The chain ID of the transaction. If set to `None`, no checks are performed.
     ///
     /// Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
     ///
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub chain_id: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
+    )]
+    pub chain_id: Option<u64>,
 
     /// The priority fee per gas.
     ///
@@ -93,9 +114,14 @@ pub struct CallRequest {
     /// EIP-2718 type
     #[cfg_attr(
         feature = "with-serde",
-        serde(rename = "type", skip_serializing_if = "Option::is_none")
+        serde(
+            rename = "type",
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint",
+        )
     )]
-    pub transaction_type: Option<U64>,
+    pub transaction_type: Option<u64>,
 }
 
 #[cfg(feature = "with-serde")]
@@ -122,7 +148,7 @@ impl From<LegacyTransaction> for CallRequest {
             max_priority_fee_per_gas: None,
             access_list: AccessList::default(),
             max_fee_per_gas: None,
-            transaction_type: Some(U64([0x00])),
+            transaction_type: Some(0x00),
         }
     }
 }
@@ -141,7 +167,7 @@ impl From<Eip2930Transaction> for CallRequest {
             max_priority_fee_per_gas: None,
             access_list: tx.access_list,
             max_fee_per_gas: None,
-            transaction_type: Some(U64([0x01])),
+            transaction_type: Some(0x01),
         }
     }
 }
@@ -160,7 +186,7 @@ impl From<Eip1559Transaction> for CallRequest {
             nonce: Some(tx.nonce),
             chain_id: Some(tx.chain_id),
             access_list: tx.access_list,
-            transaction_type: Some(U64([0x02])),
+            transaction_type: Some(0x02),
         }
     }
 }

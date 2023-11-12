@@ -13,8 +13,8 @@ use jsonrpsee_core::{
     rpc_params, Error,
 };
 use rosetta_ethereum_primitives::{
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
-    H256, U256, U64,
+    rpc::RpcTransaction, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log,
+    TransactionReceipt, TxHash, H256, U256, U64,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -183,6 +183,11 @@ where
         <T as ClientT>::request(&self.0, "eth_getTransactionReceipt", rpc_params![tx]).await
     }
 
+    /// Returns information about a transaction for a given hash.
+    async fn transaction_by_hash(&self, tx: TxHash) -> Result<Option<RpcTransaction>, Self::Error> {
+        <T as ClientT>::request(&self.0, "eth_getTransactionByHash", rpc_params![tx]).await
+    }
+
     /// Creates an EIP-2930 access list that you can include in a transaction.
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     fn create_access_list<'life0, 'life1, 'async_trait>(
@@ -242,6 +247,29 @@ where
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, false],
+            )
+            .await?
+        };
+        Ok(Some(block))
+    }
+
+    /// Returns information about a block.
+    async fn block_with_transactions(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<Block<RpcTransaction>>, Self::Error> {
+        let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
+            <T as ClientT>::request::<Block<RpcTransaction>, _>(
+                &self.0,
+                "eth_getBlockByHash",
+                rpc_params![block_hash, true],
+            )
+            .await?
+        } else {
+            <T as ClientT>::request::<Block<RpcTransaction>, _>(
+                &self.0,
+                "eth_getBlockByNumber",
+                rpc_params![at, true],
             )
             .await?
         };

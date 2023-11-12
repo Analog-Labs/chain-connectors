@@ -1,11 +1,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 use super::access_list::AccessList;
-use crate::{
-    bytes::Bytes,
-    eth_hash::Address,
-    eth_uint::{U256, U64},
-};
+use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
 
 #[cfg(feature = "with-rlp")]
 use crate::{
@@ -14,6 +10,9 @@ use crate::{
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
     transactions::Signature,
 };
+
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 
 /// Transactions with type 0x1 are transactions introduced in EIP-2930. They contain, along with the
 /// legacy parameters, an access list which specifies an array of addresses and storage keys that
@@ -34,17 +33,32 @@ pub struct Eip2930Transaction {
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     /// [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    pub chain_id: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub chain_id: u64,
 
     /// The nonce of the transaction.
-    pub nonce: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub nonce: u64,
 
     /// Gas price
     pub gas_price: U256,
 
     /// Supplied gas
-    #[cfg_attr(feature = "with-serde", serde(rename = "gas"))]
-    pub gas_limit: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            rename = "gas",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
+    )]
+    pub gas_limit: u64,
 
     /// Recipient address (None for contract creation)
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -186,11 +200,11 @@ impl super::TransactionT for Eip2930Transaction {
     }
 
     fn chain_id(&self) -> Option<u64> {
-        Some(self.chain_id.as_u64())
+        Some(self.chain_id)
     }
 
     fn nonce(&self) -> u64 {
-        self.nonce.as_u64()
+        self.nonce
     }
 
     fn gas_price(&self) -> super::GasPrice {
@@ -253,10 +267,10 @@ mod tests {
 
     fn build_eip2930() -> (Eip2930Transaction, Signature) {
         let tx = Eip2930Transaction {
-            chain_id: 1.into(),
-            nonce: 117.into(),
+            chain_id: 1,
+            nonce: 117,
             gas_price: 28_379_509_371u128.into(),
-            gas_limit: 187_293.into(),
+            gas_limit: 187_293,
             to: Some(hex!("3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad").into()),
             value: 3_650_000_000_000_000_000u128.into(),
             data: Bytes::from(hex!("3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006547d41700000000000000000000000000000000000000000000000000000000000000020b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000032a767a9562d00000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000032a767a9562d000000000000000000000000000000000000000000000021b60af11987fa0670342f00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000bb8b55ee890426341fe45ee6dc788d2d93d25b59063000000000000000000000000000000000000000000")),

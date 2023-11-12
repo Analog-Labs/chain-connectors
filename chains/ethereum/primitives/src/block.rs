@@ -1,10 +1,13 @@
 use crate::{
     bytes::Bytes,
     eth_hash::{Address, H256, H64},
-    eth_uint::{U256, U64},
+    eth_uint::U256,
 };
 use alloc::vec::Vec;
 use ethbloom::Bloom;
+
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 
 /// The block type returned from RPC calls.
 ///
@@ -36,7 +39,11 @@ pub struct Block<TX> {
     /// Transactions receipts root hash
     pub receipts_root: H256,
     /// Block number.
-    pub number: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub number: u64,
     /// Gas Used
     pub gas_used: U256,
     /// Gas Limit

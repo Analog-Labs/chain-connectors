@@ -32,9 +32,7 @@ pub trait Crypto {
 pub struct DefaultCrypto;
 
 #[cfg(feature = "with-crypto")]
-impl Crypto for DefaultCrypto {
-    type Error = libsecp256k1::Error;
-
+impl DefaultCrypto {
     fn keccak256_to(data: impl AsRef<[u8]>, output: &mut [u8; 32]) {
         use sha3::Digest;
         let mut hasher = sha3::Keccak256::new();
@@ -51,7 +49,7 @@ impl Crypto for DefaultCrypto {
     fn secp256k1_ecdsa_recover(
         signature: &Signature,
         message_hash: H256,
-    ) -> Result<Address, Self::Error> {
+    ) -> Result<Address, libsecp256k1::Error> {
         let mut sig = [0u8; 65];
         signature.to_raw_signature(&mut sig);
         let rid = libsecp256k1::RecoveryId::parse(sig[64])?;
@@ -65,9 +63,29 @@ impl Crypto for DefaultCrypto {
     }
 }
 
+#[cfg(feature = "with-crypto")]
+impl Crypto for DefaultCrypto {
+    type Error = libsecp256k1::Error;
+
+    fn keccak256_to(data: impl AsRef<[u8]>, output: &mut [u8; 32]) {
+        Self::keccak256_to(data, output);
+    }
+
+    fn keccak256(data: impl AsRef<[u8]>) -> H256 {
+        Self::keccak256(data)
+    }
+
+    fn secp256k1_ecdsa_recover(
+        signature: &Signature,
+        message_hash: H256,
+    ) -> Result<Address, Self::Error> {
+        Self::secp256k1_ecdsa_recover(signature, message_hash)
+    }
+}
+
 #[cfg(all(test, feature = "with-crypto", feature = "with-rlp"))]
 mod tests {
-    use super::{Crypto, DefaultCrypto};
+    use super::DefaultCrypto;
     use crate::{
         eth_hash::{Address, H256},
         transactions::signature::Signature,

@@ -4,13 +4,17 @@ extern crate alloc;
 
 mod block;
 mod bytes;
+pub mod constants;
 pub mod crypto;
 mod eth_hash;
 mod eth_uint;
+pub mod header;
 mod log;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
 pub mod rpc;
+#[cfg(feature = "with-serde")]
+pub mod serde_utils;
 mod storage_proof;
 pub mod transactions;
 mod tx_receipt;

@@ -1,9 +1,12 @@
 use crate::{
     bytes::Bytes,
     eth_hash::{Address, H256},
-    eth_uint::{U256, U64},
+    eth_uint::U256,
 };
 use alloc::vec::Vec;
+
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -31,7 +34,11 @@ pub struct EIP1186ProofResponse {
     pub address: Address,
     pub balance: U256,
     pub code_hash: H256,
-    pub nonce: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint")
+    )]
+    pub nonce: u64,
     pub storage_hash: H256,
     pub account_proof: Vec<Bytes>,
     pub storage_proof: Vec<StorageProof>,

@@ -1,7 +1,9 @@
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 use crate::{
     bytes::Bytes,
     eth_hash::{Address, H256},
-    eth_uint::{U256, U64},
+    eth_uint::U256,
 };
 use alloc::{string::String, vec::Vec};
 
@@ -34,16 +36,32 @@ pub struct Log {
     pub block_hash: Option<H256>,
 
     /// Block Number
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub block_number: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
+    )]
+    pub block_number: Option<u64>,
 
     /// Transaction Hash
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(default, feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
     pub transaction_hash: Option<H256>,
 
     /// Transaction Index
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub transaction_index: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
+    )]
+    pub transaction_index: Option<u64>,
 
     /// Integer of the log index position in the block. None if it's a pending log.
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]

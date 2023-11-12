@@ -1,10 +1,8 @@
 #![allow(clippy::missing_errors_doc)]
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 
-use crate::{
-    bytes::Bytes,
-    eth_hash::Address,
-    eth_uint::{U256, U64},
-};
+use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
 
 #[cfg(feature = "with-rlp")]
 use crate::{
@@ -29,14 +27,25 @@ use crate::{
 )]
 pub struct LegacyTransaction {
     /// The nonce of the transaction. If set to `None`, no checks are performed.
-    pub nonce: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub nonce: u64,
 
     /// Gas price
     pub gas_price: U256,
 
     /// Supplied gas
-    #[cfg_attr(feature = "with-serde", serde(rename = "gas"))]
-    pub gas_limit: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            rename = "gas",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint",
+        )
+    )]
+    pub gas_limit: u64,
 
     /// Recipient address (None for contract creation)
     #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -54,8 +63,15 @@ pub struct LegacyTransaction {
     /// Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
     ///
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub chain_id: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint",
+        )
+    )]
+    pub chain_id: Option<u64>,
 }
 
 #[cfg(feature = "with-rlp")]
@@ -103,15 +119,15 @@ impl RlpDecodableTransaction for LegacyTransaction {
             // r and s is empty, then v is the chain_id
             // [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
             if r.is_empty() && s.is_empty() {
-                tx.chain_id = Some(<U64 as rlp::Decodable>::decode(&v)?);
+                tx.chain_id = Some(<u64 as rlp::Decodable>::decode(&v)?);
                 None
             } else {
                 let signature = Signature {
                     v: <RecoveryId as rlp::Decodable>::decode(&v)?,
-                    r: <H256 as rlp::Decodable>::decode(&r)?,
-                    s: <H256 as rlp::Decodable>::decode(&s)?,
+                    r: <U256 as rlp::Decodable>::decode(&r)?,
+                    s: <U256 as rlp::Decodable>::decode(&s)?,
                 };
-                tx.chain_id = signature.v.chain_id().map(U64::from);
+                tx.chain_id = signature.v.chain_id();
                 Some(signature)
             }
         } else {
@@ -148,16 +164,16 @@ impl RlpEncodableTransaction for LegacyTransaction {
 
         match (self.chain_id, signature) {
             (Some(chain_id), Some(sig)) => {
-                debug_assert_eq!(Some(chain_id.as_u64()), sig.v.chain_id());
-                let v = sig.v.as_eip155(chain_id.as_u64());
-                stream.append(&v).append(&sig.r).append(&sig.s);
+                debug_assert_eq!(Some(chain_id), sig.v.chain_id());
+                // let v = sig.v.as_eip155(chain_id.as_u64());
+                stream.append(&sig.v).append(&sig.r).append(&sig.s);
             },
             (None, Some(sig)) => {
                 debug_assert_eq!(sig.v.chain_id(), None);
                 stream.append(&sig.v).append(&sig.r).append(&sig.s);
             },
             (Some(chain_id), None) => {
-                stream.append(&chain_id.as_u64()).append(&0u8).append(&0u8);
+                stream.append(&chain_id).append(&0u8).append(&0u8);
             },
             (None, None) => {},
         }
@@ -183,11 +199,11 @@ impl super::TransactionT for LegacyTransaction {
     }
 
     fn chain_id(&self) -> Option<u64> {
-        self.chain_id.map(|chain_id| chain_id.as_u64())
+        self.chain_id
     }
 
     fn nonce(&self) -> u64 {
-        self.nonce.as_u64()
+        self.nonce
     }
 
     fn gas_price(&self) -> super::GasPrice {
@@ -253,10 +269,10 @@ mod tests {
     fn build_legacy(eip155: bool) -> (LegacyTransaction, Signature) {
         if eip155 {
             let tx = LegacyTransaction {
-                chain_id: Some(1.into()),
-                nonce: 137.into(),
+                chain_id: Some(1),
+                nonce: 137,
                 gas_price: 20_400_000_000u64.into(),
-                gas_limit: 1_000_000.into(),
+                gas_limit: 1_000_000,
                 to: Some(hex!("dc6c91b569c98f9f6f74d90f9beff99fdaf4248b").into()),
                 value: 278_427_500_000_000_000u64.into(),
                 data: Bytes::from(hex!("288b8133920339b815ee42a02099dcca27c01d192418334751613a1eea786a0c3a673cec000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000032464a3bc15000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000b14232b0204b2f7bb6ba5aff59ef36030f7fe38b00000000000000000000000041f8d14c9475444f30a80431c68cf24dc9a8369a000000000000000000000000b9e29984fe50602e7a619662ebed4f90d93824c7000000000000000000000000dc6c91b569c98f9f6f74d90f9beff99fdaf4248b0000000000000000000000000000000000000000000000000000000002faf08000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005d7625241afaa81faf3c2bd525f64f6e0ec3af39c1053d672b65c2f64992521e6f454e67000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000581b96d32320d6cb174e807b585a41f4faa8ba7da95e117f2abbcadbb257d37a5fcc16c2ba6db86200888ed85dd5eba547bb07fa0f9910950d3133026abafdd5c09e1f3896a7abb3c99e1f38f77be69448ee7770d18c001e0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000561c7dd7d43db98e3b7a6e18b4e97f0e254a5a6bb9b373d49d7e6676ccb1b02d50f131bca36928cb48cd0daec0499e9e93a390253c733607437bbebf0aa13b7080911f3896a7abb3c99e1f38f77be69448ee7770d18c0400000000000000000000")),
@@ -270,9 +286,9 @@ mod tests {
         } else {
             let tx = LegacyTransaction {
                 chain_id: None,
-                nonce: 3166.into(),
+                nonce: 3166,
                 gas_price: 60_000_000_000u64.into(),
-                gas_limit: 300_000.into(),
+                gas_limit: 300_000,
                 to: Some(hex!("6b92c944c82c694725acbd1c000c277ea1a44f00").into()),
                 value: 0.into(),
                 data: hex!("41c0e1b5").into(),

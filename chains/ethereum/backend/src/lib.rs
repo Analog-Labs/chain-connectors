@@ -10,8 +10,9 @@ use core::pin::Pin;
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use futures_core::{future::BoxFuture, Future};
 use rosetta_ethereum_primitives::{
-    rpc::CallRequest, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log,
-    TransactionReceipt, TxHash, H256, U256, U64,
+    rpc::{CallRequest, RpcTransaction},
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
+    H256, U256, U64,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -195,6 +196,9 @@ pub trait EthereumRpc {
         tx: TxHash,
     ) -> Result<Option<TransactionReceipt>, Self::Error>;
 
+    /// Returns information about a transaction for a given hash.
+    async fn transaction_by_hash(&self, tx: TxHash) -> Result<Option<RpcTransaction>, Self::Error>;
+
     /// Creates an EIP-2930 access list that you can include in a transaction.
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
     fn create_access_list<'life0, 'life1, 'async_trait>(
@@ -232,6 +236,12 @@ pub trait EthereumRpc {
 
     /// Returns information about a block.
     async fn block(&self, at: AtBlock) -> Result<Option<Block<H256>>, Self::Error>;
+
+    /// Returns information about a block.
+    async fn block_with_transactions(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<Block<RpcTransaction>>, Self::Error>;
 
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.

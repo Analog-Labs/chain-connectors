@@ -45,7 +45,7 @@ where
             });
             revm::primitives::AccountInfo {
                 balance: revm::primitives::U256::from_limbs(account.balance.0),
-                nonce: account.nonce.as_u64(),
+                nonce: account.nonce,
                 code_hash: revm::primitives::B256::from(account.code_hash.0),
                 code,
             }
@@ -155,7 +155,7 @@ where
         env.cfg.disable_block_gas_limit = true;
 
         // Configure block
-        env.block.number = revm::primitives::U256::from(block.number.as_u64());
+        env.block.number = revm::primitives::U256::from(block.number);
         env.block.coinbase = revm::primitives::Address::from(block.miner.unwrap_or_default().0);
         env.block.timestamp = revm::primitives::U256::from_limbs(block.timestamp.0);
         env.block.difficulty = revm::primitives::U256::from_limbs(block.difficulty.0);
@@ -172,12 +172,12 @@ where
         env.tx.caller = revm::primitives::Address::from(tx.from.unwrap_or_default().0);
         env.tx.value = revm::primitives::U256::from_limbs(tx.value.unwrap_or_default().0);
         env.tx.data = revm::primitives::Bytes::from(tx.data.clone().unwrap_or_default().0);
-        env.tx.gas_limit = tx.gas_limit.and_then(|gas| u64::try_from(gas).ok()).unwrap_or(u64::MAX);
+        env.tx.gas_limit = tx.gas_limit.unwrap_or(u64::MAX);
         env.tx.gas_price = tx
             .gas_price
             .map(|v| revm::primitives::U256::from_limbs(v.0))
             .unwrap_or_default();
-        env.tx.chain_id = tx.chain_id.and_then(|chain_id| u64::try_from(chain_id).ok());
+        env.tx.chain_id = tx.chain_id;
         env.tx.max_fee_per_blob_gas =
             tx.max_fee_per_gas.map(|v| revm::primitives::U256::from_limbs(v.0));
         env.tx.gas_priority_fee =

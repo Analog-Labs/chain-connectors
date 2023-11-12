@@ -1,11 +1,14 @@
 use crate::{
     eth_hash::{Address, H256},
-    eth_uint::{U256, U64},
+    eth_uint::U256,
     log::Log,
 };
 use alloc::vec::Vec;
 use core::cmp::Ordering;
 use ethbloom::Bloom;
+
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
 
 /// "Receipt" of an executed transaction: details of its execution.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -23,13 +26,21 @@ pub struct TransactionReceipt {
     pub transaction_hash: H256,
 
     /// Index within the block.
-    pub transaction_index: U64,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint")
+    )]
+    pub transaction_index: u64,
 
     /// Hash of the block this transaction was included within.
     pub block_hash: Option<H256>,
 
     /// Number of the block this transaction was included within.
-    pub block_number: Option<U64>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub block_number: Option<u64>,
 
     /// address of the sender.
     pub from: Option<Address>,
@@ -54,9 +65,14 @@ pub struct TransactionReceipt {
     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
     #[cfg_attr(
         feature = "with-serde",
-        serde(rename = "status", skip_serializing_if = "Option::is_none")
+        serde(
+            rename = "status",
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint",
+        )
     )]
-    pub status_code: Option<U64>,
+    pub status_code: Option<u64>,
 
     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
     #[cfg_attr(
@@ -77,9 +93,15 @@ pub struct TransactionReceipt {
     /// EIP-2718 transaction type
     #[cfg_attr(
         feature = "with-serde",
-        serde(rename = "type", default, skip_serializing_if = "Option::is_none")
+        serde(
+            rename = "type",
+            default,
+            skip_serializing_if = "Option::is_none",
+            deserialize_with = "deserialize_uint",
+            serialize_with = "serialize_uint"
+        )
     )]
-    pub transaction_type: Option<U64>,
+    pub transaction_type: Option<u64>,
 }
 
 // Compares the transaction receipt against another receipt by checking the blocks first and then

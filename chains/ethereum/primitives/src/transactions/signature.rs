@@ -1,8 +1,7 @@
-#![allow(clippy::missing_errors_doc)]
-use crate::{eth_hash::H256, eth_uint::U64};
+use crate::eth_uint::{U256, U64};
 
 /// An ECDSA signature
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -18,23 +17,25 @@ pub struct Signature {
     /// signature. May also encode the chain_id for legacy EIP-155 transactions.
     pub v: RecoveryId,
     /// The ECDSA signature r
-    pub r: H256,
+    pub r: U256,
     /// The ECDSA signature s
-    pub s: H256,
+    pub s: U256,
 }
 
 impl Signature {
     #[allow(clippy::cast_possible_truncation)]
     pub fn to_raw_signature(&self, output: &mut [u8; 65]) {
-        output[0..32].copy_from_slice(self.r.as_fixed_bytes());
-        output[32..64].copy_from_slice(self.s.as_fixed_bytes());
+        self.r.to_big_endian(&mut output[0..32]);
+        self.s.to_big_endian(&mut output[32..64]);
+        // output[0..32].copy_from_slice(self.r.as_fixed_bytes());
+        // output[32..64].copy_from_slice(self.s.as_fixed_bytes());
         output[64] = self.v.y_parity() as u8;
     }
 }
 
 /// The ECDSA recovery id, encodes the parity of the y-coordinate and for EIP-155 compatible
 /// transactions also encodes the chain id
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
