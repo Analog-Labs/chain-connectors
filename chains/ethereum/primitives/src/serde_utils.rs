@@ -1,3 +1,7 @@
+use crate::{
+    eth_hash::{H128, H256, H32, H64},
+    eth_uint::U256,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Deserialize that always returns `Some(T)` or `Some(T::default())` must be used with
@@ -38,6 +42,19 @@ where
     S: Serializer,
 {
     <T as SerializableUInt>::serialize_eth_uint(value, serializer)
+}
+
+/// Serialize a uint as a fixed size hash, must be used with
+/// `#[serde(serialize_with = "serialize_hash")]` attribute
+///
+/// # Errors
+/// returns an error if fails to deserialize T
+pub fn serialize_as_hash<S>(value: &u64, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let hash = H64(value.to_be_bytes());
+    <H64 as Serialize>::serialize(&hash, serializer)
 }
 
 /// Helper for deserializing optional uints from hexadecimal string
@@ -152,11 +169,17 @@ macro_rules! impl_serialize_uint {
                 D: Deserializer<'de>,
             {
                 let mut bytes = [0u8; $len];
-                let _ = impl_serde_macro::serialize::deserialize_check_len(
+                let wrote = impl_serde_macro::serialize::deserialize_check_len(
                     deserializer,
                     impl_serde_macro::serialize::ExpectedLen::Between(0, &mut bytes),
                 )?;
-                Ok(Self::from_le_bytes(bytes))
+                if wrote < $len {
+                    let mut output = [0u8; $len];
+                    output[($len - wrote)..].copy_from_slice(&bytes[0..wrote]);
+                    Ok(Self::from_be_bytes(output))
+                } else {
+                    Ok(Self::from_be_bytes(bytes))
+                }
             }
         }
     };
@@ -165,34 +188,45 @@ macro_rules! impl_serialize_uint {
 impl_serialize_uint!(u8, 1);
 impl_serialize_uint!(u16, 2);
 impl_serialize_uint!(u32, 4);
-// impl_serialize_uint!(u64, 8);
+impl_serialize_uint!(u64, 8);
 impl_serialize_uint!(u128, 16);
 
-impl SerializableUInt for u64 {
+impl SerializableUInt for H32 {
     fn serialize_eth_uint<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let mut slice = [0u8; 2 + 2 * 8];
-        let bytes = Self::to_be_bytes(*self);
-        impl_serde_macro::serialize::serialize_uint(&mut slice, &bytes, serializer)
+        let value = u32::from_be_bytes(self.0);
+        <u32 as SerializableUInt>::serialize_eth_uint(&value, serializer)
     }
 }
 
-impl<'de> DeserializableUInt<'de> for u64 {
-    fn deserialize_eth_uint<D>(deserializer: D) -> Result<Self, D::Error>
+impl SerializableUInt for H64 {
+    fn serialize_eth_uint<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        D: Deserializer<'de>,
+        S: Serializer,
     {
-        let mut bytes = [0u8; 8];
-        let wrote = impl_serde_macro::serialize::deserialize_check_len(
-            deserializer,
-            impl_serde_macro::serialize::ExpectedLen::Between(0, &mut bytes),
-        )?;
-        for i in 0..wrote {
-            bytes[8 - wrote + i] = bytes[i];
-            bytes[i] = 0;
-        }
-        Ok(Self::from_be_bytes(bytes))
+        let value = u64::from_be_bytes(self.0);
+        <u64 as SerializableUInt>::serialize_eth_uint(&value, serializer)
+    }
+}
+
+impl SerializableUInt for H128 {
+    fn serialize_eth_uint<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = u128::from_be_bytes(self.0);
+        <u128 as SerializableUInt>::serialize_eth_uint(&value, serializer)
+    }
+}
+
+impl SerializableUInt for H256 {
+    fn serialize_eth_uint<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = U256::from_big_endian(&self.0);
+        <U256 as Serialize>::serialize(&value, serializer)
     }
 }

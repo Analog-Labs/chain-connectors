@@ -112,13 +112,17 @@ where
             gas_price: U256::zero(),
             origin: tx.from.unwrap_or_default(),
             block_hashes: self.db.blocks_hashes.values().copied().collect(),
-            block_number: U256::from(block.number),
-            block_coinbase: block.miner.unwrap_or_default(),
-            block_timestamp: block.timestamp,
-            block_difficulty: block.difficulty,
-            block_gas_limit: block.gas_limit,
+            block_number: U256::from(block.header.number),
+            block_coinbase: block.header.beneficiary,
+            block_timestamp: U256::from(block.header.timestamp),
+            block_difficulty: block.header.difficulty,
+            block_gas_limit: U256::from(block.header.gas_limit),
             chain_id: tx.chain_id.map(U256::from).unwrap_or_default(),
-            block_base_fee_per_gas: block.base_fee_per_gas.unwrap_or_default(),
+            block_base_fee_per_gas: block
+                .header
+                .base_fee_per_gas
+                .map(U256::from)
+                .unwrap_or_default(),
             block_randomness: None,
         };
 

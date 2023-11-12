@@ -155,13 +155,13 @@ where
         env.cfg.disable_block_gas_limit = true;
 
         // Configure block
-        env.block.number = revm::primitives::U256::from(block.number);
-        env.block.coinbase = revm::primitives::Address::from(block.miner.unwrap_or_default().0);
-        env.block.timestamp = revm::primitives::U256::from_limbs(block.timestamp.0);
-        env.block.difficulty = revm::primitives::U256::from_limbs(block.difficulty.0);
+        env.block.number = revm::primitives::U256::from(block.header.number);
+        env.block.coinbase = revm::primitives::Address::from(block.header.beneficiary.0);
+        env.block.timestamp = revm::primitives::U256::from(block.header.timestamp);
+        env.block.difficulty = revm::primitives::U256::from_limbs(block.header.difficulty.0);
         env.block.basefee =
-            revm::primitives::U256::from_limbs(block.base_fee_per_gas.unwrap_or_default().0);
-        env.block.gas_limit = revm::primitives::U256::from_limbs(block.gas_limit.0);
+            revm::primitives::U256::from(block.header.base_fee_per_gas.unwrap_or_default());
+        env.block.gas_limit = revm::primitives::U256::from(block.header.gas_limit);
         env.block.prevrandao = Some(revm::primitives::B256::ZERO);
         env.block.blob_excess_gas_and_price = Some(revm::primitives::BlobExcessGasAndPrice::new(0));
 
