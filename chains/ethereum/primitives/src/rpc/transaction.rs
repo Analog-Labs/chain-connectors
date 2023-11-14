@@ -1,5 +1,5 @@
 #[cfg(feature = "with-serde")]
-use crate::serde_utils::{deserialize_uint, serialize_uint};
+use crate::serde_utils::{deserialize_null_default, deserialize_uint, serialize_uint};
 use crate::{
     bytes::Bytes,
     eth_hash::{Address, TxHash, H256, H512},
@@ -32,6 +32,7 @@ pub struct RpcTransaction {
     )]
     pub nonce: u64,
     /// Block hash
+    #[cfg_attr(feature = "with-serde", serde(default))]
     pub block_hash: Option<H256>,
     /// Block number
     #[cfg_attr(
@@ -48,31 +49,33 @@ pub struct RpcTransaction {
     /// Sender
     pub from: Address,
     /// Recipient
+    #[cfg_attr(feature = "with-serde", serde(default))]
     pub to: Option<Address>,
     /// Transfered value
     pub value: U256,
     /// Gas Price
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub gas_price: Option<U256>,
     /// Max BaseFeePerGas the user is willing to pay.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
     /// The miner's tip.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_priority_fee_per_gas: Option<U256>,
     /// Gas limit
-    #[cfg_attr(feature = "with-serde", serde(rename = "gas"))]
+    #[cfg_attr(feature = "with-serde", serde(default, rename = "gas"))]
     pub gas_limit: U256,
     /// Data
+    #[cfg_attr(feature = "with-serde", serde(default))]
     pub input: Bytes,
     /// Creates contract
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub creates: Option<Address>,
     /// Raw transaction data
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub raw: Option<Bytes>,
     /// Public key of the signer.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub public_key: Option<H512>,
     /// The network id of the transaction, if any.
     #[cfg_attr(
@@ -86,12 +89,16 @@ pub struct RpcTransaction {
     )]
     pub chain_id: Option<u64>,
     /// The V field of the signature.
-    #[cfg_attr(feature = "with-serde", serde(flatten))]
+    #[cfg_attr(feature = "with-serde", serde(default, flatten))]
     pub signature: Signature,
     /// Pre-pay to warm storage access.
     #[cfg_attr(
         feature = "with-serde",
-        serde(default, skip_serializing_if = "AccessList::is_empty")
+        serde(
+            default,
+            skip_serializing_if = "AccessList::is_empty",
+            deserialize_with = "deserialize_null_default"
+        )
     )]
     pub access_list: AccessList,
     /// EIP-2718 type
@@ -373,6 +380,63 @@ mod tests {
             },
             access_list: AccessList::default(),
             transaction_type: Some(2),
+        };
+        let actual = serde_json::from_str::<RpcTransaction>(json).unwrap();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn decode_astar_json_works() {
+        let json = r#"
+        {
+            "hash": "0x543865875066b0c3b7039866deb8666c7740f83cc8a920b6b261cf30db1e6bdb",
+            "nonce": "0x71f1",
+            "blockHash": "0x73f9f64e13cf96569683db7eb494d52dcb52a98feae0b0519663d0c92702f3d2",
+            "blockNumber": "0x4a3b18",
+            "transactionIndex": "0x0",
+            "from": "0x530de54355b619bd9b3b46ab5054933b72ca8cc0",
+            "to": "0xa55d9ef16af921b70fed1421c1d298ca5a3a18f1",
+            "value": "0x0",
+            "gasPrice": "0x3b9aca000",
+            "gas": "0x61a80",
+            "input": "0x3798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f480",
+            "creates": null,
+            "raw": "0xf9022f8271f18503b9aca00083061a8094a55d9ef16af921b70fed1421c1d298ca5a3a18f180b901c43798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f4808204c4a04c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1a062fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c",
+            "publicKey": "0x75159f240a12daf62cd20487a6dca0093a6e8a139dacf8f8888fe582a1d08ae423f742a04b82579083e86c1b78104c7137e211be1d396a1c3c14fa840d9e094a",
+            "chainId": "0x250",
+            "standardV": "0x1",
+            "v": "0x4c4",
+            "r": "0x4c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1",
+            "s": "0x62fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c",
+            "accessList": null,
+            "type": "0x0"
+        }
+        "#;
+        let expected = RpcTransaction {
+            hash: hex!("543865875066b0c3b7039866deb8666c7740f83cc8a920b6b261cf30db1e6bdb").into(),
+            nonce: 0x71f1,
+            block_hash: Some(hex!("73f9f64e13cf96569683db7eb494d52dcb52a98feae0b0519663d0c92702f3d2").into()),
+            block_number: Some(0x004a_3b18),
+            transaction_index: Some(0x0),
+            gas_price: Some(0x0003_b9ac_a000_u64.into()),
+            gas_limit: 0x61a80.into(),
+            from: Address::from(hex!("530de54355b619bd9b3b46ab5054933b72ca8cc0")),
+            to: Some(Address::from(hex!("a55d9ef16af921b70fed1421c1d298ca5a3a18f1"))),
+            value: 0.into(),
+            input: hex!("3798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f480").into(),
+            chain_id: Some(0x250),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            creates: None,
+            raw: Some(hex!("f9022f8271f18503b9aca00083061a8094a55d9ef16af921b70fed1421c1d298ca5a3a18f180b901c43798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f4808204c4a04c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1a062fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c").into()),
+            public_key: Some(hex!("75159f240a12daf62cd20487a6dca0093a6e8a139dacf8f8888fe582a1d08ae423f742a04b82579083e86c1b78104c7137e211be1d396a1c3c14fa840d9e094a").into()),
+            signature: Signature {
+                v: 0x4c4.into(),
+                r: hex!("4c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1").into(),
+                s: hex!("62fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c").into(),
+            },
+            access_list: AccessList::default(),
+            transaction_type: Some(0),
         };
         let actual = serde_json::from_str::<RpcTransaction>(json).unwrap();
         assert_eq!(expected, actual);

@@ -4,10 +4,14 @@ use crate::serde_utils::{deserialize_uint, serialize_uint};
 
 use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
 
+#[cfg(feature = "with-crypto")]
+use crate::{
+    crypto::{Crypto, DefaultCrypto},
+    eth_hash::H256,
+};
+
 #[cfg(feature = "with-rlp")]
 use crate::{
-    crypto::Crypto,
-    eth_hash::H256,
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
     transactions::signature::{RecoveryId, Signature},
 };
@@ -72,19 +76,6 @@ pub struct LegacyTransaction {
         )
     )]
     pub chain_id: Option<u64>,
-}
-
-#[cfg(feature = "with-rlp")]
-impl LegacyTransaction {
-    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_signed(self, signature);
-        C::keccak256(encoded)
-    }
-
-    pub fn sighash<C: Crypto>(&self) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_unsigned(self);
-        C::keccak256(encoded)
-    }
 }
 
 #[cfg(feature = "with-rlp")]
@@ -187,15 +178,28 @@ impl rlp::Encodable for LegacyTransaction {
     }
 }
 
-#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(feature = "with-crypto")]
 impl super::TransactionT for LegacyTransaction {
     type ExtraFields = ();
 
-    fn compute_tx_hash(&self, signature: &Signature) -> primitive_types::H256 {
-        use sha3::Digest;
-        let input = self.rlp_signed(signature);
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
+    fn encode(&self, signature: Option<&Signature>) -> Bytes {
+        let bytes = signature.map_or_else(
+            || RlpEncodableTransaction::rlp_unsigned(self),
+            |signature| RlpEncodableTransaction::rlp_signed(self, signature),
+        );
+        Bytes(bytes)
+    }
+
+    /// The hash of the transaction without signature
+    fn sighash(&self) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_unsigned(self);
+        DefaultCrypto::keccak256(bytes.as_ref())
+    }
+
+    // Compute the tx-hash using the provided signature
+    fn compute_tx_hash(&self, signature: &Signature) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_signed(self, signature);
+        DefaultCrypto::keccak256(bytes.as_ref())
     }
 
     fn chain_id(&self) -> Option<u64> {
@@ -226,13 +230,6 @@ impl super::TransactionT for LegacyTransaction {
         self.data.as_ref()
     }
 
-    fn sighash(&self) -> crate::eth_hash::H256 {
-        use sha3::Digest;
-        let input = self.rlp_unsigned();
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
-    }
-
     fn access_list(&self) -> Option<&super::AccessList> {
         None
     }
@@ -249,6 +246,8 @@ impl super::TransactionT for LegacyTransaction {
 #[cfg(all(test, any(feature = "with-serde", feature = "with-rlp")))]
 mod tests {
     use super::LegacyTransaction;
+    #[cfg(feature = "with-crypto")]
+    use crate::eth_hash::H256;
     use crate::{
         bytes::Bytes,
         transactions::signature::{RecoveryId, Signature},
@@ -346,6 +345,35 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
+    #[cfg(feature = "with-crypto")]
+    #[test]
+    fn rlp_encode_astar_tx_works() {
+        use crate::{rlp_utils::RlpEncodableTransaction, transactions::TransactionT};
+        let expected = hex!("f9022f8271f18503b9aca00083061a8094a55d9ef16af921b70fed1421c1d298ca5a3a18f180b901c43798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f4808204c4a04c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1a062fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c");
+        let tx = LegacyTransaction {
+            nonce: 0x71f1,
+            gas_price: 0x0003_b9ac_a000u128.into(),
+            gas_limit: 0x61a80,
+            to: Some(hex!("a55d9ef16af921b70fed1421c1d298ca5a3a18f1").into()),
+            value: 0.into(),
+            data: hex!("3798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f480").into(),
+            chain_id: Some(0x250),
+        };
+        let sig = Signature {
+            v: 0x4c4.into(),
+            r: hex!("4c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1").into(),
+            s: hex!("62fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c").into(),
+        };
+        let expected = Bytes::from(&expected);
+        let actual = Bytes::from(tx.rlp_signed(&sig));
+        assert_eq!(expected, actual);
+
+        let expected =
+            H256(hex!("543865875066b0c3b7039866deb8666c7740f83cc8a920b6b261cf30db1e6bdb"));
+        let tx_hash = tx.compute_tx_hash(&sig);
+        assert_eq!(expected, tx_hash);
+    }
+
     #[cfg(feature = "with-rlp")]
     #[test]
     fn rlp_encode_unsigned_works() {
@@ -403,41 +431,37 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_legacy_sighash() {
         use super::super::TransactionT;
-        use crate::{crypto::DefaultCrypto, eth_hash::H256};
+        use crate::eth_hash::H256;
 
         let tx = build_legacy(false).0;
         let expected =
             H256(hex!("c8519e5053848e75bc9c6dc20710410d56c9186b486a9b27900eb3355fed085e"));
-        assert_eq!(expected, TransactionT::sighash(&tx));
-        assert_eq!(expected, LegacyTransaction::sighash::<DefaultCrypto>(&tx));
+        assert_eq!(expected, tx.sighash());
 
         let tx = build_legacy(true).0;
         let expected =
             H256(hex!("bb88aee10d01fe0a01135bf346a6eba268e1c5f3ab3e3045c14a97b02245f90f"));
-        assert_eq!(expected, TransactionT::sighash(&tx));
-        assert_eq!(expected, LegacyTransaction::sighash::<DefaultCrypto>(&tx));
+        assert_eq!(expected, tx.sighash());
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_legacy_tx_hash() {
         use super::super::TransactionT;
-        use crate::{crypto::DefaultCrypto, eth_hash::H256};
+        use crate::eth_hash::H256;
 
         let (tx, sig) = build_legacy(false);
         let expected =
             H256(hex!("5a2dbc3b236ddf99c6a380a1a057023ff5d2f35ada1e38b5cbe125ee87cd4777"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
-        assert_eq!(expected, LegacyTransaction::tx_hash::<DefaultCrypto>(&tx, &sig));
 
         let (tx, sig) = build_legacy(true);
         let expected =
             H256(hex!("df99f8176f765d84ed1c00a12bba00206c6da97986c802a532884aca5aaa3809"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
-        assert_eq!(expected, LegacyTransaction::tx_hash::<DefaultCrypto>(&tx, &sig));
     }
 }

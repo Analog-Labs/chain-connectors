@@ -24,17 +24,18 @@ use crate::{
 )]
 pub struct CallRequest {
     /// Sender address
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub from: Option<Address>,
 
     /// Recipient address (None for contract creation)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub to: Option<Address>,
 
     /// Supplied gas (None for sensible default)
     #[cfg_attr(
         feature = "with-serde",
         serde(
+            default,
             skip_serializing_if = "Option::is_none",
             rename = "gas",
             deserialize_with = "deserialize_uint",
@@ -44,21 +45,22 @@ pub struct CallRequest {
     pub gas_limit: Option<u64>,
 
     /// Gas price (None for sensible default)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub gas_price: Option<U256>,
 
     /// Transferred value (None for no transfer)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub value: Option<U256>,
 
     /// The data of the transaction.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub data: Option<Bytes>,
 
     /// The nonce of the transaction. If set to `None`, no checks are performed.
     #[cfg_attr(
         feature = "with-serde",
         serde(
+            default,
             skip_serializing_if = "Option::is_none",
             deserialize_with = "deserialize_uint",
             serialize_with = "serialize_uint"
@@ -74,6 +76,7 @@ pub struct CallRequest {
     #[cfg_attr(
         feature = "with-serde",
         serde(
+            default,
             skip_serializing_if = "Option::is_none",
             deserialize_with = "deserialize_uint",
             serialize_with = "serialize_uint"
@@ -86,7 +89,7 @@ pub struct CallRequest {
     /// Incorporated as part of the London upgrade via [EIP-1559].
     ///
     /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_priority_fee_per_gas: Option<U256>,
 
     /// A list of addresses and storage keys that the transaction plans to access.
@@ -97,6 +100,7 @@ pub struct CallRequest {
     #[cfg_attr(
         feature = "with-serde",
         serde(
+            default,
             skip_serializing_if = "AccessList::is_empty",
             deserialize_with = "deserialize_null_default"
         )
@@ -108,13 +112,14 @@ pub struct CallRequest {
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
 
     /// EIP-2718 type
     #[cfg_attr(
         feature = "with-serde",
         serde(
+            default,
             rename = "type",
             skip_serializing_if = "Option::is_none",
             deserialize_with = "deserialize_uint",

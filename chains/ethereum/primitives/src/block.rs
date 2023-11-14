@@ -1,6 +1,9 @@
 use crate::{bytes::Bytes, eth_hash::H256, eth_uint::U256, header::Header};
 use alloc::vec::Vec;
 
+#[cfg(feature = "with-serde")]
+use crate::serde_utils::{deserialize_uint, serialize_uint};
+
 /// The block type returned from RPC calls.
 ///
 /// This is generic over a `TX` type which will be either the hash or the full transaction,
@@ -30,7 +33,12 @@ pub struct Block<TX> {
     /// Seal fields
     #[cfg_attr(
         feature = "with-serde",
-        serde(default, rename = "sealFields", deserialize_with = "deserialize_null_default")
+        serde(
+            default,
+            rename = "sealFields",
+            deserialize_with = "deserialize_null_default",
+            skip_serializing_if = "Vec::is_empty",
+        )
     )]
     pub seal_fields: Vec<Bytes>,
 
@@ -46,7 +54,11 @@ pub struct Block<TX> {
     pub uncles: Vec<H256>,
 
     /// Size in bytes
-    pub size: Option<U256>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+    )]
+    pub size: Option<u64>,
 }
 
 #[cfg(feature = "with-serde")]

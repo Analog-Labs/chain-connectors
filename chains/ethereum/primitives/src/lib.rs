@@ -18,6 +18,8 @@ pub mod serde_utils;
 mod storage_proof;
 pub mod transactions;
 mod tx_receipt;
+// #[cfg(feature = "with-rlp")]
+// pub mod proof;
 
 pub use block::Block;
 pub use bytes::Bytes;

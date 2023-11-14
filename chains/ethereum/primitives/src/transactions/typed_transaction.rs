@@ -2,15 +2,14 @@ use super::{eip1559::Eip1559Transaction, eip2930::Eip2930Transaction, legacy::Le
 
 #[cfg(feature = "with-rlp")]
 use crate::{
-    crypto::Crypto,
-    eth_hash::H256,
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction},
     transactions::signature::Signature,
 };
 
-#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(feature = "with-crypto")]
 use crate::{
-    eth_hash::Address,
+    bytes::Bytes,
+    eth_hash::{Address, H256},
     eth_uint::U256,
     transactions::{access_list::AccessList, GasPrice, TransactionT},
 };
@@ -38,25 +37,6 @@ pub enum TypedTransaction {
     Eip2930(Eip2930Transaction),
     #[cfg_attr(feature = "with-serde", serde(rename = "0x2"))]
     Eip1559(Eip1559Transaction),
-}
-
-#[cfg(feature = "with-rlp")]
-impl TypedTransaction {
-    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
-        match self {
-            Self::Legacy(tx) => LegacyTransaction::tx_hash::<C>(tx, signature),
-            Self::Eip2930(tx) => Eip2930Transaction::tx_hash::<C>(tx, signature),
-            Self::Eip1559(tx) => Eip1559Transaction::tx_hash::<C>(tx, signature),
-        }
-    }
-
-    pub fn sighash<C: Crypto>(&self) -> H256 {
-        match self {
-            Self::Legacy(tx) => LegacyTransaction::sighash::<C>(tx),
-            Self::Eip2930(tx) => Eip2930Transaction::sighash::<C>(tx),
-            Self::Eip1559(tx) => Eip1559Transaction::sighash::<C>(tx),
-        }
-    }
 }
 
 #[cfg(feature = "with-rlp")]
@@ -166,7 +146,7 @@ impl From<Eip1559Transaction> for TypedTransaction {
     }
 }
 
-#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(feature = "with-crypto")]
 impl TransactionT for TypedTransaction {
     type ExtraFields = ();
 
@@ -260,5 +240,13 @@ impl TransactionT for TypedTransaction {
 
     fn extra_fields(&self) -> Option<Self::ExtraFields> {
         None
+    }
+
+    fn encode(&self, signature: Option<&Signature>) -> Bytes {
+        match self {
+            Self::Legacy(tx) => TransactionT::encode(tx, signature),
+            Self::Eip2930(tx) => TransactionT::encode(tx, signature),
+            Self::Eip1559(tx) => TransactionT::encode(tx, signature),
+        }
     }
 }

@@ -9,6 +9,7 @@ pub mod typed_transaction;
 use core::default::Default;
 
 use crate::{
+    bytes::Bytes,
     eth_hash::{Address, H256},
     eth_uint::U256,
 };
@@ -45,9 +46,16 @@ impl Default for GasPrice {
 pub trait TransactionT {
     type ExtraFields: Send + Sync + Clone + PartialEq + Eq;
 
+    // Encode the transaction
+    fn encode(&self, signature: Option<&Signature>) -> Bytes;
+
+    /// The hash of the transaction without signature
+    fn sighash(&self) -> H256;
+
     // Compute the tx-hash using the provided signature
     fn compute_tx_hash(&self, signature: &Signature) -> H256;
 
+    // chain id, is only None for Legacy Transactions
     fn chain_id(&self) -> Option<u64>;
     fn nonce(&self) -> u64;
     fn gas_price(&self) -> GasPrice;
@@ -55,8 +63,7 @@ pub trait TransactionT {
     fn to(&self) -> Option<Address>;
     fn value(&self) -> U256;
     fn data(&self) -> &[u8];
-    /// The hash of the transaction without signature
-    fn sighash(&self) -> H256;
+
     /// EIP-2930 access list
     fn access_list(&self) -> Option<&AccessList>;
     /// EIP-2718 transaction type
@@ -67,4 +74,5 @@ pub trait TransactionT {
 pub trait SignedTransactionT: TransactionT {
     fn tx_hash(&self) -> H256;
     fn signature(&self) -> Signature;
+    fn encode_signed(&self) -> Bytes;
 }

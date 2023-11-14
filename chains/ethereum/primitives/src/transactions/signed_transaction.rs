@@ -6,6 +6,7 @@ use super::{
 #[cfg(feature = "with-rlp")]
 use crate::rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction};
 use crate::{
+    bytes::Bytes,
     eth_hash::{Address, TxHash, H256},
     eth_uint::U256,
 };
@@ -140,6 +141,9 @@ where
     fn extra_fields(&self) -> Option<Self::ExtraFields> {
         self.payload.extra_fields()
     }
+    fn encode(&self, signature: Option<&Signature>) -> Bytes {
+        self.payload.encode(signature)
+    }
 }
 
 impl<T> SignedTransactionT for SignedTransaction<T>
@@ -152,6 +156,10 @@ where
 
     fn signature(&self) -> Signature {
         self.signature
+    }
+
+    fn encode_signed(&self) -> Bytes {
+        TransactionT::encode(self, Some(&self.signature))
     }
 }
 

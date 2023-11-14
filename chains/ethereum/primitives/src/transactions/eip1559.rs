@@ -5,10 +5,14 @@ use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
 
 #[cfg(feature = "with-rlp")]
 use crate::{
-    crypto::Crypto,
-    eth_hash::H256,
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
     transactions::signature::Signature,
+};
+
+#[cfg(feature = "with-crypto")]
+use crate::{
+    crypto::{Crypto, DefaultCrypto},
+    eth_hash::H256,
 };
 
 #[cfg(feature = "with-serde")]
@@ -166,19 +170,6 @@ impl RlpDecodableTransaction for Eip1559Transaction {
 }
 
 #[cfg(feature = "with-rlp")]
-impl Eip1559Transaction {
-    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_signed(self, signature);
-        C::keccak256(encoded)
-    }
-
-    pub fn sighash<C: Crypto>(&self) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_unsigned(self);
-        C::keccak256(encoded)
-    }
-}
-
-#[cfg(feature = "with-rlp")]
 impl rlp::Decodable for Eip1559Transaction {
     fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
         <Self as RlpDecodableTransaction>::rlp_decode_unsigned(rlp)
@@ -221,15 +212,28 @@ impl rlp::Encodable for Eip1559Transaction {
     }
 }
 
-#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(feature = "with-crypto")]
 impl super::TransactionT for Eip1559Transaction {
     type ExtraFields = ();
 
-    fn compute_tx_hash(&self, signature: &Signature) -> primitive_types::H256 {
-        use sha3::Digest;
-        let input = self.rlp_signed(signature);
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
+    fn encode(&self, signature: Option<&Signature>) -> Bytes {
+        let bytes = signature.map_or_else(
+            || RlpEncodableTransaction::rlp_unsigned(self),
+            |signature| RlpEncodableTransaction::rlp_signed(self, signature),
+        );
+        Bytes(bytes)
+    }
+
+    /// The hash of the transaction without signature
+    fn sighash(&self) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_unsigned(self);
+        DefaultCrypto::keccak256(bytes.as_ref())
+    }
+
+    // Compute the tx-hash using the provided signature
+    fn compute_tx_hash(&self, signature: &Signature) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_signed(self, signature);
+        DefaultCrypto::keccak256(bytes.as_ref())
     }
 
     fn chain_id(&self) -> Option<u64> {
@@ -261,13 +265,6 @@ impl super::TransactionT for Eip1559Transaction {
 
     fn data(&self) -> &[u8] {
         self.data.as_ref()
-    }
-
-    fn sighash(&self) -> crate::eth_hash::H256 {
-        use sha3::Digest;
-        let input = self.rlp_unsigned();
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
     }
 
     fn access_list(&self) -> Option<&AccessList> {
@@ -422,27 +419,23 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_eip1559_sighash() {
         use super::super::TransactionT;
-        use crate::crypto::DefaultCrypto;
         let tx = build_eip1559().0;
         let expected =
             H256(hex!("2fedc63a84e92359545438f62f816b374e316b3e15f3b2fd5705a7fc430c002e"));
-        assert_eq!(expected, TransactionT::sighash(&tx));
-        assert_eq!(expected, Eip1559Transaction::sighash::<DefaultCrypto>(&tx));
+        assert_eq!(expected, tx.sighash());
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_eip1559_tx_hash() {
         use super::super::TransactionT;
-        use crate::crypto::DefaultCrypto;
         let (tx, sig) = build_eip1559();
         let expected =
             H256(hex!("20a0f172aaeefc91c346fa0d43a9e56a1058a2a0c0c6fa8a2e9204f8047d1008"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
-        assert_eq!(expected, Eip1559Transaction::tx_hash::<DefaultCrypto>(&tx, &sig));
     }
 }

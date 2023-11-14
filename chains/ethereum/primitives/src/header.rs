@@ -7,8 +7,9 @@ use crate::{
     eth_uint::U256,
 };
 #[cfg(feature = "with-rlp")]
-use crate::{crypto::Crypto, eth_hash::H64, rlp_utils::RlpExt};
+use crate::{crypto::Crypto, eth_hash::H64, rlp_utils::RlpExt, transactions::SignedTransactionT};
 use ethbloom::Bloom;
+// use parity_scale_codec::Decode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
@@ -29,7 +30,7 @@ pub struct Header {
     pub ommers_hash: H256,
     /// The 160-bit address to which all fees collected from the successful mining of this block
     /// be transferred; formally Hc.
-    #[cfg_attr(feature = "with-serde", serde(rename = "miner"))]
+    #[cfg_attr(feature = "with-serde", serde(rename = "miner", alias = "beneficiary"))]
     pub beneficiary: Address,
     /// The Keccak 256-bit hash of the root node of the state trie, after all transactions are
     /// executed and finalisations applied; formally Hr.
@@ -40,10 +41,6 @@ pub struct Header {
     /// The Keccak 256-bit hash of the root node of the trie structure populated with the receipts
     /// of each transaction in the transactions list portion of the block; formally He.
     pub receipts_root: H256,
-    /// The Keccak 256-bit hash of the withdrawals list portion of this block.
-    /// <https://eips.ethereum.org/EIPS/eip-4895>
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
-    pub withdrawals_root: Option<H256>,
     /// The Bloom filter composed from indexable information (logger address and log topics)
     /// contained in each log entry from the receipt of each transaction in the transactions list;
     /// formally Hb.
@@ -77,9 +74,14 @@ pub struct Header {
         serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint")
     )]
     pub timestamp: u64,
+    /// An arbitrary byte array containing data relevant to this block. This must be 32 bytes or
+    /// fewer; formally Hx.
+    #[cfg_attr(feature = "with-serde", serde(default))]
+    pub extra_data: Bytes,
     /// A 256-bit hash which, combined with the
     /// nonce, proves that a sufficient amount of computation has been carried out on this block;
     /// formally Hm.
+    #[cfg_attr(feature = "with-serde", serde(default))]
     pub mix_hash: H256,
     /// A 64-bit value which, combined with the mixhash, proves that a sufficient amount of
     /// computation has been carried out on this block; formally Hn.
@@ -104,6 +106,10 @@ pub struct Header {
         )
     )]
     pub base_fee_per_gas: Option<u64>,
+    /// The Keccak 256-bit hash of the withdrawals list portion of this block.
+    /// <https://eips.ethereum.org/EIPS/eip-4895>
+    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub withdrawals_root: Option<H256>,
     /// The total amount of blob gas consumed by the transactions within the block, added in
     /// EIP-4844.
     #[cfg_attr(
@@ -138,9 +144,6 @@ pub struct Header {
     /// The beacon roots contract handles root storage, enhancing Ethereum's functionalities.
     #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub parent_beacon_block_root: Option<H256>,
-    /// An arbitrary byte array containing data relevant to this block. This must be 32 bytes or
-    /// fewer; formally Hx.
-    pub extra_data: Bytes,
 }
 
 #[cfg(feature = "with-rlp")]
@@ -163,6 +166,17 @@ impl Header {
     pub fn encode(&self) -> Bytes {
         let bytes = rlp::Encodable::rlp_bytes(self).freeze();
         Bytes(bytes)
+    }
+
+    /// Calculate transaction root.
+    pub fn compute_transaction_root<C, T, I>(transactions: I) -> H256
+    where
+        C: Crypto,
+        T: SignedTransactionT,
+        I: IntoIterator<Item = T>,
+    {
+        let iter = transactions.into_iter().map(|tx| tx.encode_signed());
+        C::trie_root(iter)
     }
 }
 

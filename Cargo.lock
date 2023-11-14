@@ -5227,7 +5227,9 @@ dependencies = [
  "const-hex",
  "derivative",
  "ethbloom",
+ "ethereum 0.15.0",
  "fixed-hash",
+ "hash256-std-hasher",
  "hex-literal",
  "impl-codec",
  "impl-num-traits",
@@ -5243,6 +5245,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "thiserror",
+ "trie-root",
  "uint",
  "void",
 ]

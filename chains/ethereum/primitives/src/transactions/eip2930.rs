@@ -5,10 +5,14 @@ use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
 
 #[cfg(feature = "with-rlp")]
 use crate::{
-    crypto::Crypto,
-    eth_hash::H256,
     rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction, RlpExt, RlpStreamExt},
     transactions::Signature,
+};
+
+#[cfg(feature = "with-crypto")]
+use crate::{
+    crypto::{Crypto, DefaultCrypto},
+    eth_hash::H256,
 };
 
 #[cfg(feature = "with-serde")]
@@ -78,19 +82,6 @@ pub struct Eip2930Transaction {
         serde(default, skip_serializing_if = "AccessList::is_empty")
     )]
     pub access_list: AccessList,
-}
-
-#[cfg(feature = "with-rlp")]
-impl Eip2930Transaction {
-    pub fn tx_hash<C: Crypto>(&self, signature: &Signature) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_signed(self, signature);
-        C::keccak256(encoded)
-    }
-
-    pub fn sighash<C: Crypto>(&self) -> H256 {
-        let encoded = RlpEncodableTransaction::rlp_unsigned(self);
-        C::keccak256(encoded)
-    }
 }
 
 #[cfg(feature = "with-rlp")]
@@ -188,15 +179,28 @@ impl rlp::Encodable for Eip2930Transaction {
     }
 }
 
-#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(feature = "with-crypto")]
 impl super::TransactionT for Eip2930Transaction {
     type ExtraFields = ();
 
-    fn compute_tx_hash(&self, signature: &Signature) -> primitive_types::H256 {
-        use sha3::Digest;
-        let input = self.rlp_signed(signature);
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
+    fn encode(&self, signature: Option<&Signature>) -> Bytes {
+        let bytes = signature.map_or_else(
+            || RlpEncodableTransaction::rlp_unsigned(self),
+            |signature| RlpEncodableTransaction::rlp_signed(self, signature),
+        );
+        Bytes(bytes)
+    }
+
+    /// The hash of the transaction without signature
+    fn sighash(&self) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_unsigned(self);
+        DefaultCrypto::keccak256(bytes.as_ref())
+    }
+
+    // Compute the tx-hash using the provided signature
+    fn compute_tx_hash(&self, signature: &Signature) -> H256 {
+        let bytes = RlpEncodableTransaction::rlp_signed(self, signature);
+        DefaultCrypto::keccak256(bytes.as_ref())
     }
 
     fn chain_id(&self) -> Option<u64> {
@@ -225,13 +229,6 @@ impl super::TransactionT for Eip2930Transaction {
 
     fn data(&self) -> &[u8] {
         self.data.as_ref()
-    }
-
-    fn sighash(&self) -> crate::eth_hash::H256 {
-        use sha3::Digest;
-        let input = self.rlp_unsigned();
-        let hash: [u8; 32] = sha3::Keccak256::digest(input.as_ref()).into();
-        crate::eth_hash::H256(hash)
     }
 
     fn access_list(&self) -> Option<&AccessList> {
@@ -381,19 +378,17 @@ mod tests {
         assert_eq!(expected, actual);
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_eip2930_sighash() {
         use super::super::TransactionT;
-        use crate::crypto::DefaultCrypto;
         let tx = build_eip2930().0;
         let expected =
             H256(hex!("9af0ea823342c8b7755010d69e9c81fd11d487dbbaad02034757ff117f95f522"));
-        assert_eq!(expected, TransactionT::sighash(&tx));
-        assert_eq!(expected, Eip2930Transaction::sighash::<DefaultCrypto>(&tx));
+        assert_eq!(expected, tx.sighash());
     }
 
-    #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+    #[cfg(feature = "with-crypto")]
     #[test]
     fn compute_eip2930_tx_hash() {
         use super::super::TransactionT;

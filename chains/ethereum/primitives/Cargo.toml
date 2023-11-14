@@ -23,6 +23,7 @@ impl-rlp-macro = { package = "impl-rlp", version = "0.3", default-features = fal
 impl-serde-macro = { package = "impl-serde", version = "0.4", default-features = false, optional = true }
 rlp-derive = { version = "0.1", optional = true }
 
+hash256-std-hasher = { version = "0.15", default-features = false, optional = true }
 libsecp256k1 = { version = "0.7", default-features = false, features = ["static-context"], optional = true }
 parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
 rlp = { version = "0.5", default-features = false, optional = true }
@@ -30,8 +31,10 @@ scale-info = { version = "2.9", default-features = false, features = ["derive"],
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 sha3 = { version = "0.10", default-features = false, optional = true }
 thiserror = { version = "1.0", optional = true }
+trie-root = { version = "0.18", default-features = false, optional = true }
 
 [dev-dependencies]
+ethereum = { version = "0.15", default-features = false, features = ["with-codec"] }
 serde_json = { version = "1.0" }
 
 [features]
@@ -58,7 +61,7 @@ with-rlp = [
   "ethbloom/rlp",
   "primitive-types/rlp",
 ]
-with-crypto = ["dep:sha3", "dep:libsecp256k1"]
+with-crypto = ["dep:hash256-std-hasher", "dep:libsecp256k1", "dep:sha3", "dep:trie-root", "with-rlp"]
 std = [
   "dep:thiserror",
   "bytes/std",
@@ -68,10 +71,12 @@ std = [
   "uint/std",
   "void/std",
   "fixed-hash/std",
+  "hash256-std-hasher?/std",
   "libsecp256k1?/std",
   "parity-scale-codec?/std",
   "rlp?/std",
   "scale-info?/std",
   "serde?/std",
   "sha3?/std",
+  "trie-root?/std",
 ]
