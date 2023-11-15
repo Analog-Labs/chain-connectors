@@ -1,7 +1,7 @@
 use crate::{
-    keccak::KeccakHasher,
+    hasher::KeccakHasher,
     layout::SecTrieDBMut,
-    rstd::{vec::Vec, BTreeMap},
+    rstd::{boxed::Box, vec::Vec, BTreeMap},
 };
 use bytes::Bytes;
 use hash_db::HashDB;

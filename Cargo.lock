@@ -5286,12 +5286,14 @@ dependencies = [
  "bytes",
  "hash-db 0.16.0",
  "hash256-std-hasher",
+ "hex-literal",
  "memory-db",
  "primitive-types",
  "rlp",
  "tiny-keccak",
  "trie-db 0.28.0",
  "trie-root",
+ "triehash",
 ]
 
 [[package]]

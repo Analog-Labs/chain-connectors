@@ -1,8 +1,8 @@
 //! `NodeCodec` implementation for Rlp
 
 use crate::{
-    keccak::KeccakHasher,
-    rstd::{borrow::Borrow, marker::PhantomData, ops::Range},
+    hasher::KeccakHasher,
+    rstd::{borrow::Borrow, iter, marker::PhantomData, ops::Range, vec::Vec},
 };
 use hash_db::Hasher;
 use primitive_types::H256;
@@ -43,7 +43,7 @@ fn encode_partial_inner_iter<'a>(
 ) -> impl Iterator<Item = u8> + 'a {
     let encoded_type = if is_leaf { 0x20 } else { 0 };
     let first = if odd { 0x10 + encoded_type + first_byte } else { encoded_type };
-    std::iter::once(first).chain(partial_remaining)
+    iter::once(first).chain(partial_remaining)
 }
 
 fn decode_value_range(rlp: &Rlp, mut offset: usize) -> Result<Range<usize>, DecoderError> {

@@ -1,4 +1,4 @@
-use crate::{keccak::KeccakHasher, node_codec::RlpNodeCodec};
+use crate::{hasher::KeccakHasher, node_codec::RlpNodeCodec};
 use primitive_types::H256;
 use rlp::DecoderError;
 use trie_db::TrieLayout;
@@ -47,13 +47,16 @@ pub type Result<T> = trie_db::Result<T, H256, DecoderError>;
 
 #[cfg(test)]
 mod tests {
-
-    // use primitive_types::H256;
+    use hash_db::Hasher;
+    use hex_literal::hex;
     use memory_db::{HashKey, MemoryDB};
+    use primitive_types::{H160, H256, U256};
     use trie_db::{Trie, TrieMut};
 
-    use super::{KeccakHasher, TrieDBBuilder, TrieDBMutBuilder};
-    use crate::node_codec::HASHED_NULL_NODE;
+    use super::{KeccakHasher, SecTrieDBMut, TrieDBBuilder, TrieDBMutBuilder};
+    use crate::{account_db::AccountDBMut, node_codec::HASHED_NULL_NODE};
+
+    type Address = H160;
 
     #[test]
     fn test_inline_encoding_branch() {
@@ -94,5 +97,36 @@ mod tests {
         assert!(t.contains(b"fog").unwrap());
         assert_eq!(t.get(b"foo").unwrap().unwrap(), b"b".to_vec());
         assert_eq!(t.get(b"fog").unwrap().unwrap(), b"a".to_vec());
+    }
+
+    #[test]
+    fn test_contract_storage_root() {
+        let mut root = HASHED_NULL_NODE;
+        let mut db = MemoryDB::<KeccakHasher, HashKey<_>, Vec<u8>>::from_null_node(
+            &rlp::NULL_RLP,
+            rlp::NULL_RLP.as_ref().into(),
+        );
+        let mut db =
+            AccountDBMut::from_hash(&mut db, KeccakHasher::hash(Address::zero().as_bytes()));
+        {
+            let mut triedbmut = SecTrieDBMut::from_existing(&mut db, &mut root);
+            let key = H256::zero();
+            let value = rlp::encode(&U256::from(0x1234)).freeze();
+            triedbmut.insert(key.as_bytes(), value.as_ref()).unwrap();
+        }
+        assert_eq!(
+            root,
+            H256(hex!("c57e1afb758b07f8d2c8f13a3b6e44fa5ff94ab266facc5a4fd3f062426e50b2"))
+        );
+        {
+            let mut triedbmut = SecTrieDBMut::from_existing(&mut db, &mut root);
+            let key = H256::zero();
+            let value = rlp::encode(&U256::from(0x1)).freeze();
+            triedbmut.insert(key.as_bytes(), value.as_ref()).unwrap();
+        }
+        assert_eq!(
+            root,
+            H256(hex!("821e2556a290c86405f8160a2d662042a431ba456b9db265c79bb837c04be5f0"))
+        );
     }
 }
