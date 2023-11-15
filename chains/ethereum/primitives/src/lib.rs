@@ -10,7 +10,6 @@ mod eth_hash;
 mod eth_uint;
 pub mod header;
 mod log;
-pub mod proof;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
 pub mod rpc;

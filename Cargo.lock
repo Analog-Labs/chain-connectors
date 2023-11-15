@@ -5290,10 +5290,11 @@ dependencies = [
  "memory-db",
  "primitive-types",
  "rlp",
+ "serde",
+ "serde_json",
  "tiny-keccak",
  "trie-db 0.28.0",
  "trie-root",
- "triehash",
 ]
 
 [[package]]

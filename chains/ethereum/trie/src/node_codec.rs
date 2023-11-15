@@ -5,6 +5,7 @@ use crate::{
     rstd::{borrow::Borrow, iter, marker::PhantomData, ops::Range, vec::Vec},
 };
 use hash_db::Hasher;
+use hex_literal::hex;
 use primitive_types::H256;
 use rlp::{DecoderError, Prototype, Rlp, RlpStream};
 use trie_db::{
@@ -18,10 +19,9 @@ pub struct RlpNodeCodec<H: Hasher> {
     mark: PhantomData<H>,
 }
 
-const HASHED_NULL_NODE_BYTES: [u8; 32] = [
-    0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e,
-    0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
-];
+/// The hashed null node for the ethereum trie, the same as keccak256(0x80)
+const HASHED_NULL_NODE_BYTES: [u8; 32] =
+    hex!("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421");
 pub const HASHED_NULL_NODE: H256 = H256(HASHED_NULL_NODE_BYTES);
 
 /// Encode a partial value with an iterator as input.
