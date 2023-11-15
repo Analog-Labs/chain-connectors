@@ -1,4 +1,7 @@
-use crate::eth_uint::{U256, U64};
+use crate::{
+    eth_hash::H520,
+    eth_uint::{U256, U64},
+};
 
 /// An ECDSA signature
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -30,6 +33,14 @@ impl Signature {
         // output[0..32].copy_from_slice(self.r.as_fixed_bytes());
         // output[32..64].copy_from_slice(self.s.as_fixed_bytes());
         output[64] = self.v.y_parity() as u8;
+    }
+}
+
+impl From<Signature> for H520 {
+    fn from(value: Signature) -> Self {
+        let mut output = [0u8; 65];
+        value.to_raw_signature(&mut output);
+        Self(output)
     }
 }
 

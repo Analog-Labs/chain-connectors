@@ -10,6 +10,7 @@ members = [
   "chains/ethereum/primitives",
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
+  "chains/ethereum/trie",
   "chains/ethereum/tx",
   "chains/polkadot/config",
   "chains/polkadot/server",

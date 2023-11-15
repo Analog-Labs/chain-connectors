@@ -10,6 +10,7 @@ mod eth_hash;
 mod eth_uint;
 pub mod header;
 mod log;
+pub mod proof;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
 pub mod rpc;
@@ -21,13 +22,14 @@ mod tx_receipt;
 
 pub use block::Block;
 pub use bytes::Bytes;
-pub use eth_hash::{Address, Public, Secret, Signature, TxHash, H128, H256, H384, H512, H520};
+pub use eth_hash::{Address, Public, Secret, TxHash, H128, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512, U64};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
     access_list::{AccessList, AccessListItem, AccessListWithGasUsed},
+    signature::Signature,
     signed_transaction::SignedTransaction,
     typed_transaction::TypedTransaction,
 };

@@ -9,7 +9,6 @@ use crate::{
 #[cfg(feature = "with-rlp")]
 use crate::{crypto::Crypto, eth_hash::H64, rlp_utils::RlpExt, transactions::SignedTransactionT};
 use ethbloom::Bloom;
-// use parity_scale_codec::Decode;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(

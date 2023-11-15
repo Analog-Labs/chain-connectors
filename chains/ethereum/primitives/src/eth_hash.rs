@@ -19,7 +19,6 @@ pub type Address = H160;
 pub type TxHash = H256;
 pub type Secret = H256;
 pub type Public = H512;
-pub type Signature = H520;
 
 macro_rules! impl_hash {
     ($hash: ident, $n_bytes: expr) => {

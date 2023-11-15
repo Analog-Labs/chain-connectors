@@ -1,0 +1,31 @@
+[package]
+name = "rosetta-ethereum-trie"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Ethereum integration tests."
+
+[dependencies]
+bytes = { version = "1.5", default-features = false }
+hash-db = { version = "0.16", default-features = false }
+hash256-std-hasher = { version = "0.15", default-features = false }
+memory-db = { version = "0.32", default-features = false }
+primitive-types = { version = "0.12", default-features = false, features = ["rlp"] }
+rlp = { version = "0.5", default-features = false }
+tiny-keccak = { version = "2.0", features = ["keccak"] }
+trie-db = { version = "0.28", default-features = false }
+trie-root = { version = "0.18", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+  "bytes/std",
+  "hash-db/std",
+  "hash256-std-hasher/std",
+  "memory-db/std",
+  "primitive-types/std",
+  "rlp/std",
+  "trie-db/std",
+  "trie-root/std",
+]
