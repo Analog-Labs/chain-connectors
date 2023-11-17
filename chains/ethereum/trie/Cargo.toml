@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
-description = "Ethereum integration tests."
+description = "Ethereum patricia trie."
 
 [dependencies]
 bytes = { version = "1.5", default-features = false }
@@ -14,6 +14,7 @@ hex-literal = { version = "0.4" }
 memory-db = { version = "0.32", default-features = false }
 primitive-types = { version = "0.12", default-features = false, features = ["rlp"] }
 rlp = { version = "0.5", default-features = false }
+rlp-derive = { version = "0.1" }
 tiny-keccak = { version = "2.0", features = ["keccak"] }
 trie-db = { version = "0.28", default-features = false }
 trie-root = { version = "0.18", default-features = false }
@@ -25,6 +26,7 @@ serde_json = { version = "1.0" }
 
 [features]
 default = ["std"]
+memory-db = []
 std = [
   "bytes/std",
   "hash-db/std",

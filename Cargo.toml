@@ -41,6 +41,7 @@ rosetta-ethereum-backend = { path = "chains/ethereum/backend", default-features 
 rosetta-ethereum-executor = { path = "chains/ethereum/executor", default-features = false }
 rosetta-ethereum-primitives = { path = "chains/ethereum/primitives", default-features = false }
 rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client", default-features = false }
+rosetta-ethereum-trie = { path = "chains/ethereum/trie", default-features = false }
 rosetta-config-ethereum = { path = "chains/ethereum/config" }
 rosetta-server-ethereum = { path = "chains/ethereum/server" }
 rosetta-tx-ethereum = { path = "chains/ethereum/tx" }

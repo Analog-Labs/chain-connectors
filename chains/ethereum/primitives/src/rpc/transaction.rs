@@ -232,8 +232,6 @@ impl TryFrom<RpcTransaction> for TypedTransaction {
             None => {
                 if tx.max_fee_per_gas.is_some() || tx.max_priority_fee_per_gas.is_some() {
                     Self::Eip1559(tx.try_into()?)
-                } else if !tx.access_list.is_empty() {
-                    Self::Legacy(tx.try_into()?)
                 } else {
                     Self::Legacy(tx.try_into()?)
                 }
@@ -257,8 +255,6 @@ impl TryFrom<RpcTransaction> for SignedTransaction<TypedTransaction> {
             None => {
                 if tx.max_fee_per_gas.is_some() || tx.max_priority_fee_per_gas.is_some() {
                     TypedTransaction::Eip1559(tx.try_into()?)
-                } else if !tx.access_list.is_empty() {
-                    TypedTransaction::Legacy(tx.try_into()?)
                 } else {
                     TypedTransaction::Legacy(tx.try_into()?)
                 }

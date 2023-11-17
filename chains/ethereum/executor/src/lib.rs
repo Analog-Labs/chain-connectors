@@ -5,9 +5,9 @@ extern crate alloc;
 #[cfg(feature = "sputnik-evm")]
 mod precompile;
 #[cfg(feature = "rust-evm")]
-mod rust_evm;
+pub mod rust_evm;
 #[cfg(feature = "sputnik-evm")]
-mod sputnik_evm;
+pub mod sputnik_evm;
 mod state;
 mod types;
 

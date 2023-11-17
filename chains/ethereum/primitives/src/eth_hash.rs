@@ -3,7 +3,7 @@
     clippy::pedantic,
     clippy::reversed_empty_ranges,
     clippy::assign_op_pattern,
-    clippy::incorrect_clone_impl_on_copy_type
+    clippy::non_canonical_clone_impl
 )]
 use fixed_hash::*;
 #[cfg(feature = "with-codec")]

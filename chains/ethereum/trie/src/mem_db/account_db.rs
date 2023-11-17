@@ -1,6 +1,6 @@
 use crate::{hasher::KeccakHasher, node_codec::HASHED_NULL_NODE, rstd::vec::Vec};
-use hash_db::{AsHashDB, HashDB, Hasher, Prefix};
-use primitive_types::H256;
+use hash_db::{AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
+use primitive_types::{H160, H256};
 use rlp::NULL_RLP;
 
 pub type DBValue = Vec<u8>;
@@ -21,6 +21,44 @@ fn combine_key<'a>(address_hash: &'a H256, key: &'a H256) -> H256 {
 }
 
 /// DB backend wrapper for Account trie
+/// Transforms trie node keys for the database
+pub struct AccountDB<'db> {
+    db: &'db dyn HashDBRef<KeccakHasher, DBValue>,
+    address_hash: H256,
+}
+
+impl<'db> AccountDB<'db> {
+    /// Create a new `AccountDB` from an address.
+    pub fn new(db: &'db dyn HashDBRef<KeccakHasher, DBValue>, address: &H160) -> Self {
+        Self::from_hash(db, KeccakHasher::hash(address.as_bytes()))
+    }
+
+    /// Create a new `AccountDB` from an address' hash.
+    pub const fn from_hash(
+        db: &'db dyn HashDBRef<KeccakHasher, DBValue>,
+        address_hash: H256,
+    ) -> Self {
+        Self { db, address_hash }
+    }
+}
+
+impl<'db> HashDBRef<KeccakHasher, DBValue> for AccountDB<'db> {
+    fn get(&self, key: &H256, prefix: Prefix) -> Option<DBValue> {
+        if key == &HASHED_NULL_NODE {
+            return Some(NULL_RLP.to_vec());
+        }
+        self.db.get(&combine_key(&self.address_hash, key), prefix)
+    }
+
+    fn contains(&self, key: &H256, prefix: Prefix) -> bool {
+        if key == &HASHED_NULL_NODE {
+            return true;
+        }
+        self.db.contains(&combine_key(&self.address_hash, key), prefix)
+    }
+}
+
+/// DB backend wrapper for Account trie
 pub struct AccountDBMut<'db, DB> {
     db: &'db mut DB,
     address_hash: H256,
@@ -30,6 +68,11 @@ impl<'db, DB> AccountDBMut<'db, DB>
 where
     DB: HashDB<KeccakHasher, DBValue>,
 {
+    // /// Create a new `AccountDB` from an address.
+    // pub fn new(db: &'db mut DB, address: &H160) -> Self {
+    //     Self::from_hash(db, KeccakHasher::hash(address.as_bytes()))
+    // }
+
     /// Create a new `AccountDBMut` from an address' hash.
     pub fn from_hash(db: &'db mut DB, address_hash: H256) -> Self {
         Self { db, address_hash }
@@ -90,5 +133,24 @@ where
     }
     fn as_hash_db_mut(&mut self) -> &mut dyn HashDB<KeccakHasher, DBValue> {
         self
+    }
+}
+
+impl<'db, DB> HashDBRef<KeccakHasher, DBValue> for AccountDBMut<'db, DB>
+where
+    DB: HashDB<KeccakHasher, DBValue>,
+{
+    fn get(&self, key: &H256, prefix: Prefix) -> Option<DBValue> {
+        if key == &HASHED_NULL_NODE {
+            return Some(NULL_RLP.to_vec());
+        }
+        self.db.get(&combine_key(&self.address_hash, key), prefix)
+    }
+
+    fn contains(&self, key: &H256, prefix: Prefix) -> bool {
+        if key == &HASHED_NULL_NODE {
+            return true;
+        }
+        self.db.contains(&combine_key(&self.address_hash, key), prefix)
     }
 }

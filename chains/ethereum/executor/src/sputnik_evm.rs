@@ -1,5 +1,12 @@
 use alloc::{collections::BTreeMap, vec::Vec};
 
+pub mod precompile {
+    pub use crate::precompile::*;
+}
+pub mod core {
+    pub use sputnik_evm::*;
+}
+
 use crate::{
     precompile::DefaultPrecompileSet,
     state::{PrefetchError, StateDB},
@@ -50,6 +57,96 @@ impl SputnikConfig for TestEnv {
     fn precompile_set(&self) -> &Self::PrecompileSet {
         &self.precompile_set
     }
+}
+
+pub fn transact_call<C: SputnikConfig, T: EthereumRpc>(
+    db: &StateDB<T>,
+    env: &C,
+    tx: &CallRequest,
+    block: &Block<H256>,
+) -> (sputnik_evm::ExitReason, Vec<u8>) {
+    use sputnik_evm::{
+        backend::{MemoryAccount, MemoryBackend},
+        executor::stack::{
+            IsPrecompileResult, MemoryStackState, PrecompileSet, StackExecutor,
+            StackSubstateMetadata,
+        },
+    };
+
+    let source = tx.from.unwrap_or_default();
+    let gas_limit = tx.gas_limit.unwrap_or(u64::MAX);
+
+    let precompiles = env.precompile_set();
+    let config = env.config();
+
+    // The precompile check is only used for transactional invocations. However, here we always
+    // execute the check, because the check has side effects.
+    let gas_limit = match precompiles.is_precompile(source, gas_limit) {
+        IsPrecompileResult::Answer { extra_cost, .. } => gas_limit.saturating_sub(extra_cost),
+        IsPrecompileResult::OutOfGas => {
+            return (
+                sputnik_evm::ExitReason::Error(sputnik_evm::ExitError::OutOfGas),
+                Vec::default(),
+            );
+        },
+    };
+
+    // Only check the restrictions of EIP-3607 if the source of the EVM operation is from an
+    // external transaction. If the source of this EVM operation is from an internal
+    // call, like from `eth_call` or `eth_estimateGas` RPC, we will skip the checks for
+    // the EIP-3607.
+    //
+    // EIP-3607: https://eips.ethereum.org/EIPS/eip-3607
+    // Do not allow transactions for which `tx.sender` has any code deployed.
+    // if is_transactional && self.db.accounts.get(&tx.from.unwrap_or_default()).map(|bla|
+    // bla.code_hash) { 	return Err(Error::TransactionMustComeFromEOA);
+    // }
+
+    // Execute the EVM call.
+    let vicinity = sputnik_evm::backend::MemoryVicinity {
+        gas_price: U256::zero(),
+        origin: tx.from.unwrap_or_default(),
+        block_hashes: db.blocks_hashes.values().copied().collect(),
+        block_number: U256::from(block.header.number),
+        block_coinbase: block.header.beneficiary,
+        block_timestamp: U256::from(block.header.timestamp),
+        block_difficulty: block.header.difficulty,
+        block_gas_limit: U256::from(block.header.gas_limit),
+        chain_id: tx.chain_id.map(U256::from).unwrap_or_default(),
+        block_base_fee_per_gas: block.header.base_fee_per_gas.map(U256::from).unwrap_or_default(),
+        block_randomness: None,
+    };
+
+    let mut state = BTreeMap::<Address, MemoryAccount>::new();
+    for account in db.accounts.values() {
+        let entry = state.entry(account.address).or_default();
+        entry.nonce = U256::from(account.nonce);
+        entry.balance = account.balance;
+
+        if let Some(code) = db.code.get(&account.code_hash) {
+            entry.code = code.0.to_vec();
+        }
+
+        if let Some(entries) = db.storage.get(&account.address) {
+            entry.storage.extend(entries);
+        }
+    }
+
+    let mut backend = MemoryBackend::new(&vicinity, state);
+    let metadata = StackSubstateMetadata::new(gas_limit, config);
+    let state = MemoryStackState::new(metadata, &mut backend);
+    let precompiles = DefaultPrecompileSet;
+    let mut executor = StackExecutor::new_with_precompiles(state, config, &precompiles);
+
+    let (exit_reason, bytes) = executor.transact_call(
+        tx.from.unwrap_or_default(),
+        tx.to.unwrap_or_default(),
+        tx.value.unwrap_or_default(),
+        tx.data.as_ref().map(|bytes| bytes.0.to_vec()).unwrap_or_default(),
+        tx.gas_limit.unwrap_or(u64::MAX),
+        Vec::new(),
+    );
+    (exit_reason, bytes)
 }
 
 pub struct SputnikExecutor<RPC: EthereumRpc + Send + Sync> {

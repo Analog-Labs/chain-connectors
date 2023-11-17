@@ -28,6 +28,8 @@ pub type PrecompileResult = Result<PrecompileOutput, PrecompileFailure>;
 pub trait Precompile {
     /// Try to execute the precompile with given `handle` which provides all call data
     /// and allow to register costs and logs.
+    /// # Errors
+    /// Returns Err if the execution fails.
     fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult;
 }
 
@@ -35,6 +37,8 @@ pub trait LinearCostPrecompile {
     const BASE: u64;
     const WORD: u64;
 
+    /// # Errors
+    /// Returns Err if the execution fails.
     fn execute(
         input: &[u8],
         cost: u64,
@@ -109,6 +113,7 @@ impl PrecompileSet for DefaultPrecompileSet {
     }
 }
 
+#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 #[cfg(test)]
 pub mod test_utils {
     extern crate hex;
@@ -127,6 +132,7 @@ pub mod test_utils {
     }
 
     impl MockHandle {
+        #[must_use]
         pub fn new(input: Vec<u8>, gas_limit: Option<u64>, context: Context) -> Self {
             Self { input, gas_limit, context, is_static: false, gas_used: 0 }
         }

@@ -1,9 +1,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod account_db;
-pub mod db;
 pub mod hasher;
 pub mod layout;
+#[cfg(any(test, feature = "memory-db"))]
+pub mod mem_db;
 pub mod node_codec;
 pub mod trie_stream;
 
@@ -12,6 +12,9 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 mod rstd {
+    pub mod collections {
+        pub use std::collections::btree_map;
+    }
     pub use std::{
         borrow, boxed, cmp, collections::BTreeMap, convert, default, error::Error, fmt, hash, iter,
         marker, mem, ops, rc, result, sync, vec,
@@ -20,6 +23,9 @@ mod rstd {
 
 #[cfg(not(feature = "std"))]
 mod rstd {
+    pub mod collections {
+        pub use alloc::collections::btree_map;
+    }
     pub use alloc::{borrow, boxed, collections::BTreeMap, rc, sync, vec};
     pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result};
     pub trait Error {}

@@ -18,11 +18,11 @@ impl TrieLayout for Layout {
 /// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDB`
 pub type TrieDB<'db, 'cache> = trie_db::TrieDB<'db, 'cache, Layout>;
 
-/// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBMut`
-pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, Layout>;
-
 /// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBBuilder`
 pub type TrieDBBuilder<'a, 'cache> = trie_db::TrieDBBuilder<'a, 'cache, Layout>;
+
+/// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBMut`
+pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, Layout>;
 
 /// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBBuilder`
 pub type TrieDBMutBuilder<'db> = trie_db::TrieDBMutBuilder<'db, Layout>;
@@ -39,11 +39,31 @@ pub type FatDB<'db, 'cache> = trie_db::FatDB<'db, 'cache, Layout>;
 /// Convenience type alias to instantiate a Keccak/Rlp-flavoured `FatDBMut`
 pub type FatDBMut<'db> = trie_db::FatDBMut<'db, Layout>;
 
+/// Convenience type alias for instantiate Keccak/Rlp-flavoured `Lookup`
+pub type Lookup<'db, 'cache, Q> = trie_db::Lookup<'db, 'cache, Layout, Q>;
+
 /// Convenience type alias for Keccak/Rlp flavoured trie errors
 pub type TrieError = trie_db::TrieError<H256, DecoderError>;
 
 /// Convenience type alias for Keccak/Rlp flavoured trie results
 pub type Result<T> = trie_db::Result<T, H256, DecoderError>;
+
+/// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBIterator`
+pub type TrieDBIterator<'a, 'cache> = trie_db::TrieDBIterator<'a, 'cache, Layout>;
+
+/// Convenience type alias to instantiate a Keccak/Rlp-flavoured `TrieDBKeyIterator`
+pub type TrieDBKeyIterator<'a, 'cache> = trie_db::TrieDBKeyIterator<'a, 'cache, Layout>;
+
+/// Convenience type alias for Keccak/Rlp flavoured trie hash
+pub type TrieHash = trie_db::TrieHash<Layout>;
+
+/// Convenience type alias for Keccak/Rlp flavoured trie hash
+pub type CError = trie_db::CError<Layout>;
+
+pub mod predule {
+    pub use hash_db::AsHashDB;
+    pub use trie_db::{HashDB, HashDBRef, Trie, TrieIterator, TrieMut};
+}
 
 #[cfg(test)]
 mod tests {
@@ -54,7 +74,7 @@ mod tests {
     use trie_db::{Trie, TrieMut};
 
     use super::{KeccakHasher, SecTrieDBMut, TrieDBBuilder, TrieDBMutBuilder};
-    use crate::{account_db::AccountDBMut, node_codec::HASHED_NULL_NODE};
+    use crate::{mem_db::account_db::AccountDBMut, node_codec::HASHED_NULL_NODE};
 
     type Address = H160;
 
