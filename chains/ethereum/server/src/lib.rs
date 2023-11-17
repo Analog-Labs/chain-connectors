@@ -276,12 +276,12 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             event AnEvent();
             function emitEvent() public {
                 emit AnEvent();
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
 
@@ -312,11 +312,11 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             function identity(bool a) public view returns (bool) {
                 return a;
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
