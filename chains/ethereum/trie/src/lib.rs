@@ -9,6 +9,7 @@ pub mod trie;
 pub mod trie_stream;
 
 #[cfg(not(feature = "std"))]
+#[cfg_attr(test, macro_use)]
 extern crate alloc;
 
 #[cfg(feature = "std")]
@@ -40,7 +41,7 @@ mod rstd {
     pub mod sync {
         pub use alloc::sync::Arc;
         pub use spin::{
-            lock_api::{Mutex, MutexGuard, RwLock, RwLockWriteGuard},
+            lock_api::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard},
             Once,
         };
         pub mod atomic {
@@ -93,7 +94,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{ordered_trie_root, sec_trie_root, trie_root, H256};
+    use super::{ordered_trie_root, rstd::vec, sec_trie_root, trie_root, H256};
     use hex_literal::hex;
 
     #[test]

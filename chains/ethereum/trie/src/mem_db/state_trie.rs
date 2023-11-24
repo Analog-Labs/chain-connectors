@@ -393,11 +393,16 @@ pub enum AccountState {
 #[cfg(test)]
 mod tests {
     use super::{trie_hash_db, AccountInfo, AccountState, DbAccount, StateTrie};
-    use crate::node_codec::HASHED_NULL_NODE;
+    use crate::{
+        node_codec::HASHED_NULL_NODE,
+        rstd::{
+            collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+            vec::Vec,
+        },
+    };
     use hex_literal::hex;
     use primitive_types::{H160, H256, U256};
     use serde::{Deserialize, Serialize};
-    use std::collections::{BTreeMap, BTreeSet};
 
     // Ethereum mainnet genesis accounts
     // ref: https://github.com/openethereum/parity-ethereum/blob/v3.0.1/ethcore/res/ethereum/foundation.json

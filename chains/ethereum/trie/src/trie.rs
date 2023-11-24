@@ -1,4 +1,3 @@
-pub mod base;
 mod cache;
 mod prefixed_db;
 mod random_state;
@@ -116,6 +115,11 @@ pub type CError = trie_db::CError<Layout>;
 pub type MemoryDB =
     memory_db::MemoryDB<KeccakHasher, memory_db::HashKey<KeccakHasher>, trie_db::DBValue>;
 
+/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
+/// This uses a `KeyFunction` for prefixing keys internally (avoiding
+/// key conflict for non random keys).
+pub type PrefixedMemoryDB<H> = memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue>;
+
 pub mod predule {
     pub use hash_db::AsHashDB;
     pub use trie_db::{HashDB, HashDBRef, Trie, TrieIterator, TrieMut};
@@ -188,6 +192,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::rstd::vec::Vec;
     use hash_db::Hasher;
     use hex_literal::hex;
     use memory_db::{HashKey, MemoryDB};

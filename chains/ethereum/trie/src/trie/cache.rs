@@ -1329,9 +1329,8 @@ impl<'a> trie_db::TrieCache<NodeCodec> for TrieCache<'a, KeccakHasher> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{hasher::KeccakHasher, mem_db::new_memory_db, trie::Layout};
+    use crate::{hasher::KeccakHasher, mem_db::new_memory_db, rstd::vec::Vec, trie::Layout};
     use memory_db::HashKey;
-    use std::vec::Vec;
     use trie_db::{Bytes, Trie, TrieDBBuilder, TrieDBMutBuilder, TrieHash, TrieMut};
 
     type MemoryDB = memory_db::MemoryDB<KeccakHasher, HashKey<KeccakHasher>, Vec<u8>>;
