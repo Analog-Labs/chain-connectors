@@ -57,6 +57,11 @@ where
     <H64 as Serialize>::serialize(&hash, serializer)
 }
 
+/// serde functions for handling primitive optional `u64` as [U64]
+pub mod uint_hex_or_decimal {
+    pub use super::{deserialize_uint as deserialize, serialize_uint as serialize};
+}
+
 /// Helper for deserializing optional uints from hexadecimal string
 struct DeserializeWrapper<T>(T);
 

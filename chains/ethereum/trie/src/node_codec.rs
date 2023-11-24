@@ -1,9 +1,6 @@
 //! `NodeCodec` implementation for Rlp
 
-use crate::{
-    hasher::KeccakHasher,
-    rstd::{borrow::Borrow, iter, marker::PhantomData, ops::Range, vec::Vec},
-};
+use crate::rstd::{borrow::Borrow, iter, marker::PhantomData, ops::Range, vec::Vec};
 use hash_db::Hasher;
 use hex_literal::hex;
 use primitive_types::H256;
@@ -65,12 +62,15 @@ fn decode_child_handle_plan<H: Hasher>(
     })
 }
 
-impl NodeCodec for RlpNodeCodec<KeccakHasher> {
+impl<H> NodeCodec for RlpNodeCodec<H>
+where
+    H: Hasher,
+{
     type Error = DecoderError;
-    type HashOut = <KeccakHasher as Hasher>::Out;
+    type HashOut = H::Out;
 
-    fn hashed_null_node() -> <KeccakHasher as Hasher>::Out {
-        HASHED_NULL_NODE
+    fn hashed_null_node() -> H::Out {
+        H::hash(<Self as NodeCodec>::empty_node())
     }
 
     fn decode_plan(data: &[u8]) -> Result<NodePlan, Self::Error> {
@@ -108,7 +108,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
                     let value = ValuePlan::Inline(value); // TODO: check if this is correct
                     NodePlan::Leaf { partial, value }
                 } else {
-                    let child = decode_child_handle_plan::<KeccakHasher>(&value_rlp, value_offset)?;
+                    let child = decode_child_handle_plan::<H>(&value_rlp, value_offset)?;
                     NodePlan::Extension { partial, child }
                 })
             },
@@ -121,10 +121,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
                 for (i, child) in children.iter_mut().enumerate() {
                     let (child_rlp, child_offset) = r.at_with_offset(i)?;
                     if !child_rlp.is_empty() {
-                        *child = Some(decode_child_handle_plan::<KeccakHasher>(
-                            &child_rlp,
-                            child_offset,
-                        )?);
+                        *child = Some(decode_child_handle_plan::<H>(&child_rlp, child_offset)?);
                     }
                 }
                 let (value_rlp, value_offset) = r.at_with_offset(16)?;
@@ -164,7 +161,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
     fn extension_node(
         partial: impl Iterator<Item = u8>,
         number_nibble: usize,
-        child_ref: ChildReference<<KeccakHasher as Hasher>::Out>,
+        child_ref: ChildReference<H::Out>,
     ) -> Vec<u8> {
         let mut stream = RlpStream::new_list(2);
         stream.append_iter(encode_partial_from_iterator_iter(
@@ -173,7 +170,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
             false,
         ));
         match child_ref {
-            ChildReference::Hash(hash) => stream.append(&hash),
+            ChildReference::Hash(hash) => stream.append(&hash.as_ref()),
             ChildReference::Inline(inline_data, length) => {
                 let bytes = &AsRef::<[u8]>::as_ref(&inline_data)[..length];
                 stream.append_raw(bytes, 1)
@@ -183,16 +180,14 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
     }
 
     fn branch_node(
-        children: impl Iterator<
-            Item = impl Borrow<Option<ChildReference<<KeccakHasher as Hasher>::Out>>>,
-        >,
+        children: impl Iterator<Item = impl Borrow<Option<ChildReference<H::Out>>>>,
         maybe_value: Option<Value>,
     ) -> Vec<u8> {
         let mut stream = RlpStream::new_list(17);
         for child_ref in children {
             match child_ref.borrow() {
                 Some(c) => match c {
-                    ChildReference::Hash(h) => stream.append(h),
+                    ChildReference::Hash(h) => stream.append(&h.as_ref()),
                     ChildReference::Inline(inline_data, length) => {
                         let bytes = &AsRef::<[u8]>::as_ref(inline_data)[..*length];
                         stream.append_raw(bytes, 1)
@@ -215,9 +210,7 @@ impl NodeCodec for RlpNodeCodec<KeccakHasher> {
     fn branch_node_nibbled(
         _partial: impl Iterator<Item = u8>,
         _number_nibble: usize,
-        _children: impl Iterator<
-            Item = impl Borrow<Option<ChildReference<<KeccakHasher as Hasher>::Out>>>,
-        >,
+        _children: impl Iterator<Item = impl Borrow<Option<ChildReference<H::Out>>>>,
         _maybe_value: Option<Value>,
     ) -> Vec<u8> {
         unreachable!("This codec is only used with a trie Layout that uses extension node.")

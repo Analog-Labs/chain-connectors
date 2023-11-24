@@ -2,6 +2,7 @@
 
 extern crate alloc;
 
+pub mod chain_spec;
 #[cfg(feature = "sputnik-evm")]
 mod precompile;
 #[cfg(feature = "rust-evm")]

@@ -18,7 +18,7 @@ use crate::serde_utils::{deserialize_uint, serialize_uint};
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-pub struct Block<TX> {
+pub struct Block<TX, OMMERS = H256> {
     /// Hash of the block
     pub hash: H256,
 
@@ -45,18 +45,21 @@ pub struct Block<TX> {
     /// Transactions
     #[cfg_attr(
         feature = "with-serde",
-        serde(bound = "TX: serde::Serialize + serde::de::DeserializeOwned", default)
+        serde(bound = "TX: serde::Serialize + serde::de::DeserializeOwned")
     )]
     pub transactions: Vec<TX>,
 
     /// Uncles' hashes
-    #[cfg_attr(feature = "with-serde", serde(default))]
-    pub uncles: Vec<H256>,
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(bound = "OMMERS: serde::Serialize + serde::de::DeserializeOwned")
+    )]
+    pub uncles: Vec<OMMERS>,
 
     /// Size in bytes
     #[cfg_attr(
         feature = "with-serde",
-        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint",)
+        serde(deserialize_with = "deserialize_uint", serialize_with = "serialize_uint")
     )]
     pub size: Option<u64>,
 }

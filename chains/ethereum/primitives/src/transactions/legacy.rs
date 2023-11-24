@@ -154,9 +154,9 @@ impl RlpEncodableTransaction for LegacyTransaction {
             .append(&self.data);
 
         match (self.chain_id, signature) {
-            (Some(chain_id), Some(sig)) => {
-                debug_assert_eq!(Some(chain_id), sig.v.chain_id());
-                // let v = sig.v.as_eip155(chain_id.as_u64());
+            (Some(_), Some(sig)) => {
+                // debug_assert_eq!(Some(chain_id), sig.v.chain_id());
+                // let v = sig.v.as_eip155(chain_id);
                 stream.append(&sig.v).append(&sig.r).append(&sig.s);
             },
             (None, Some(sig)) => {
@@ -214,8 +214,8 @@ impl super::TransactionT for LegacyTransaction {
         super::GasPrice::Legacy(self.gas_price)
     }
 
-    fn gas_limit(&self) -> U256 {
-        self.gas_limit.into()
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
     fn to(&self) -> Option<Address> {

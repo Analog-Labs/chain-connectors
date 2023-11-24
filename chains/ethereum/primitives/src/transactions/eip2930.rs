@@ -215,8 +215,8 @@ impl super::TransactionT for Eip2930Transaction {
         super::GasPrice::Legacy(self.gas_price)
     }
 
-    fn gas_limit(&self) -> U256 {
-        self.gas_limit.into()
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
     fn to(&self) -> Option<Address> {

@@ -24,6 +24,7 @@ pub use bytes::Bytes;
 pub use eth_hash::{Address, Public, Secret, TxHash, H128, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512, U64};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
+pub use header::Header;
 pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
@@ -31,6 +32,7 @@ pub use transactions::{
     signature::Signature,
     signed_transaction::SignedTransaction,
     typed_transaction::TypedTransaction,
+    Transaction, TransactionT,
 };
 pub use tx_receipt::TransactionReceipt;
 

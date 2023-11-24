@@ -1,7 +1,7 @@
 use crate::{
     hasher::Hasher,
-    layout::{Layout, Result as TrieResult, TrieDB, TrieDBIterator},
     rstd::{boxed::Box, convert::AsRef, default::Default, iter::Iterator, vec::Vec},
+    trie::{Layout, Result as TrieResult, TrieDB, TrieDBIterator},
 };
 use trie_db::{TrieIterator as TrieIteratorTrait, TrieLayout};
 

@@ -251,8 +251,8 @@ impl super::TransactionT for Eip1559Transaction {
         }
     }
 
-    fn gas_limit(&self) -> U256 {
-        self.gas_limit.into()
+    fn gas_limit(&self) -> u64 {
+        self.gas_limit
     }
 
     fn to(&self) -> Option<Address> {

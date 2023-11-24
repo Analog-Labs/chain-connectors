@@ -1,10 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod hasher;
-pub mod layout;
+// pub mod layout;
 #[cfg(any(test, feature = "memory-db"))]
 pub mod mem_db;
 pub mod node_codec;
+pub mod trie;
 pub mod trie_stream;
 
 #[cfg(not(feature = "std"))]
@@ -12,22 +13,42 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 mod rstd {
+    pub mod jose {
+        pub use spin::Mutex;
+    }
     pub mod collections {
-        pub use std::collections::btree_map;
+        pub use std::collections::{btree_map, btree_set};
     }
     pub use std::{
-        borrow, boxed, cmp, collections::BTreeMap, convert, default, error::Error, fmt, hash, iter,
-        marker, mem, ops, rc, result, sync, vec,
+        borrow, boxed, cmp, convert, default, error::Error, fmt, hash, iter, marker, mem, ops, rc,
+        result, time, vec,
     };
+    pub mod sync {
+        pub use std::sync::Arc;
+        pub mod atomic {
+            pub use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+        }
+        pub use parking_lot::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+    }
 }
 
 #[cfg(not(feature = "std"))]
 mod rstd {
     pub mod collections {
-        pub use alloc::collections::btree_map;
+        pub use alloc::collections::{btree_map, btree_set};
     }
-    pub use alloc::{borrow, boxed, collections::BTreeMap, rc, sync, vec};
-    pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result};
+    pub mod sync {
+        pub use alloc::sync::Arc;
+        pub use spin::{
+            lock_api::{Mutex, MutexGuard, RwLock, RwLockWriteGuard},
+            Once,
+        };
+        pub mod atomic {
+            pub use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+        }
+    }
+    pub use alloc::{borrow, boxed, rc, vec};
+    pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result, time};
     pub trait Error {}
     impl<T> Error for T {}
 }

@@ -5,4 +5,6 @@ mod state_trie;
 
 pub use account_trie::AccountTrie;
 pub use iterator::TrieIterator;
-pub use state_trie::{trie_hash_db, AccountInfo, AccountState, DbAccount, StateTrie};
+pub use state_trie::{
+    new_memory_db, trie_hash_db, AccountInfo, AccountState, DbAccount, StateTrie,
+};

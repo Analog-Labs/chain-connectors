@@ -138,6 +138,12 @@ impl TryFrom<RpcTransaction> for LegacyTransaction {
             return Err("legacy tx gas_price is mandatory");
         };
 
+        let chain_id = if tx.signature.r.is_zero() && tx.signature.s.is_zero() {
+            tx.chain_id
+        } else {
+            tx.signature.v.chain_id()
+        };
+
         Ok(Self {
             nonce: tx.nonce,
             gas_price,
@@ -145,7 +151,7 @@ impl TryFrom<RpcTransaction> for LegacyTransaction {
             to: tx.to,
             value: tx.value,
             data: tx.input,
-            chain_id: tx.chain_id,
+            chain_id,
         })
     }
 }

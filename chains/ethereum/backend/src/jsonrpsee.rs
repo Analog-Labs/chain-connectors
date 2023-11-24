@@ -13,7 +13,7 @@ use jsonrpsee_core::{
     rpc_params, Error,
 };
 use rosetta_ethereum_primitives::{
-    rpc::RpcTransaction, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log,
+    rpc::RpcTransaction, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Header, Log,
     TransactionReceipt, TxHash, H256, U256, U64,
 };
 
@@ -254,10 +254,10 @@ where
     }
 
     /// Returns information about a block.
-    async fn block_with_transactions(
+    async fn block_full(
         &self,
         at: AtBlock,
-    ) -> Result<Option<Block<RpcTransaction>>, Self::Error> {
+    ) -> Result<Option<Block<RpcTransaction, Header>>, Self::Error> {
         let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
             <T as ClientT>::request::<Block<RpcTransaction>, _>(
                 &self.0,
@@ -272,6 +272,27 @@ where
                 rpc_params![at, true],
             )
             .await?
+        };
+
+        let at = BlockIdentifier::Hash(block.hash);
+        let mut ommers = Vec::with_capacity(block.uncles.len());
+        for index in 0..block.uncles.len() {
+            let uncle = <T as ClientT>::request::<Header, _>(
+                &self.0,
+                "eth_getUncleByBlockHashAndIndex",
+                rpc_params![at, U64::from(index)],
+            )
+            .await?;
+            ommers.push(uncle);
+        }
+        let block = Block {
+            hash: block.hash,
+            header: block.header,
+            total_difficulty: block.total_difficulty,
+            seal_fields: block.seal_fields,
+            transactions: block.transactions,
+            uncles: ommers,
+            size: block.size,
         };
         Ok(Some(block))
     }

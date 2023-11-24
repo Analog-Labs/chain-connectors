@@ -1,7 +1,21 @@
-use crate::{hasher::KeccakHasher, node_codec::RlpNodeCodec, trie_stream::Hash256RlpTrieStream};
+pub mod base;
+mod cache;
+mod prefixed_db;
+mod random_state;
+mod recorder;
+mod storage_proof;
+mod trie_backend;
+
+use crate::{
+    hasher::KeccakHasher, node_codec::RlpNodeCodec, rstd::vec::Vec,
+    trie_stream::Hash256RlpTrieStream,
+};
+pub use hash_db;
+pub use prefixed_db::{KeySpacedDB, KeySpacedDBMut};
 use primitive_types::H256;
 use rlp::DecoderError;
-use trie_db::{TrieLayout, TrieConfiguration};
+pub use trie_db;
+use trie_db::{MerkleValue, TrieConfiguration, TrieLayout};
 
 /// Trie layout using extension nodes.
 #[derive(Default, Clone)]
@@ -17,29 +31,32 @@ impl TrieLayout for Layout {
 
 impl TrieConfiguration for Layout {
     fn trie_root<I, A, B>(input: I) -> H256
-	where
-		I: IntoIterator<Item = (A, B)>,
-		A: AsRef<[u8]> + Ord,
-		B: AsRef<[u8]>,
-	{
-		trie_root::trie_root_no_extension::<KeccakHasher, Hash256RlpTrieStream, _, _, _>(input, Self::MAX_INLINE_VALUE)
-	}
+    where
+        I: IntoIterator<Item = (A, B)>,
+        A: AsRef<[u8]> + Ord,
+        B: AsRef<[u8]>,
+    {
+        trie_root::trie_root_no_extension::<KeccakHasher, Hash256RlpTrieStream, _, _, _>(
+            input,
+            Self::MAX_INLINE_VALUE,
+        )
+    }
 
-	fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
-	where
-		I: IntoIterator<Item = (A, B)>,
-		A: AsRef<[u8]> + Ord,
-		B: AsRef<[u8]>,
-	{
-		trie_root::unhashed_trie_no_extension::<KeccakHasher, Hash256RlpTrieStream, _, _, _>(
-			input,
-			Self::MAX_INLINE_VALUE,
-		)
-	}
+    fn trie_root_unhashed<I, A, B>(input: I) -> Vec<u8>
+    where
+        I: IntoIterator<Item = (A, B)>,
+        A: AsRef<[u8]> + Ord,
+        B: AsRef<[u8]>,
+    {
+        trie_root::unhashed_trie_no_extension::<KeccakHasher, Hash256RlpTrieStream, _, _, _>(
+            input,
+            Self::MAX_INLINE_VALUE,
+        )
+    }
 
-	fn encode_index(input: u32) -> Vec<u8> {
+    fn encode_index(input: u32) -> Vec<u8> {
         rlp::encode(&input).freeze().to_vec()
-	}
+    }
 }
 
 /// Convenience type alias to instantiate a Keccak/Rlp-flavoured `NodeCodec`
@@ -90,9 +107,83 @@ pub type TrieHash = trie_db::TrieHash<Layout>;
 /// Convenience type alias for Keccak/Rlp flavoured trie hash
 pub type CError = trie_db::CError<Layout>;
 
+// /// Convenience type alias for Keccak/Rlp flavoured trie cache
+// pub type TrieCache<'cache> = cache::TrieCache<'cache, RlpNodeCodec<KeccakHasher>>;
+
+/// Reexport from `hash_db`, with genericity set for `Hasher` trait.
+/// This uses a noops `KeyFunction` (key addressing must be hashed or using
+/// an encoding scheme that avoid key conflict).
+pub type MemoryDB =
+    memory_db::MemoryDB<KeccakHasher, memory_db::HashKey<KeccakHasher>, trie_db::DBValue>;
+
 pub mod predule {
     pub use hash_db::AsHashDB;
     pub use trie_db::{HashDB, HashDBRef, Trie, TrieIterator, TrieMut};
+}
+
+/// Read a value from the trie.
+/// # Errors
+/// If the trie is corrupted, an error is returned.
+pub fn read_trie_value<DB: hash_db::HashDBRef<KeccakHasher, trie_db::DBValue>>(
+    db: &DB,
+    root: &TrieHash,
+    key: &[u8],
+    recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash>>,
+    cache: Option<&mut dyn trie_db::TrieCache<<Layout as TrieLayout>::Codec>>,
+) -> Result<Option<Vec<u8>>> {
+    use trie_db::Trie;
+    TrieDBBuilder::new(db, root)
+        .with_optional_cache(cache)
+        .with_optional_recorder(recorder)
+        .build()
+        .get(key)
+}
+
+/// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
+/// the provided key.
+/// # Errors
+/// Returns error if the trie is corrupted, an error is returned.
+pub fn read_trie_first_descedant_value<DB>(
+    db: &DB,
+    root: &TrieHash,
+    key: &[u8],
+    recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash>>,
+    cache: Option<&mut dyn trie_db::TrieCache<<Layout as TrieLayout>::Codec>>,
+) -> Result<Option<MerkleValue<TrieHash>>>
+where
+    DB: hash_db::HashDBRef<<Layout as TrieLayout>::Hash, trie_db::DBValue>,
+{
+    use trie_db::Trie;
+    TrieDBBuilder::new(db, root)
+        .with_optional_cache(cache)
+        .with_optional_recorder(recorder)
+        .build()
+        .lookup_first_descendant(key)
+}
+
+/// Read a value from the child trie.
+/// # Errors
+/// Returns error if the trie is corrupted, an error is returned.
+pub fn read_child_trie_value<DB>(
+    keyspace: &[u8],
+    db: &DB,
+    root: &TrieHash,
+    key: &[u8],
+    recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash>>,
+    cache: Option<&mut dyn trie_db::TrieCache<<Layout as TrieLayout>::Codec>>,
+) -> Result<Option<Vec<u8>>>
+where
+    DB: hash_db::HashDBRef<<Layout as TrieLayout>::Hash, trie_db::DBValue>,
+{
+    use trie_db::Trie;
+    let db = KeySpacedDB::new(db, keyspace);
+    #[allow(clippy::redundant_clone)]
+    TrieDBBuilder::new(&db, root)
+        .with_optional_recorder(recorder)
+        .with_optional_cache(cache)
+        .build()
+        .get(key)
+        .map(|x| x.clone())
 }
 
 #[cfg(test)]

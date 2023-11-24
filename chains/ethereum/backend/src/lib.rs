@@ -11,8 +11,8 @@ use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 use futures_core::{future::BoxFuture, Future};
 use rosetta_ethereum_primitives::{
     rpc::{CallRequest, RpcTransaction},
-    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, TransactionReceipt, TxHash,
-    H256, U256, U64,
+    Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Header, Log, TransactionReceipt,
+    TxHash, H256, U256, U64,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -238,10 +238,10 @@ pub trait EthereumRpc {
     async fn block(&self, at: AtBlock) -> Result<Option<Block<H256>>, Self::Error>;
 
     /// Returns information about a block.
-    async fn block_with_transactions(
+    async fn block_full(
         &self,
         at: AtBlock,
-    ) -> Result<Option<Block<RpcTransaction>>, Self::Error>;
+    ) -> Result<Option<Block<RpcTransaction, Header>>, Self::Error>;
 
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.

@@ -59,7 +59,7 @@ pub trait TransactionT {
     fn chain_id(&self) -> Option<u64>;
     fn nonce(&self) -> u64;
     fn gas_price(&self) -> GasPrice;
-    fn gas_limit(&self) -> U256;
+    fn gas_limit(&self) -> u64;
     fn to(&self) -> Option<Address>;
     fn value(&self) -> U256;
     fn data(&self) -> &[u8];

@@ -4,7 +4,7 @@ use primitive_types::H256;
 use tiny_keccak::Keccak;
 
 /// Concrete `Hasher` impl for the Keccak-256 hash
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeccakHasher;
 impl Hasher for KeccakHasher {
     type Out = H256;

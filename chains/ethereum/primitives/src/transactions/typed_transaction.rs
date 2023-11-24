@@ -182,7 +182,7 @@ impl TransactionT for TypedTransaction {
         }
     }
 
-    fn gas_limit(&self) -> U256 {
+    fn gas_limit(&self) -> u64 {
         match self {
             Self::Legacy(tx) => TransactionT::gas_limit(tx),
             Self::Eip2930(tx) => TransactionT::gas_limit(tx),

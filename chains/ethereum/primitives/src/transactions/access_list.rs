@@ -26,6 +26,18 @@ impl AccessList {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &AccessListItem> {
+        self.0.iter()
+    }
+
+    #[must_use]
+    pub fn into_raw(self) -> Vec<(Address, Vec<H256>)> {
+        self.0
+            .into_iter()
+            .map(|item| (item.address, item.storage_keys))
+            .collect::<Vec<_>>()
+    }
 }
 
 impl From<Vec<(Address, Vec<H256>)>> for AccessList {

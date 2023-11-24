@@ -3,10 +3,13 @@ use derivative::Derivative;
 use super::{
     access_list::AccessList, signature::Signature, GasPrice, SignedTransactionT, TransactionT,
 };
+#[cfg(feature = "with-crypto")]
+use crate::crypto::DefaultCrypto;
 #[cfg(feature = "with-rlp")]
 use crate::rlp_utils::{RlpDecodableTransaction, RlpEncodableTransaction};
 use crate::{
     bytes::Bytes,
+    crypto::Crypto,
     eth_hash::{Address, TxHash, H256},
     eth_uint::U256,
 };
@@ -26,11 +29,24 @@ use crate::{
 pub struct SignedTransaction<T> {
     #[cfg_attr(feature = "with-serde", serde(rename = "hash"))]
     pub tx_hash: TxHash,
-    #[cfg_attr(feature = "with-serde", serde(flatten))]
+    #[cfg_attr(
+        feature = "with-serde",
+        serde(bound = "T: serde::Serialize + serde::de::DeserializeOwned", flatten)
+    )]
     pub payload: T,
     #[cfg_attr(feature = "with-serde", serde(flatten))]
     pub signature: Signature,
 }
+
+// impl <T> Default for SignedTransaction<T> where T: Default {
+//     fn default() -> Self {
+//         Self {
+//             tx_hash: H256::zero(),
+//             payload: T::default(),
+//             signature: Signature::default(),
+//         }
+//     }
+// }
 
 impl<T> SignedTransaction<T>
 where
@@ -39,6 +55,22 @@ where
     pub fn new(payload: T, signature: Signature) -> Self {
         let tx_hash = payload.compute_tx_hash(&signature);
         Self { tx_hash, payload, signature }
+    }
+
+    /// Recovery the signer address
+    /// # Errors
+    /// Returns an error if the signature is invalid
+    pub fn compute_from<C: Crypto>(&self) -> Result<Address, C::Error> {
+        let sighash = self.payload.sighash();
+        C::secp256k1_ecdsa_recover(&self.signature, sighash)
+    }
+
+    /// Recovery the signer address
+    /// # Errors
+    /// Returns an error if the signature is invalid
+    #[cfg(feature = "with-crypto")]
+    pub fn from(&self) -> Result<Address, <DefaultCrypto as Crypto>::Error> {
+        self.compute_from::<DefaultCrypto>()
     }
 }
 
@@ -117,7 +149,7 @@ where
     fn gas_price(&self) -> GasPrice {
         self.payload.gas_price()
     }
-    fn gas_limit(&self) -> U256 {
+    fn gas_limit(&self) -> u64 {
         self.payload.gas_limit()
     }
     fn to(&self) -> Option<Address> {
@@ -169,10 +201,13 @@ mod tests {
     use crate::{
         bytes::Bytes,
         eth_hash::{Address, H256},
+        rpc::RpcTransaction,
         transactions::{
             access_list::{AccessList, AccessListItem},
             signature::{RecoveryId, Signature},
+            SignedTransactionT,
         },
+        TypedTransaction,
     };
     use hex_literal::hex;
 
@@ -243,5 +278,42 @@ mod tests {
         let decoded =
             serde_json::from_str::<SignedTransaction<Eip2930Transaction>>(&json_str).unwrap();
         assert_eq!(signed_tx, decoded);
+    }
+
+    #[test]
+    fn serde_decode_works() {
+        use crate::SignedTransaction;
+        let json_tx = r#"
+        {
+            "hash": "0xb3fbbda7862791ec65c07b1162bd6c6aa10efc89196a8727790a9b03b3ca7bab",
+            "nonce": "0x115",
+            "blockHash": "0x533ae98e36b11720a6095de0cbae802e80719cede1e3a65e02379436993a2007",
+            "blockNumber": "0x37cd6",
+            "transactionIndex": "0x0",
+            "from": "0xcf684dfb8304729355b58315e8019b1aa2ad1bac",
+            "to": null,
+            "value": "0x0",
+            "gasPrice": "0xba43b7400",
+            "gas": "0x2f4d60",
+            "input": "0x60606040526009600060146101000a81548160ff021916908302179055505b6000600033600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff02191690830217905550600091505b600060149054906101000a900460ff1660ff168260ff16101561010457600090505b600060149054906101000a900460ff1660ff168160ff1610156100f6578082600060149054906101000a900460ff1602016001600050826009811015610002579090601202016000508360098110156100025790906002020160005060010160146101000a81548160ff021916908302179055505b8080600101915050610074565b5b8180600101925050610052565b5b5050610160806101166000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900480634166c1fd1461004457806341c0e1b51461007457610042565b005b61005b600480359060200180359060200150610081565b604051808260ff16815260200191505060405180910390f35b61007f6004506100cc565b005b60006001600050836009811015610002579090601202016000508260098110156100025790906002020160005060010160149054906101000a900460ff1690506100c6565b92915050565b600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561015d57600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b5b56",
+            "chainId": "0x1",
+            "v": "0x1b",
+            "r": "0x834b0e7866457890809cb81a33a59380e890e1cc0d6e17a81382e99132b16bc8",
+            "s": "0x65dcc7686efc8f7937b3ae0d09d682cd3a7ead281a920ec39d4e2b0c34e972be",
+            "type": "0x0"
+        }"#;
+
+        let mut tx = serde_json::from_str::<RpcTransaction>(json_tx).unwrap();
+        tx.chain_id = None;
+        let tx = SignedTransaction::<TypedTransaction>::try_from(tx).unwrap();
+
+        let expected = hex!("f902cb820115850ba43b7400832f4d608080b9027660606040526009600060146101000a81548160ff021916908302179055505b6000600033600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff02191690830217905550600091505b600060149054906101000a900460ff1660ff168260ff16101561010457600090505b600060149054906101000a900460ff1660ff168160ff1610156100f6578082600060149054906101000a900460ff1602016001600050826009811015610002579090601202016000508360098110156100025790906002020160005060010160146101000a81548160ff021916908302179055505b8080600101915050610074565b5b8180600101925050610052565b5b5050610160806101166000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900480634166c1fd1461004457806341c0e1b51461007457610042565b005b61005b600480359060200180359060200150610081565b604051808260ff16815260200191505060405180910390f35b61007f6004506100cc565b005b60006001600050836009811015610002579090601202016000508260098110156100025790906002020160005060010160149054906101000a900460ff1690506100c6565b92915050565b600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561015d57600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16ff5b5b561ba0834b0e7866457890809cb81a33a59380e890e1cc0d6e17a81382e99132b16bc8a065dcc7686efc8f7937b3ae0d09d682cd3a7ead281a920ec39d4e2b0c34e972be");
+        let actual = tx.encode_signed();
+        assert_eq!(actual, Bytes::from(&expected));
+
+        println!("{}", serde_json::to_string_pretty(&tx).unwrap());
+        let actual = tx.from().unwrap();
+        let expected = Address::from(hex!("cf684dfb8304729355b58315e8019b1aa2ad1bac"));
+        assert_eq!(actual, expected);
     }
 }

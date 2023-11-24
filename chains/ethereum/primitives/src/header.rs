@@ -168,14 +168,13 @@ impl Header {
     }
 
     /// Calculate transaction root.
-    pub fn compute_transaction_root<C, T, I>(transactions: I) -> H256
+    pub fn compute_transaction_root<'a, C, T, I>(transactions: I) -> H256
     where
         C: Crypto,
-        T: SignedTransactionT,
-        I: IntoIterator<Item = T>,
+        T: SignedTransactionT + 'a,
+        I: Iterator<Item = &'a T> + 'a,
     {
-        let iter = transactions.into_iter().map(|tx| tx.encode_signed());
-        C::trie_root(iter)
+        C::trie_root(transactions.map(SignedTransactionT::encode_signed))
     }
 }
 

@@ -1,12 +1,15 @@
 use crate::{
     hasher::KeccakHasher,
-    layout::{FatDB, FatDBMut, Result as TrieResult, SecTrieDBMut, TrieDBBuilder, TrieError},
     mem_db::{
         account_trie::{AccountTrie, AccountTrieMut},
         iterator::TrieIterator,
     },
     node_codec::HASHED_NULL_NODE,
-    rstd::{boxed::Box, convert::AsRef, default::Default, iter::Iterator, vec::Vec, BTreeMap},
+    rstd::{
+        boxed::Box, collections::btree_map::BTreeMap, convert::AsRef, default::Default,
+        iter::Iterator, vec::Vec,
+    },
+    trie::{FatDB, FatDBMut, Result as TrieResult, SecTrieDBMut, TrieDBBuilder, TrieError},
 };
 use bytes::Bytes;
 use hash_db::HashDB;
@@ -23,6 +26,9 @@ type Address = H160;
 pub type AsHashDB = Box<dyn HashDB<KeccakHasher, Vec<u8>>>;
 
 pub type DefaultMemoryDb = MemoryDB<KeccakHasher, HashKey<KeccakHasher>, Vec<u8>>;
+
+const KECCAK_EMPTY: H256 =
+    H256(hex!("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"));
 
 pub struct StateTrie {
     db: DefaultMemoryDb,
@@ -46,7 +52,6 @@ impl StateTrie {
         &mut self.db
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub fn get(&self, address: &Address) -> TrieResult<Option<AccountInfo>> {
         let trie = FatDB::new(&self.db, &self.root);
         let Some(bytes) = trie.get(address.as_bytes())? else {
@@ -57,12 +62,56 @@ impl StateTrie {
         Ok(Some(acc))
     }
 
-    pub fn insert_account(&mut self, address: &Address, account: &AccountInfo) -> TrieResult<()> {
+    pub fn contains(&self, address: &Address) -> TrieResult<bool> {
+        let trie = FatDB::new(&self.db, &self.root);
+        trie.contains(address.as_bytes())
+    }
+
+    pub fn remove(&mut self, address: &Address) -> TrieResult<Option<AccountInfo>> {
+        let Some(mut account_trie) = self.account_mut(*address)? else {
+            return Ok(None);
+        };
+        // Save old value
+        let info = account_trie.info().clone();
+
+        // Delete account storage
+        account_trie.reset_storage()?;
+        drop(account_trie);
+
+        // Delete account info
+        let mut trie = FatDBMut::from_existing(&mut self.db, &mut self.root);
+        trie.remove(address.as_bytes())?;
+        Ok(Some(info))
+    }
+
+    pub fn create_account(
+        &mut self,
+        address: &Address,
+        balance: U256,
+        bytecode: Option<&[u8]>,
+    ) -> TrieResult<AccountInfo> {
+        let code_hash = bytecode.map_or(KECCAK_EMPTY, |bytecode| self.insert_code(bytecode));
+        let info = AccountInfo { balance, code_hash, ..Default::default() };
+        let bytes = rlp::encode(&info).freeze();
+        {
+            let mut trie = FatDBMut::from_existing(&mut self.db, &mut self.root);
+            trie.insert(address.as_bytes(), bytes.as_ref())?;
+        }
+        Ok(info)
+    }
+
+    pub fn update_account(&mut self, address: &Address, account: &AccountInfo) -> TrieResult<()> {
         let bytes = rlp::encode(account).freeze();
         {
             let mut trie = FatDBMut::from_existing(&mut self.db, &mut self.root);
             trie.insert(address.as_bytes(), bytes.as_ref())?;
         }
+        Ok(())
+    }
+
+    pub fn delete_account(&mut self, address: &Address) -> TrieResult<()> {
+        let mut trie = FatDBMut::from_existing(&mut self.db, &mut self.root);
+        trie.remove(address.as_bytes())?;
         Ok(())
     }
 
@@ -78,6 +127,34 @@ impl StateTrie {
             return Ok(None);
         };
         Ok(Some(AccountTrieMut::new(self, address, account)))
+    }
+
+    pub fn get_or_create(&mut self, address: Address) -> TrieResult<AccountTrieMut<'_>> {
+        let Some(account) = self.get(&address)? else {
+            let account = self.create_account(&address, U256::zero(), None)?;
+            return Ok(AccountTrieMut::new(self, address, account));
+        };
+        Ok(AccountTrieMut::new(self, address, account))
+    }
+
+    #[must_use]
+    pub fn code(&self, hash: &H256) -> Option<Vec<u8>> {
+        if hash == &KECCAK_EMPTY {
+            return None;
+        }
+        self.db.get(hash, Default::default())
+    }
+
+    pub fn insert_code(&mut self, bytecode: impl AsRef<[u8]>) -> H256 {
+        use trie_db::Hasher;
+        let bytecode = bytecode.as_ref();
+        if bytecode.is_empty() {
+            return KECCAK_EMPTY;
+        }
+        let hash = <KeccakHasher as Hasher>::hash(bytecode);
+        let prefix = (hash.as_bytes(), Option::<u8>::None);
+        self.db.insert(prefix, bytecode);
+        hash
     }
 
     #[allow(clippy::missing_panics_doc)]
@@ -207,15 +284,40 @@ pub struct AccountInfo {
     pub code_hash: H256,
 }
 
+impl AccountInfo {
+    /// Returns if an account is empty.
+    ///
+    /// An account is empty if the following conditions are met.
+    /// - code hash is zero or set to the Keccak256 hash of the empty string `""`
+    /// - balance is zero
+    /// - nonce is zero
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        let code_empty = self.is_empty_code_hash() || self.code_hash == H256::zero();
+        self.balance.is_zero() && self.nonce == 0 && code_empty
+    }
+
+    /// Returns true if the code hash is the Keccak256 hash of the empty string `""`.
+    #[inline]
+    #[must_use]
+    pub fn is_empty_code_hash(&self) -> bool {
+        self.code_hash == KECCAK_EMPTY
+    }
+
+    /// Returns `true` if account has no nonce and code.
+    #[must_use]
+    pub fn has_no_code_and_nonce(&self) -> bool {
+        self.is_empty_code_hash() && self.nonce == 0
+    }
+}
+
 impl Default for AccountInfo {
     fn default() -> Self {
         Self {
             nonce: 0,
             balance: U256::zero(),
             storage_hash: HASHED_NULL_NODE,
-            code_hash: H256(hex!(
-                "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-            )),
+            code_hash: KECCAK_EMPTY,
         }
     }
 }
@@ -308,8 +410,7 @@ mod tests {
         let genesis_accounts: Vec<GenesisAccount> = serde_json::from_str(MAINNET_GENESIS).unwrap();
         let mut db = StateTrie::default();
         for acc in genesis_accounts {
-            let account = AccountInfo { balance: acc.balance, ..Default::default() };
-            db.insert_account(&acc.address, &account).unwrap();
+            db.create_account(&acc.address, acc.balance, None).unwrap();
         }
         assert_eq!(db.root(), GENESIS_STATE_ROOT);
         db
@@ -369,8 +470,7 @@ mod tests {
 
         // Check if the state root is the same as the genesis state root
         for acc in &genesis_accounts {
-            let account = AccountInfo { balance: acc.balance, ..Default::default() };
-            db.insert_account(&acc.address, &account).unwrap();
+            db.create_account(&acc.address, acc.balance, None).unwrap();
         }
         assert_eq!(db.root(), GENESIS_STATE_ROOT);
 
@@ -393,7 +493,7 @@ mod tests {
         let expected =
             AccountInfo { balance: U256::from(10_000_000_000_000_u128), ..Default::default() };
 
-        db.insert_account(&addr, &expected).unwrap();
+        db.create_account(&addr, expected.balance, None).unwrap();
         assert_eq!(
             db.root(),
             H256(hex!("10350a33cc949e08346b43631f6abc0350c1f2d33f842625f86087e32e2dd7a5"))
@@ -412,7 +512,7 @@ mod tests {
             AccountInfo { balance: U256::from(10_000_000_000_000_u128), ..Default::default() };
         assert!(db.account(&addr).unwrap().is_none());
 
-        db.insert_account(&addr, &expected).unwrap();
+        db.create_account(&addr, expected.balance, None).unwrap();
         {
             let acc_db = db.account(&addr).unwrap().unwrap();
             assert_eq!(acc_db.storage_hash(), HASHED_NULL_NODE);
