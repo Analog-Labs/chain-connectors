@@ -4969,6 +4969,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-testing-arbitrum"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ethers",
+ "ethers-solc",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server-ethereum",
+ "serde_json",
+ "sha3",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "rosetta-tx-ethereum"
 version = "0.5.0"
 dependencies = [

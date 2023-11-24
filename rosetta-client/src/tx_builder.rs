@@ -9,6 +9,7 @@ use rosetta_server_astar::AstarMetadataParams;
 
 pub enum GenericTransactionBuilder {
     Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
+    Arbitrum(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
 }
@@ -17,6 +18,7 @@ impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
             "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "arbitrum" => Self::Arbitrum(rosetta_tx_ethereum::EthereumTransactionBuilder),
             "ethereum" => Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
             "polkadot" => Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
             _ => anyhow::bail!("unsupported blockchain"),
@@ -26,6 +28,7 @@ impl GenericTransactionBuilder {
     pub fn transfer(&self, address: &Address, amount: u128) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.transfer(address, amount)?).into(),
+            Self::Arbitrum(tx) => tx.transfer(address, amount)?.into(),
             Self::Ethereum(tx) => tx.transfer(address, amount)?.into(),
             Self::Polkadot(tx) => tx.transfer(address, amount)?.into(),
         })
@@ -42,6 +45,7 @@ impl GenericTransactionBuilder {
             Self::Astar(tx) => {
                 AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into()
             },
+            Self::Arbitrum(tx) => tx.method_call(contract, method, params, amount)?.into(),
             Self::Ethereum(tx) => tx.method_call(contract, method, params, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, method, params, amount)?.into(),
         })
@@ -50,6 +54,7 @@ impl GenericTransactionBuilder {
     pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.deploy_contract(contract_binary)?).into(),
+            Self::Arbitrum(tx) => tx.deploy_contract(contract_binary)?.into(),
             Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
             Self::Polkadot(tx) => tx.deploy_contract(contract_binary)?.into(),
         })

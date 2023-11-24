@@ -131,14 +131,14 @@ impl Stream for EthSubscription {
                         Poll::Ready(Err(error)) => {
                             match error {
                                 // Skip connection errors
-                                JsonRpseeError::Transport(_) |
-                                JsonRpseeError::RestartNeeded(_) |
-                                JsonRpseeError::InvalidSubscriptionId |
-                                JsonRpseeError::InvalidRequestId(_) |
-                                JsonRpseeError::UnregisteredNotification(_) |
-                                JsonRpseeError::SubscriptionNameConflict(_) |
-                                JsonRpseeError::RequestTimeout |
-                                JsonRpseeError::AlreadyStopped => {},
+                                JsonRpseeError::Transport(_)
+                                | JsonRpseeError::RestartNeeded(_)
+                                | JsonRpseeError::InvalidSubscriptionId
+                                | JsonRpseeError::InvalidRequestId(_)
+                                | JsonRpseeError::UnregisteredNotification(_)
+                                | JsonRpseeError::SubscriptionNameConflict(_)
+                                | JsonRpseeError::RequestTimeout
+                                | JsonRpseeError::AlreadyStopped => {},
                                 JsonRpseeError::Custom(reason) => {
                                     tracing::warn!("failed to unsubscribe: \"{reason}\"");
                                 },
