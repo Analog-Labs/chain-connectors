@@ -35,6 +35,8 @@ rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client" }
 rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
 rosetta-config-polkadot = { path = "chains/polkadot/config" }
 rosetta-server-polkadot = { path = "chains/polkadot/server" }
+rosetta-config-arbitrum = { path = "chains/arbitrum/config" }
+rosetta-server-arbitrum = { path = "chains/arbitrum/server" }
 rosetta-tx-polkadot = { path = "chains/polkadot/tx" }
 rosetta-client = { path = "rosetta-client" }
 rosetta-core = { path = "rosetta-core" }

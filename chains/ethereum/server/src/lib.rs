@@ -1,5 +1,5 @@
 use anyhow::Result;
-use client::EthereumClient;
+pub use client::EthereumClient;
 use ethers::providers::Http;
 pub use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_core::{
@@ -44,7 +44,7 @@ impl MaybeWsEthereumClient {
         let config = match blockchain {
             "ethereum" => rosetta_config_ethereum::config(network)?,
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
-            "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
+            "arbitrum" => rosetta_config_arbitrum::config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr).await

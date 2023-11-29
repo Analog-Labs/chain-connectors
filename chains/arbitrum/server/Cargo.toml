@@ -1,0 +1,20 @@
+[package]
+name = "rosetta-server-arbitrum"
+version = "0.5.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Astar rosetta server."
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+serde_json = { version = "1.0" }
+serde.workspace = true
+rosetta-core.workspace = true
+rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
+rosetta-config-arbitrum.workspace = true
+rosetta-config-ethereum.workspace = true
+rosetta-server-ethereum.workspace = true

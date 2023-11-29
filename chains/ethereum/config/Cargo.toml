@@ -9,5 +9,6 @@ description = "Ethereum configuration."
 [dependencies]
 anyhow = "1.0"
 rosetta-config-astar = { workspace = true }
+rosetta-config-arbitrum.workspace = true
 rosetta-core.workspace = true
 serde.workspace = true

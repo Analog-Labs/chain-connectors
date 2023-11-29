@@ -5,6 +5,7 @@ use crate::{
 };
 use anyhow::Result;
 use rosetta_core::TransactionBuilder;
+use rosetta_server_arbitrum::ArbitrumMetadataParams;
 use rosetta_server_astar::AstarMetadataParams;
 
 pub enum GenericTransactionBuilder {
@@ -54,7 +55,9 @@ impl GenericTransactionBuilder {
     pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.deploy_contract(contract_binary)?).into(),
-            Self::Arbitrum(tx) => tx.deploy_contract(contract_binary)?.into(),
+            Self::Arbitrum(tx) => {
+                ArbitrumMetadataParams(tx.deploy_contract(contract_binary)?).into()
+            },
             Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
             Self::Polkadot(tx) => tx.deploy_contract(contract_binary)?.into(),
         })
@@ -78,6 +81,11 @@ impl GenericTransactionBuilder {
                 GenericMetadataParams::Ethereum(params),
                 GenericMetadata::Ethereum(metadata),
             ) => tx.create_and_sign(config, params, metadata, secret_key),
+            (
+                Self::Arbitrum(tx),
+                GenericMetadataParams::Arbitrum(params),
+                GenericMetadata::Arbitrum(metadata),
+            ) => tx.create_and_sign(config, &params.0, &metadata.0, secret_key),
             (
                 Self::Polkadot(tx),
                 GenericMetadataParams::Polkadot(params),

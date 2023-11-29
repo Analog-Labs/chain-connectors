@@ -15,6 +15,7 @@ futures-timer = "3.0"
 futures-util = "0.3"
 hex = "0.4"
 rosetta-config-ethereum.workspace = true
+rosetta-config-arbitrum.workspace = true
 rosetta-core.workspace = true
 rosetta-ethereum-rpc-client.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }

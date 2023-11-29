@@ -22,6 +22,7 @@ rosetta-server-astar.workspace = true
 rosetta-server-bitcoin.workspace = true
 rosetta-server-ethereum.workspace = true
 rosetta-server-polkadot.workspace = true
+rosetta-server-arbitrum.workspace = true
 rosetta-tx-ethereum.workspace = true
 rosetta-tx-polkadot.workspace = true
 serde.workspace = true
