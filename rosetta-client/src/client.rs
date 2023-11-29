@@ -11,7 +11,7 @@ use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
 use rosetta_core::{BlockchainClient, ClientEvent};
-use rosetta_server_arbitrum::{ArbitrumMetadata, ArbitrumMetadataParams, ArbitrumClient};
+use rosetta_server_arbitrum::{ArbitrumClient, ArbitrumMetadata, ArbitrumMetadataParams};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
@@ -78,7 +78,7 @@ impl GenericClient {
             Blockchain::Arbitrum => {
                 let client = ArbitrumClient::from_config(config, url).await?;
                 Self::Arbitrum(client)
-            }
+            },
             Blockchain::Astar => {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)

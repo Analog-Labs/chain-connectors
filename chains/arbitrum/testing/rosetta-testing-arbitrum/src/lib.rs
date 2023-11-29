@@ -1,11 +1,11 @@
 use anyhow::Result;
+use rosetta_client::crypto::{
+    address::Address as crypto_Address, bip32::DerivedSecretKey, bip44::ChildNumber,
+};
 use rosetta_client::Wallet;
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_core::{BlockchainClient, BlockchainConfig};
 use rosetta_server_ethereum::MaybeWsEthereumClient;
-use rosetta_client::crypto::{
-    address::Address as crypto_Address, bip32::DerivedSecretKey, bip44::ChildNumber,
-};
 use std::error::Error;
 use std::fmt;
 use std::path::PathBuf;

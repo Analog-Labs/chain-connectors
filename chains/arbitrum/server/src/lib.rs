@@ -20,7 +20,6 @@ pub struct ArbitrumMetadataParams(pub EthereumMetadataParams);
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ArbitrumMetadata(pub EthereumMetadata);
 
-
 pub struct ArbitrumClient {
     client: MaybeWsEthereumClient,
 }
