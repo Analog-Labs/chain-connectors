@@ -72,39 +72,20 @@ impl BlockchainClient for ArbitrumClient {
     }
 
     async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        self.balance(address, block).await
+        self.client.balance(address, block).await
     }
 
     async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
         self.client.coins(address, block).await
     }
 
-    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
-        // // convert address
-        // let dest = {
-        //     let address: H160 = address.address().parse()?;
-        //     let mut data = [0u8; 24];
-        //     data[0..4].copy_from_slice(b"evm:");
-        //     data[4..24].copy_from_slice(&address[..]);
-        //     let hash = sp_core::hashing::blake2_256(&data);
-        //     AccountId32::from(Into::<[u8; 32]>::into(hash))
-        // };
-
-        // // Build the transfer transaction
-        // let balance_transfer_tx = astar_metadata::tx().balances().transfer(dest.into(), value);
-        // let alice = sp_keyring::AccountKeyring::Alice.pair();
-        // let signer = PairSigner::<PolkadotConfig, _>::new(alice);
-
-        // let hash = self
-        //     .ws_client
-        //     .tx()
-        //     .sign_and_submit_then_watch_default(&balance_transfer_tx, &signer)
-        //     .await?
-        //     .wait_for_finalized_success()
-        //     .await?
-        //     .extrinsic_hash();
-        // Ok(hash.0.to_vec())
-        self.client.faucet(address, value).await
+    async fn faucet(
+        &self,
+        address: &Address,
+        value: u128,
+        private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
+        self.client.faucet(address, value, private_key).await
     }
 
     async fn metadata(

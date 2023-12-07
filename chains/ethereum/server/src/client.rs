@@ -9,6 +9,7 @@ use ethers::{
     abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token},
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
+    types::transaction::eip2718::TypedTransaction,
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
@@ -22,6 +23,7 @@ use rosetta_core::{
 };
 use serde_json::{json, Value};
 use std::{str::FromStr, sync::Arc};
+use url::Url;
 
 struct Detokenizer {
     tokens: Vec<Token>,
@@ -156,21 +158,73 @@ where
         anyhow::bail!("not a utxo chain");
     }
 
-    pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        // first account will be the coinbase account on a dev net
-        let coinbase = self.client.get_accounts().await?[0];
-        let address: H160 = address.address().parse()?;
-        let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
-        Ok(self
-            .client
-            .send_transaction(tx, None)
-            .await?
-            .confirmations(2)
-            .await?
-            .context("failed to retrieve tx receipt")?
-            .transaction_hash
-            .0
-            .to_vec())
+    pub async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
+        match private_key {
+            Some(private_key) => {
+                let rpc_url_str = "http://localhost:8547";
+                let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
+
+                let http = Http::new(rpc_url);
+                let provider = Provider::<Http>::new(http);
+                let chain_id = provider.get_chainid().await?;
+                let address: H160 = address.address().parse()?;
+                let nonce = provider
+                    .get_transaction_count(
+                        ethers::types::NameOrAddress::Address(
+                            H160::from_str("0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e").unwrap(),
+                        ),
+                        None,
+                    )
+                    .await?; //public key of faucet account
+                let wallet = private_key.parse::<LocalWallet>()?.with_chain_id(chain_id.as_u64());
+                // Create a transaction request
+                let transaction_request = TransactionRequest {
+                    from: None,
+                    to: Some(ethers::types::NameOrAddress::Address(address)),
+                    value: Some(U256::from(param)), // Specify the amount you want to send
+                    gas: Some(U256::from(210000)),  // Adjust gas values accordingly
+                    gas_price: Some(U256::from(500000000)), // Adjust gas price accordingly
+                    nonce: Some(nonce),             // Nonce will be automatically determined
+                    data: None,
+                    chain_id: Some(U64::from(412346)), // Replace with your desired chain ID
+                };
+
+                let tx: TypedTransaction = transaction_request.into();
+                let signature = wallet.sign_transaction(&tx).await.unwrap();
+                let tx = tx.rlp_signed(&signature);
+                let response = provider
+                    .send_raw_transaction(tx)
+                    .await?
+                    .confirmations(2)
+                    .await?
+                    .context("failed to retrieve tx receipt")?
+                    .transaction_hash
+                    .0
+                    .to_vec();
+                Ok(response)
+            },
+            None => {
+                // first account will be the coinbase account on a dev net
+                let coinbase = self.client.get_accounts().await?[0];
+                let address: H160 = address.address().parse()?;
+                let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
+                Ok(self
+                    .client
+                    .send_transaction(tx, None)
+                    .await?
+                    .confirmations(2)
+                    .await?
+                    .context("failed to retrieve tx receipt")?
+                    .transaction_hash
+                    .0
+                    .to_vec())
+            },
+        }
     }
 
     pub async fn metadata(
@@ -249,8 +303,8 @@ where
                 block.clone(),
                 transaction,
             )
-            .await?;
-            transactions.push(transaction);
+            .await;
+            transactions.push(transaction.unwrap());
         }
         Ok(Block {
             block_identifier: BlockIdentifier {

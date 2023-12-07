@@ -154,7 +154,12 @@ impl BlockchainClient for PolkadotClient {
         anyhow::bail!("not a utxo chain")
     }
 
-    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        address: &Address,
+        value: u128,
+        _private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
         let address: AccountId32 = address
             .address()
             .parse()

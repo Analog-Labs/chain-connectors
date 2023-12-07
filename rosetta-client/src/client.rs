@@ -157,8 +157,13 @@ impl BlockchainClient for GenericClient {
         dispatch!(self.coins(address, block).await)
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        dispatch!(self.faucet(address, param).await)
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
+        dispatch!(self.faucet(address, param, private_key).await)
     }
 
     async fn metadata(

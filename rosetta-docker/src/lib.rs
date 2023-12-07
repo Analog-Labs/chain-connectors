@@ -387,7 +387,7 @@ pub mod tests {
 
         let value = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(value).await?;
+        wallet.faucet(value, None).await?;
         let amount = wallet.balance().await?;
         assert_eq!(amount.value, value.to_string());
         assert_eq!(amount.currency, config.currency());
@@ -421,7 +421,7 @@ pub mod tests {
         assert_eq!(balance.value, "0");
 
         // Transfer faucets to alice
-        alice.faucet(faucet).await?;
+        alice.faucet(faucet, None).await?;
         let balance = alice.balance().await?;
         assert_eq!(balance.value, faucet.to_string());
 

@@ -220,10 +220,14 @@ impl Wallet {
     /// Parameters:
     /// - `faucet_parameter`: the amount to seed the account with
     #[allow(clippy::missing_errors_doc)]
-    pub async fn faucet(&self, faucet_parameter: u128) -> Result<Vec<u8>> {
+    pub async fn faucet(
+        &self,
+        faucet_parameter: u128,
+        private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
-        self.client.faucet(&address, faucet_parameter).await
+        self.client.faucet(&address, faucet_parameter, private_key).await
     }
 
     /// deploys contract to chain

@@ -46,7 +46,9 @@ impl GenericTransactionBuilder {
             Self::Astar(tx) => {
                 AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into()
             },
-            Self::Arbitrum(tx) => tx.method_call(contract, method, params, amount)?.into(),
+            Self::Arbitrum(tx) => {
+                ArbitrumMetadataParams(tx.method_call(contract, method, params, amount)?).into()
+            },
             Self::Ethereum(tx) => tx.method_call(contract, method, params, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, method, params, amount)?.into(),
         })

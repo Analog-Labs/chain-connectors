@@ -170,7 +170,12 @@ impl BlockchainClient for AstarClient {
         self.client.coins(address, block).await
     }
 
-    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        address: &Address,
+        value: u128,
+        _private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
         // convert address
         let dest = {
             let address: H160 = address.address().parse()?;
@@ -294,7 +299,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet, None).await?;
 
         let bytes = compile_snippet(
             r#"
@@ -328,7 +333,7 @@ mod tests {
         let env = Env::new("astar-smart-contract-view", config, client_from_config).await?;
 
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet, None).await?;
 
         let bytes = compile_snippet(
             r#"

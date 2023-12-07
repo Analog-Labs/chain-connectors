@@ -95,7 +95,12 @@ impl BlockchainClient for BitcoinClient {
         todo!()
     }
 
-    async fn faucet(&self, _address: &Address, _value: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        _address: &Address,
+        _value: u128,
+        _private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
         todo!()
     }
 

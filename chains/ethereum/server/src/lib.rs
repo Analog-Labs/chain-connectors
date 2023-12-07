@@ -137,10 +137,15 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        private_key: Option<&str>,
+    ) -> Result<Vec<u8>> {
         match self {
-            Self::Http(http_client) => http_client.faucet(address, param).await,
-            Self::Ws(ws_client) => ws_client.faucet(address, param).await,
+            Self::Http(http_client) => http_client.faucet(address, param, private_key).await,
+            Self::Ws(ws_client) => ws_client.faucet(address, param, private_key).await,
         }
     }
 
@@ -271,7 +276,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet, None).await?;
 
         let bytes = compile_snippet(
             r#"
@@ -307,7 +312,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet, None).await?;
 
         let bytes = compile_snippet(
             r#"

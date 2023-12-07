@@ -16,6 +16,7 @@ rosetta-core.workspace = true
 rosetta-client.workspace = true
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
 serde_json.workspace = true
+rosetta-server-arbitrum.workspace = true
 
 [dev-dependencies]
 ethers-solc = "2.0"
