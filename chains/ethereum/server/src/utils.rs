@@ -96,7 +96,6 @@ pub async fn get_transaction<P: JsonRpcClient, T: Send>(
     if tx_receipt.block_hash.context("Block hash not found in tx receipt")? != block_hash {
         bail!("Transaction receipt block hash does not match block hash");
     }
-
     let currency = config.currency();
 
     let mut operations = vec![];
@@ -219,6 +218,7 @@ async fn get_transaction_trace<P: JsonRpcClient>(
     hash: &H256,
     client: &Provider<P>,
 ) -> Result<Trace> {
+    println!("\n\n\this ---> {:?}\n\n", client);
     let params = json!([
         hash,
         {

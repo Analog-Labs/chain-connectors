@@ -106,31 +106,31 @@ mod tests {
 
     use super::*;
 
-    // #[tokio::test]
-    // async fn start_new() {
-    //     match ArbitrumEnv::new().await {
-    //         Ok(arbitrum_env) => {
-    //             tracing::info!("Arbitrum chain is up {:?}", arbitrum_env);
-    //         },
-    //         Err(arbitrum_env_error) => {
-    //             tracing::error!("Error: {:?}", arbitrum_env_error);
-    //         },
-    //     }
-    // }
+    #[tokio::test]
+    async fn start_new() {
+        match ArbitrumEnv::new().await {
+            Ok(arbitrum_env) => {
+                tracing::info!("Arbitrum chain is up {:?}", arbitrum_env);
+            },
+            Err(arbitrum_env_error) => {
+                tracing::error!("Error: {:?}", arbitrum_env_error);
+            },
+        }
+    }
 
-    // #[tokio::test]
-    // async fn cleanup_success() {
-    //     // Assuming cleanup is successful
-    //     let result = ArbitrumEnv::cleanup().await;
-    //     assert!(result.is_ok(), "Cleanup failed: {:?}", result);
-    // }
+    #[tokio::test]
+    async fn cleanup_success() {
+        // Assuming cleanup is successful
+        let result = ArbitrumEnv::cleanup().await;
+        assert!(result.is_ok(), "Cleanup failed: {:?}", result);
+    }
 
-    // #[tokio::test]
-    // async fn cleanup_failure() {
-    //     // Assuming cleanup fails
-    //     let result = ArbitrumEnv::cleanup().await;
-    //     assert!(result.is_err(), "Cleanup should have failed: {:?}", result);
-    // }
+    #[tokio::test]
+    async fn cleanup_failure() {
+        // Assuming cleanup fails
+        let result = ArbitrumEnv::cleanup().await;
+        assert!(result.is_err(), "Cleanup should have failed: {:?}", result);
+    }
 
     #[tokio::test]
     async fn network_status() {

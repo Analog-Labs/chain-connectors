@@ -303,8 +303,8 @@ where
                 block.clone(),
                 transaction,
             )
-            .await;
-            transactions.push(transaction.unwrap());
+            .await?;
+            transactions.push(transaction);
         }
         Ok(Block {
             block_identifier: BlockIdentifier {
