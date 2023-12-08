@@ -296,16 +296,6 @@ where
         let block_reward_transaction =
             crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
         transactions.push(block_reward_transaction);
-        for transaction in &block.transactions {
-            let transaction = crate::utils::get_transaction(
-                &self.client,
-                self.config(),
-                block.clone(),
-                transaction,
-            )
-            .await?;
-            transactions.push(transaction);
-        }
         Ok(Block {
             block_identifier: BlockIdentifier {
                 index: block_number.as_u64(),

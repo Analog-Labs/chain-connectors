@@ -21,3 +21,4 @@ rosetta-server-arbitrum.workspace = true
 [dev-dependencies]
 ethers-solc = "2.0"
 sha3 = "0.10"
+url = "2.5.0"

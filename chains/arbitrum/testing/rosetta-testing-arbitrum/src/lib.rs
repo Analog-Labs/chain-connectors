@@ -52,7 +52,7 @@ impl ArbitrumEnv {
         // You can start your Bash script here
 
         //when running the test , get the folder path, recive as perms
-        let script_path = "/home/daino/nitro-testnode/test-node.bash"; // Replace with the actual path to binary
+        let script_path = "../nitro-testnode/test-node.bash"; // Replace with the actual path to binary
         let output = Command::new(script_path)
             .arg("--detach")
             .output()
@@ -96,16 +96,25 @@ impl ArbitrumEnv {
 
 #[cfg(test)]
 mod tests {
-    use ethers::utils::hex;
+    use ethers::{
+        providers::{Http, Middleware, Provider},
+        signers::{LocalWallet, Signer},
+        types::{
+            transaction::eip2718::TypedTransaction, Bytes, TransactionRequest, H160, U256, U64,
+        },
+        utils::hex,
+    };
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_client::Wallet;
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
     use rosetta_server_arbitrum::ArbitrumClient;
     use sha3::Digest;
-    use std::{collections::BTreeMap, path::Path};
+    use std::{collections::BTreeMap, path::Path, str::FromStr, thread, time::Duration};
+    use url::Url;
 
     use super::*;
 
+    //Test for start the arbitrum default node (nitro-testnode)
     #[tokio::test]
     async fn start_new() {
         match ArbitrumEnv::new().await {
@@ -130,6 +139,49 @@ mod tests {
         // Assuming cleanup fails
         let result = ArbitrumEnv::cleanup().await;
         assert!(result.is_err(), "Cleanup should have failed: {:?}", result);
+    }
+
+    //must run this test before running below tests.
+    #[tokio::test]
+    pub async fn for_incress_blocknumber() -> Result<()> {
+        let rpc_url_str = "http://localhost:8547";
+        let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
+        let http = Http::new(rpc_url);
+        let provider = Provider::<Http>::new(http);
+        let chain_id = provider.get_chainid().await?;
+        let private_key = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
+        let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
+        assert!(result.is_ok(), "Error creating ArbitrumClient");
+        let wallet = private_key.parse::<LocalWallet>()?.with_chain_id(chain_id.as_u64());
+        loop {
+            let nonce = provider
+                .get_transaction_count(
+                    ethers::types::NameOrAddress::Address(
+                        H160::from_str("0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e").unwrap(),
+                    ),
+                    None,
+                )
+                .await
+                .unwrap(); //public key of faucet account
+                           // Create a transaction request
+            let transaction_request = TransactionRequest {
+                from: None,
+                to: Some(ethers::types::NameOrAddress::Address(
+                    H160::from_str("0xc109c36fd5d730d7f9a14dB2597B2d9eDd991719").unwrap(),
+                )),
+                value: Some(U256::from(1000000000)), // Specify the amount you want to send
+                gas: Some(U256::from(210000)),       // Adjust gas values accordingly
+                gas_price: Some(U256::from(500000000)), // Adjust gas price accordingly
+                nonce: Some(U256::from(nonce)),      // Nonce will be automatically determined
+                data: None,
+                chain_id: Some(U64::from(412346)), // Replace with your desired chain ID
+            };
+            let tx: TypedTransaction = transaction_request.into();
+            let signature = wallet.sign_transaction(&tx).await.unwrap();
+            let tx: Bytes = tx.rlp_signed(&signature);
+            let _ = provider.send_raw_transaction(tx).await;
+            thread::sleep(Duration::from_secs(1));
+        }
     }
 
     #[tokio::test]
