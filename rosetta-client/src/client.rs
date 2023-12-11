@@ -14,12 +14,14 @@ use rosetta_core::{BlockchainClient, ClientEvent};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
+    config::{Query as EthQuery, QueryResult as EthQueryResult},
     EthereumMetadata, EthereumMetadataParams, MaybeWsEthereumClient as EthereumClient,
 };
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{pin::Pin, str::FromStr};
+use void::Void;
 
 // TODO: Use
 #[allow(clippy::large_enum_variant)]
@@ -103,6 +105,19 @@ pub enum GenericMetadata {
     Polkadot(PolkadotMetadata),
 }
 
+pub enum GenericCall {
+    Bitcoin(Void),
+    Ethereum(EthQuery),
+    Polkadot(CallRequest),
+}
+
+#[allow(clippy::large_enum_variant)]
+pub enum GenericCallResult {
+    Bitcoin(()),
+    Ethereum(EthQueryResult),
+    Polkadot(Value),
+}
+
 macro_rules! dispatch {
     ($self:tt$($method:tt)+) => {
         match $self {
@@ -119,6 +134,8 @@ impl BlockchainClient for GenericClient {
     type MetadataParams = GenericMetadataParams;
     type Metadata = GenericMetadata;
     type EventStream<'a> = Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>;
+    type Call = GenericCall;
+    type CallResult = GenericCallResult;
 
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())
@@ -190,8 +207,32 @@ impl BlockchainClient for GenericClient {
         dispatch!(self.block_transaction(block, tx).await)
     }
 
-    async fn call(&self, req: &CallRequest) -> Result<Value> {
-        dispatch!(self.call(req).await)
+    async fn call(&self, req: &GenericCall) -> Result<GenericCallResult> {
+        let result = match self {
+            Self::Bitcoin(client) => match req {
+                GenericCall::Bitcoin(args) => GenericCallResult::Bitcoin(client.call(args).await?),
+                _ => anyhow::bail!("invalid call"),
+            },
+            Self::Ethereum(client) => match req {
+                GenericCall::Ethereum(args) => {
+                    GenericCallResult::Ethereum(client.call(args).await?)
+                },
+                _ => anyhow::bail!("invalid call"),
+            },
+            Self::Astar(client) => match req {
+                GenericCall::Ethereum(args) => {
+                    GenericCallResult::Ethereum(client.call(args).await?)
+                },
+                _ => anyhow::bail!("invalid call"),
+            },
+            Self::Polkadot(client) => match req {
+                GenericCall::Polkadot(args) => {
+                    GenericCallResult::Polkadot(client.call(args).await?)
+                },
+                _ => anyhow::bail!("invalid call"),
+            },
+        };
+        Ok(result)
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.

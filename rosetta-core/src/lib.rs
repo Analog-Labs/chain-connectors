@@ -6,7 +6,7 @@ use crate::{
         Algorithm, PublicKey, SecretKey,
     },
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, Currency, CurveType, NetworkIdentifier,
+        Block, BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier,
         PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
     },
 };
@@ -14,7 +14,6 @@ use anyhow::Result;
 use async_trait::async_trait;
 pub use futures_util::{future, stream};
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value;
 use std::sync::Arc;
 
 use futures_util::stream::Empty;
@@ -114,6 +113,8 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Serialize + Send + Sync + 'static;
     type Metadata: DeserializeOwned + Serialize + Send + Sync + 'static;
     type EventStream<'a>: stream::Stream<Item = ClientEvent> + Send + Unpin + 'a;
+    type Call: Send + Sync + Sized + 'static;
+    type CallResult: Send + Sync + Sized + 'static;
 
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
@@ -135,7 +136,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         block: &BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction>;
-    async fn call(&self, req: &CallRequest) -> Result<Value>;
+    async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
@@ -151,6 +152,8 @@ where
     type MetadataParams = <T as BlockchainClient>::MetadataParams;
     type Metadata = <T as BlockchainClient>::Metadata;
     type EventStream<'a> = <T as BlockchainClient>::EventStream<'a>;
+    type Call = <T as BlockchainClient>::Call;
+    type CallResult = <T as BlockchainClient>::CallResult;
 
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))
@@ -196,10 +199,9 @@ where
     ) -> Result<Transaction> {
         BlockchainClient::block_transaction(Self::as_ref(self), block, tx).await
     }
-    async fn call(&self, req: &CallRequest) -> Result<Value> {
+    async fn call(&self, req: &Self::Call) -> Result<Self::CallResult> {
         BlockchainClient::call(Self::as_ref(self), req).await
     }
-
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         BlockchainClient::listen(Self::as_ref(self)).await
@@ -247,9 +249,8 @@ pub trait TransactionBuilder: Default + Sized {
     /// Returns `Err` if for some reason it cannot construct the metadata parameters.
     fn method_call(
         &self,
-        contract: &str,
-        method: &str,
-        values: &[String],
+        contract: &[u8; 20],
+        data: &[u8],
         amount: u128,
     ) -> Result<Self::MetadataParams>;
 

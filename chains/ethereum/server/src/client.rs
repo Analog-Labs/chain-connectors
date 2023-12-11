@@ -3,35 +3,38 @@ use crate::{
     proof::verify_proof,
     utils::{get_non_pending_block, NonPendingBlock},
 };
-use anyhow::{bail, Context, Result};
-use ethabi::token::{LenientTokenizer, Tokenizer};
+use anyhow::{Context, Result};
+// use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::{
-    abi::{Detokenize, HumanReadableParser, InvalidOutputType, Token},
+    // abi::{Detokenize, HumanReadableParser InvalidOutputType, Token},
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
+    types::Bytes,
     utils::{keccak256, rlp::Encodable},
 };
-use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
+use rosetta_config_ethereum::{
+    AtBlock, CallContract, CallResult, EIP1186ProofResponse, EthereumMetadata,
+    EthereumMetadataParams, GetBalance, GetProof, GetStorageAt, GetTransactionReceipt, Log,
+    Query as EthQuery, QueryResult as EthQueryResult, StorageProof, TransactionReceipt,
+};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
+        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
     },
     BlockchainConfig,
 };
-use serde_json::{json, Value};
 use std::{str::FromStr, sync::Arc};
 
-struct Detokenizer {
-    tokens: Vec<Token>,
-}
+// struct Detokenizer {
+//     tokens: Vec<Token>,
+// }
 
-impl Detokenize for Detokenizer {
-    fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
-        Ok(Self { tokens })
-    }
-}
+// impl Detokenize for Detokenizer {
+//     fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
+//         Ok(Self { tokens })
+//     }
+// }
 
 /// Strategy used to determine the finalized block
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -286,88 +289,85 @@ where
     }
 
     #[allow(clippy::too_many_lines)]
-    pub async fn call(&self, req: &CallRequest) -> Result<Value> {
-        let call_details = req.method.split('-').collect::<Vec<&str>>();
-        if call_details.len() != 3 {
-            anyhow::bail!("Invalid length of call request params");
-        }
-        let contract_address = call_details[0];
-        let method_or_position = call_details[1];
-        let call_type = call_details[2];
-
-        let block_id = req
-            .block_identifier
-            .as_ref()
-            .map(|block_identifier| -> Result<BlockId> {
-                if let Some(block_hash) = block_identifier.hash.as_ref() {
-                    return BlockId::from_str(block_hash).map_err(|e| anyhow::anyhow!("{e}"));
-                } else if let Some(block_number) = block_identifier.index {
-                    return Ok(BlockId::Number(BlockNumber::Number(U64::from(block_number))));
+    pub async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
+        let result = match req {
+            EthQuery::GetBalance(GetBalance { address, block }) => {
+                let block_id = match *block {
+                    AtBlock::Number(number) => BlockId::Number(number.into()),
+                    AtBlock::Hash(hash) => BlockId::Hash(hash),
                 };
-                bail!("invalid block identifier")
-            })
-            .transpose()?;
-
-        let params = &req.parameters;
-        match call_type.to_lowercase().as_str() {
-            "call" => {
-                //process constant call
-                let contract_address = H160::from_str(contract_address)?;
-
-                let function = HumanReadableParser::parse_function(method_or_position)?;
-                let params: Vec<String> = serde_json::from_value(params.clone())?;
-                let mut tokens = Vec::with_capacity(params.len());
-                for (ty, arg) in function.inputs.iter().zip(params) {
-                    tokens.push(LenientTokenizer::tokenize(&ty.kind, &arg)?);
-                }
-                let data = function.encode_input(&tokens)?;
-
+                let balance = self.client.get_balance(*address, Some(block_id)).await?;
+                EthQueryResult::GetBalance(balance)
+            },
+            EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
+                let block_id = match *block {
+                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
+                    AtBlock::Hash(hash) => BlockId::Hash(hash),
+                };
+                let value = self.client.get_storage_at(*address, *at, Some(block_id)).await?;
+                EthQueryResult::GetStorageAt(value)
+            },
+            EthQuery::GetTransactionReceipt(GetTransactionReceipt { tx_hash }) => {
+                let receipt = self.client.get_transaction_receipt(*tx_hash).await?.map(|receipt| {
+                    TransactionReceipt {
+                        transaction_hash: receipt.transaction_hash,
+                        transaction_index: receipt.transaction_index.as_u64(),
+                        block_hash: receipt.block_hash,
+                        block_number: receipt.block_number.map(|number| number.as_u64()),
+                        from: receipt.from,
+                        to: receipt.to,
+                        cumulative_gas_used: receipt.cumulative_gas_used,
+                        gas_used: receipt.gas_used,
+                        contract_address: receipt.contract_address,
+                        status_code: receipt.status.map(|number| number.as_u64()),
+                        state_root: receipt.root,
+                        logs: receipt
+                            .logs
+                            .into_iter()
+                            .map(|log| Log {
+                                address: log.address,
+                                topics: log.topics,
+                                data: log.data.to_vec(),
+                                block_hash: log.block_hash,
+                                block_number: log.block_number.map(|n| n.as_u64()),
+                                transaction_hash: log.transaction_hash,
+                                transaction_index: log.transaction_index.map(|n| n.as_u64()),
+                                log_index: log.log_index,
+                                transaction_log_index: log.transaction_log_index,
+                                log_type: log.log_type,
+                                removed: log.removed,
+                            })
+                            .collect(),
+                        logs_bloom: receipt.logs_bloom,
+                        effective_gas_price: receipt.effective_gas_price,
+                        transaction_type: receipt.transaction_type.map(|number| number.as_u64()),
+                    }
+                });
+                EthQueryResult::GetTransactionReceipt(receipt)
+            },
+            EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
+                let block_id = match *block {
+                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
+                    AtBlock::Hash(hash) => BlockId::Hash(hash),
+                };
                 let tx = Eip1559TransactionRequest {
-                    to: Some(contract_address.into()),
-                    data: Some(data.into()),
+                    from: *from,
+                    to: Some((*to).into()),
+                    data: Some(data.clone().into()),
+                    value: Some(*value),
                     ..Default::default()
                 };
-
                 let tx = &tx.into();
-                let received_data = self.client.call(tx, block_id).await?;
-
-                let detokenizer: Detokenizer =
-                    decode_function_data(&function, received_data, false)?;
-                let mut result = Vec::with_capacity(tokens.len());
-                for token in detokenizer.tokens {
-                    result.push(token.to_string());
-                }
-                Ok(serde_json::to_value(result)?)
+                let received_data = self.client.call(tx, Some(block_id)).await?;
+                EthQueryResult::CallContract(CallResult::Success(received_data.to_vec()))
             },
-            "storage" => {
-                //process storage call
-                let from = H160::from_str(contract_address)?;
-
-                let location = H256::from_str(method_or_position)?;
-
-                // TODO: remove the params["block_number"], use block_identifier instead, leaving it
-                // here for compatibility
-                let block_num = params["block_number"]
-                    .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()))
-                    .or(block_id);
-
-                let storage_check = self.client.get_storage_at(from, location, block_num).await?;
-                Ok(Value::String(format!("{storage_check:#?}",)))
-            },
-            "storage_proof" => {
-                let from = H160::from_str(contract_address)?;
-
-                let location = H256::from_str(method_or_position)?;
-
-                // TODO: remove the params["block_number"], use block_identifier instead, leaving it
-                // here for compatibility
-                let block_num = params["block_number"]
-                    .as_u64()
-                    .map(|block_num| BlockId::Number(block_num.into()))
-                    .or(block_id);
-
-                let proof_data = self.client.get_proof(from, vec![location], block_num).await?;
+            EthQuery::GetProof(GetProof { account, storage_keys, block }) => {
+                let block_id = match *block {
+                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
+                    AtBlock::Hash(hash) => BlockId::Hash(hash),
+                };
+                let proof_data =
+                    self.client.get_proof(*account, storage_keys.clone(), Some(block_id)).await?;
 
                 //process verfiicatin of proof
                 let storage_hash = proof_data.storage_hash;
@@ -377,33 +377,40 @@ where
                 let key_hash = keccak256(key);
                 let encoded_val = storage_proof.value.rlp_bytes().to_vec();
 
-                let is_valid = verify_proof(
+                let _is_valid = verify_proof(
                     &storage_proof.proof,
                     storage_hash.as_bytes(),
                     &key_hash.to_vec(),
                     &encoded_val,
                 );
-
-                let result = serde_json::to_value(&proof_data)?;
-
-                Ok(json!({
-                    "proof": result,
-                    "isValid": is_valid
-                }))
+                EthQueryResult::GetProof(EIP1186ProofResponse {
+                    address: proof_data.address,
+                    balance: proof_data.balance,
+                    code_hash: proof_data.code_hash,
+                    nonce: proof_data.nonce.as_u64(),
+                    storage_hash: proof_data.storage_hash,
+                    account_proof: proof_data
+                        .account_proof
+                        .into_iter()
+                        .map(|bytes| bytes.0.to_vec())
+                        .collect(),
+                    storage_proof: proof_data
+                        .storage_proof
+                        .into_iter()
+                        .map(|storage_proof| StorageProof {
+                            key: storage_proof.key,
+                            proof: storage_proof
+                                .proof
+                                .into_iter()
+                                .map(|proof| proof.0.to_vec())
+                                .collect(),
+                            value: storage_proof.value,
+                        })
+                        .collect(),
+                })
             },
-            "transaction_receipt" => {
-                let tx_hash = H256::from_str(contract_address)?;
-                let receipt = self.client.get_transaction_receipt(tx_hash).await?;
-                let result = serde_json::to_value(&receipt)?;
-                if block_id.is_some() {
-                    bail!("block identifier is ignored for transaction receipt");
-                }
-                Ok(result)
-            },
-            _ => {
-                bail!("request type not supported")
-            },
-        }
+        };
+        Ok(result)
     }
 }
 

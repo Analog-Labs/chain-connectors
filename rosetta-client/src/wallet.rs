@@ -9,10 +9,14 @@ use crate::{
 };
 use anyhow::Result;
 use rosetta_core::{
-    types::{Block, CallRequest, PartialBlockIdentifier, Transaction},
+    types::{Block, PartialBlockIdentifier, Transaction},
     BlockchainClient, RosettaAlgorithm,
 };
-use serde_json::json;
+use rosetta_server_ethereum::config::{
+    ethereum_types::{self, Address as EthAddress, H256, U256},
+    AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
+    GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt,
+};
 use std::path::Path;
 
 /// The wallet provides the main entry point to this crate.
@@ -140,24 +144,24 @@ impl Wallet {
         self.client.block_transaction(&block_identifer, &tx_identifier).await
     }
 
-    /// Extension of rosetta-api does multiple things
-    /// 1. fetching storage
-    /// 2. calling extrinsic/contract
-    #[allow(clippy::missing_errors_doc)]
-    async fn call(
-        &self,
-        method: String,
-        params: &serde_json::Value,
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value> {
-        let req = CallRequest {
-            network_identifier: self.client.config().network(),
-            method,
-            parameters: params.clone(),
-            block_identifier,
-        };
-        self.client.call(&req).await
-    }
+    // /// Extension of rosetta-api does multiple things
+    // /// 1. fetching storage
+    // /// 2. calling extrinsic/contract
+    // #[allow(clippy::missing_errors_doc)]
+    // async fn call(
+    //     &self,
+    //     method: String,
+    //     params: &serde_json::Value,
+    //     block_identifier: Option<PartialBlockIdentifier>,
+    // ) -> Result<serde_json::Value> {
+    //     let req = CallRequest {
+    //         network_identifier: self.client.config().network(),
+    //         method,
+    //         parameters: params.clone(),
+    //         block_identifier,
+    //     };
+    //     self.client.call(&req).await
+    // }
 
     /// Returns the coins of the wallet.
     #[allow(clippy::missing_errors_doc)]
@@ -228,41 +232,44 @@ impl Wallet {
 
     /// deploys contract to chain
     #[allow(clippy::missing_errors_doc)]
-    pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<Vec<u8>> {
+    pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<[u8; 32]> {
         let metadata_params = self.tx.deploy_contract(bytecode)?;
-        self.construct(&metadata_params).await
+        let bytes = self.construct(&metadata_params).await?;
+        let mut tx_hash = [0u8; 32];
+        tx_hash.copy_from_slice(&bytes[0..32]);
+        Ok(tx_hash)
     }
 
     /// calls contract send call function
     #[allow(clippy::missing_errors_doc)]
     pub async fn eth_send_call(
         &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
+        contract_address: [u8; 20],
+        data: Vec<u8>,
         amount: u128,
-    ) -> Result<Vec<u8>> {
-        let metadata_params =
-            self.tx.method_call(contract_address, method_signature, params, amount)?;
-        self.construct(&metadata_params).await
+    ) -> Result<[u8; 32]> {
+        let metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let bytes = self.construct(&metadata_params).await?;
+        let mut tx_hash = [0u8; 32];
+        tx_hash.copy_from_slice(&bytes[0..32]);
+        Ok(tx_hash)
     }
 
     /// estimates gas of send call
     #[allow(clippy::missing_errors_doc)]
     pub async fn eth_send_call_estimate_gas(
         &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
+        contract_address: [u8; 20],
+        data: Vec<u8>,
         amount: u128,
     ) -> Result<u128> {
-        let metadata_params =
-            self.tx.method_call(contract_address, method_signature, params, amount)?;
-        let metadata = match self.metadata(&metadata_params).await? {
-            GenericMetadata::Ethereum(metadata) => metadata,
-            GenericMetadata::Astar(metadata) => metadata.0,
-            _ => anyhow::bail!("unsupported op"),
-        };
+        let metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let metadata: rosetta_server_ethereum::EthereumMetadata =
+            match self.metadata(&metadata_params).await? {
+                GenericMetadata::Ethereum(metadata) => metadata,
+                GenericMetadata::Astar(metadata) => metadata.0,
+                _ => anyhow::bail!("unsupported op"),
+            };
         Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
     }
 
@@ -270,43 +277,114 @@ impl Wallet {
     #[allow(clippy::missing_errors_doc)]
     pub async fn eth_view_call(
         &self,
-        contract_address: &str,
-        method_signature: &str,
-        params: &[String],
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value> {
-        let method = format!("{contract_address}-{method_signature}-call");
-        self.call(method, &json!(params), block_identifier).await
+        contract_address: [u8; 20],
+        data: Vec<u8>,
+        block_identifier: AtBlock,
+    ) -> Result<CallResult> {
+        let contract_address = EthAddress::from(contract_address);
+        let call = CallContract {
+            from: None,
+            to: contract_address,
+            value: U256::zero(),
+            data,
+            block: block_identifier,
+        };
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => client.call(&EthQuery::CallContract(call)).await?,
+            GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
+            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_view_call"),
+        };
+        let EthQueryResult::CallContract(exit_reason) = result else {
+            anyhow::bail!("[this is a bug] invalid result type");
+        };
+        Ok(exit_reason)
+        // let method = format!("{contract_address}-{method_signature}-call");
+        // self.call(method, &json!(params), block_identifier).await
     }
 
     /// gets storage from ethereum contract
     #[allow(clippy::missing_errors_doc)]
     pub async fn eth_storage(
         &self,
-        contract_address: &str,
-        storage_slot: &str,
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value> {
-        let method = format!("{contract_address}-{storage_slot}-storage");
-        self.call(method, &json!({}), block_identifier).await
+        contract_address: [u8; 20],
+        storage_slot: [u8; 32],
+        block_identifier: AtBlock,
+    ) -> Result<H256> {
+        let contract_address = EthAddress::from(contract_address);
+        let storage_slot = H256(storage_slot);
+        let get_storage =
+            GetStorageAt { address: contract_address, at: storage_slot, block: block_identifier };
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => {
+                client.call(&EthQuery::GetStorageAt(get_storage)).await?
+            },
+            GenericClient::Astar(client) => {
+                client.call(&EthQuery::GetStorageAt(get_storage)).await?
+            },
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
+            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
+        };
+        let EthQueryResult::GetStorageAt(value) = result else {
+            anyhow::bail!("[this is a bug] invalid result type");
+        };
+        Ok(value)
+        // let method = format!("{contract_address}-{storage_slot}-storage");
+        // self.call(method, &json!({}), block_identifier).await
     }
 
     /// gets storage proof from ethereum contract
     #[allow(clippy::missing_errors_doc)]
-    pub async fn eth_storage_proof(
+    pub async fn eth_storage_proof<I: Iterator<Item = ethereum_types::H256> + Send + Sync>(
         &self,
-        contract_address: &str,
-        storage_slot: &str,
-        block_identifier: Option<PartialBlockIdentifier>,
-    ) -> Result<serde_json::Value> {
-        let method = format!("{contract_address}-{storage_slot}-storage_proof");
-        self.call(method, &json!({}), block_identifier).await
+        contract_address: [u8; 20],
+        storage_keys: I,
+        block_identifier: AtBlock,
+    ) -> Result<EIP1186ProofResponse> {
+        use ethereum_types::Address;
+        let contract_address = Address::from(contract_address);
+        let get_proof = GetProof {
+            account: contract_address,
+            storage_keys: storage_keys.collect(),
+            block: block_identifier,
+        };
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
+            GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
+            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
+        };
+        let EthQueryResult::GetProof(proof) = result else {
+            anyhow::bail!("[this is a bug] invalid result type");
+        };
+        Ok(proof)
+        // let method = format!("{contract_address}-{storage_slot}-storage_proof");
+        // self.call(method, &json!({}), block_identifier).await
     }
 
     /// gets transaction receipt of specific hash
     #[allow(clippy::missing_errors_doc)]
-    pub async fn eth_transaction_receipt(&self, tx_hash: &[u8]) -> Result<serde_json::Value> {
-        let call_method = format!("{}--transaction_receipt", hex::encode(tx_hash));
-        self.call(call_method, &json!({}), None).await
+    pub async fn eth_transaction_receipt(
+        &self,
+        tx_hash: [u8; 32],
+    ) -> Result<Option<TransactionReceipt>> {
+        let tx_hash = H256(tx_hash);
+        let get_tx_receipt = GetTransactionReceipt { tx_hash };
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => {
+                client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
+            },
+            GenericClient::Astar(client) => {
+                client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
+            },
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
+            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
+        };
+        let EthQueryResult::GetTransactionReceipt(maybe_receipt) = result else {
+            anyhow::bail!("[this is a bug] invalid result type");
+        };
+        Ok(maybe_receipt)
+        // let call_method = format!("{}--transaction_receipt", hex::encode(tx_hash));
+        // self.call(call_method, &json!({}), None).await
     }
 }

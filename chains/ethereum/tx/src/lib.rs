@@ -1,10 +1,6 @@
 use anyhow::Result;
-use ethabi::token::{LenientTokenizer, Tokenizer};
-use ethers_core::{
-    abi::HumanReadableParser,
-    types::{
-        transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress, Signature, H160,
-    },
+use ethers_core::types::{
+    transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress, Signature, H160,
 };
 use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
 use rosetta_core::{
@@ -34,23 +30,16 @@ impl TransactionBuilder for EthereumTransactionBuilder {
 
     fn method_call(
         &self,
-        contract: &str,
-        method: &str,
-        params: &[String],
+        contract: &[u8; 20],
+        data: &[u8],
         amount: u128,
     ) -> Result<Self::MetadataParams> {
-        let destination: H160 = contract.parse()?;
+        let destination = H160::from_slice(contract);
         let amount: U256 = amount.into();
-        let function = HumanReadableParser::parse_function(method)?;
-        let mut tokens = Vec::with_capacity(params.len());
-        for (ty, arg) in function.inputs.iter().zip(params) {
-            tokens.push(LenientTokenizer::tokenize(&ty.kind, arg)?);
-        }
-        let bytes = function.encode_input(&tokens)?;
         Ok(EthereumMetadataParams {
             destination: destination.0.to_vec(),
             amount: amount.0,
-            data: bytes,
+            data: data.to_vec(),
         })
     }
 

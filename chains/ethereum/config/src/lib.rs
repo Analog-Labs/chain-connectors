@@ -1,11 +1,15 @@
+mod types;
+
 use anyhow::Result;
+pub use ethereum_types;
+
 use rosetta_config_astar::config as astar_config;
 use rosetta_core::{
     crypto::{address::AddressFormat, Algorithm},
     BlockchainConfig, NodeUri,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+pub use types::*;
 
 /// Retrieve the [`BlockchainConfig`] from the provided polygon `network`
 ///
@@ -115,20 +119,4 @@ fn evm_config(
         connector_port: 8081,
         testnet: is_dev,
     }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct EthereumMetadataParams {
-    pub destination: Vec<u8>,
-    pub amount: [u64; 4],
-    pub data: Vec<u8>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct EthereumMetadata {
-    pub chain_id: u64,
-    pub nonce: u64,
-    pub max_priority_fee_per_gas: [u64; 4],
-    pub max_fee_per_gas: [u64; 4],
-    pub gas_limit: [u64; 4],
 }

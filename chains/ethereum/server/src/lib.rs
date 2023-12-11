@@ -1,17 +1,17 @@
 use anyhow::Result;
 use client::EthereumClient;
 use ethers::providers::Http;
-pub use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
+pub use rosetta_config_ethereum::{
+    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
+};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
+        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
     },
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::{default_client, DefaultClient};
-use serde_json::Value;
 use url::Url;
 
 mod client;
@@ -23,6 +23,10 @@ mod utils;
 use rosetta_ethereum_rpc_client::EthPubsubAdapter;
 
 pub use event_stream::EthereumEventStream;
+
+pub mod config {
+    pub use rosetta_config_ethereum::*;
+}
 
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
@@ -86,6 +90,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
     type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<DefaultClient>>;
+    type Call = EthQuery;
+    type CallResult = EthQueryResult;
 
     fn config(&self) -> &BlockchainConfig {
         match self {
@@ -180,7 +186,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn call(&self, req: &CallRequest) -> Result<Value> {
+    async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         match self {
             Self::Http(http_client) => http_client.call(req).await,
             Self::Ws(ws_client) => ws_client.call(req).await,
@@ -201,10 +207,20 @@ impl BlockchainClient for MaybeWsEthereumClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_docker::Env;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
+
+    sol! {
+        interface TestContract {
+            event AnEvent();
+            function emitEvent() public {
+                emit AnEvent();
+            }
+        }
+    }
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
@@ -274,21 +290,21 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             event AnEvent();
             function emitEvent() public {
                 emit AnEvent();
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address =
-            receipt.get("contractAddress").and_then(serde_json::Value::as_str).unwrap();
-        let tx_hash =
-            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
+        let tx_hash = {
+            let data = TestContract::emitEventCall::SELECTOR.to_vec();
+            wallet.eth_send_call(contract_address, data, 0).await?
+        };
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?;
         let logs = receipt.get("logs").and_then(serde_json::Value::as_array).unwrap();
         assert_eq!(logs.len(), 1);
         let topic = logs[0]["topics"][0].as_str().unwrap();
@@ -310,11 +326,11 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             function identity(bool a) public view returns (bool) {
                 return a;
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
         let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
