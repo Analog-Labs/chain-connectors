@@ -16,5 +16,5 @@ rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum.workspace = true
-serde_json = { version = "1.0" }
 serde.workspace = true
+serde_json = { version = "1.0" }
