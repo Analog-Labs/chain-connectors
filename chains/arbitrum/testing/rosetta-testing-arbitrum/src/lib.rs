@@ -154,7 +154,7 @@ mod tests {
                 value: Some(U256::from(1_000_000_000)), // Specify the amount you want to send
                 gas: Some(U256::from(210_000)),         // Adjust gas values accordingly
                 gas_price: Some(U256::from(500_000_000)), // Adjust gas price accordingly
-                nonce: Some(nonce),         // Nonce will be automatically determined
+                nonce: Some(nonce),                     // Nonce will be automatically determined
                 data: None,
                 chain_id: Some(U64::from(412_346)), // Replace with your desired chain ID
             };
