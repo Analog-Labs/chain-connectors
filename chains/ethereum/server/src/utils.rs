@@ -267,8 +267,8 @@ fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Resul
         if should_add {
             let mut from_operation = Operation {
                 operation_identifier: OperationIdentifier {
-                    index: op_len
-                        + i64::try_from(operations.len()).context("operation.index overflow")?,
+                    index: op_len +
+                        i64::try_from(operations.len()).context("operation.index overflow")?,
                     network_index: None,
                 },
                 related_operations: None,

@@ -1,9 +1,6 @@
 use anyhow::Result;
 
-use std::error::Error;
-use std::fmt;
-use std::path::PathBuf;
-use std::process::Command;
+use std::{error::Error, fmt, path::PathBuf, process::Command};
 
 // Define a custom error type for your application
 #[derive(Debug)]
