@@ -217,35 +217,33 @@ impl<T: Config> Future for ReadyOrWaitFuture<T> {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-        loop {
             match this.state.take() {
-                Some(ReadyOrWaitState::Ready(result)) => return Poll::Ready(result),
+                Some(ReadyOrWaitState::Ready(result)) => Poll::Ready(result),
                 Some(ReadyOrWaitState::Waiting(mut future)) => {
                     match future.poll_unpin(cx) {
                         // The request delay timeout
                         Poll::Ready(Either::Left(_)) => {
-                            return Poll::Ready(Err(Error::Custom(
+                            Poll::Ready(Err(Error::Custom(
                                 "Timeout: cannot process request, client reconnecting..."
                                     .to_string(),
                             )))
                         },
                         // The client was reconnected!
                         Poll::Ready(Either::Right((Ok(client), _))) => {
-                            return Poll::Ready(Ok(client))
+                            Poll::Ready(Ok(client))
                         },
                         // Failed to reconnect
                         Poll::Ready(Either::Right((Err(result), _))) => {
-                            return Poll::Ready(Err(result.into_inner()))
+                            Poll::Ready(Err(result.into_inner()))
                         },
                         Poll::Pending => {
                             *this.state = Some(ReadyOrWaitState::Waiting(future));
-                            return Poll::Pending;
+                            Poll::Pending
                         },
                     }
                 },
                 None => panic!("ClientReadyFuture polled after completion"),
             }
-        }
     }
 }
 
