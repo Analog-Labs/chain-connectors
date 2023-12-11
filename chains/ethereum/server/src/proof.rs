@@ -32,8 +32,8 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 // exclusion proof
-                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset)
-                    && is_empty_value(value)
+                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset) &&
+                    is_empty_value(value)
                 {
                     return true;
                 }
