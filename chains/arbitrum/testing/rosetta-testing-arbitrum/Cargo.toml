@@ -13,15 +13,15 @@ anyhow = "1.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
-rosetta-server-ethereum.workspace = true
-rosetta-docker = { workspace = true, features = ["tests"] }
 rosetta-core.workspace = true
-serde_json.workspace = true
+rosetta-docker = { workspace = true, features = ["tests"] }
 rosetta-server-arbitrum.workspace = true
+rosetta-server-ethereum.workspace = true
+serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-tracing="0.1.40"
+tracing = "0.1.40"
 
 [dev-dependencies]
 ethers-solc = "2.0"
 sha3 = "0.10"
-url = "2.5.0"
+url = "2.4"
