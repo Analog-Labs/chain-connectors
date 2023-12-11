@@ -2,6 +2,9 @@
 name = "rosetta-testing-arbitrum"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Arbitrum unit test."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
