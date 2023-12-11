@@ -11,10 +11,10 @@ description = "Arbitrum rosetta server."
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-serde_json = { version = "1.0" }
-serde.workspace = true
-rosetta-core.workspace = true
-rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-config-arbitrum.workspace = true
 rosetta-config-ethereum.workspace = true
+rosetta-core.workspace = true
+rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum.workspace = true
+serde_json = { version = "1.0" }
+serde.workspace = true

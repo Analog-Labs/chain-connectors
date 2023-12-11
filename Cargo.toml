@@ -17,7 +17,7 @@ members = [
   "rosetta-docker",
   "rosetta-server",
   "rosetta-types",
-  "chains/arbitrum/testing/rosetta-testing-arbitrum"
+  "chains/arbitrum/testing/rosetta-testing-arbitrum",
 ]
 resolver = "2"
 
