@@ -218,7 +218,6 @@ async fn get_transaction_trace<P: JsonRpcClient>(
     hash: &H256,
     client: &Provider<P>,
 ) -> Result<Trace> {
-    println!("\n\n\this ---> {:?}\n\n", client);
     let params = json!([
         hash,
         {

@@ -80,6 +80,7 @@ impl<P> EthereumClient<P>
 where
     P: JsonRpcClient + 'static,
 {
+    #[allow(clippy::missing_errors_doc)]
     pub async fn new(config: BlockchainConfig, rpc_client: P) -> Result<Self> {
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
@@ -99,10 +100,12 @@ where
         &self.genesis_block.identifier
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn node_version(&self) -> Result<String> {
         Ok(self.client.client_version().await?)
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_number().await?.as_u64();
         let Some(block_hash) = self.client.get_block(index).await?.context("missing block")?.hash
@@ -111,7 +114,8 @@ where
         };
         Ok(BlockIdentifier { index, hash: hex::encode(block_hash) })
     }
-
+    
+    #[allow(clippy::missing_errors_doc)]
     pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
         let number = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
@@ -141,6 +145,7 @@ where
         Ok(finalized_block)
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
         let block = hex::decode(&block.hash)?
             .try_into()
@@ -153,11 +158,12 @@ where
             .as_u128())
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::missing_errors_doc)]
     pub async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
         anyhow::bail!("not a utxo chain");
     }
 
+    #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
     pub async fn faucet(
         &self,
         address: &Address,
@@ -167,7 +173,7 @@ where
         match private_key {
             Some(private_key) => {
                 let rpc_url_str = "http://localhost:8547";
-                let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
+                let rpc_url = Url::parse(rpc_url_str)?; //.expect("Invalid URL");
 
                 let http = Http::new(rpc_url);
                 let provider = Provider::<Http>::new(http);
@@ -175,9 +181,9 @@ where
                 let address: H160 = address.address().parse()?;
                 let nonce = provider
                     .get_transaction_count(
-                        ethers::types::NameOrAddress::Address(
-                            H160::from_str("0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e").unwrap(),
-                        ),
+                        ethers::types::NameOrAddress::Address(H160::from_str(
+                            "0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e",
+                        )?),
                         None,
                     )
                     .await?; //public key of faucet account
@@ -187,15 +193,15 @@ where
                     from: None,
                     to: Some(ethers::types::NameOrAddress::Address(address)),
                     value: Some(U256::from(param)), // Specify the amount you want to send
-                    gas: Some(U256::from(210000)),  // Adjust gas values accordingly
-                    gas_price: Some(U256::from(500000000)), // Adjust gas price accordingly
+                    gas: Some(U256::from(210_000)), // Adjust gas values accordingly
+                    gas_price: Some(U256::from(500_000_000)), // Adjust gas price accordingly
                     nonce: Some(nonce),             // Nonce will be automatically determined
                     data: None,
-                    chain_id: Some(U64::from(412346)), // Replace with your desired chain ID
+                    chain_id: Some(U64::from(412_346)), // Replace with your desired chain ID
                 };
 
                 let tx: TypedTransaction = transaction_request.into();
-                let signature = wallet.sign_transaction(&tx).await.unwrap();
+                let signature = wallet.sign_transaction(&tx).await?;
                 let tx = tx.rlp_signed(&signature);
                 let response = provider
                     .send_raw_transaction(tx)
@@ -227,6 +233,7 @@ where
         }
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn metadata(
         &self,
         public_key: &PublicKey,
@@ -259,6 +266,7 @@ where
         })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         let tx = transaction.to_vec().into();
         Ok(self
@@ -273,6 +281,7 @@ where
             .to_vec())
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         let block_id = if let Some(hash) = block_identifier.hash.as_ref() {
             BlockId::Hash(H256::from_str(hash)?)
@@ -311,6 +320,7 @@ where
         })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block_transaction(
         &self,
         block: &BlockIdentifier,
@@ -329,7 +339,7 @@ where
         Ok(transaction)
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]
     pub async fn call(&self, req: &CallRequest) -> Result<Value> {
         let call_details = req.method.split('-').collect::<Vec<&str>>();
         if call_details.len() != 3 {
@@ -455,6 +465,7 @@ impl<P> EthereumClient<P>
 where
     P: PubsubClient + 'static,
 {
+    #[allow(clippy::missing_errors_doc)]
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_head_subscription = self.client.subscribe_blocks().await?;
         Ok(EthereumEventStream::new(self, new_head_subscription))

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use std::{error::Error, fmt, path::PathBuf, process::Command};
+use std::{error::Error, fmt, process::Command};
 
 // Define a custom error type for your application
 #[derive(Debug)]
@@ -9,6 +9,7 @@ pub struct ArbitrumEnvError {
 }
 
 impl ArbitrumEnvError {
+    #[allow(clippy::use_self)]
     fn new(message: &str) -> ArbitrumEnvError {
         ArbitrumEnvError { message: message.to_string() }
     }
@@ -22,29 +23,12 @@ impl fmt::Display for ArbitrumEnvError {
     }
 }
 
-/// All settings necessary to configure an arbitrum testnet
-pub struct Config {
-    /// Base Directory for store temporary files (chain config files, docker volumes, etc).
-    pub base_directory: PathBuf,
-
-    /// Port where the L2 Arbitrum node is listening, if none pick a random port
-    pub arbitrum_port: Option<u16>,
-
-    /// Port where the L1 ethereum node is listening, if none pick a random port
-    pub ethereum_port: Option<u16>,
-    // /// unlocked accounts which will receive funds.
-    // pub main_account: Vec<(ethereum_types::Address, ethereum_types::U256)>,
-
-    // ...
-}
-
 #[derive(Debug)]
-pub struct ArbitrumEnv {
-    _start: u8,
-}
+pub struct ArbitrumEnv {}
 
 impl ArbitrumEnv {
     /// Starts a new arbitrum testnet
+    #[allow(clippy::use_self, clippy::missing_errors_doc, clippy::unused_async)]
     pub async fn new() -> Result<Self, ArbitrumEnvError> {
         // You can start your Bash script here
 
@@ -53,14 +37,14 @@ impl ArbitrumEnv {
         let output = Command::new(script_path)
             .arg("--detach")
             .output()
-            .map_err(|e| ArbitrumEnvError::new(&format!("Failed to start Bash script: {}", e)))?;
+            .map_err(|e| ArbitrumEnvError::new(&format!("Failed to start Bash script: {e}")))?;
         println!("Standard Output:\n{}", String::from_utf8_lossy(&output.stdout));
         println!("Standard Error:\n{}", String::from_utf8_lossy(&output.stderr));
 
         //Check output status if status is success means chain is up
         if output.status.success() {
             // Your implementation here
-            Ok(ArbitrumEnv { _start: 1 })
+            Ok(ArbitrumEnv {})
         } else {
             Err(ArbitrumEnvError::new("failed to run nitro-testnode"))
         }
@@ -68,13 +52,14 @@ impl ArbitrumEnv {
 
     /// Stop the arbitrum testnet and cleanup dependencies
     /// ex: stop docker containers, delete temporary files, etc
+    #[allow(clippy::missing_errors_doc, clippy::unused_async)]
     pub async fn cleanup() -> Result<(), ArbitrumEnvError> {
         let output = Command::new("sh")
             .arg("-c")
             .arg("docker ps -a -q -f name=nitro-testnode | xargs docker rm -fv")
             .output()
             .map_err(|e| {
-                ArbitrumEnvError::new(&format!("Failed to run docker-compose command: {}", e))
+                ArbitrumEnvError::new(&format!("Failed to run docker-compose command: {e}"))
             })?;
 
         if output.status.success() {
@@ -128,14 +113,14 @@ mod tests {
     async fn cleanup_success() {
         // Assuming cleanup is successful
         let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_ok(), "Cleanup failed: {:?}", result);
+        assert!(result.is_ok(), "Cleanup failed: {result:?}");
     }
 
     #[tokio::test]
     async fn cleanup_failure() {
         // Assuming cleanup fails
         let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_err(), "Cleanup should have failed: {:?}", result);
+        assert!(result.is_err(), "Cleanup should have failed: {result:?}");
     }
 
     //must run this test before running below tests.
@@ -166,12 +151,12 @@ mod tests {
                 to: Some(ethers::types::NameOrAddress::Address(
                     H160::from_str("0xc109c36fd5d730d7f9a14dB2597B2d9eDd991719").unwrap(),
                 )),
-                value: Some(U256::from(1000000000)), // Specify the amount you want to send
-                gas: Some(U256::from(210000)),       // Adjust gas values accordingly
-                gas_price: Some(U256::from(500000000)), // Adjust gas price accordingly
-                nonce: Some(U256::from(nonce)),      // Nonce will be automatically determined
+                value: Some(U256::from(1_000_000_000)), // Specify the amount you want to send
+                gas: Some(U256::from(210_000)),         // Adjust gas values accordingly
+                gas_price: Some(U256::from(500_000_000)), // Adjust gas price accordingly
+                nonce: Some(nonce),         // Nonce will be automatically determined
                 data: None,
-                chain_id: Some(U64::from(412346)), // Replace with your desired chain ID
+                chain_id: Some(U64::from(412_346)), // Replace with your desired chain ID
             };
             let tx: TypedTransaction = transaction_request.into();
             let signature = wallet.sign_transaction(&tx).await.unwrap();
@@ -190,18 +175,18 @@ mod tests {
                 println!("Client created successfully");
                 // Check if the genesis is consistent
                 let expected_genesis = client.genesis_block().clone();
-                println!("expected_genesis=> {:?}", expected_genesis);
+                tracing::info!("expected_genesis=> {expected_genesis:?}");
                 let actual_genesis = client
                     .block(&PartialBlockIdentifier { index: Some(0), hash: None })
                     .await
                     .unwrap()
                     .block_identifier;
 
-                println!("actual_genesis=> {:?}", actual_genesis);
+                tracing::info!("actual_genesis=> {actual_genesis:?}");
                 assert_eq!(expected_genesis, actual_genesis);
                 // Check if the current block is consistent
                 let expected_current = client.current_block().await.unwrap();
-                println!("expected_current=> {:?}", expected_current);
+                tracing::info!("expected_current=> {expected_current:?}");
                 let actual_current = client
                     .block(&PartialBlockIdentifier {
                         index: None,
@@ -210,17 +195,17 @@ mod tests {
                     .await;
                 match actual_current {
                     Ok(block) => {
-                        println!("actual_current=> {:?}", block.block_identifier);
+                        tracing::info!("actual_current=> {:?}", block.block_identifier);
                         assert_eq!(expected_current, block.block_identifier);
                     },
                     Err(error) => {
-                        println!("{:?}", error);
+                        tracing::error!("{error:?}");
                     },
                 }
 
                 // Check if the finalized block is consistent
                 let expected_finalized = client.finalized_block().await.unwrap();
-                println!("expected_finalized=> {:?}", expected_finalized);
+                tracing::info!("expected_finalized=> {expected_finalized:?}");
                 let actual_finalized = client
                     .block(&PartialBlockIdentifier {
                         index: None,
@@ -230,11 +215,11 @@ mod tests {
 
                 match actual_finalized {
                     Ok(block) => {
-                        println!("actual_finalized=> {:?}", block.block_identifier);
+                        tracing::info!("actual_finalized=> {:?}", block.block_identifier);
                         assert_eq!(expected_finalized, block.block_identifier);
                     },
                     Err(error) => {
-                        println!("ad{:?}", error);
+                        tracing::error!("ad{error:?}");
                     },
                 }
 
@@ -242,7 +227,7 @@ mod tests {
             },
             Err(err) => {
                 // An error occurred while creating the client, handle the error here
-                eprintln!("Error creating client: {:?}", err);
+                eprintln!("Error creating client: {err:?}");
             },
         }
     }
@@ -271,7 +256,7 @@ mod tests {
                 assert!(amount.metadata.is_none());
             },
             Err(e) => {
-                println!("Error : {:?}", e);
+                println!("Error : {e:?}");
             },
         }
     }
@@ -302,6 +287,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
@@ -344,6 +330,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
