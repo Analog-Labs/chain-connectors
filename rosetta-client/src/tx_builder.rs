@@ -75,7 +75,7 @@ impl GenericTransactionBuilder {
         Ok(match (self, params, metadata) {
             (
                 Self::Astar(tx),
-                 GenericMetadataParams::Astar(params),
+                GenericMetadataParams::Astar(params),
                 GenericMetadata::Astar(metadata),
             ) => tx.create_and_sign(config, &params.0, &metadata.0, secret_key),
             (
