@@ -17,7 +17,9 @@ impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
             "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
-            "ethereum" => Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "ethereum" | "polygon" | "arbitrum" => {
+                Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
+            },
             "polkadot" => Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
             _ => anyhow::bail!("unsupported blockchain"),
         })
@@ -33,17 +35,14 @@ impl GenericTransactionBuilder {
 
     pub fn method_call(
         &self,
-        contract: &str,
-        method: &str,
-        params: &[String],
+        contract: &[u8; 20],
+        data: &[u8],
         amount: u128,
     ) -> Result<GenericMetadataParams> {
         Ok(match self {
-            Self::Astar(tx) => {
-                AstarMetadataParams(tx.method_call(contract, method, params, amount)?).into()
-            },
-            Self::Ethereum(tx) => tx.method_call(contract, method, params, amount)?.into(),
-            Self::Polkadot(tx) => tx.method_call(contract, method, params, amount)?.into(),
+            Self::Astar(tx) => AstarMetadataParams(tx.method_call(contract, data, amount)?).into(),
+            Self::Ethereum(tx) => tx.method_call(contract, data, amount)?.into(),
+            Self::Polkadot(tx) => tx.method_call(contract, data, amount)?.into(),
         })
     }
 

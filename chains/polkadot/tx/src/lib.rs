@@ -100,9 +100,8 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
 
     fn method_call(
         &self,
-        _module: &str,
-        _method: &str,
-        _params: &[String],
+        _contract: &[u8; 20],
+        _data: &[u8],
         _amount: u128,
     ) -> Result<Self::MetadataParams> {
         bail!("Not Implemented")

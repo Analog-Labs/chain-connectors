@@ -5,22 +5,22 @@ use rosetta_config_astar::metadata::{
     dev as astar_metadata,
     dev::runtime_types::{frame_system::AccountInfo, pallet_balances::types::AccountData},
 };
-use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
+use rosetta_config_ethereum::{
+    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
+};
 use rosetta_core::{
     crypto::{
         address::{Address, AddressFormat},
         PublicKey,
     },
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
+        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
     },
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::default_client;
 use rosetta_server_ethereum::MaybeWsEthereumClient;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sp_core::crypto::Ss58AddressFormat;
 use std::sync::Arc;
 use subxt::{
@@ -124,6 +124,8 @@ impl BlockchainClient for AstarClient {
     type MetadataParams = AstarMetadataParams;
     type Metadata = AstarMetadata;
     type EventStream<'a> = <MaybeWsEthereumClient as BlockchainClient>::EventStream<'a>;
+    type Call = EthQuery;
+    type CallResult = EthQueryResult;
 
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
@@ -221,7 +223,7 @@ impl BlockchainClient for AstarClient {
         self.client.block_transaction(block_identifier, tx).await
     }
 
-    async fn call(&self, req: &CallRequest) -> Result<Value> {
+    async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         self.client.call(req).await
     }
 
@@ -230,13 +232,25 @@ impl BlockchainClient for AstarClient {
     }
 }
 
+#[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
+    use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::Env;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
+
+    sol! {
+        interface TestContract {
+            event AnEvent();
+            function emitEvent() external;
+
+            function identity(bool a) external view returns (bool);
+        }
+    }
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<AstarClient> {
         let url = config.node_uri.to_string();
@@ -297,24 +311,25 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             event AnEvent();
             function emitEvent() public {
                 emit AnEvent();
             }
-        "#,
+            ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt.get("contractAddress").and_then(Value::as_str).unwrap();
-        let tx_hash =
-            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let logs = receipt.get("logs").and_then(Value::as_array).unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
+        let tx_hash = {
+            let data = TestContract::emitEventCall::SELECTOR.to_vec();
+            wallet.eth_send_call(contract_address.0, data, 0).await?
+        };
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let logs = receipt.logs;
         assert_eq!(logs.len(), 1);
-        let topic = logs[0]["topics"][0].as_str().unwrap();
-        let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
+        let topic = logs[0].topics[0];
+        let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
         assert_eq!(topic, expected);
         env.shutdown().await?;
         Ok(())
@@ -331,26 +346,32 @@ mod tests {
         wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             function identity(bool a) public view returns (bool) {
                 return a;
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt["contractAddress"].as_str().unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
 
-        let response = wallet
-            .eth_view_call(
-                contract_address,
-                "function identity(bool a) returns (bool)",
-                &["true".into()],
-                None,
+        let response = {
+            let call = TestContract::identityCall { a: true };
+            wallet
+                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                .await?
+        };
+        assert_eq!(
+            response,
+            CallResult::Success(
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 1
+                ]
+                .to_vec()
             )
-            .await?;
-        let result: Vec<String> = serde_json::from_value(response)?;
-        assert_eq!(result[0], "true");
+        );
         env.shutdown().await?;
         Ok(())
     }
