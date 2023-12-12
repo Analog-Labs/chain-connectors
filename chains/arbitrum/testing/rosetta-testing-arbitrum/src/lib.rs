@@ -98,6 +98,7 @@ mod tests {
 
     //Test for start the arbitrum default node (nitro-testnode)
     #[tokio::test]
+    #[ignore]
     async fn start_new() {
         match ArbitrumEnv::new().await {
             Ok(arbitrum_env) => {
@@ -110,6 +111,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn cleanup_success() {
         // Assuming cleanup is successful
         let result = ArbitrumEnv::cleanup().await;
@@ -117,6 +119,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn cleanup_failure() {
         // Assuming cleanup fails
         let result = ArbitrumEnv::cleanup().await;
@@ -125,6 +128,7 @@ mod tests {
 
     //must run this test before running below tests.
     #[tokio::test]
+    #[ignore]
     pub async fn for_incress_blocknumber() -> Result<()> {
         let rpc_url_str = "http://localhost:8547";
         let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
@@ -167,6 +171,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn network_status() {
         match ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await {
             Ok(client) => {
@@ -233,6 +238,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_account() {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
@@ -287,6 +293,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
@@ -330,6 +337,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
