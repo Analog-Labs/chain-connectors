@@ -269,6 +269,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
@@ -304,6 +305,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
