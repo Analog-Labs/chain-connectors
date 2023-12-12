@@ -17,16 +17,12 @@ pub struct EthereumMetadata {
     pub gas_limit: [u64; 4],
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum AtBlock {
+    #[default]
+    Latest,
     Hash(H256),
     Number(u64),
-}
-
-impl Default for AtBlock {
-    fn default() -> Self {
-        Self::Number(0)
-    }
 }
 
 ///·Returns·the·balance·of·the·account·of·given·address.

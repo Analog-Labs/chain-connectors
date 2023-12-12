@@ -4,9 +4,7 @@ use crate::{
     utils::{get_non_pending_block, NonPendingBlock},
 };
 use anyhow::{Context, Result};
-// use ethabi::token::{LenientTokenizer, Tokenizer};
 use ethers::{
-    // abi::{Detokenize, HumanReadableParser InvalidOutputType, Token},
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
     types::Bytes,
@@ -25,16 +23,6 @@ use rosetta_core::{
     BlockchainConfig,
 };
 use std::{str::FromStr, sync::Arc};
-
-// struct Detokenizer {
-//     tokens: Vec<Token>,
-// }
-
-// impl Detokenize for Detokenizer {
-//     fn from_tokens(tokens: Vec<Token>) -> Result<Self, InvalidOutputType> {
-//         Ok(Self { tokens })
-//     }
-// }
 
 /// Strategy used to determine the finalized block
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -293,6 +281,7 @@ where
         let result = match req {
             EthQuery::GetBalance(GetBalance { address, block }) => {
                 let block_id = match *block {
+                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
                     AtBlock::Number(number) => BlockId::Number(number.into()),
                     AtBlock::Hash(hash) => BlockId::Hash(hash),
                 };
@@ -301,6 +290,7 @@ where
             },
             EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
                 let block_id = match *block {
+                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
                     AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
                     AtBlock::Hash(hash) => BlockId::Hash(hash),
                 };
@@ -347,6 +337,7 @@ where
             },
             EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
                 let block_id = match *block {
+                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
                     AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
                     AtBlock::Hash(hash) => BlockId::Hash(hash),
                 };
@@ -363,6 +354,7 @@ where
             },
             EthQuery::GetProof(GetProof { account, storage_keys, block }) => {
                 let block_id = match *block {
+                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
                     AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
                     AtBlock::Hash(hash) => BlockId::Hash(hash),
                 };

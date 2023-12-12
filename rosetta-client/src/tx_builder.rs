@@ -9,15 +9,16 @@ use rosetta_server_astar::AstarMetadataParams;
 
 pub enum GenericTransactionBuilder {
     Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
-    // Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+    Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
 }
 
 impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
-            "astar" | "ethereum" | "polygon" | "arbitrum" => {
-                Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder)
+            "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
+            "ethereum" | "polygon" | "arbitrum" => {
+                Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
             },
             "polkadot" => Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
             _ => anyhow::bail!("unsupported blockchain"),
@@ -27,7 +28,7 @@ impl GenericTransactionBuilder {
     pub fn transfer(&self, address: &Address, amount: u128) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.transfer(address, amount)?).into(),
-            // Self::Ethereum(tx) => tx.transfer(address, amount)?.into(),
+            Self::Ethereum(tx) => tx.transfer(address, amount)?.into(),
             Self::Polkadot(tx) => tx.transfer(address, amount)?.into(),
         })
     }
@@ -40,7 +41,7 @@ impl GenericTransactionBuilder {
     ) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.method_call(contract, data, amount)?).into(),
-            // Self::Ethereum(tx) => tx.method_call(contract, data, amount)?.into(),
+            Self::Ethereum(tx) => tx.method_call(contract, data, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, data, amount)?.into(),
         })
     }
@@ -48,7 +49,7 @@ impl GenericTransactionBuilder {
     pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.deploy_contract(contract_binary)?).into(),
-            // Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
+            Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
             Self::Polkadot(tx) => tx.deploy_contract(contract_binary)?.into(),
         })
     }
@@ -66,11 +67,11 @@ impl GenericTransactionBuilder {
                 GenericMetadataParams::Astar(params),
                 GenericMetadata::Astar(metadata),
             ) => tx.create_and_sign(config, &params.0, &metadata.0, secret_key),
-            // (
-            //     Self::Ethereum(tx),
-            //     GenericMetadataParams::Ethereum(params),
-            //     GenericMetadata::Ethereum(metadata),
-            // ) => tx.create_and_sign(config, params, metadata, secret_key),
+            (
+                Self::Ethereum(tx),
+                GenericMetadataParams::Ethereum(params),
+                GenericMetadata::Ethereum(metadata),
+            ) => tx.create_and_sign(config, params, metadata, secret_key),
             (
                 Self::Polkadot(tx),
                 GenericMetadataParams::Polkadot(params),

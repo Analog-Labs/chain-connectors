@@ -144,25 +144,6 @@ impl Wallet {
         self.client.block_transaction(&block_identifer, &tx_identifier).await
     }
 
-    // /// Extension of rosetta-api does multiple things
-    // /// 1. fetching storage
-    // /// 2. calling extrinsic/contract
-    // #[allow(clippy::missing_errors_doc)]
-    // async fn call(
-    //     &self,
-    //     method: String,
-    //     params: &serde_json::Value,
-    //     block_identifier: Option<PartialBlockIdentifier>,
-    // ) -> Result<serde_json::Value> {
-    //     let req = CallRequest {
-    //         network_identifier: self.client.config().network(),
-    //         method,
-    //         parameters: params.clone(),
-    //         block_identifier,
-    //     };
-    //     self.client.call(&req).await
-    // }
-
     /// Returns the coins of the wallet.
     #[allow(clippy::missing_errors_doc)]
     pub async fn coins(&self) -> Result<Vec<Coin>> {
@@ -299,8 +280,6 @@ impl Wallet {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(exit_reason)
-        // let method = format!("{contract_address}-{method_signature}-call");
-        // self.call(method, &json!(params), block_identifier).await
     }
 
     /// gets storage from ethereum contract
@@ -329,8 +308,6 @@ impl Wallet {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(value)
-        // let method = format!("{contract_address}-{storage_slot}-storage");
-        // self.call(method, &json!({}), block_identifier).await
     }
 
     /// gets storage proof from ethereum contract
@@ -358,8 +335,6 @@ impl Wallet {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(proof)
-        // let method = format!("{contract_address}-{storage_slot}-storage_proof");
-        // self.call(method, &json!({}), block_identifier).await
     }
 
     /// gets transaction receipt of specific hash
@@ -384,7 +359,5 @@ impl Wallet {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(maybe_receipt)
-        // let call_method = format!("{}--transaction_receipt", hex::encode(tx_hash));
-        // self.call(call_method, &json!({}), None).await
     }
 }

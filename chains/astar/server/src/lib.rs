@@ -232,11 +232,13 @@ impl BlockchainClient for AstarClient {
     }
 }
 
+#[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
+    use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::Env;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
@@ -244,9 +246,9 @@ mod tests {
     sol! {
         interface TestContract {
             event AnEvent();
-            function emitEvent() public {
-                emit AnEvent();
-            }
+            function emitEvent() external;
+
+            function identity(bool a) external view returns (bool);
         }
     }
 
@@ -323,7 +325,7 @@ mod tests {
             let data = TestContract::emitEventCall::SELECTOR.to_vec();
             wallet.eth_send_call(contract_address.0, data, 0).await?
         };
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?;
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
         let logs = receipt.logs;
         assert_eq!(logs.len(), 1);
         let topic = logs[0].topics[0];
@@ -351,19 +353,25 @@ mod tests {
         ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?;
-        let contract_address = receipt["contractAddress"].as_str().unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
 
-        let response = wallet
-            .eth_view_call(
-                contract_address,
-                "function identity(bool a) returns (bool)",
-                &["true".into()],
-                None,
+        let response = {
+            let call = TestContract::identityCall { a: true };
+            wallet
+                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                .await?
+        };
+        assert_eq!(
+            response,
+            CallResult::Success(
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 1
+                ]
+                .to_vec()
             )
-            .await?;
-        let result: Vec<String> = serde_json::from_value(response)?;
-        assert_eq!(result[0], "true");
+        );
         env.shutdown().await?;
         Ok(())
     }
