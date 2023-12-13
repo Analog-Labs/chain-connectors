@@ -6,6 +6,7 @@ license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
 description = "Arbitrum rosetta server."
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0"

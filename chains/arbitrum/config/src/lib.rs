@@ -15,7 +15,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
         "goerli" => ("goerli", 1, true),
-        "mainnet" => ("mainnet", 9001, false),
+        "mainnet" => ("mainnet", 42161, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
 
