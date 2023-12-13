@@ -217,6 +217,7 @@ impl BlockchainClient for AstarClient {
     async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         self.client.block(block_identifier).await
     }
+    
 
     async fn block_transaction(
         &self,
