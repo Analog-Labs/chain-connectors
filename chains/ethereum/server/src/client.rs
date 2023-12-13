@@ -23,7 +23,6 @@ use rosetta_core::{
 };
 use serde_json::{json, Value};
 use std::{str::FromStr, sync::Arc};
-use url::Url;
 
 struct Detokenizer {
     tokens: Vec<Token>,
@@ -172,14 +171,10 @@ where
     ) -> Result<Vec<u8>> {
         match private_key {
             Some(private_key) => {
-                let rpc_url_str = "http://localhost:8547";
-                let rpc_url = Url::parse(rpc_url_str)?; //.expect("Invalid URL");
-
-                let http = Http::new(rpc_url);
-                let provider = Provider::<Http>::new(http);
-                let chain_id = provider.get_chainid().await?;
+                let chain_id = self.client.get_chainid().await?;
                 let address: H160 = address.address().parse()?;
-                let nonce = provider
+                let nonce = self
+                    .client
                     .get_transaction_count(
                         ethers::types::NameOrAddress::Address(H160::from_str(
                             "0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e",
@@ -203,7 +198,8 @@ where
                 let tx: TypedTransaction = transaction_request.into();
                 let signature = wallet.sign_transaction(&tx).await?;
                 let tx = tx.rlp_signed(&signature);
-                let response = provider
+                let response = self
+                    .client
                     .send_raw_transaction(tx)
                     .await?
                     .confirmations(2)
