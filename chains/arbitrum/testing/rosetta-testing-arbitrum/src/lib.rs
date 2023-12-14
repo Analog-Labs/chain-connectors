@@ -78,27 +78,37 @@ impl ArbitrumEnv {
 
 #[cfg(test)]
 mod tests {
+    use alloy_sol_types::{sol, SolCall};
     use ethers::{
         providers::{Http, Middleware, Provider},
         signers::{LocalWallet, Signer},
         types::{
-            transaction::eip2718::TypedTransaction, Bytes, TransactionRequest, H160, U256, U64,
+            transaction::eip2718::TypedTransaction, Bytes, TransactionRequest, H160, H256, U256,
+            U64,
         },
-        utils::hex,
     };
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_client::Wallet;
+    use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
     use rosetta_server_arbitrum::ArbitrumClient;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path, str::FromStr, thread, time::Duration};
     use url::Url;
 
+    sol! {
+        interface TestContract {
+            event AnEvent();
+            function emitEvent() external;
+
+            function identity(bool a) external view returns (bool);
+        }
+    }
+
     use super::*;
 
     //Test for start the arbitrum default node (nitro-testnode)
     #[tokio::test]
-    #[ignore]
     async fn start_new() {
         match ArbitrumEnv::new().await {
             Ok(arbitrum_env) => {
@@ -111,7 +121,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn cleanup_success() {
         // Assuming cleanup is successful
         let result = ArbitrumEnv::cleanup().await;
@@ -128,7 +137,6 @@ mod tests {
 
     //must run this test before running below tests.
     #[tokio::test]
-    #[ignore]
     pub async fn for_incress_blocknumber() -> Result<()> {
         let rpc_url_str = "http://localhost:8547";
         let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
@@ -171,7 +179,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn network_status() {
         match ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await {
             Ok(client) => {
@@ -238,7 +245,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_account() {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
@@ -293,7 +299,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
@@ -313,31 +318,30 @@ mod tests {
             .await?;
 
         let bytes = compile_snippet(
-            r#"
+            r"
             event AnEvent();
             function emitEvent() public {
                 emit AnEvent();
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address =
-            receipt.get("contractAddress").and_then(serde_json::Value::as_str).unwrap();
-        let tx_hash =
-            wallet.eth_send_call(contract_address, "function emitEvent()", &[], 0).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let logs = receipt.get("logs").and_then(serde_json::Value::as_array).unwrap();
-        assert_eq!(logs.len(), 1);
-        let topic = logs[0]["topics"][0].as_str().unwrap();
-        let expected = format!("0x{}", hex::encode(sha3::Keccak256::digest("AnEvent()")));
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
+        let tx_hash = {
+            let call = TestContract::emitEventCall {};
+            wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await?
+        };
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        assert_eq!(receipt.logs.len(), 1);
+        let topic = receipt.logs[0].topics[0];
+        let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
         assert_eq!(topic, expected);
 
         Ok(())
     }
 
     #[tokio::test]
-    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
@@ -356,26 +360,32 @@ mod tests {
             )
             .await?;
         let bytes = compile_snippet(
-            r#"
+            r"
             function identity(bool a) public view returns (bool) {
                 return a;
             }
-        "#,
+        ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(&tx_hash).await?;
-        let contract_address = receipt["contractAddress"].as_str().unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let contract_address = receipt.contract_address.unwrap();
 
-        let response = wallet
-            .eth_view_call(
-                contract_address,
-                "function identity(bool a) returns (bool)",
-                &["true".into()],
-                None,
+        let response = {
+            let call = TestContract::identityCall { a: true };
+            wallet
+                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                .await?
+        };
+        assert_eq!(
+            response,
+            CallResult::Success(
+                [
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 1
+                ]
+                .to_vec()
             )
-            .await?;
-        let result: Vec<String> = serde_json::from_value(response)?;
-        assert_eq!(result[0], "true");
+        );
         Ok(())
     }
 }

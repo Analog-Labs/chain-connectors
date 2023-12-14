@@ -113,6 +113,8 @@ impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
     type EventStream<'a> = EmptyEventStream;
+    type Call = CallRequest;
+    type CallResult = Value;
 
     fn config(&self) -> &BlockchainConfig {
         &self.config

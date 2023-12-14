@@ -3,13 +3,12 @@ use bitcoincore_rpc_async::{bitcoin::BlockHash, Auth, Client, RpcApi};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
+        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
     },
     BlockchainClient, BlockchainConfig,
 };
-use serde_json::Value;
 use std::str::FromStr;
+use void::{unreachable, Void};
 
 pub type BitcoinMetadataParams = ();
 pub type BitcoinMetadata = ();
@@ -57,6 +56,8 @@ impl BlockchainClient for BitcoinClient {
     type MetadataParams = BitcoinMetadataParams;
     type Metadata = BitcoinMetadata;
     type EventStream<'a> = rosetta_core::EmptyEventStream;
+    type Call = Void;
+    type CallResult = ();
 
     fn config(&self) -> &BlockchainConfig {
         &self.config
@@ -175,8 +176,8 @@ impl BlockchainClient for BitcoinClient {
         anyhow::bail!("not implemented")
     }
 
-    async fn call(&self, _req: &CallRequest) -> Result<Value> {
-        anyhow::bail!("not implemented")
+    async fn call(&self, req: &Void) -> Result<()> {
+        unreachable(*req)
     }
 }
 

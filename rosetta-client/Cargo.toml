@@ -27,6 +27,7 @@ rosetta-tx-ethereum.workspace = true
 rosetta-tx-polkadot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+void = "1.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

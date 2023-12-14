@@ -1,5 +1,7 @@
 use anyhow::Result;
-use rosetta_config_ethereum::{EthereumMetadata, EthereumMetadataParams};
+use rosetta_config_ethereum::{
+    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
+};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
@@ -50,6 +52,8 @@ impl BlockchainClient for ArbitrumClient {
     type MetadataParams = ArbitrumMetadataParams;
     type Metadata = ArbitrumMetadata;
     type EventStream<'a> = <MaybeWsEthereumClient as BlockchainClient>::EventStream<'a>;
+    type Call = EthQuery;
+    type CallResult = EthQueryResult;
 
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
@@ -112,7 +116,7 @@ impl BlockchainClient for ArbitrumClient {
         self.client.block_transaction(block_identifier, tx).await
     }
 
-    async fn call(&self, req: &CallRequest) -> Result<Value> {
+    async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         self.client.call(req).await
     }
 
