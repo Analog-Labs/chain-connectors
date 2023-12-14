@@ -9,8 +9,10 @@ description = "Arbitrum unit test."
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+alloy-sol-types = { version = "0.5" }
 anyhow = "1.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
+ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
@@ -18,11 +20,7 @@ rosetta-docker = { workspace = true, features = ["tests"] }
 rosetta-server-arbitrum.workspace = true
 rosetta-server-ethereum.workspace = true
 serde_json.workspace = true
+sha3 = "0.10"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.40"
-
-[dev-dependencies]
-alloy-sol-types = { version = "0.5" }
-ethers-solc = "2.0"
-sha3 = "0.10"
 url = "2.4"

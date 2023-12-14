@@ -142,12 +142,10 @@ jobs:
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
-  
   run-script:
     needs: [rustfmt]
     runs-on: self-hosted
-
-     steps:
+    steps:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
