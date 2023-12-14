@@ -151,9 +151,6 @@ jobs:
       with:
         repository: OffchainLabs/nitro-testnode
         ref: release
-    - name: Cleanup Docker
-      run: ./scripts/reset_docker.sh
-
     - name: Run the arbitrum nitro-testnode
       run: |
         ./test-node.bash --detach
