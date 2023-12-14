@@ -5,8 +5,7 @@ use rosetta_config_ethereum::{
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
+        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
     },
     BlockchainClient, BlockchainConfig,
 };
@@ -14,7 +13,6 @@ use rosetta_server_ethereum::MaybeWsEthereumClient;
 
 use rosetta_server::ws::default_client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ArbitrumMetadataParams(pub EthereumMetadataParams);

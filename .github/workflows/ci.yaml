@@ -142,3 +142,21 @@ jobs:
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
+  
+  run-script:
+    needs: [rustfmt]
+    runs-on: self-hosted
+
+     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+      with:
+        repository: OffchainLabs/nitro-testnode
+        ref: release
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
+
+    - name: Run the arbitrum nitro-testnode
+      run: |
+        ./test-node.bash --detach
+      
