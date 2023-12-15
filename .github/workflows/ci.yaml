@@ -157,7 +157,7 @@ jobs:
         sudo apt-get install -y docker-compose
     - name: Checkout blackscout sub-repository
       run: |
-        git clone --depth 1 https://github.com/OffchainLabs/blockscout/tree/c8db5b1bb99b31f7348e6f760ba6dd22643c725a
+        git clone --depth 1 --branch master https://github.com/OffchainLabs/blockscout.git
 
     - name: Run the arbitrum nitro-testnode
       run: |
