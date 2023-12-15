@@ -149,16 +149,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        repository: OffchainLabs/nitro-testnode
-        ref: release
+    - name: Checkout code with submodules
+      run: |
+      git clone -b stylus --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
     - name: Install Docker Compose
       run: |
         sudo apt-get update
         sudo apt-get install -y docker-compose
-    - name: Checkout blackscout sub-repository
-      run: |
-        git clone --depth 1 --branch c8db5b1 https://github.com/OffchainLabs/blockscout.git
-
     - name: Run the arbitrum nitro-testnode
       run: |
         ./test-node.bash --detach
