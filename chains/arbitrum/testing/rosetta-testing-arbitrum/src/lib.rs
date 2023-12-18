@@ -76,7 +76,7 @@ impl ArbitrumEnv {
     }
 }
 
-#[allow(clippy::used_underscore_binding)]
+#[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -381,7 +381,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn cleanup_failure() {
         // Assuming cleanup fails
         let result = ArbitrumEnv::cleanup().await;
