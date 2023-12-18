@@ -151,7 +151,7 @@ jobs:
       with:
         repository: OffchainLabs/nitro-testnode
         ref: release
-        submodules: 'blackscout'
+        submodules: 'blockscout'
 
     - name: Install Docker Compose
       run: |
