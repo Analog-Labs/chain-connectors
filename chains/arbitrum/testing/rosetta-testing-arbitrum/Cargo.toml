@@ -20,7 +20,6 @@ serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.40"
 
-
 [dev-dependencies]
 alloy-sol-types = { version = "0.5" }
 ethers-solc = "2.0"
