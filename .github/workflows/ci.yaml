@@ -160,5 +160,4 @@ jobs:
 
     - name: Run the arbitrum nitro-testnode
       run: |
-        cd nitro-testnode
         ./test-node.bash --detach
