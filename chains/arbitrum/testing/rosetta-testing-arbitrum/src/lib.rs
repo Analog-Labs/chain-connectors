@@ -120,21 +120,6 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn cleanup_success() {
-        // Assuming cleanup is successful
-        let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_ok(), "Cleanup failed: {result:?}");
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn cleanup_failure() {
-        // Assuming cleanup fails
-        let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_err(), "Cleanup should have failed: {result:?}");
-    }
-
     //must run this test before running below tests.
     #[tokio::test]
     pub async fn for_incress_blocknumber() -> Result<()> {
@@ -319,11 +304,11 @@ mod tests {
 
         let bytes = compile_snippet(
             r"
-            event AnEvent();
-            function emitEvent() public {
-                emit AnEvent();
-            }
-        ",
+    event AnEvent();
+    function emitEvent() public {
+        emit AnEvent();
+    }
+    ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
         let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
@@ -364,7 +349,7 @@ mod tests {
             function identity(bool a) public view returns (bool) {
                 return a;
             }
-        ",
+            ",
         )?;
         let tx_hash = wallet.eth_deploy_contract(bytes).await?;
         let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
@@ -387,5 +372,19 @@ mod tests {
             )
         );
         Ok(())
+    }
+    #[tokio::test]
+    async fn cleanup_success() {
+        // Assuming cleanup is successful
+        let result = ArbitrumEnv::cleanup().await;
+        assert!(result.is_ok(), "Cleanup failed: {result:?}");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn cleanup_failure() {
+        // Assuming cleanup fails
+        let result = ArbitrumEnv::cleanup().await;
+        assert!(result.is_err(), "Cleanup should have failed: {result:?}");
     }
 }

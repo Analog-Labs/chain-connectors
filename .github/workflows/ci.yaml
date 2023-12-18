@@ -148,11 +148,6 @@ jobs:
     steps:
     - name: Checkout code
       run: git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
-    #   uses: actions/checkout@v2
-      # with:
-      #   repository: OffchainLabs/nitro-testnode
-      #   ref: release
-      #   submodules: 'recursive'
 
     - name: Install Docker Compose
       run: |
@@ -163,3 +158,10 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
+    
+    - name: cargo test
+      run: |
+        cargo test --package rosetta-testing-arbitrum --lib -- tests --nocapture 
+    
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
