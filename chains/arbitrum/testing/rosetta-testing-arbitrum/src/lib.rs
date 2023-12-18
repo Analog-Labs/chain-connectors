@@ -76,8 +76,10 @@ impl ArbitrumEnv {
     }
 }
 
+#[allow(clippy::used_underscore_binding)]
 #[cfg(test)]
 mod tests {
+    use super::*;
     use alloy_sol_types::{sol, SolCall};
     use ethers::{
         providers::{Http, Middleware, Provider},
@@ -104,8 +106,6 @@ mod tests {
             function identity(bool a) external view returns (bool);
         }
     }
-
-    use super::*;
 
     //Test for start the arbitrum default node (nitro-testnode)
     #[tokio::test]

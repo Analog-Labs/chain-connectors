@@ -31,7 +31,7 @@ impl GenericTransactionBuilder {
     pub fn transfer(&self, address: &Address, amount: u128) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.transfer(address, amount)?).into(),
-            Self::Arbitrum(tx) => tx.transfer(address, amount)?.into(),
+            Self::Arbitrum(tx) => ArbitrumMetadataParams(tx.transfer(address, amount)?).into(),
             Self::Ethereum(tx) => tx.transfer(address, amount)?.into(),
             Self::Polkadot(tx) => tx.transfer(address, amount)?.into(),
         })
