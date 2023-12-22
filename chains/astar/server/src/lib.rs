@@ -67,7 +67,8 @@ impl AstarClient {
         let backend = LegacyBackend::new(rpc_client);
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        let ethereum_client =
+            MaybeWsEthereumClient::from_jsonrpsee(config, ws_client, None).await?;
         Ok(Self { client: ethereum_client, ws_client: substrate_client, rpc_methods })
     }
 
@@ -172,12 +173,7 @@ impl BlockchainClient for AstarClient {
         self.client.coins(address, block).await
     }
 
-    async fn faucet(
-        &self,
-        address: &Address,
-        value: u128,
-        _private_key: Option<&str>,
-    ) -> Result<Vec<u8>> {
+    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
         // convert address
         let dest = {
             let address: H160 = address.address().parse()?;
@@ -314,7 +310,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet, None).await?;
+        wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
             r"
@@ -350,7 +346,7 @@ mod tests {
         let env = Env::new("astar-smart-contract-view", config, client_from_config).await?;
 
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet, None).await?;
+        wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
             r"

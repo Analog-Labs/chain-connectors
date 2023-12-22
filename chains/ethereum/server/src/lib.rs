@@ -44,6 +44,7 @@ impl MaybeWsEthereumClient {
         blockchain: &str,
         network: &str,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let config = match blockchain {
             "ethereum" => rosetta_config_ethereum::config(network)?,
@@ -51,7 +52,7 @@ impl MaybeWsEthereumClient {
             "arbitrum" => rosetta_config_arbitrum::config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
-        Self::from_config(config, addr).await
+        Self::from_config(config, addr, private_key).await
     }
 
     /// Creates a new bitcoin client from `config` and `addr`
@@ -61,14 +62,15 @@ impl MaybeWsEthereumClient {
     pub async fn from_config<S: AsRef<str> + Send>(
         config: BlockchainConfig,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
-            Self::from_jsonrpsee(config, client).await
+            Self::from_jsonrpsee(config, client, private_key).await
         } else {
             let http_connection = Http::new(uri);
-            let client = EthereumClient::new(config, http_connection).await?;
+            let client = EthereumClient::new(config, http_connection, private_key).await?;
             Ok(Self::Http(client))
         }
     }
@@ -78,9 +80,13 @@ impl MaybeWsEthereumClient {
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
-    pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
+    pub async fn from_jsonrpsee(
+        config: BlockchainConfig,
+        client: DefaultClient,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
-        let client = EthereumClient::new(config, ws_connection).await?;
+        let client = EthereumClient::new(config, ws_connection, private_key).await?;
         Ok(Self::Ws(client))
     }
 }
@@ -143,15 +149,10 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn faucet(
-        &self,
-        address: &Address,
-        param: u128,
-        private_key: Option<&str>,
-    ) -> Result<Vec<u8>> {
+    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self {
-            Self::Http(http_client) => http_client.faucet(address, param, private_key).await,
-            Self::Ws(ws_client) => ws_client.faucet(address, param, private_key).await,
+            Self::Http(http_client) => http_client.faucet(address, param).await,
+            Self::Ws(ws_client) => ws_client.faucet(address, param).await,
         }
     }
 
@@ -232,7 +233,7 @@ mod tests {
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
-        MaybeWsEthereumClient::from_config(config, url.as_str()).await
+        MaybeWsEthereumClient::from_config(config, url.as_str(), None).await
     }
 
     #[tokio::test]
@@ -296,7 +297,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet, None).await?;
+        wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
             r"
@@ -332,7 +333,7 @@ mod tests {
 
         let faucet = 100 * u128::pow(10, config.currency_decimals);
         let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet, None).await?;
+        wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
             r"

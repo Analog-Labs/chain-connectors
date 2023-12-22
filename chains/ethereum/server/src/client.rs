@@ -22,7 +22,13 @@ use rosetta_core::{
     },
     BlockchainConfig,
 };
-use std::{str::FromStr, sync::Arc};
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{self, Ordering},
+        Arc,
+    },
+};
 
 /// Strategy used to determine the finalized block
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +58,8 @@ pub struct EthereumClient<P> {
     client: Arc<Provider<P>>,
     genesis_block: NonPendingBlock,
     block_finality_strategy: BlockFinalityStrategy,
+    nonce: Arc<std::sync::atomic::AtomicU32>,
+    private_key: Option<[u8; 32]>,
 }
 
 impl<P> Clone for EthereumClient<P> {
@@ -61,6 +69,8 @@ impl<P> Clone for EthereumClient<P> {
             client: self.client.clone(),
             genesis_block: self.genesis_block.clone(),
             block_finality_strategy: self.block_finality_strategy,
+            private_key: self.private_key,
+            nonce: self.nonce.clone(),
         }
     }
 }
@@ -70,15 +80,28 @@ where
     P: JsonRpcClient + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn new(config: BlockchainConfig, rpc_client: P) -> Result<Self> {
+    pub async fn new(
+        config: BlockchainConfig,
+        rpc_client: P,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
+        //store
+        // private key
+        // nonce
+        // every transaction will incress the nonce
+        let wallet = LocalWallet::from_bytes(&private_key.unwrap());
+        let nonce = Arc::new(atomic::AtomicU32::from(
+            client.get_transaction_count(wallet.unwrap().address(), None).await?.as_u32(),
+        ));
+
         let Some(genesis_block) =
             get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
         else {
             anyhow::bail!("FATAL: genesis block not found");
         };
-        Ok(Self { config, client, genesis_block, block_finality_strategy })
+        Ok(Self { config, client, genesis_block, block_finality_strategy, private_key, nonce })
     }
 
     pub const fn config(&self) -> &BlockchainConfig {
@@ -153,26 +176,22 @@ where
     }
 
     #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
-    pub async fn faucet(
-        &self,
-        address: &Address,
-        param: u128,
-        private_key: Option<&str>,
-    ) -> Result<Vec<u8>> {
-        match private_key {
+    pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+        match self.private_key {
             Some(private_key) => {
-                let chain_id = self.client.get_chainid().await?;
+                let chain_id = self.client.get_chainid().await?.as_u64();
                 let address: H160 = address.address().parse()?;
-                let nonce = self
-                    .client
-                    .get_transaction_count(
-                        ethers::types::NameOrAddress::Address(H160::from_str(
-                            "0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e",
-                        )?),
-                        None,
-                    )
-                    .await?; //public key of faucet account
-                let wallet = private_key.parse::<LocalWallet>()?.with_chain_id(chain_id.as_u64());
+                // let nonce = self
+                //     .client
+                //     .get_transaction_count(
+                //         ethers::types::NameOrAddress::Address(H160::from_str(
+                //             "0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e",
+                //         )?),
+                //         None,
+                //     )
+                //     .await?; //public key of faucet account
+                let wallet = LocalWallet::from_bytes(&private_key)?;
+                let nonce_u32 = U256::from(self.nonce.load(Ordering::Relaxed));
                 // Create a transaction request
                 let transaction_request = TransactionRequest {
                     from: None,
@@ -180,9 +199,9 @@ where
                     value: Some(U256::from(param)), // Specify the amount you want to send
                     gas: Some(U256::from(210_000)), // Adjust gas values accordingly
                     gas_price: Some(U256::from(500_000_000)), // Adjust gas price accordingly
-                    nonce: Some(nonce),             // Nonce will be automatically determined
+                    nonce: Some(nonce_u32),         // Nonce will be automatically determined
                     data: None,
-                    chain_id: Some(U64::from(412_346)), // Replace with your desired chain ID
+                    chain_id: Some(chain_id.into()),
                 };
 
                 let tx: TypedTransaction = transaction_request.into();

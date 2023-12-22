@@ -37,22 +37,27 @@ pub enum GenericClient {
 
 #[allow(clippy::missing_errors_doc)]
 impl GenericClient {
-    pub async fn new(blockchain: Blockchain, network: &str, url: &str) -> Result<Self> {
+    pub async fn new(
+        blockchain: Blockchain,
+        network: &str,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         Ok(match blockchain {
             Blockchain::Bitcoin => {
                 let client = BitcoinClient::new(network, url).await?;
                 Self::Bitcoin(client)
             },
             Blockchain::Ethereum => {
-                let client = EthereumClient::new("ethereum", network, url).await?;
+                let client = EthereumClient::new("ethereum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Polygon => {
-                let client = EthereumClient::new("polygon", network, url).await?;
+                let client = EthereumClient::new("polygon", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = ArbitrumClient::new(network, url).await?;
+                let client = ArbitrumClient::new(network, url, private_key).await?;
                 Self::Arbitrum(client)
             },
             Blockchain::Astar => {
@@ -66,7 +71,11 @@ impl GenericClient {
         })
     }
 
-    pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
+    pub async fn from_config(
+        config: BlockchainConfig,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
             Blockchain::Bitcoin => {
@@ -74,11 +83,11 @@ impl GenericClient {
                 Self::Bitcoin(client)
             },
             Blockchain::Ethereum | Blockchain::Polygon => {
-                let client = EthereumClient::from_config(config, url).await?;
+                let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = ArbitrumClient::from_config(config, url).await?;
+                let client = ArbitrumClient::from_config(config, url, private_key).await?;
                 Self::Arbitrum(client)
             },
             Blockchain::Astar => {
@@ -174,13 +183,8 @@ impl BlockchainClient for GenericClient {
         dispatch!(self.coins(address, block).await)
     }
 
-    async fn faucet(
-        &self,
-        address: &Address,
-        param: u128,
-        private_key: Option<&str>,
-    ) -> Result<Vec<u8>> {
-        dispatch!(self.faucet(address, param, private_key).await)
+    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+        dispatch!(self.faucet(address, param).await)
     }
 
     async fn metadata(

@@ -29,18 +29,23 @@ impl ArbitrumClient {
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
-    pub async fn new(network: &str, url: &str) -> Result<Self> {
+    pub async fn new(network: &str, url: &str, private_key: Option<[u8; 32]>) -> Result<Self> {
         let config = rosetta_config_arbitrum::config(network)?;
-        Self::from_config(config, url).await
+        Self::from_config(config, url, private_key).await
     }
 
     /// Creates a new Arbitrum client using the provided `config` and connects to `addr`
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
-    pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
+    pub async fn from_config(
+        config: BlockchainConfig,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let ws_client = default_client(url, None).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        let ethereum_client =
+            MaybeWsEthereumClient::from_jsonrpsee(config, ws_client, private_key).await?;
         Ok(Self { client: ethereum_client })
     }
 }
@@ -81,13 +86,8 @@ impl BlockchainClient for ArbitrumClient {
         self.client.coins(address, block).await
     }
 
-    async fn faucet(
-        &self,
-        address: &Address,
-        value: u128,
-        private_key: Option<&str>,
-    ) -> Result<Vec<u8>> {
-        self.client.faucet(address, value, private_key).await
+    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
+        self.client.faucet(address, value).await
     }
 
     async fn metadata(

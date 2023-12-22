@@ -81,22 +81,14 @@ impl ArbitrumEnv {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use ethers::{
-        providers::{Http, Middleware, Provider},
-        signers::{LocalWallet, Signer},
-        types::{
-            transaction::eip2718::TypedTransaction, Bytes, TransactionRequest, H160, H256, U256,
-            U64,
-        },
-    };
+    use ethers::{types::H256, utils::hex};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
     use rosetta_server_arbitrum::ArbitrumClient;
     use sha3::Digest;
-    use std::{collections::BTreeMap, path::Path, str::FromStr, thread, time::Duration};
-    use url::Url;
+    use std::{collections::BTreeMap, path::Path, thread, time::Duration};
 
     sol! {
         interface TestContract {
@@ -107,68 +99,17 @@ mod tests {
         }
     }
 
-    //Test for start the arbitrum default node (nitro-testnode)
     #[tokio::test]
-    #[ignore]
-    async fn start_new() {
-        match ArbitrumEnv::new().await {
-            Ok(arbitrum_env) => {
-                tracing::info!("Arbitrum chain is up {:?}", arbitrum_env);
-            },
-            Err(arbitrum_env_error) => {
-                tracing::error!("Error: {:?}", arbitrum_env_error);
-            },
-        }
-    }
-
-    //must run this test before running below tests.
-    #[tokio::test]
-    #[ignore]
-    pub async fn for_incress_blocknumber() -> Result<()> {
-        let rpc_url_str = "http://localhost:8547";
-        let rpc_url = Url::parse(rpc_url_str).expect("Invalid URL");
-        let http = Http::new(rpc_url);
-        let provider = Provider::<Http>::new(http);
-        let chain_id = provider.get_chainid().await?;
-        let private_key = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
-        let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
-        assert!(result.is_ok(), "Error creating ArbitrumClient");
-        let wallet = private_key.parse::<LocalWallet>()?.with_chain_id(chain_id.as_u64());
-        loop {
-            let nonce = provider
-                .get_transaction_count(
-                    ethers::types::NameOrAddress::Address(
-                        H160::from_str("0x3f1eae7d46d88f08fc2f8ed27fcb2ab183eb2d0e").unwrap(),
-                    ),
-                    None,
-                )
-                .await
-                .unwrap(); //public key of faucet account
-                           // Create a transaction request
-            let transaction_request = TransactionRequest {
-                from: None,
-                to: Some(ethers::types::NameOrAddress::Address(
-                    H160::from_str("0xc109c36fd5d730d7f9a14dB2597B2d9eDd991719").unwrap(),
-                )),
-                value: Some(U256::from(1_000_000_000)), // Specify the amount you want to send
-                gas: Some(U256::from(210_000)),         // Adjust gas values accordingly
-                gas_price: Some(U256::from(500_000_000)), // Adjust gas price accordingly
-                nonce: Some(nonce),                     // Nonce will be automatically determined
-                data: None,
-                chain_id: Some(U64::from(412_346)), // Replace with your desired chain ID
-            };
-            let tx: TypedTransaction = transaction_request.into();
-            let signature = wallet.sign_transaction(&tx).await.unwrap();
-            let tx: Bytes = tx.rlp_signed(&signature);
-            let _ = provider.send_raw_transaction(tx).await;
-            thread::sleep(Duration::from_secs(1));
-        }
-    }
-
-    #[tokio::test]
-    #[ignore]
     async fn network_status() {
-        match ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await {
+        let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
+        // Remove the "0x" prefix
+        let hex_string = &hex_string[2..];
+        let mut result = [0; 32];
+        // Parse the hexadecimal string into a Vec<u8>
+        let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
+        result.copy_from_slice(&bytes);
+
+        match ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(result)).await {
             Ok(client) => {
                 // The client was successfully created, continue with the rest of the function
                 // ...
@@ -233,24 +174,32 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     async fn test_account() {
-        let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
+        let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
+        // Remove the "0x" prefix
+        let hex_string = &hex_string[2..];
+        let mut private_key_result = [0; 32];
+        // Parse the hexadecimal string into a Vec<u8>
+        let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
+        private_key_result.copy_from_slice(&bytes);
+
+        let result =
+            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
         let client = result.unwrap();
 
         let value = 100 * u128::pow(10, client.config().currency_decimals);
-        let wallet =
-            Wallet::from_config(client.config().clone(), "ws://127.0.0.1:8548", None).await;
+        let wallet = Wallet::from_config(
+            client.config().clone(),
+            "ws://127.0.0.1:8548",
+            None,
+            Some(private_key_result),
+        )
+        .await;
         match wallet {
             Ok(w) => {
-                let _ = w
-                    .faucet(
-                        value,
-                        Some("0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659"),
-                    )
-                    .await;
-
+                thread::sleep(Duration::from_secs(10));
+                let _ = w.faucet(value).await;
                 let amount = w.balance().await.unwrap();
                 assert_eq!((amount.value), (value).to_string());
                 assert_eq!(amount.currency, client.config().currency());
@@ -288,24 +237,31 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
-        let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
+        let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
+        // Remove the "0x" prefix
+        let hex_string = &hex_string[2..];
+        let mut private_key_result = [0; 32];
+        // Parse the hexadecimal string into a Vec<u8>
+        let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
+        private_key_result.copy_from_slice(&bytes);
+        let result =
+            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
 
         let client = result.unwrap();
 
         let faucet = 100 * u128::pow(10, client.config().currency_decimals);
-        let wallet = Wallet::from_config(client.config().clone(), "ws://127.0.0.1:8548", None)
-            .await
-            .unwrap();
-        wallet
-            .faucet(
-                faucet,
-                Some("0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659"),
-            )
-            .await?;
+        let wallet = Wallet::from_config(
+            client.config().clone(),
+            "ws://127.0.0.1:8548",
+            None,
+            Some(private_key_result),
+        )
+        .await
+        .unwrap();
+        wallet.faucet(faucet).await?;
 
         let bytes = compile_snippet(
             r"
@@ -332,24 +288,31 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
-        let result = ArbitrumClient::new("dev", "ws://127.0.0.1:8548").await;
+        let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
+        // Remove the "0x" prefix
+        let hex_string = &hex_string[2..];
+        let mut private_key_result = [0; 32];
+        // Parse the hexadecimal string into a Vec<u8>
+        let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
+        private_key_result.copy_from_slice(&bytes);
+        let result =
+            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
 
         let client = result.unwrap();
 
         let faucet = 100 * u128::pow(10, client.config().currency_decimals);
-        let wallet = Wallet::from_config(client.config().clone(), "ws://127.0.0.1:8548", None)
-            .await
-            .unwrap();
-        wallet
-            .faucet(
-                faucet,
-                Some("0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659"),
-            )
-            .await?;
+        let wallet = Wallet::from_config(
+            client.config().clone(),
+            "ws://127.0.0.1:8548",
+            None,
+            Some(private_key_result),
+        )
+        .await
+        .unwrap();
+        wallet.faucet(faucet).await?;
         let bytes = compile_snippet(
             r"
             function identity(bool a) public view returns (bool) {
@@ -378,20 +341,5 @@ mod tests {
             )
         );
         Ok(())
-    }
-    #[tokio::test]
-    #[ignore]
-    async fn cleanup_success() {
-        // Assuming cleanup is successful
-        let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_ok(), "Cleanup failed: {result:?}");
-    }
-
-    #[tokio::test]
-    #[ignore]
-    async fn cleanup_failure() {
-        // Assuming cleanup fails
-        let result = ArbitrumEnv::cleanup().await;
-        assert!(result.is_err(), "Cleanup should have failed: {result:?}");
     }
 }
