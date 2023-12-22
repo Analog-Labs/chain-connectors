@@ -16,6 +16,7 @@ rosetta-core.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }
 rosetta-server-arbitrum.workspace = true
 rosetta-server-ethereum.workspace = true
+sequential-test = "0.2.4"
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.40"

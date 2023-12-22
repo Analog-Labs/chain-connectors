@@ -87,6 +87,7 @@ mod tests {
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
     use rosetta_server_arbitrum::ArbitrumClient;
+    use sequential_test::sequential;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path, thread, time::Duration};
 
@@ -100,6 +101,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[sequential]
     async fn network_status() {
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
@@ -174,6 +176,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[sequential]
     async fn test_account() {
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
@@ -236,9 +239,10 @@ mod tests {
         Ok(bytecode)
     }
 
-    #[tokio::test]
     #[allow(clippy::needless_raw_string_hashes)]
-    async fn test_smart_contract() -> Result<()> {
+    #[tokio::test]
+    #[sequential]
+    async fn test_smart_contract() {
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
         let hex_string = &hex_string[2..];
@@ -261,7 +265,7 @@ mod tests {
         )
         .await
         .unwrap();
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet).await.unwrap();
 
         let bytes = compile_snippet(
             r"
@@ -270,26 +274,26 @@ mod tests {
         emit AnEvent();
     }
     ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        )
+        .unwrap();
+        let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
         let contract_address = receipt.contract_address.unwrap();
         let tx_hash = {
             let call = TestContract::emitEventCall {};
-            wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await?
+            wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
         };
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
         assert_eq!(receipt.logs.len(), 1);
         let topic = receipt.logs[0].topics[0];
         let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
         assert_eq!(topic, expected);
-
-        Ok(())
     }
 
-    #[tokio::test]
     #[allow(clippy::needless_raw_string_hashes)]
-    async fn test_smart_contract_view() -> Result<()> {
+    #[tokio::test]
+    #[sequential]
+    async fn test_smart_contract_view() {
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
         let hex_string = &hex_string[2..];
@@ -300,9 +304,7 @@ mod tests {
         let result =
             ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
-
         let client = result.unwrap();
-
         let faucet = 100 * u128::pow(10, client.config().currency_decimals);
         let wallet = Wallet::from_config(
             client.config().clone(),
@@ -312,23 +314,25 @@ mod tests {
         )
         .await
         .unwrap();
-        wallet.faucet(faucet).await?;
+        wallet.faucet(faucet).await.unwrap();
         let bytes = compile_snippet(
             r"
             function identity(bool a) public view returns (bool) {
                 return a;
             }
             ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+        )
+        .unwrap();
+        let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+        let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
         let contract_address = receipt.contract_address.unwrap();
 
         let response = {
             let call = TestContract::identityCall { a: true };
             wallet
                 .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-                .await?
+                .await
+                .unwrap()
         };
         assert_eq!(
             response,
@@ -340,6 +344,5 @@ mod tests {
                 .to_vec()
             )
         );
-        Ok(())
     }
 }
