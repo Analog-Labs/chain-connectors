@@ -163,6 +163,6 @@ jobs:
     
     - name: Run Script for increase block number 
       run: |
-        cd script_for_update_block
+        cd nitro-testnode/script_for_update_block
         npm i
         node index.js
