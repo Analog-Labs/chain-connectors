@@ -160,9 +160,3 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
-    
-    - name: Run Script for increase block number 
-      run: |
-        cd nitro-testnode/script_for_update_block
-        npm i
-        node index.js

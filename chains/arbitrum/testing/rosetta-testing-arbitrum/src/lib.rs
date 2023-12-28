@@ -81,7 +81,13 @@ impl ArbitrumEnv {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use ethers::{types::H256, utils::hex};
+    use anyhow::Context;
+    use ethers::{
+        providers::Middleware,
+        signers::{LocalWallet, Signer},
+        types::{transaction::eip2718::TypedTransaction, TransactionRequest, H160, H256, U256},
+        utils::hex,
+    };
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
@@ -89,7 +95,8 @@ mod tests {
     use rosetta_server_arbitrum::ArbitrumClient;
     use sequential_test::sequential;
     use sha3::Digest;
-    use std::{collections::BTreeMap, path::Path, thread, time::Duration};
+    use std::{collections::BTreeMap, future::Future, path::Path, str::FromStr};
+    use tokio::sync::oneshot::{error::TryRecvError, Receiver};
 
     sol! {
         interface TestContract {
@@ -98,6 +105,73 @@ mod tests {
 
             function identity(bool a) external view returns (bool);
         }
+    }
+
+    async fn run_test<Fut: Future + Send>(_future: Fut, mut stop_rx: Receiver<()>) {
+        loop {
+            if matches!(stop_rx.try_recv(), Ok(()) | Err(TryRecvError::Closed)) {
+                break;
+            }
+            let hex_string = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
+            // Remove the "0x" prefix
+            let hex_string = &hex_string[2..];
+            let mut private_key_result = [0; 32];
+            // Parse the hexadecimal string into a Vec<u8>
+            let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
+            private_key_result.copy_from_slice(&bytes);
+
+            let result =
+                ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
+            assert!(result.is_ok(), "Error creating ArbitrumClient");
+            // let client = result.unwrap();
+
+            // let value = 100 * u128::pow(10, client.config().currency_decimals);
+            let wallet = LocalWallet::from_bytes(&private_key_result).unwrap();
+
+            // let nonce_u32 = U256::from(client. self.nonce.load(Ordering::Relaxed));
+            let provider = ethers::providers::Provider::<ethers::providers::Http>::try_from(
+                "http://localhost:8547",
+            )
+            .expect("Failed to create HTTP provider");
+            let address = H160::from_str("0x8Db77D3B019a52788bD3804724f5653d7C9Cf0b6").unwrap();
+            let nonce = provider
+                .get_transaction_count(
+                    H160::from_str("0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E").unwrap(),
+                    None,
+                )
+                .await
+                .unwrap();
+            let chain_id = provider.get_chainid().await.unwrap().as_u64();
+            // Create a transaction request
+            let transaction_request = TransactionRequest {
+                from: None,
+                to: Some(ethers::types::NameOrAddress::Address(address)),
+                value: Some(U256::from(1)),
+                gas: Some(U256::from(210_000)),
+                gas_price: Some(U256::from(500_000_000)),
+                nonce: Some(nonce),
+                data: None,
+                chain_id: Some(chain_id.into()),
+            };
+
+            let tx: TypedTransaction = transaction_request.into();
+            let signature = wallet.sign_transaction(&tx).await.unwrap();
+            let tx = tx.rlp_signed(&signature);
+            let _ = provider
+                .send_raw_transaction(tx)
+                .await
+                .unwrap()
+                .confirmations(1)
+                .await
+                .unwrap()
+                .context("failed to retrieve tx receipt")
+                .unwrap()
+                .transaction_hash
+                .0
+                .to_vec();
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+        // future.await;
     }
 
     #[tokio::test]
@@ -178,6 +252,10 @@ mod tests {
     #[tokio::test]
     #[sequential]
     async fn test_account() {
+        let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let handler = tokio::spawn(async move {
+            run_test(async {}, stop_rx).await;
+        });
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
         let hex_string = &hex_string[2..];
@@ -185,12 +263,10 @@ mod tests {
         // Parse the hexadecimal string into a Vec<u8>
         let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
         private_key_result.copy_from_slice(&bytes);
-
         let result =
             ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
         let client = result.unwrap();
-
         let value = 100 * u128::pow(10, client.config().currency_decimals);
         let wallet = Wallet::from_config(
             client.config().clone(),
@@ -201,7 +277,6 @@ mod tests {
         .await;
         match wallet {
             Ok(w) => {
-                thread::sleep(Duration::from_secs(10));
                 let _ = w.faucet(value).await;
                 let amount = w.balance().await.unwrap();
                 assert_eq!((amount.value), (value).to_string());
@@ -212,6 +287,8 @@ mod tests {
                 println!("Error : {e:?}");
             },
         }
+        stop_tx.send(()).expect("Failed to send stop signal");
+        handler.await.expect("Failed to join the background task");
     }
 
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
@@ -243,6 +320,10 @@ mod tests {
     #[tokio::test]
     #[sequential]
     async fn test_smart_contract() {
+        let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let handler = tokio::spawn(async move {
+            run_test(async {}, stop_rx).await;
+        });
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
         let hex_string = &hex_string[2..];
@@ -288,12 +369,18 @@ mod tests {
         let topic = receipt.logs[0].topics[0];
         let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
         assert_eq!(topic, expected);
+        stop_tx.send(()).expect("Failed to send stop signal");
+        handler.await.expect("Failed to join the background task");
     }
 
     #[allow(clippy::needless_raw_string_hashes)]
     #[tokio::test]
     #[sequential]
     async fn test_smart_contract_view() {
+        let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+        let handler = tokio::spawn(async move {
+            run_test(async {}, stop_rx).await;
+        });
         let hex_string = "0x8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36";
         // Remove the "0x" prefix
         let hex_string = &hex_string[2..];
@@ -344,5 +431,7 @@ mod tests {
                 .to_vec()
             )
         );
+        stop_tx.send(()).expect("Failed to send stop signal");
+        handler.await.expect("Failed to join the background task");
     }
 }
