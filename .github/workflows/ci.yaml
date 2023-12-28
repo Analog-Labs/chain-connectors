@@ -145,7 +145,7 @@ jobs:
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
   arbitrum-nitro-testnode-script:
-    needs: [rustfmt]
+    needs: [rustfmt, test-client]
     runs-on: self-hosted
     steps:
     - name: Checkout code
