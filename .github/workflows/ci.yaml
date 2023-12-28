@@ -129,9 +129,6 @@ jobs:
           -Dclippy::pedantic \
           -Aclippy::module_name_repetitions
 
-    - name: Cleanup Docker
-      run: ./scripts/reset_docker.sh
-
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
 
