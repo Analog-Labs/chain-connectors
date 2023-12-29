@@ -167,21 +167,34 @@ pub struct GetProof {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(tag = "method", content = "params")
+)]
 pub enum Query {
     /// Returns the balance of the account of given address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(GetBalance),
     /// Returns the value from a storage position at a given address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(GetStorageAt),
     /// Returns the receipt of a transaction by transaction hash.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionReceipt"))]
     GetTransactionReceipt(GetTransactionReceipt),
     /// Executes a new message call immediately without creating a transaction on the block
     /// chain.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_call"))]
     CallContract(CallContract),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(GetProof),
+    /// Returns the currently configured chain ID, a value used in replay-protected transaction
+    /// signing as introduced by EIP-155
+    #[cfg_attr(feature = "serde", serde(rename = "eth_chainId"))]
+    ChainId,
 }
 
 /// The result of contract call execution
@@ -209,21 +222,35 @@ pub enum CallResult {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(tag = "method", content = "result")
+)]
 pub enum QueryResult {
     /// Returns the balance of the account of given address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(U256),
     /// Returns the value from a storage position at a given address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(H256),
     /// Returns the receipt of a transaction by transaction hash.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionReceipt"))]
     GetTransactionReceipt(Option<TransactionReceipt>),
     /// Executes a new message call immediately without creating a transaction on the block
     /// chain.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_call"))]
     CallContract(CallResult),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(EIP1186ProofResponse),
+    /// Returns the account and storage values of the specified account including the
+    /// Merkle-proof. This call can be used to verify that the data you are pulling
+    /// from is not tampered with.
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex", rename = "eth_chainId"))]
+    ChainId(u64),
 }
 
 /// A log produced by a transaction.
