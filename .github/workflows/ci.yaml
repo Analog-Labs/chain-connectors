@@ -141,6 +141,11 @@ jobs:
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
+
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
+  
+  #Running arbitrum nitro-testnode
   arbitrum-nitro-testnode-script:
     needs: [rustfmt, test-client]
     runs-on: self-hosted

@@ -1,3 +1,20 @@
+//  ArbitrumClient
+
+//  This module defines an implementation of the `BlockchainClient` trait for the Arbitrum
+// blockchain.  It includes a struct `ArbitrumClient` with methods to interact with the Arbitrum
+// blockchain,  such as retrieving block information, checking balances, submitting transactions,
+// and more.
+
+//  The module uses the `rosetta_server_ethereum` and `rosetta_config_arbitrum` crates to manage
+//  communication with the Arbitrum node. It also leverages the `serde` crate for serialization
+//  and deserialization of data structures.
+
+//  The `ArbitrumClient` struct provides an ergonomic interface for interacting with the Arbitrum
+//  blockchain, abstracting away the underlying details of network communication and configuration.
+
+//  Note: This code is generated based on the Rosetta API specifications and is designed to work
+//  with the Rosetta framework for standardizing blockchain interactions.
+
 use anyhow::Result;
 use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,

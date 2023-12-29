@@ -1,87 +1,45 @@
-use anyhow::Result;
-
-use std::{error::Error, fmt, process::Command};
-
-// Define a custom error type for your application
-#[derive(Debug)]
-pub struct ArbitrumEnvError {
-    message: String,
-}
-
-impl ArbitrumEnvError {
-    #[allow(clippy::use_self)]
-    fn new(message: &str) -> ArbitrumEnvError {
-        ArbitrumEnvError { message: message.to_string() }
-    }
-}
-
-impl Error for ArbitrumEnvError {}
-
-impl fmt::Display for ArbitrumEnvError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Error: {}", self.message)
-    }
-}
-
-#[derive(Debug)]
-pub struct ArbitrumEnv {}
-
-impl ArbitrumEnv {
-    /// Starts a new arbitrum testnet
-    #[allow(clippy::use_self, clippy::missing_errors_doc, clippy::unused_async)]
-    pub async fn new() -> Result<Self, ArbitrumEnvError> {
-        // You can start your Bash script here
-
-        //when running the test , get the folder path, recive as perms
-        let script_path = "../nitro-testnode/test-node.bash"; // Replace with the actual path to binary
-        let output = Command::new(script_path)
-            .arg("--detach")
-            .output()
-            .map_err(|e| ArbitrumEnvError::new(&format!("Failed to start Bash script: {e}")))?;
-        println!("Standard Output:\n{}", String::from_utf8_lossy(&output.stdout));
-        println!("Standard Error:\n{}", String::from_utf8_lossy(&output.stderr));
-
-        //Check output status if status is success means chain is up
-        if output.status.success() {
-            // Your implementation here
-            Ok(ArbitrumEnv {})
-        } else {
-            Err(ArbitrumEnvError::new("failed to run nitro-testnode"))
-        }
-    }
-
-    /// Stop the arbitrum testnet and cleanup dependencies
-    /// ex: stop docker containers, delete temporary files, etc
-    #[allow(clippy::missing_errors_doc, clippy::unused_async)]
-    pub async fn cleanup() -> Result<(), ArbitrumEnvError> {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg("docker ps -a -q -f name=nitro-testnode | xargs docker rm -fv")
-            .output()
-            .map_err(|e| {
-                ArbitrumEnvError::new(&format!("Failed to run docker-compose command: {e}"))
-            })?;
-
-        if output.status.success() {
-            tracing::info!("Docker Compose down successful!");
-            Ok(())
-        } else {
-            let error_message = format!(
-                "Docker Compose down failed! \nOutput: {:?} \nError: {:?}",
-                output.stdout, output.stderr
-            );
-            tracing::error!("{}", error_message);
-            Err(ArbitrumEnvError::new(&error_message))
-        }
-    }
-}
+//! # Arbitrum Nitro Testnet Rosetta Server
+//!
+//! This module contains the production test for an Arbitrum Rosetta server implementation
+//! specifically designed for interacting with the Arbitrum Nitro Testnet. The code includes
+//! tests for network status, account management, and smart contract interaction.
+//!
+//! ## Features
+//!
+//! - Network status tests to ensure proper connection and consistency with the Arbitrum Nitro
+//!   Testnet.
+//! - Account tests, including faucet funding, balance retrieval, and error handling.
+//! - Smart contract tests covering deployment, event emission, and view function calls.
+//!
+//! ## Dependencies
+//!
+//! - `anyhow`: For flexible error handling.
+//! - `alloy_sol_types`: Custom types and macros for interacting with Solidity contracts.
+//! - `ethers`: Ethereum library for interaction with Ethereum clients.
+//! - `ethers_solc`: Integration for compiling Solidity code using the Solc compiler.
+//! - `rosetta_client`: Client library for Rosetta API interactions.
+//! - `rosetta_config_ethereum`: Configuration for Ethereum Rosetta server.
+//! - `rosetta_server_arbitrum`: Custom client implementation for interacting with Arbitrum.
+//! - `sequential_test`: Macro for ensuring sequential execution of asynchronous tests.
+//! - `sha3`: SHA-3 (Keccak) implementation for hashing.
+//! - `tokio`: Asynchronous runtime for running async functions.
+//!
+//! ## Usage
+//!
+//! To run the tests, execute the following command:
+//!
+//! ```sh
+//! cargo test --package rosetta-testing-arbitrum --lib -- tests --nocapture
+//! ```
+//!
+//! Note: The code assumes a local Arbitrum Nitro Testnet node running on `ws://127.0.0.1:8548` and
+//! a local Ethereum node on `http://localhost:8545`. Ensure that these endpoints are configured correctly.
 
 #[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use anyhow::Context;
+    use anyhow::{Context, Result};
     use ethers::{
         providers::Middleware,
         signers::{LocalWallet, Signer},
@@ -113,22 +71,14 @@ mod tests {
                 break;
             }
             let hex_string = "0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659";
-            // Remove the "0x" prefix
             let hex_string = &hex_string[2..];
             let mut private_key_result = [0; 32];
-            // Parse the hexadecimal string into a Vec<u8>
             let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
             private_key_result.copy_from_slice(&bytes);
-
             let result =
                 ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
             assert!(result.is_ok(), "Error creating ArbitrumClient");
-            // let client = result.unwrap();
-
-            // let value = 100 * u128::pow(10, client.config().currency_decimals);
             let wallet = LocalWallet::from_bytes(&private_key_result).unwrap();
-
-            // let nonce_u32 = U256::from(client. self.nonce.load(Ordering::Relaxed));
             let provider = ethers::providers::Provider::<ethers::providers::Http>::try_from(
                 "http://localhost:8547",
             )
@@ -153,7 +103,6 @@ mod tests {
                 data: None,
                 chain_id: Some(chain_id.into()),
             };
-
             let tx: TypedTransaction = transaction_request.into();
             let signature = wallet.sign_transaction(&tx).await.unwrap();
             let tx = tx.rlp_signed(&signature);
@@ -171,7 +120,6 @@ mod tests {
                 .to_vec();
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
-        // future.await;
     }
 
     #[tokio::test]
