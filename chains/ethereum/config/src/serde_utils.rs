@@ -256,6 +256,15 @@ impl SerializableBytes for Vec<u8> {
     }
 }
 
+impl<const N: usize> SerializableBytes for [u8; N] {
+    fn serialize_bytes<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        impl_serde::serialize::serialize(self.as_ref(), serializer)
+    }
+}
+
 impl SerializableBytes for [u8] {
     fn serialize_bytes<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
