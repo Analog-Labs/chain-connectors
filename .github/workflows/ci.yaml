@@ -71,6 +71,7 @@ jobs:
         toolchain: 1.74.1
         components: clippy
         target: x86_64-unknown-linux-musl
+        override: true
     
     - name: cargo clippy (${{ matrix.crate }})
       run: |
@@ -108,9 +109,10 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.74.1
         components: clippy
         target: x86_64-unknown-linux-musl
+        override: true
     
     - name: clippy
       run: |
