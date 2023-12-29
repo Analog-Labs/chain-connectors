@@ -1,16 +1,29 @@
+pub use ethereum_types;
 use ethereum_types::{Address, Bloom, H256, U256};
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg(feature = "serde")]
+use crate::serde_utils::{bytes_to_hex, uint_to_hex};
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EthereumMetadataParams {
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub destination: Vec<u8>,
     pub amount: [u64; 4],
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EthereumMetadata {
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub chain_id: u64,
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
     pub max_priority_fee_per_gas: [u64; 4],
     pub max_fee_per_gas: [u64; 4],
@@ -18,6 +31,8 @@ pub struct EthereumMetadata {
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 pub enum AtBlock {
     #[default]
     Latest,
@@ -25,8 +40,56 @@ pub enum AtBlock {
     Number(u64),
 }
 
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for AtBlock {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use core::str::FromStr;
+
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        if s == "latest" {
+            return Ok(Self::Latest);
+        }
+
+        if let Some(hexdecimal) = s.strip_prefix("0x") {
+            if s.len() == 66 {
+                let hash = H256::from_str(hexdecimal).map_err(serde::de::Error::custom)?;
+                Ok(Self::Hash(hash))
+            } else if s.len() > 2 {
+                let number =
+                    u64::from_str_radix(hexdecimal, 16).map_err(serde::de::Error::custom)?;
+                Ok(Self::Number(number))
+            } else {
+                Ok(Self::Number(0))
+            }
+        } else {
+            let number = s.parse::<u64>().map_err(serde::de::Error::custom)?;
+            Ok(Self::Number(number))
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for AtBlock {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        match self {
+            Self::Latest => serializer.serialize_str("latest"),
+            Self::Hash(hash) => <H256 as serde::Serialize>::serialize(hash, serializer),
+            Self::Number(number) => uint_to_hex::serialize(number, serializer),
+        }
+    }
+}
+
 ///·Returns·the·balance·of·the·account·of·given·address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GetBalance {
     /// Account address
     pub address: Address,
@@ -36,6 +99,9 @@ pub struct GetBalance {
 
 /// Executes a new message call immediately without creating a transaction on the blockchain.
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallContract {
     /// The address the transaction is sent from.
     pub from: Option<Address>,
@@ -44,6 +110,7 @@ pub struct CallContract {
     /// Integer of the value sent with this transaction.
     pub value: U256,
     /// Hash of the method signature and encoded parameters.
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub data: Vec<u8>,
     /// Call at block
     pub block: AtBlock,
@@ -52,12 +119,18 @@ pub struct CallContract {
 /// Returns the account and storage values of the specified account including the Merkle-proof.
 /// This call can be used to verify that the data you are pulling from is not tampered with.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GetTransactionReceipt {
     pub tx_hash: H256,
 }
 
 /// Returns the value from a storage position at a given address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GetStorageAt {
     /// Account address
     pub address: Address,
@@ -70,6 +143,9 @@ pub struct GetStorageAt {
 /// Returns the account and storage values, including the Merkle proof, of the specified
 /// account.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GetProof {
     pub account: Address,
     pub storage_keys: Vec<H256>,
@@ -77,6 +153,9 @@ pub struct GetProof {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Query {
     /// Returns the balance of the account of given address.
     GetBalance(GetBalance),
@@ -95,10 +174,15 @@ pub enum Query {
 
 /// The result of contract call execution
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CallResult {
     /// Call executed succesfully
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     Success(Vec<u8>),
     /// Call reverted with message
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     Revert(Vec<u8>),
     /// normal EVM error.
     Error,
@@ -106,6 +190,9 @@ pub enum CallResult {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum QueryResult {
     /// Returns the balance of the account of given address.
     GetBalance(U256),
@@ -124,6 +211,9 @@ pub enum QueryResult {
 
 /// A log produced by a transaction.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Log {
     /// H160. the contract that emitted the log
     pub address: Address,
@@ -135,18 +225,27 @@ pub struct Log {
     pub topics: Vec<H256>,
 
     /// Data
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub data: Vec<u8>,
 
     /// Block Hash
     pub block_hash: Option<H256>,
 
     /// Block Number
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex")
+    )]
     pub block_number: Option<u64>,
 
     /// Transaction Hash
     pub transaction_hash: Option<H256>,
 
     /// Transaction Index
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex")
+    )]
     pub transaction_index: Option<u64>,
 
     /// Integer of the log index position in the block. None if it's a pending log.
@@ -166,17 +265,25 @@ pub struct Log {
 
 /// "Receipt" of an executed transaction: details of its execution.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TransactionReceipt {
     /// Transaction hash.
     pub transaction_hash: H256,
 
     /// Index within the block.
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub transaction_index: u64,
 
     /// Hash of the block this transaction was included within.
     pub block_hash: Option<H256>,
 
     /// Number of the block this transaction was included within.
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
+    )]
     pub block_number: Option<u64>,
 
     /// address of the sender.
@@ -200,6 +307,10 @@ pub struct TransactionReceipt {
     pub logs: Vec<Log>,
 
     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "status", skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
+    )]
     pub status_code: Option<u64>,
 
     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
@@ -214,23 +325,68 @@ pub struct TransactionReceipt {
     pub effective_gas_price: Option<U256>,
 
     /// EIP-2718 transaction type
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "type", skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
+    )]
     pub transaction_type: Option<u64>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StorageProof {
     pub key: H256,
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub proof: Vec<Vec<u8>>,
     pub value: U256,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EIP1186ProofResponse {
     pub address: Address,
     pub balance: U256,
     pub code_hash: H256,
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
     pub storage_hash: H256,
+    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub account_proof: Vec<Vec<u8>>,
     pub storage_proof: Vec<StorageProof>,
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use std::str::FromStr;
+
+    use super::AtBlock;
+    use ethereum_types::H256;
+
+    #[test]
+    fn at_block_json_encode_works() {
+        let tests = [
+            (
+                "\"0x0123456789012345678901234567890123456789012345678901234567891234\"",
+                AtBlock::Hash(
+                    H256::from_str(
+                        "0123456789012345678901234567890123456789012345678901234567891234",
+                    )
+                    .unwrap(),
+                ),
+            ),
+            ("\"latest\"", AtBlock::Latest),
+            ("\"0xdeadbeef\"", AtBlock::Number(0xdead_beef)),
+            ("\"0xffffffffffffffff\"", AtBlock::Number(0xffff_ffff_ffff_ffff)),
+        ];
+        for (expected_json, at_block) in tests {
+            let actual_json = serde_json::to_string(&at_block).unwrap();
+            assert_eq!(actual_json, expected_json);
+            let decoded = serde_json::from_str::<AtBlock>(expected_json).unwrap();
+            assert_eq!(decoded, at_block);
+        }
+    }
 }
