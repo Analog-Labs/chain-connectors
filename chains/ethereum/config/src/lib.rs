@@ -50,6 +50,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         "dev" => ("dev", "ETH", 1, true),
         "mainnet" => ("mainnet", "ETH", 60, false),
         "goerli" => ("goerli", "TST", 1, true),
+        "sepolia" => ("sepolia", "SepoliaETH", 1, true),
 
         // Polygon
         "polygon-local" => return polygon_config("dev"),
