@@ -5018,6 +5018,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "ethereum-types",
+ "hex-literal",
  "impl-serde",
  "parity-scale-codec",
  "rosetta-config-astar",
