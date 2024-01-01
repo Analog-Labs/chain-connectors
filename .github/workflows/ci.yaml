@@ -162,7 +162,3 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
-    
-    - name: check open ports
-      run: |
-        sudo lsof -i -P -n | grep LISTEN
