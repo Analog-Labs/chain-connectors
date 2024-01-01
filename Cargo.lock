@@ -4982,7 +4982,6 @@ dependencies = [
  "log",
  "num-traits",
  "rosetta-core",
- "rosetta-server-arbitrum",
  "rosetta-server-astar",
  "rosetta-server-bitcoin",
  "rosetta-server-ethereum",
@@ -4994,15 +4993,6 @@ dependencies = [
  "void",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "rosetta-config-arbitrum"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "rosetta-core",
- "serde",
 ]
 
 [[package]]
@@ -5028,7 +5018,6 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "ethereum-types",
- "rosetta-config-arbitrum",
  "rosetta-config-astar",
  "rosetta-core",
  "serde",
@@ -5150,21 +5139,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rosetta-server-arbitrum"
-version = "0.5.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "rosetta-config-arbitrum",
- "rosetta-config-ethereum",
- "rosetta-core",
- "rosetta-server",
- "rosetta-server-ethereum",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "rosetta-server-astar"
 version = "0.5.0"
 dependencies = [
@@ -5225,7 +5199,6 @@ dependencies = [
  "futures-util",
  "hex 0.4.3",
  "rosetta-client",
- "rosetta-config-arbitrum",
  "rosetta-config-ethereum",
  "rosetta-core",
  "rosetta-docker",
@@ -5272,7 +5245,6 @@ dependencies = [
  "rosetta-config-ethereum",
  "rosetta-core",
  "rosetta-docker",
- "rosetta-server-arbitrum",
  "rosetta-server-ethereum",
  "sequential-test",
  "serde_json",

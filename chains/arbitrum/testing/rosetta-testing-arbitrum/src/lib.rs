@@ -50,7 +50,7 @@ mod tests {
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
-    use rosetta_server_arbitrum::ArbitrumClient;
+    use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sequential_test::sequential;
     use sha3::Digest;
     use std::{collections::BTreeMap, future::Future, path::Path, str::FromStr};
@@ -75,8 +75,13 @@ mod tests {
             let mut private_key_result = [0; 32];
             let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
             private_key_result.copy_from_slice(&bytes);
-            let result =
-                ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
+            let result = MaybeWsEthereumClient::new(
+                "arbitrum",
+                "dev",
+                "ws://127.0.0.1:8548",
+                Some(private_key_result),
+            )
+            .await;
             assert!(result.is_ok(), "Error creating ArbitrumClient");
             let wallet = LocalWallet::from_bytes(&private_key_result).unwrap();
             let provider = ethers::providers::Provider::<ethers::providers::Http>::try_from(
@@ -133,7 +138,9 @@ mod tests {
         let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
         result.copy_from_slice(&bytes);
 
-        match ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(result)).await {
+        match MaybeWsEthereumClient::new("arbitrum", "dev", "ws://127.0.0.1:8548", Some(result))
+            .await
+        {
             Ok(client) => {
                 // The client was successfully created, continue with the rest of the function
                 // ...
@@ -211,8 +218,13 @@ mod tests {
         // Parse the hexadecimal string into a Vec<u8>
         let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
         private_key_result.copy_from_slice(&bytes);
-        let result =
-            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
+        let result = MaybeWsEthereumClient::new(
+            "arbitrum",
+            "dev",
+            "ws://127.0.0.1:8548",
+            Some(private_key_result),
+        )
+        .await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
         let client = result.unwrap();
         let value = 100 * u128::pow(10, client.config().currency_decimals);
@@ -279,8 +291,13 @@ mod tests {
         // Parse the hexadecimal string into a Vec<u8>
         let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
         private_key_result.copy_from_slice(&bytes);
-        let result =
-            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
+        let result = MaybeWsEthereumClient::new(
+            "arbitrum",
+            "dev",
+            "ws://127.0.0.1:8548",
+            Some(private_key_result),
+        )
+        .await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
 
         let client = result.unwrap();
@@ -336,8 +353,13 @@ mod tests {
         // Parse the hexadecimal string into a Vec<u8>
         let bytes = hex::decode(hex_string).expect("Failed to decode hex string");
         private_key_result.copy_from_slice(&bytes);
-        let result =
-            ArbitrumClient::new("dev", "ws://127.0.0.1:8548", Some(private_key_result)).await;
+        let result = MaybeWsEthereumClient::new(
+            "arbitrum",
+            "dev",
+            "ws://127.0.0.1:8548",
+            Some(private_key_result),
+        )
+        .await;
         assert!(result.is_ok(), "Error creating ArbitrumClient");
         let client = result.unwrap();
         let faucet = 100 * u128::pow(10, client.config().currency_decimals);

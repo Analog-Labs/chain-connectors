@@ -18,7 +18,6 @@ hex = "0.4"
 log = "0.4"
 num-traits = "0.2"
 rosetta-core.workspace = true
-rosetta-server-arbitrum.workspace = true
 rosetta-server-astar.workspace = true
 rosetta-server-bitcoin.workspace = true
 rosetta-server-ethereum.workspace = true

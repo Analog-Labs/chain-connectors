@@ -53,7 +53,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-arbitrum, rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
+        crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -117,7 +117,6 @@ jobs:
     - name: clippy
       run: |
         cargo clippy --locked --workspace --examples --tests --all-features \
-          --exclude rosetta-server-arbitrum \
           --exclude rosetta-server-astar \
           --exclude rosetta-server-bitcoin \
           --exclude rosetta-server-ethereum \
@@ -137,7 +136,6 @@ jobs:
     - name: cargo test
       run: |
         cargo test --locked --workspace --all-features \
-          --exclude rosetta-server-arbitrum \
           --exclude rosetta-server-astar \
           --exclude rosetta-server-bitcoin \
           --exclude rosetta-server-ethereum \

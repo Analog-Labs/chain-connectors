@@ -11,7 +11,6 @@ use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
 use rosetta_core::{BlockchainClient, ClientEvent};
-use rosetta_server_arbitrum::{ArbitrumClient, ArbitrumMetadata, ArbitrumMetadataParams};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
@@ -30,7 +29,6 @@ use void::Void;
 pub enum GenericClient {
     Bitcoin(BitcoinClient),
     Ethereum(EthereumClient),
-    Arbitrum(ArbitrumClient),
     Astar(AstarClient),
     Polkadot(PolkadotClient),
 }
@@ -57,8 +55,8 @@ impl GenericClient {
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = ArbitrumClient::new(network, url, private_key).await?;
-                Self::Arbitrum(client)
+                let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
+                Self::Ethereum(client)
             },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
@@ -82,13 +80,9 @@ impl GenericClient {
                 let client = BitcoinClient::from_config(config, url).await?;
                 Self::Bitcoin(client)
             },
-            Blockchain::Ethereum | Blockchain::Polygon => {
+            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
-            },
-            Blockchain::Arbitrum => {
-                let client = ArbitrumClient::from_config(config, url, private_key).await?;
-                Self::Arbitrum(client)
             },
             Blockchain::Astar => {
                 let client = AstarClient::from_config(config, url).await?;
@@ -107,7 +101,6 @@ impl GenericClient {
 pub enum GenericMetadataParams {
     Bitcoin(BitcoinMetadataParams),
     Ethereum(EthereumMetadataParams),
-    Arbitrum(ArbitrumMetadataParams),
     Astar(AstarMetadataParams),
     Polkadot(PolkadotMetadataParams),
 }
@@ -117,7 +110,6 @@ pub enum GenericMetadataParams {
 pub enum GenericMetadata {
     Bitcoin(BitcoinMetadata),
     Ethereum(EthereumMetadata),
-    Arbitrum(ArbitrumMetadata),
     Astar(AstarMetadata),
     Polkadot(PolkadotMetadata),
 }
@@ -140,7 +132,6 @@ macro_rules! dispatch {
         match $self {
             Self::Bitcoin(client) => client$($method)*,
             Self::Ethereum(client) => client$($method)*,
-            Self::Arbitrum(client) => client$($method)*,
             Self::Astar(client) => client$($method)*,
             Self::Polkadot(client) => client$($method)*,
         }
@@ -199,16 +190,13 @@ impl BlockchainClient for GenericClient {
             (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
-            (Self::Arbitrum(client), GenericMetadataParams::Arbitrum(params)) => {
-                client.metadata(public_key, params).await?.into()
-            },
             (Self::Astar(client), GenericMetadataParams::Astar(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
             (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
-            _ => anyhow::bail!("invalid paramsa"),
+            _ => anyhow::bail!("invalid params"),
         })
     }
 
@@ -241,12 +229,6 @@ impl BlockchainClient for GenericClient {
                 _ => anyhow::bail!("invalid call"),
             },
             Self::Astar(client) => match req {
-                GenericCall::Ethereum(args) => {
-                    GenericCallResult::Ethereum(client.call(args).await?)
-                },
-                _ => anyhow::bail!("invalid call"),
-            },
-            Self::Arbitrum(client) => match req {
                 GenericCall::Ethereum(args) => {
                     GenericCallResult::Ethereum(client.call(args).await?)
                 },

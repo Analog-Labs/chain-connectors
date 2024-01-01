@@ -87,16 +87,15 @@ where
     ) -> Result<Self> {
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
-        let (private_key, nonce) = match private_key {
-            Some(private_key) => {
-                let wallet = LocalWallet::from_bytes(&private_key)?;
-                let address = wallet.address();
-                let nonce = Arc::new(atomic::AtomicU32::from(
-                    client.get_transaction_count(address, None).await?.as_u32(),
-                ));
-                (Some(private_key), nonce)
-            },
-            None => (None, Arc::new(atomic::AtomicU32::new(0))),
+        let (private_key, nonce) = if let Some(private) = private_key {
+            let wallet = LocalWallet::from_bytes(&private)?;
+            let address = wallet.address();
+            let nonce = Arc::new(atomic::AtomicU32::from(
+                client.get_transaction_count(address, None).await?.as_u32(),
+            ));
+            (private_key, nonce)
+        } else {
+            (None, Arc::new(atomic::AtomicU32::new(0)))
         };
         let Some(genesis_block) =
             get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?

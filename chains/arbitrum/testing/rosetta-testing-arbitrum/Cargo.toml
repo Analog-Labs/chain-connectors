@@ -6,15 +6,12 @@ license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
 description = "Arbitrum unit test."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "1.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }
-rosetta-server-arbitrum.workspace = true
 rosetta-server-ethereum.workspace = true
 sequential-test = "0.2.4"
 serde_json.workspace = true
