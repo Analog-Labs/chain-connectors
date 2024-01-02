@@ -308,11 +308,22 @@ mod tests {
             wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await?
         };
         let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        assert_eq!(receipt.logs.len(), 1);
+        let assert_result = std::panic::catch_unwind(|| {
+            assert_eq!(receipt.logs.len(), 1);
+        });
         let topic = receipt.logs[0].topics[0];
         let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
-        assert_eq!(topic, expected);
+        let assert_result_1 = std::panic::catch_unwind(|| {
+            assert_eq!(topic, expected);
+        });
+
         env.shutdown().await?;
+        if let Err(_) = assert_result {
+            panic!("assert panic");
+        }
+        if let Err(_) = assert_result_1 {
+            panic!("assert panic");
+        }
         Ok(())
     }
 
