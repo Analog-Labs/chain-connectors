@@ -362,7 +362,8 @@ impl Wallet {
     }
 
     /// gets the currently configured chain ID, a value used in replay-protected transaction signing
-    /// as introduced by EIP-155. # Errors
+    /// as introduced by EIP-155.
+    /// # Errors
     /// Returns `Err` if the blockchain doesn't support `eth_chainId` or the client connection
     /// failed.
     pub async fn eth_chain_id(&self) -> Result<u64> {

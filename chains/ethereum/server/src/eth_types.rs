@@ -47,7 +47,7 @@ pub struct Trace {
     pub output: Bytes,
     pub to: H160,
     #[serde(rename = "type")]
-    pub trace_type: String,
+    pub ty: String,
     pub value: U256,
     #[serde(default)]
     pub revert: bool,
@@ -80,7 +80,7 @@ impl From<Trace> for FlattenTrace {
             input: trace.input,
             output: trace.output,
             to: trace.to,
-            trace_type: trace.trace_type,
+            trace_type: trace.ty,
             value: trace.value,
             revert: trace.revert,
             error_message: trace.error_message,
