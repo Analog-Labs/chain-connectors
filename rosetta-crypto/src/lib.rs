@@ -81,13 +81,13 @@ impl SecretKey {
     pub fn from_bytes(algorithm: Algorithm, bytes: &[u8]) -> Result<Self> {
         Ok(match algorithm {
             Algorithm::EcdsaSecp256k1 => {
-                Self::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+                Self::EcdsaSecp256k1(ecdsa::SigningKey::from_bytes(bytes.into())?)
             },
             Algorithm::EcdsaRecoverableSecp256k1 => {
-                Self::EcdsaRecoverableSecp256k1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+                Self::EcdsaRecoverableSecp256k1(ecdsa::SigningKey::from_bytes(bytes.into())?)
             },
             Algorithm::EcdsaSecp256r1 => {
-                Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.try_into()?)?)
+                Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.into())?)
             },
             Algorithm::Ed25519 => {
                 let secret = ed25519_dalek::SecretKey::from_bytes(bytes)?;
@@ -171,7 +171,7 @@ impl SecretKey {
             Self::EcdsaRecoverableSecp256k1(secret) => {
                 let (sig, recid) = secret
                     .as_nonzero_scalar()
-                    .try_sign_prehashed_rfc6979::<sha2::Sha256>(hash.try_into()?, b"")?;
+                    .try_sign_prehashed_rfc6979::<sha2::Sha256>(hash.into(), b"")?;
                 Signature::EcdsaRecoverableSecp256k1(sig, recid.context("no recovery id")?)
             },
             Self::EcdsaSecp256r1(secret) => Signature::EcdsaSecp256r1(secret.sign_prehash(hash)?),

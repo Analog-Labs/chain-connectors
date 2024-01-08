@@ -401,6 +401,10 @@ where
                         .collect(),
                 })
             },
+            EthQuery::ChainId => {
+                let chain_id = self.client.get_chainid().await?.as_u64();
+                EthQueryResult::ChainId(chain_id)
+            },
         };
         Ok(result)
     }
