@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+mod serde_utils;
 mod types;
 
 use anyhow::Result;
@@ -22,7 +24,6 @@ pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
         "mainnet" => ("mainnet", 966, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
-
     Ok(evm_config("polygon", network, "MATIC", bip44_id, is_dev))
 }
 

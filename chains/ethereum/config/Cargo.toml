@@ -8,11 +8,38 @@ description = "Ethereum configuration."
 
 [dependencies]
 anyhow = "1.0"
-ethereum-types = { version = "0.14", default-features = false, features = ["rlp", "ethbloom", "codec", "num-traits"] }
+ethereum-types = { version = "0.14", default-features = false, features = ["rlp", "ethbloom", "num-traits"] }
 rosetta-config-astar = { workspace = true }
 rosetta-core.workspace = true
-serde.workspace = true
+
+# optional dependencies
+impl-serde = { version = "0.4", default-features = false }
+parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
+scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+thiserror = { version = "1.0", optional = true }
+
+[dev-dependencies]
+hex-literal = { version = "0.4" }
+serde_json = { version = "1.0" }
 
 [features]
-default = ["std"]
-std = ["ethereum-types/std", "ethereum-types/serialize"]
+default = ["std", "serde", "scale-info", "scale-codec"]
+std = [
+  "dep:thiserror",
+  "ethereum-types/std",
+  "serde?/std",
+  "parity-scale-codec?/std",
+]
+serde = [
+  "dep:serde",
+  "ethereum-types/serialize",
+]
+scale-info = [
+  "dep:scale-info",
+  "ethereum-types/scale-info",
+]
+scale-codec = [
+  "dep:parity-scale-codec",
+  "ethereum-types/codec",
+]

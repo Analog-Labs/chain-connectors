@@ -5018,9 +5018,15 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "ethereum-types",
+ "hex-literal",
+ "impl-serde",
+ "parity-scale-codec",
  "rosetta-config-astar",
  "rosetta-core",
+ "scale-info",
  "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
