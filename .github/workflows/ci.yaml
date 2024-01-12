@@ -55,7 +55,7 @@ jobs:
       matrix:
         crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
     name: ${{ matrix.crate }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -153,10 +153,10 @@ jobs:
     - name: Checkout code
       run: git clone -b release --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
 
-    - name: Install Docker Compose
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y docker-compose
+    # - name: Install Docker Compose
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y docker-compose
 
     - name: Run the arbitrum nitro-testnode
       run: |
