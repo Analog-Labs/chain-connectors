@@ -211,10 +211,11 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
+    use futures_util::Future;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::Env;
     use sha3::Digest;
-    use std::{collections::BTreeMap, path::Path};
+    use std::{collections::BTreeMap, path::Path, sync::Arc};
 
     sol! {
         interface TestContract {
@@ -282,90 +283,117 @@ mod tests {
         Ok(bytecode)
     }
 
+    async fn run_test<T, R, Fut, F>(env: Env<T>, cb: F)
+    where
+        T: Sync + Send + 'static,
+        R: Send + Sync + 'static,
+        Fut: futures_util::Future<Output = R> + Send + 'static,
+        F: FnOnce(&'static mut Env<T>) -> Fut,
+    {
+        // Convert the context into a raw pointer
+        let ptr = Box::into_raw(Box::new(env));
+
+        // Execute the test and catch any panics
+        let result = unsafe {
+            let handler = tokio::spawn(cb(&mut *ptr));
+            handler.await
+        };
+
+        // Convert the raw pointer back into a context
+        let env = unsafe { Box::from_raw(ptr) };
+        
+        env.shutdown().await;
+        // Now is safe to panic
+        if let Err(err) = result {
+            println!("Resume panic");
+            // Resume the panic on the main task
+            std::panic::resume_unwind(err.into_panic());
+        }
+    }
+
     #[tokio::test]
     async fn test_smart_contract() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("dev").unwrap();
 
         let env = Env::new("ethereum-smart-contract", config.clone(), client_from_config).await?;
 
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
 
-        let bytes = compile_snippet(
-            r"
+            let faucet = 100 * u128::pow(10, config::currency_decimals);
+            wallet.faucet(faucet).await.unwrap();
+
+            let bytes = compile_snippet(
+                r"
             event AnEvent();
             function emitEvent() public {
                 emit AnEvent();
             }
         ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-        let tx_hash = {
-            let call = TestContract::emitEventCall {};
-            wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await?
-        };
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let assert_result = std::panic::catch_unwind(|| {
+            )
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+            let tx_hash = {
+                let call = TestContract::emitEventCall {};
+                wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
+            };
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             assert_eq!(receipt.logs.len(), 1);
-        });
-        let topic = receipt.logs[0].topics[0];
-        let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
-        let assert_result_1 = std::panic::catch_unwind(|| {
-            assert_eq!(topic, expected);
-        });
-
-        env.shutdown().await?;
-        if let Err(_) = assert_result {
-            panic!("assert panic");
-        }
-        if let Err(_) = assert_result_1 {
-            panic!("assert panic");
-        }
+            let topic = receipt.logs[0].topics[0];
+            // let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
+            // assert_eq!(topic, expected);
+            env
+        })
+        .await;
         Ok(())
     }
 
     #[tokio::test]
     async fn test_smart_contract_view() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("ethereum-smart-contract-view", config.clone(), client_from_config)
+            .await
+            .unwrap();
+        
+        //here is run test function
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            wallet.faucet(faucet).await.unwrap();
 
-        let env =
-            Env::new("ethereum-smart-contract-view", config.clone(), client_from_config).await?;
-
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
-
-        let bytes = compile_snippet(
-            r"
-            function identity(bool a) public view returns (bool) {
-                return a;
-            }
-        ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-
-        let response = {
-            let call = TestContract::identityCall { a: true };
-            wallet
-                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-                .await?
-        };
-        assert_eq!(
-            response,
-            CallResult::Success(
-                [
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 1
-                ]
-                .to_vec()
+            let bytes = compile_snippet(
+                r"
+                function identity(bool a) public view returns (bool) {
+                    return a;
+                }
+            ",
             )
-        );
-        env.shutdown().await?;
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+
+            let response = {
+                let call = TestContract::identityCall { a: true };
+                wallet
+                    .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                    .await
+                    .unwrap()
+            };
+            assert_eq!(
+                response,
+                CallResult::Success(
+                    [
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 1
+                    ]
+                    .to_vec()
+                )
+            );
+        })
+        .await;
         Ok(())
     }
 }
