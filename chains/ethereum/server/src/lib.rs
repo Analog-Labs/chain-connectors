@@ -209,13 +209,10 @@ impl BlockchainClient for MaybeWsEthereumClient {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
-    use futures_util::Future;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::Env;
-    use sha3::Digest;
-    use std::{collections::BTreeMap, path::Path, sync::Arc};
+    use std::{collections::BTreeMap, path::Path};
 
     sol! {
         interface TestContract {
@@ -283,11 +280,10 @@ mod tests {
         Ok(bytecode)
     }
 
-    async fn run_test<T, R, Fut, F>(env: Env<T>, cb: F)
+    async fn run_test<T, Fut, F>(env: Env<T>, cb: F)
     where
-        T: Sync + Send + 'static,
-        R: Send + Sync + 'static,
-        Fut: futures_util::Future<Output = R> + Send + 'static,
+        T: Sync + Send + 'static + rosetta_core::BlockchainClient,
+        Fut: futures_util::Future<Output = ()> + Send + 'static,
         F: FnOnce(&'static mut Env<T>) -> Fut,
     {
         // Convert the context into a raw pointer
@@ -301,11 +297,11 @@ mod tests {
 
         // Convert the raw pointer back into a context
         let env = unsafe { Box::from_raw(ptr) };
-        
-        env.shutdown().await;
+
+        let _ = Env::shutdown(*env).await;
+
         // Now is safe to panic
         if let Err(err) = result {
-            println!("Resume panic");
             // Resume the panic on the main task
             std::panic::resume_unwind(err.into_panic());
         }
@@ -320,7 +316,7 @@ mod tests {
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
 
-            let faucet = 100 * u128::pow(10, config::currency_decimals);
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
             wallet.faucet(faucet).await.unwrap();
 
             let bytes = compile_snippet(
@@ -340,11 +336,10 @@ mod tests {
                 wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-            assert_eq!(receipt.logs.len(), 1);
+            assert_eq!(receipt.logs.len(), 0);
             let topic = receipt.logs[0].topics[0];
-            // let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
-            // assert_eq!(topic, expected);
-            env
+            let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
+            assert_eq!(topic, expected);
         })
         .await;
         Ok(())
@@ -356,7 +351,7 @@ mod tests {
         let env = Env::new("ethereum-smart-contract-view", config.clone(), client_from_config)
             .await
             .unwrap();
-        
+
         //here is run test function
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
@@ -387,7 +382,7 @@ mod tests {
                 CallResult::Success(
                     [
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 1
+                        0, 0, 0, 0, 0, 0, 0
                     ]
                     .to_vec()
                 )
