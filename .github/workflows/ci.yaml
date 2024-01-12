@@ -10,7 +10,7 @@ on:
 
 jobs:
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         scandir: './scripts'
 
   cargo-deny:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
   # Test all crates, excluding the clients
   test:
     needs: [rustfmt, arbitrum-nitro-testnode-script]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
@@ -148,7 +148,7 @@ jobs:
   #Running arbitrum nitro-testnode
   arbitrum-nitro-testnode-script:
     needs: [rustfmt, test-client]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout code
       run: git clone -b release --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
