@@ -211,7 +211,7 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
-    use rosetta_docker::Env;
+    use rosetta_docker::{run_test, Env};
     use std::{collections::BTreeMap, path::Path};
 
     sol! {
@@ -280,33 +280,6 @@ mod tests {
         Ok(bytecode)
     }
 
-    async fn run_test<T, Fut, F>(env: Env<T>, cb: F)
-    where
-        T: Sync + Send + 'static + rosetta_core::BlockchainClient,
-        Fut: futures_util::Future<Output = ()> + Send + 'static,
-        F: FnOnce(&'static mut Env<T>) -> Fut,
-    {
-        // Convert the context into a raw pointer
-        let ptr = Box::into_raw(Box::new(env));
-
-        // Execute the test and catch any panics
-        let result = unsafe {
-            let handler = tokio::spawn(cb(&mut *ptr));
-            handler.await
-        };
-
-        // Convert the raw pointer back into a context
-        let env = unsafe { Box::from_raw(ptr) };
-
-        let _ = Env::shutdown(*env).await;
-
-        // Now is safe to panic
-        if let Err(err) = result {
-            // Resume the panic on the main task
-            std::panic::resume_unwind(err.into_panic());
-        }
-    }
-
     #[tokio::test]
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev").unwrap();
@@ -336,7 +309,7 @@ mod tests {
                 wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-            assert_eq!(receipt.logs.len(), 0);
+            assert_eq!(receipt.logs.len(), 1);
             let topic = receipt.logs[0].topics[0];
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
@@ -382,7 +355,7 @@ mod tests {
                 CallResult::Success(
                     [
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 0
+                        0, 0, 0, 0, 0, 0, 1
                     ]
                     .to_vec()
                 )
