@@ -27,6 +27,9 @@ jobs:
     - name: Dprint check
       run: dprint check
 
+    - name: Install nightly toolchain
+      run: rustup toolchain install nightly
+
     - name: cargo fmt
       run: cargo +nightly fmt --all -- --check
 
