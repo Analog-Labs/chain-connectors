@@ -10,7 +10,7 @@ on:
 
 jobs:
   rustfmt:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
         scandir: './scripts'
 
   cargo-deny:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
       matrix:
         crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
     name: ${{ matrix.crate }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -95,7 +95,7 @@ jobs:
   # Test all crates, excluding the clients
   test:
     needs: [rustfmt]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
@@ -152,16 +152,3 @@ jobs:
 
     - name: Cleanup Docker
       run: ./scripts/reset_docker.sh
-  
-  # #Running arbitrum nitro-testnode
-  # arbitrum-nitro-testnode-script:
-  #   needs: [rustfmt, test-client]
-  #   runs-on: self-hosted
-  #   steps:
-  #   - name: Checkout code
-  #     run: git clone -b release --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
-
-  #   - name: Run the arbitrum nitro-testnode
-  #     run: |
-  #       cd nitro-testnode
-  #       ./test-node.bash --detach
