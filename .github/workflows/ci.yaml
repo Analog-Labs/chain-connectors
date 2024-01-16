@@ -94,7 +94,7 @@ jobs:
   
   # Test all crates, excluding the clients
   test:
-    needs: [rustfmt, arbitrum-nitro-testnode-script]
+    needs: [rustfmt]
     runs-on: self-hosted
     name: cargo test --workspace --all-features
     steps:
