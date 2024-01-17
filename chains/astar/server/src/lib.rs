@@ -332,6 +332,7 @@ mod tests {
             let topic = logs[0].topics[0];
             let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
             assert_eq!(topic, expected);
+            Ok(())
         })
         .await;
         Ok(())
@@ -377,6 +378,7 @@ mod tests {
                     .to_vec()
                 )
             );
+            Ok(())
         })
         .await;
         Ok(())
