@@ -213,8 +213,8 @@ mod tests {
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
-    use std::{collections::BTreeMap, path::Path};
     use sha3::Digest;
+    use std::{collections::BTreeMap, path::Path};
 
     sol! {
         interface TestContract {
