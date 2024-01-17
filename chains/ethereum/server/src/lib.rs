@@ -209,12 +209,12 @@ impl BlockchainClient for MaybeWsEthereumClient {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use anyhow::{Ok, Result};
     use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
     use std::{collections::BTreeMap, path::Path};
+    use sha3::Digest;
 
     sol! {
         interface TestContract {
