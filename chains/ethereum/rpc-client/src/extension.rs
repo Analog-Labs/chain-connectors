@@ -39,7 +39,7 @@ macro_rules! impl_client_trait {
                 ) -> ::core::pin::Pin<
                     Box<
                         dyn ::core::future::Future<
-                                Output = ::core::result::Result<(), ::jsonrpsee::core::Error>,
+                                Output = ::core::result::Result<(), ::jsonrpsee::core::ClientError>,
                             > + ::core::marker::Send
                             + 'async_trait,
                     >,
@@ -62,7 +62,7 @@ macro_rules! impl_client_trait {
                     params: Params,
                 ) -> ::core::pin::Pin<
                     Box<
-                        dyn ::core::future::Future<Output = ::core::result::Result<R, ::jsonrpsee::core::Error>>
+                        dyn ::core::future::Future<Output = ::core::result::Result<R, ::jsonrpsee::core::ClientError>>
                             + ::core::marker::Send
                             + 'async_trait,
                     >,
@@ -89,7 +89,7 @@ macro_rules! impl_client_trait {
                         dyn ::core::future::Future<
                                 Output = ::core::result::Result<
                                     ::jsonrpsee::core::client::BatchResponse<'a, R>,
-                                    ::jsonrpsee::core::Error,
+                                    ::jsonrpsee::core::ClientError,
                                 >,
                             > + ::core::marker::Send
                             + 'async_trait,
@@ -153,7 +153,7 @@ macro_rules! impl_subscription_trait {
                 Box<
                     dyn ::core::future::Future<Output = ::core::result::Result<
                             ::jsonrpsee::core::client::Subscription<Notif>,
-                            ::jsonrpsee::core::Error
+                            ::jsonrpsee::core::ClientError
                         >>
                         + ::core::marker::Send
                         + 'async_trait,
@@ -185,7 +185,7 @@ macro_rules! impl_subscription_trait {
                 Box<
                     dyn ::core::future::Future<Output = ::core::result::Result<
                         ::jsonrpsee::core::client::Subscription<Notif>,
-                        ::jsonrpsee::core::Error
+                        ::jsonrpsee::core::ClientError
                     >>
                     + ::core::marker::Send
                     + 'async_trait,

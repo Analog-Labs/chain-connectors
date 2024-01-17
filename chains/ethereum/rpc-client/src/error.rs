@@ -2,7 +2,8 @@ use ethers::providers::{
     JsonRpcError as EthJsonRpcError, ProviderError as EthProviderError,
     RpcError as EthRpcErrorTrait,
 };
-use jsonrpsee::{client_transport::ws::WsHandshakeError, core::Error as JsonRpseeError};
+use jsonrpsee::{client_transport::ws::WsHandshakeError, core::ClientError as JsonRpseeError};
+use std::sync::Arc;
 
 /// Adapter for [`jsonrpsee::core::Error`] to [`ethers::providers::RpcError`].
 #[derive(Debug, thiserror::Error)]
@@ -22,7 +23,7 @@ pub enum EthError {
 
     /// The background task has been terminated.
     #[error("The background task been terminated because: {0}; restart required")]
-    RestartNeeded(String),
+    RestartNeeded(Arc<JsonRpseeError>),
 
     /// The client is reconnecting
     #[error("The client is restarting the background task")]
@@ -43,7 +44,7 @@ impl From<JsonRpseeError> for EthError {
                 }
             },
             JsonRpseeError::ParseError(serde_error) => Self::ParseError(serde_error),
-            JsonRpseeError::RestartNeeded(reason) => Self::RestartNeeded(reason),
+            JsonRpseeError::RestartNeeded(reason) => Self::RestartNeeded(Arc::clone(&reason)),
             error => {
                 let message = format!("{}", &error);
                 Self::JsonRpsee {

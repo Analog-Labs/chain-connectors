@@ -51,7 +51,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: symbol,
         currency_decimals: 18,
         node_uri: NodeUri::parse("ws://127.0.0.1:9945")?,
-        node_image: "staketechnologies/astar-collator:v5.15.0",
+        node_image: "staketechnologies/astar-collator:v5.28.0-rerun",
         node_command: Arc::new(|network, port| {
             let mut params = vec![
                 "astar-collator".into(),

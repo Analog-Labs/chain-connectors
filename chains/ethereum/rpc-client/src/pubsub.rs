@@ -15,7 +15,7 @@ use ethers::{
 use jsonrpsee::{
     core::{
         client::{ClientT, Subscription, SubscriptionClientT, SubscriptionKind},
-        error::Error as JsonRpseeError,
+        ClientError as JsonRpseeError,
     },
     types::SubscriptionId,
 };

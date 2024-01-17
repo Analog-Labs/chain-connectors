@@ -1,6 +1,6 @@
 use ethers::types::U256;
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
-use jsonrpsee::core::{client::Subscription, error::Error as JsonRpseeError};
+use jsonrpsee::core::{client::Subscription, ClientError as JsonRpseeError};
 use pin_project::pin_project;
 use serde_json::value::RawValue;
 use std::{
@@ -135,10 +135,8 @@ impl Stream for EthSubscription {
                                 JsonRpseeError::RestartNeeded(_) |
                                 JsonRpseeError::InvalidSubscriptionId |
                                 JsonRpseeError::InvalidRequestId(_) |
-                                JsonRpseeError::UnregisteredNotification(_) |
-                                JsonRpseeError::SubscriptionNameConflict(_) |
                                 JsonRpseeError::RequestTimeout |
-                                JsonRpseeError::AlreadyStopped => {},
+                                JsonRpseeError::RegisterMethod(_) => {},
                                 JsonRpseeError::Custom(reason) => {
                                     tracing::warn!("failed to unsubscribe: \"{reason}\"");
                                 },

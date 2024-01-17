@@ -57,9 +57,12 @@ impl GenericClient {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
             },
-            Blockchain::Polkadot => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
+            },
+            Blockchain::Kusama | Blockchain::Wococo => {
+                anyhow::bail!("unsupported blockchain: {blockchain:?}")
             },
         })
     }
@@ -79,9 +82,12 @@ impl GenericClient {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
             },
-            Blockchain::Polkadot => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
+            },
+            Blockchain::Kusama | Blockchain::Wococo => {
+                anyhow::bail!("unsupported blockchain: {blockchain:?}")
             },
         })
     }

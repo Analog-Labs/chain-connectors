@@ -82,10 +82,10 @@ exec_cmd 'clippy' 'cargo clippy --locked --workspace --examples --tests --all-fe
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
   exec_cmd 'cleanup docker' "${SCRIPT_DIR}/reset_docker.sh"
-  cargo test --locked -p rosetta-server-astar
-  cargo test --locked -p rosetta-server-bitcoin
   cargo test --locked -p rosetta-server-ethereum
+  cargo test --locked -p rosetta-server-astar
   cargo test --locked -p rosetta-server-polkadot
+  cargo test --locked -p rosetta-server-bitcoin
   cargo test --locked -p rosetta-client
   cargo test --locked --workspace --all-features \
     --exclude rosetta-server-astar \
