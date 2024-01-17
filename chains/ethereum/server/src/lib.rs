@@ -209,6 +209,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
+    use anyhow::{Ok, Result};
+    use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
@@ -313,6 +315,7 @@ mod tests {
             let topic = receipt.logs[0].topics[0];
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
+            Ok(())
         })
         .await;
         Ok(())
@@ -360,6 +363,7 @@ mod tests {
                     .to_vec()
                 )
             );
+            Ok(())
         })
         .await;
         Ok(())
