@@ -21,9 +21,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{pin::Pin, str::FromStr};
 
-// TODO: Use
-#[allow(clippy::large_enum_variant)]
 /// Generic Client
+#[allow(clippy::large_enum_variant)]
 pub enum GenericClient {
     Ethereum(EthereumClient),
     Astar(AstarClient),
