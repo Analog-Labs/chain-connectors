@@ -49,7 +49,7 @@ impl PolkadotClient {
         Self::from_config(config, addr).await
     }
 
-    /// Creates a new bitcoin client using the provided `config` and connets to `addr`
+    /// Creates a new substrate client using the provided `config` and connets to `addr`
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.

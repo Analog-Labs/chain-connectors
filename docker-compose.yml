@@ -1,28 +1,11 @@
 version: "3.9"
 
 volumes:
-  bitcoin-volume:
   ethereum-volume:
   polkadot-volume:
   astar-volume:
 
 services:
-  bitcoin:
-    image: "ruimarinho/bitcoin-core:23"
-    command: "-regtest=1 -rpcbind=0.0.0.0 -rpcport=18443 -rpcallowip=0.0.0.0/0 -rpcuser=rosetta -rpcpassword=rosetta"
-    expose:
-    - "18443"
-    ulimits:
-      nofile:
-        soft: 10000
-        hard: 10000
-    deploy:
-      resources:
-        reservations:
-          memory: 1g
-    volumes:
-    - "bitcoin-volume:/home/bitcoin/.bitcoin"
-
   ethereum:
     image: "ethereum/client-go:v1.12.2"
     command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
@@ -41,7 +24,7 @@ services:
 
   polkadot:
     image: "parity/polkadot:v1.5.0"
-    command: "--dev --rpc-external --rpc-port=9944 --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
+    command: "--chain=westend-dev --dev --rpc-external --rpc-port=9944 --alice --blocks-pruning archive --state-pruning archive --base-path /polkadot"
     expose:
     - "9944"
     user: root
@@ -72,15 +55,6 @@ services:
           memory: 1g
     volumes:
     - "astar-volume:/astar"
-
-
-  connector-bitcoin:
-    image: "analoglabs/connector-bitcoin"
-    command: "--network regtest --addr 0.0.0.0:8080 --node-addr http://bitcoin:18443"
-    ports:
-    - "8080:8080"
-    depends_on:
-    - bitcoin
 
   connector-ethereum:
     image: "analoglabs/connector-ethereum"

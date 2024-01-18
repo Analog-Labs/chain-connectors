@@ -17,8 +17,6 @@ pub use signer::Signer;
 /// Supported chains.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Blockchain {
-    /// Bitcoin
-    Bitcoin,
     /// Ethereum
     Ethereum,
     /// Astar
@@ -44,7 +42,6 @@ impl std::str::FromStr for Blockchain {
 
     fn from_str(blockchain: &str) -> Result<Self> {
         Ok(match blockchain {
-            "bitcoin" => Self::Bitcoin,
             "ethereum" => Self::Ethereum,
             "astar" => Self::Astar,
             "polkadot" => Self::Polkadot,

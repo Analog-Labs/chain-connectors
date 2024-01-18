@@ -67,7 +67,7 @@ rosetta-wallet [command]
 
 ## Reference wallet implementations
 
-To help you get started with wallets on specific chains, we have developed complete Rosetta API reference implementations for Bitcoin (deprioritized for now), Ethereum, and Substrate-based chains.
+To help you get started with wallets on specific chains, we have developed complete Rosetta API reference implementations for Ethereum, and Substrate-based chains.
 
 ### Ethereum example
 
@@ -90,18 +90,6 @@ rosetta-wallet --chain dot --keyfile /tmp/alice faucet 3000000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob account
 rosetta-wallet --chain dot --keyfile /tmp/alice transfer bob_acc_key 1500000000000000
 rosetta-wallet --chain dot --keyfile /tmp/bob balance
-```
-
-### Bitcoin example
-
-To use this repository, you need to fork it and start playing with the code. For example, running these commands will help you learn more about Rosetta API implementation for Bitcoin wallets:
-
-```
-rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1000
-rosetta-wallet --chain btc --keyfile /tmp/bob account
-rosetta-wallet --chain btc --keyfile /tmp/alice transfer bob_acc_key 1000
-rosetta-wallet --chain btc --keyfile /tmp/alice faucet 1
-rosetta-wallet --chain btc --keyfile /tmp/bob balance
 ```
 
 ## Reference CLI implementation
@@ -127,7 +115,6 @@ http://rosetta.analog.one:3000
 
 Running a local testnet with docker compose up initiates a number of containers, including:
 
-- bitcoin: http://127.0.0.1:8080
 - ethereum: http://127.0.0.1:8081
 - polkadot: http://127.0.0.1:8082
 - block explorer: [http://127.0.0.1:3000](http://127.0.0.1:3000)

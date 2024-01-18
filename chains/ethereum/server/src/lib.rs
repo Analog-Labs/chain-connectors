@@ -54,7 +54,7 @@ impl MaybeWsEthereumClient {
         Self::from_config(config, addr).await
     }
 
-    /// Creates a new bitcoin client from `config` and `addr`
+    /// Creates a new ethereum client from `config` and `addr`
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.

@@ -73,7 +73,6 @@ exec_cmd 'dprint check' 'dprint check'
 exec_cmd 'cargo deny' 'cargo deny check'
 
 # exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'clippy rosetta-server-bitcoin' 'cargo clippy --locked -p rosetta-server-bitcoin --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-client' 'cargo clippy --locked -p rosetta-client --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
@@ -85,11 +84,9 @@ if [[ "${RUN_TESTS}" == "1" ]]; then
   cargo test --locked -p rosetta-server-ethereum
   cargo test --locked -p rosetta-server-astar
   cargo test --locked -p rosetta-server-polkadot
-  cargo test --locked -p rosetta-server-bitcoin
   cargo test --locked -p rosetta-client
   cargo test --locked --workspace --all-features \
     --exclude rosetta-server-astar \
-    --exclude rosetta-server-bitcoin \
     --exclude rosetta-server-ethereum \
     --exclude rosetta-server-polkadot \
     --exclude rosetta-client

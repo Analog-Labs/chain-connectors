@@ -249,7 +249,7 @@ impl Wallet {
             match self.metadata(&metadata_params).await? {
                 GenericMetadata::Ethereum(metadata) => metadata,
                 GenericMetadata::Astar(metadata) => metadata.0,
-                _ => anyhow::bail!("unsupported op"),
+                GenericMetadata::Polkadot(_) => anyhow::bail!("unsupported op"),
             };
         Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
     }
@@ -274,7 +274,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_view_call"),
         };
         let EthQueryResult::CallContract(exit_reason) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -302,7 +301,6 @@ impl Wallet {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetStorageAt(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -329,7 +327,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetProof(proof) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -353,7 +350,6 @@ impl Wallet {
                 client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetTransactionReceipt(maybe_receipt) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -371,7 +367,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_chainId"),
         };
         let EthQueryResult::ChainId(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
