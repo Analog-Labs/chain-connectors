@@ -44,10 +44,10 @@ rosetta-server = { path = "rosetta-server", default-features = false }
 rosetta-types = { path = "rosetta-types" }
 
 ## Crates we want all members to use the same version
-jsonrpsee = { version = "0.20", default-features = false }
+jsonrpsee = { version = "0.21", default-features = false }
 parity-scale-codec = { version = "3.6" }
 tokio = { version = "1.32" }
-subxt = { version = "0.32", default-features = false }
+subxt = { version = "0.33", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 scale-info = { version = "2.3" }

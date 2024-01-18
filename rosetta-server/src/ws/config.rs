@@ -1,7 +1,7 @@
 use core::{num::NonZeroUsize, time::Duration};
 use jsonrpsee::{
     client_transport::ws::WsTransportClientBuilder,
-    core::client::{ClientBuilder, IdKind},
+    core::client::{async_client::PingConfig, ClientBuilder, IdKind},
 };
 
 /// Ten megabytes.
@@ -183,8 +183,8 @@ impl From<&RpcClientConfig> for ClientBuilder {
             )
             .id_format(config.rpc_id_kind)
             .set_max_logging_length(config.rpc_max_log_length);
-        if let Some(ping_internal) = config.rpc_ping_interval {
-            builder = builder.ping_interval(ping_internal);
+        if let Some(ping_interval) = config.rpc_ping_interval {
+            builder = builder.enable_ws_ping(PingConfig::new().ping_interval(ping_interval));
         }
         builder
     }

@@ -362,4 +362,22 @@ impl Wallet {
         };
         Ok(maybe_receipt)
     }
+
+    /// gets the currently configured chain ID, a value used in replay-protected transaction signing
+    /// as introduced by EIP-155.
+    /// # Errors
+    /// Returns `Err` if the blockchain doesn't support `eth_chainId` or the client connection
+    /// failed.
+    pub async fn eth_chain_id(&self) -> Result<u64> {
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
+            GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),
+            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_chainId"),
+        };
+        let EthQueryResult::ChainId(value) = result else {
+            anyhow::bail!("[this is a bug] invalid result type");
+        };
+        Ok(value)
+    }
 }

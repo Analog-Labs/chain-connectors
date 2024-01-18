@@ -130,7 +130,7 @@ where
 
     #[allow(clippy::missing_errors_doc)]
     pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
-        let number = match self.block_finality_strategy {
+        let number: BlockNumber = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
                 let latest_block = match latest_block {
                     Some(number) => number,
@@ -460,6 +460,10 @@ where
                         })
                         .collect(),
                 })
+            },
+            EthQuery::ChainId => {
+                let chain_id = self.client.get_chainid().await?.as_u64();
+                EthQueryResult::ChainId(chain_id)
             },
         };
         Ok(result)
