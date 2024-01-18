@@ -18,7 +18,7 @@ use jsonrpsee::{
     client_transport::ws::WsTransportClientBuilder,
     core::{
         client::{Client, ClientBuilder},
-        Error as JsonRpseeError,
+        ClientError as JsonRpseeError,
     },
 };
 use std::time::Duration;

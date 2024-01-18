@@ -11,3 +11,9 @@ anyhow = "1.0"
 rosetta-core.workspace = true
 serde.workspace = true
 subxt = { workspace = true, features = ["substrate-compat", "native"] }
+
+[features]
+default = ["polkadot-metadata", "westend-metadata", "rococo-metadata"]
+polkadot-metadata = []
+westend-metadata = []
+rococo-metadata = []

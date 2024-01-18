@@ -4,7 +4,6 @@ use jsonrpsee::{
     core::{
         client::{ClientT, SubscriptionClientT, SubscriptionKind},
         traits::ToRpcParams,
-        Error as JsonRpseeError,
     },
     types::SubscriptionId,
 };
@@ -17,7 +16,7 @@ use subxt::{
 pub struct Params(Option<Box<RawValue>>);
 
 impl Params {
-    pub fn new<P>(params: P) -> Result<Self, JsonRpseeError>
+    pub fn new<P>(params: P) -> Result<Self, serde_json::Error>
     where
         P: ToRpcParams,
     {
@@ -27,7 +26,7 @@ impl Params {
 }
 
 impl ToRpcParams for Params {
-    fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
+    fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, serde_json::Error> {
         Ok(self.0)
     }
 }
