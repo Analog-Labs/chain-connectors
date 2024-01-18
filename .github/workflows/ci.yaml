@@ -10,7 +10,7 @@ on:
 
 jobs:
   rustfmt:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         scandir: './scripts'
 
   cargo-deny:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
       matrix:
         crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
     name: ${{ matrix.crate }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -101,7 +101,7 @@ jobs:
   # Test all crates, excluding the clients
   test:
     needs: [rustfmt]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
