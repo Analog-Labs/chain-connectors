@@ -21,7 +21,6 @@ use rosetta_core::{
 use rosetta_server::ws::default_client;
 use rosetta_server_ethereum::MaybeWsEthereumClient;
 use serde::{Deserialize, Serialize};
-use sp_core::crypto::Ss58AddressFormat;
 use std::sync::Arc;
 use subxt::{
     backend::{
@@ -29,6 +28,7 @@ use subxt::{
         rpc::RpcClient,
     },
     dynamic::Value as SubtxValue,
+    ext::sp_core::{self, crypto::Ss58AddressFormat},
     tx::PairSigner,
     utils::AccountId32,
     OnlineClient, PolkadotConfig,

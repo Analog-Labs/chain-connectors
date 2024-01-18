@@ -49,7 +49,7 @@ impl MaybeWsEthereumClient {
             "ethereum" => rosetta_config_ethereum::config(network)?,
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
-            blockchain => anyhow::bail!("1unsupported blockchain: {blockchain}"),
+            blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr).await
     }

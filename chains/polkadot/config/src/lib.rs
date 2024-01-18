@@ -11,9 +11,19 @@ use std::sync::Arc;
 use subxt::ext::sp_core::crypto::Ss58AddressFormat;
 
 // Generate an interface that we can use from the node's metadata.
+
 pub mod metadata {
-    #[subxt::subxt(runtime_metadata_path = "res/polkadot-v9430.scale")]
-    pub mod dev {}
+    #[cfg(feature = "polkadot-metadata")]
+    pub mod polkadot {
+        #[subxt::subxt(runtime_metadata_path = "res/polkadot-v1000001.scale")]
+        pub mod dev {}
+    }
+
+    #[cfg(feature = "westend-metadata")]
+    pub mod westend {
+        #[subxt::subxt(runtime_metadata_path = "res/westend-dev-v1.5.0.scale")]
+        pub mod dev {}
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,14 +41,30 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
 
     fn try_from(value: &str) -> std::result::Result<Self, Self::Error> {
         // To see all available blockchains and networks, see:
-        // https://github.com/paritytech/polkadot/blob/v1.0.0/cli/src/command.rs#L93-L145
+        // https://github.com/paritytech/polkadot-sdk/blob/v1.5.0-rc4/polkadot/cli/src/command.rs#L87-L154
         // All blockchains in polkadot have "dev", "local" and "staging" variants
 
-        // "dev" and "polkadot-dev" are the same
-        let chain = if value == "dev" { "polkadot-dev" } else { value };
+        // "dev" and "rococo-dev" are the same
+        let chain = if value == "dev" { "rococo-dev" } else { value };
 
         // Split blockchain and network
         let (blockchain, network) = chain.split_once('-').unwrap_or((chain, ""));
+
+        // Convert network to &'static str
+        let network = match network {
+            "" | "mainnet" => "mainnet",
+            "dev" => "dev",
+            "local" => "local",
+            "staging" => "staging",
+            _ => anyhow::bail!("unsupported network: {blockchain}-{network}"),
+        };
+
+        // Since polkadot v1.2.0 the native runtime is no longer part of the node.
+        // Reference:
+        // https://github.com/paritytech/polkadot-sdk/compare/v1.1.0-rc2...v1.2.0-rc1#diff-67483124e887614f5d8edc2a46dd5329354bc294ed58bc1748f41dfeb6ec2404R90-R93
+        if matches!(blockchain, "polkadot" | "kusama") && network != "mainnet" {
+            anyhow::bail!("{blockchain}-{network} is not supported anymore as the polkadot native runtime no longer part of the node.");
+        }
 
         // Convert blockchain to &'static str
         let blockchain = match blockchain {
@@ -49,15 +75,6 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
             "wococo" => "wococo",
             "versi" => "versi",
             _ => anyhow::bail!("unsupported blockchain: {}", blockchain),
-        };
-
-        // Convert network to &'static str
-        let network = match network {
-            "" => "mainnet",
-            "dev" => "dev",
-            "local" => "local",
-            "staging" => "staging",
-            _ => anyhow::bail!("unsupported network: {blockchain}-{network}"),
         };
 
         // Get blockchain parameters
@@ -77,6 +94,7 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
             ("westend", _) => ("WND", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
 
             // Wococo
+            ("wococo", "staging") => anyhow::bail!("wococo doesn't have staging network"),
             ("wococo", _) => ("WOCO", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
 
             // Versi
@@ -129,7 +147,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_symbol: properties.symbol,
         currency_decimals: properties.decimals,
         node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
-        node_image: "parity/polkadot:v1.0.0",
+        node_image: "parity/polkadot:v1.5.0",
         node_command: Arc::new(move |network, port| {
             let chain = if network == "mainnet" {
                 blockchain.to_string()

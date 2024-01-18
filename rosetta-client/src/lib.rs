@@ -25,6 +25,14 @@ pub enum Blockchain {
     Astar,
     /// Polkadot
     Polkadot,
+    /// Kusama
+    Kusama,
+    /// Rococo
+    Rococo,
+    /// Westend
+    Westend,
+    /// Wococo
+    Wococo,
     /// Polygon
     Polygon,
     /// Arbitrum
@@ -40,6 +48,10 @@ impl std::str::FromStr for Blockchain {
             "ethereum" => Self::Ethereum,
             "astar" => Self::Astar,
             "polkadot" => Self::Polkadot,
+            "kusama" => Self::Kusama,
+            "rococo" => Self::Rococo,
+            "westend" => Self::Westend,
+            "wococo" => Self::Wococo,
             "polygon" => Self::Polygon,
             "arbitrum" => Self::Arbitrum,
             _ => anyhow::bail!("unsupported blockchain {}", blockchain),

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use parity_scale_codec::{Decode, Encode};
-use rosetta_config_polkadot::metadata::dev as polkadot_metadata;
+use rosetta_config_polkadot::metadata::westend::dev as westend_dev_metadata;
 pub use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -19,11 +19,14 @@ use subxt::{
         legacy::{rpc_methods::BlockNumber, LegacyRpcMethods},
         rpc::RpcClient,
     },
+    blocks::BlockRef,
     config::{Hasher, Header},
-    dynamic::Value as SubtxValue,
+    // dynamic::Value as SubtxValue,
     tx::{PairSigner, SubmittableExtrinsic},
     utils::{AccountId32, MultiAddress},
-    Config, OnlineClient, PolkadotConfig,
+    Config,
+    OnlineClient,
+    PolkadotConfig,
 };
 
 mod block;
@@ -77,18 +80,23 @@ impl PolkadotClient {
             .context("invalid address")?;
 
         // Build a dynamic storage query to iterate account information.
-        let storage_query =
-            subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
+        // let storage_query =
+        //     subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
+
+        let storage_query = westend_dev_metadata::storage().system().account(account);
 
         let block_hash = {
             let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
             self.rpc_methods
                 .chain_get_block_hash(block_number)
                 .await?
+                .map(BlockRef::from_hash)
                 .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
         };
 
         let account_info = self.client.storage().at(block_hash).fetch(&storage_query).await?;
+
+        // let account_info = self.client.storage().at(block_hash).fetch(&storage_query).await?;
 
         account_info.map_or_else(
             || {
@@ -97,12 +105,21 @@ impl PolkadotClient {
                     consumers: 0,
                     providers: 0,
                     sufficients: 0,
-                    data: AccountData { free: 0, reserved: 0, misc_frozen: 0, fee_frozen: 0 },
+                    data: AccountData { free: 0, reserved: 0, frozen: 0 },
                 })
             },
             |account_info| {
-                AccountInfo::decode(&mut account_info.encoded())
-                    .map_err(|_| anyhow::anyhow!("invalid format"))
+                Ok(AccountInfo {
+                    nonce: account_info.nonce,
+                    consumers: account_info.consumers,
+                    providers: account_info.providers,
+                    sufficients: account_info.sufficients,
+                    data: AccountData {
+                        free: account_info.data.free,
+                        reserved: account_info.data.reserved,
+                        frozen: account_info.data.frozen,
+                    },
+                })
             },
         )
     }
@@ -164,8 +181,7 @@ impl BlockchainClient for PolkadotClient {
             .context("invalid address")?;
         let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
 
-        let tx = polkadot_metadata::tx().balances().transfer(address.into(), value);
-
+        let tx = westend_dev_metadata::tx().balances().transfer_keep_alive(address.into(), value);
         let hash = self
             .client
             .tx()
@@ -233,7 +249,7 @@ impl BlockchainClient for PolkadotClient {
         let extrinsics = block.extrinsics().await?;
 
         // Build timestamp query
-        let timestamp_now_query = polkadot_metadata::storage().timestamp().now();
+        let timestamp_now_query = westend_dev_metadata::storage().timestamp().now();
         let timestamp = block.storage().fetch_or_default(&timestamp_now_query).await?;
 
         let mut transactions = vec![];
@@ -322,8 +338,7 @@ struct AccountInfo<Index, AccountData> {
 struct AccountData {
     pub free: u128,
     pub reserved: u128,
-    pub misc_frozen: u128,
-    pub fee_frozen: u128,
+    pub frozen: u128,
 }
 
 #[derive(Decode, Encode, Debug)]
@@ -344,20 +359,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
-        let config = rosetta_config_polkadot::config("dev")?;
+        let config = rosetta_config_polkadot::config("westend-dev")?;
         rosetta_docker::tests::network_status::<PolkadotClient, _, _>(client_from_config, config)
             .await
     }
 
     #[tokio::test]
     async fn test_account() -> Result<()> {
-        let config = rosetta_config_polkadot::config("dev")?;
+        let config = rosetta_config_polkadot::config("westend-dev")?;
         rosetta_docker::tests::account::<PolkadotClient, _, _>(client_from_config, config).await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
-        let config = rosetta_config_polkadot::config("dev")?;
+        let config = rosetta_config_polkadot::config("westend-dev")?;
         rosetta_docker::tests::construction::<PolkadotClient, _, _>(client_from_config, config)
             .await
     }

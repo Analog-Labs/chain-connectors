@@ -1,4 +1,4 @@
-use jsonrpsee::core::{error::Error as JsonRpseeError, traits::ToRpcParams};
+use jsonrpsee::core::traits::ToRpcParams;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::value::RawValue;
 use std::fmt::{Display, Formatter};
@@ -23,7 +23,7 @@ impl EthRpcParams {
 }
 
 impl ToRpcParams for EthRpcParams {
-    fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, JsonRpseeError> {
+    fn to_rpc_params(self) -> Result<Option<Box<RawValue>>, serde_json::Error> {
         Ok(Some(self.0))
     }
 }
