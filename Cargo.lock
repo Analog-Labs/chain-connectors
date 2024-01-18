@@ -5440,7 +5440,7 @@ dependencies = [
 name = "rosetta-testing-arbitrum"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
+ "alloy-sol-types 0.5.4",
  "anyhow",
  "ethers",
  "ethers-solc",
