@@ -93,6 +93,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
+    type BlockIdentifier = BlockIdentifier;
+
     fn config(&self) -> &BlockchainConfig {
         match self {
             Self::Http(http_client) => http_client.config(),

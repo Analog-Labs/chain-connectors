@@ -133,6 +133,8 @@ impl BlockchainClient for PolkadotClient {
     type Call = CallRequest;
     type CallResult = Value;
 
+    type BlockIdentifier = BlockIdentifier;
+
     fn config(&self) -> &BlockchainConfig {
         &self.config
     }

@@ -127,6 +127,8 @@ impl BlockchainClient for AstarClient {
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
+    type BlockIdentifier = BlockIdentifier;
+
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
     }

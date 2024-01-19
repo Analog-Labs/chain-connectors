@@ -117,6 +117,8 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Call: Send + Sync + Sized + 'static;
     type CallResult: Send + Sync + Sized + 'static;
 
+    type BlockIdentifier: Clone + Send + Sync + Sized + Eq + 'static;
+
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> &BlockIdentifier;
     async fn node_version(&self) -> Result<String>;
@@ -155,6 +157,8 @@ where
     type EventStream<'a> = <T as BlockchainClient>::EventStream<'a>;
     type Call = <T as BlockchainClient>::Call;
     type CallResult = <T as BlockchainClient>::CallResult;
+
+    type BlockIdentifier = <T as BlockchainClient>::BlockIdentifier;
 
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))

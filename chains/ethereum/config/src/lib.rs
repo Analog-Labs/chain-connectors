@@ -104,11 +104,9 @@ impl rstd::fmt::Display for BlockHash {
 impl rosetta_core::traits::HashOutput for BlockHash {}
 
 impl rosetta_core::traits::Header for types::header::Header {
-    type Number = u64;
-
     type Hash = BlockHash;
 
-    fn number(&self) -> Self::Number {
+    fn number(&self) -> rosetta_core::traits::BlockNumber {
         self.number
     }
 

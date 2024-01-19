@@ -108,6 +108,12 @@ pub enum GenericCallResult {
     Polkadot(Value),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericBlockIdentifier {
+    Ethereum(<EthereumClient as BlockchainClient>::BlockIdentifier),
+    Polkadot(<PolkadotClient as BlockchainClient>::BlockIdentifier),
+}
+
 macro_rules! dispatch {
     ($self:tt$($method:tt)+) => {
         match $self {
@@ -125,6 +131,8 @@ impl BlockchainClient for GenericClient {
     type EventStream<'a> = Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>;
     type Call = GenericCall;
     type CallResult = GenericCallResult;
+
+    type BlockIdentifier = GenericBlockIdentifier;
 
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())

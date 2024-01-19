@@ -9,17 +9,6 @@ use core::{
 /// Such a maybe-marker trait requires the given bound when `feature = std` and doesn't require
 /// the bound on `no_std`. This is useful for situations where you require that a type implements
 /// a certain trait with `feature = std`, but not on `no_std`.
-///
-/// # Example
-///
-/// ```
-/// sp_core::impl_maybe_marker! {
-///     /// A marker for a type that implements `Debug` when `feature = std`.
-///     trait MaybeDebug: std::fmt::Debug;
-///     /// A marker for a type that implements `Debug + Display` when `feature = std`.
-///     trait MaybeDebugDisplay: std::fmt::Debug, std::fmt::Display;
-/// }
-/// ```
 macro_rules! impl_maybe_marker {
 	(
 		$(
@@ -64,15 +53,14 @@ pub trait HashOutput:
 {
 }
 
-pub trait Header: Clone + Send + Sync + Eq + Debug + 'static {
-    /// Header number.
-    type Number;
+pub type BlockNumber = u64;
 
+pub trait Header: Clone + Send + Sync + Eq + Debug + 'static {
     /// Header hash type
     type Hash: HashOutput;
 
     /// Returns the header block number.
-    fn number(&self) -> Self::Number;
+    fn number(&self) -> BlockNumber;
 
     /// Returns the hash of the header.
     fn hash(&self) -> Self::Hash;
@@ -156,7 +144,56 @@ pub trait BlockchainConfig {
     const BIP44: u32;
     const DEV: bool;
 
-    type Block: Clone + Send + Sync + 'static;
+    const CHECKPOINT: Option<(BlockNumber, <<Self::Block as Block>::Header as Header>::Hash)>;
+
+    type Block: Block;
     type Transaction: Clone + Send + Sync + 'static;
     type UnsignedTransaction: Clone + Send + Sync + 'static;
 }
+
+pub trait Query {
+    type Params: Send + Sync + 'static;
+    type Result: Send + Sync + 'static;
+}
+
+// pub enum QueryEnum<T: BlockchainConfig, CUSTOM> {
+//     BlockHeaderByHash(<T::Block as Block>::Hash),
+//     BlockByHash(T::Block),
+//     Query(CUSTOM),
+// }
+
+// pub enum SubscribeEnum<T: BlockchainConfig, CUSTOM> {
+//     NewHeads,
+//     FinalizedHeads,
+//     Subscribe(CUSTOM),
+// }
+
+// pub trait BlockchainClient {
+//     type Config: BlockchainConfig;
+//     type Error: std::error::Error + Send + Sync + 'static;
+//     type TxParams: Send + Sync + 'static;
+
+//     type QueryFuture<'a, Q>: core::future::Future<Output = Result<Q::Result, Self::Error>>
+//         + Send
+//         + 'a
+//     where
+//         Q: Query,
+//         Self: 'a;
+
+//     fn query<Q: Query>(&self, params: Q::Params) -> Self::QueryFuture<'_, Q>;
+
+//     fn build_transaction(
+//         &self,
+//         params: Self::TxParams,
+//     ) -> <Self::Config as BlockchainConfig>::Transaction;
+
+//     fn submit_transaction(
+//         &self,
+//         tx: <Self::Config as BlockchainConfig>::Transaction,
+//     ) -> Result<(), Self::Error>;
+
+//     fn poll_next_event(
+//         &self,
+//         tx: <Self::Config as BlockchainConfig>::Transaction,
+//     ) -> Result<(), Self::Error>;
+// }
