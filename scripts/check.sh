@@ -72,6 +72,29 @@ exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
 exec_cmd 'dprint check' 'dprint check'
 exec_cmd 'cargo deny' 'cargo deny check'
 
+# Run clippy on all packages with different feature flags
+LINT_FLAGS='-- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
+
+
+exec_cmd 'ethereum build all-features' 'cargo build -p rosetta-config-ethereum --all-features'
+exec_cmd 'ethereum test all-features' 'cargo test -p rosetta-config-ethereum --all-features'
+exec_cmd 'ethereum clippy all-features' "cargo clippy -p rosetta-config-ethereum --all-features ${LINT_FLAGS}"
+ethereumFeatures=('std' 'std,serde' 'std,scale-info' 'std,scale-codec')
+for features in "${ethereumFeatures[@]}";
+do
+  exec_cmd "ethereum build ${features}" "cargo build -p rosetta-config-ethereum --no-default-features --features=${features}"
+  exec_cmd "ethereum test ${features}" "cargo test -p rosetta-config-ethereum --no-default-features --features=${features}"
+  exec_cmd "ethereum clippy ${features}" "cargo clippy -p rosetta-config-ethereum --no-default-features --features=${features} ${LINT_FLAGS}"
+done
+# exec_cmd 'ethereum build std' 'cargo build -p rosetta-config-ethereum --no-default-features --features=std'
+# exec_cmd 'ethereum build std + serde' 'cargo build -p rosetta-config-ethereum --no-default-features --features=std,serde'
+# exec_cmd 'ethereum build std + scale-info' 'cargo build -p rosetta-config-ethereum --no-default-features --features=std,scale-info'
+# exec_cmd 'ethereum test all-features' 'cargo test -p rosetta-config-ethereum --all-features'
+# exec_cmd 'ethereum test std + serde' 'cargo test -p rosetta-config-ethereum --no-default-features --features=std,serde'
+# exec_cmd 'ethereum clippy std' "cargo clippy -p rosetta-config-ethereum --no-default-features --features=std ${LINT_FLAGS}"
+# exec_cmd 'ethereum clippy std + serde' "cargo clippy -p rosetta-config-ethereum --no-default-features --features=std,serde ${LINT_FLAGS}"
+# exec_cmd 'ethereum' 'cargo build -p rosetta-config-ethereum --no-default-features --target=wasm32-unknown-unknown'
+
 # exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'

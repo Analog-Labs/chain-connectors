@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #[cfg(feature = "serde")]
 mod serde_utils;
 mod types;
@@ -12,6 +14,39 @@ use rosetta_core::{
 };
 use std::sync::Arc;
 pub use types::*;
+
+#[cfg(not(feature = "std"))]
+#[cfg_attr(test, macro_use)]
+extern crate alloc;
+
+#[cfg(feature = "std")]
+pub(crate) mod rstd {
+    #[cfg(feature = "serde")]
+    pub use std::{option, result};
+
+    pub use std::{
+        // borrow, boxed, cmp, convert, default, fmt, hash, iter, marker, mem, ops, rc, result,
+        // time,
+        vec,
+    };
+    // pub mod error {
+    //     pub use std::error::Error;
+    // }
+}
+
+#[cfg(not(feature = "std"))]
+pub(crate) mod rstd {
+    #[cfg(feature = "serde")]
+    pub use core::{option, result};
+
+    pub use alloc::vec;
+    // pub use alloc::{borrow, boxed, rc, vec};
+    // pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result, time};
+    // pub mod error {
+    //     pub trait Error {}
+    //     impl<T> Error for T {}
+    // }
+}
 
 /// Retrieve the [`BlockchainConfig`] from the provided polygon `network`
 ///

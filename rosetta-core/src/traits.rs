@@ -3,6 +3,7 @@ use core::{
     fmt::{Debug, Display},
     str::FromStr,
 };
+use std::vec::Vec;
 
 /// Macro for creating `Maybe*` marker traits.
 ///
@@ -70,24 +71,93 @@ pub trait Header: Clone + Send + Sync + Eq + Debug + 'static {
 
     /// Header hash type
     type Hash: HashOutput;
+
+    /// Returns a reference to the header number.
+    fn number(&self) -> &Self::Number;
+
+    /// Returns the hash of the header.
+    fn hash(&self) -> Self::Hash;
+}
+
+/// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
+/// [`Transaction`].
+pub trait SignaturePayload {
+    /// The type of the address that signed the extrinsic.
+    ///
+    /// Particular to a signed extrinsic.
+    type SignatureAddress;
+
+    /// The signature type of the extrinsic.
+    ///
+    /// Particular to a signed extrinsic.
+    type Signature;
+
+    /// The additional data that is specific to the signed extrinsic.
+    ///
+    /// Particular to a signed extrinsic.
+    type SignatureExtra;
+}
+
+impl SignaturePayload for () {
+    type SignatureAddress = ();
+    type Signature = ();
+    type SignatureExtra = ();
 }
 
 /// Something that acts like an `Extrinsic`.
 pub trait Transaction: Sized {
     /// The function call.
     type Call;
+
+    /// The payload we carry for signed transactions.
+    ///
+    /// Usually it will contain a `Signature` and
+    /// may include some additional data that are specific to signed
+    /// transaction.
+    type SignaturePayload: SignaturePayload;
+
+    /// Is this `Extrinsic` signed?
+    /// If no information are available about signed/unsigned, `None` should be returned.
+    fn is_signed(&self) -> Option<bool> {
+        None
+    }
+
+    /// Create new instance of the extrinsic.
+    ///
+    /// Extrinsics can be split into:
+    /// 1. Inherents (no signature; created by validators during block production)
+    /// 2. Unsigned Transactions (no signature; represent "system calls" or other special kinds of
+    /// calls) 3. Signed Transactions (with signature; a regular transactions with known origin)
+    fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
+        None
+    }
 }
 
-pub trait Block {
+pub trait Block: Clone + Send + Sync + Eq + Debug + 'static {
     /// Type for extrinsics.
     type Transaction: Member + Transaction;
     /// Header type.
     type Header: Header<Hash = Self::Hash>;
     /// Block hash type.
     type Hash: HashOutput;
+
+    /// Returns a reference to the header.
+    fn header(&self) -> &Self::Header;
+
+    /// Returns a reference to the list of transactions.
+    fn transactions(&self) -> &[Self::Transaction];
+
+    /// Split the block into header and list of transactions.
+    fn deconstruct(self) -> (Self::Header, Vec<Self::Transaction>);
+
+    /// Creates new block from header and transactions.
+    fn new(header: Self::Header, extrinsics: Vec<Self::Transaction>) -> Self;
+
+    /// Returns the hash of the block.
+    fn hash(&self) -> Self::Hash;
 }
 
-pub trait BlockchainPrimitives {
+pub trait BlockchainConfig {
     type Block: Clone + Send + Sync + 'static;
     type Transaction: Clone + Send + Sync + 'static;
 }
