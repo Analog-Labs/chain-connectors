@@ -310,10 +310,38 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
     })
 }
 
+#[allow(clippy::future_not_send)]
+pub async fn run_test<T, Fut, F>(env: Env<T>, cb: F)
+where
+    T: Sync + Send + 'static + rosetta_core::BlockchainClient,
+    Fut: Future<Output = Result<()>> + Send + 'static,
+    F: FnOnce(&'static mut Env<T>) -> Fut + Sync + Send,
+{
+    // Convert the context into a raw pointer
+    let ptr = Box::into_raw(Box::new(env));
+
+    // Execute the test and catch any panics
+    let result = unsafe {
+        let handler = tokio::spawn(cb(&mut *ptr));
+        handler.await
+    };
+
+    // Convert the raw pointer back into a context
+    let env = unsafe { Box::from_raw(ptr) };
+
+    let _ = Env::shutdown(*env).await;
+
+    // Now is safe to panic
+    if let Err(err) = result {
+        // Resume the panic on the main task
+        std::panic::resume_unwind(err.into_panic());
+    }
+}
+
 #[cfg(feature = "tests")]
 pub mod tests {
     use super::Env;
-    use anyhow::Result;
+    use anyhow::{Ok, Result};
     use nanoid::nanoid;
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, BlockchainConfig};
     use std::future::Future;
@@ -325,7 +353,7 @@ pub mod tests {
         )
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
     pub async fn network_status<T, Fut, F>(
         start_connector: F,
         config: BlockchainConfig,
@@ -339,43 +367,44 @@ pub mod tests {
         let env =
             Env::new(&format!("{env_id}-network-status"), config.clone(), start_connector).await?;
 
-        let client = env.node();
+        crate::run_test(env, |env| async move {
+            let client = env.node();
 
-        // Check if the genesis is consistent
-        let expected_genesis = client.genesis_block().clone();
-        let actual_genesis = client
-            .block(&PartialBlockIdentifier { index: Some(0), hash: None })
-            .await?
-            .block_identifier;
-        assert_eq!(expected_genesis, actual_genesis);
+            // Check if the genesis is consistent
+            let expected_genesis = client.genesis_block().clone();
+            let actual_genesis = client
+                .block(&PartialBlockIdentifier { index: Some(0), hash: None })
+                .await?
+                .block_identifier;
+            assert_eq!(expected_genesis, actual_genesis);
+            // Check if the current block is consistent
+            let expected_current = client.current_block().await?;
+            let actual_current = client
+                .block(&PartialBlockIdentifier {
+                    index: None,
+                    hash: Some(expected_current.hash.clone()),
+                })
+                .await?
+                .block_identifier;
+            assert_eq!(expected_current, actual_current);
 
-        // Check if the current block is consistent
-        let expected_current = client.current_block().await?;
-        let actual_current = client
-            .block(&PartialBlockIdentifier {
-                index: None,
-                hash: Some(expected_current.hash.clone()),
-            })
-            .await?
-            .block_identifier;
-        assert_eq!(expected_current, actual_current);
-
-        // Check if the finalized block is consistent
-        let expected_finalized = client.finalized_block().await?;
-        let actual_finalized = client
-            .block(&PartialBlockIdentifier {
-                index: None,
-                hash: Some(expected_finalized.hash.clone()),
-            })
-            .await?
-            .block_identifier;
-        assert_eq!(expected_finalized, actual_finalized);
-
-        env.shutdown().await?;
+            // Check if the finalized block is consistent
+            let expected_finalized = client.finalized_block().await?;
+            let actual_finalized = client
+                .block(&PartialBlockIdentifier {
+                    index: None,
+                    hash: Some(expected_finalized.hash.clone()),
+                })
+                .await?
+                .block_identifier;
+            assert_eq!(expected_finalized, actual_finalized);
+            Ok(())
+        })
+        .await;
         Ok(())
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
     pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
@@ -384,20 +413,21 @@ pub mod tests {
     {
         let env_id = env_id();
         let env = Env::new(&format!("{env_id}-account"), config.clone(), start_connector).await?;
-
-        let value = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(value).await?;
-        let amount = wallet.balance().await?;
-        assert_eq!(amount.value, value.to_string());
-        assert_eq!(amount.currency, config.currency());
-        assert!(amount.metadata.is_none());
-
-        env.shutdown().await?;
+        crate::run_test(env, |env| async move {
+            let value = 100 * u128::pow(10, config.currency_decimals);
+            let wallet = env.ephemeral_wallet().await?;
+            wallet.faucet(value).await?;
+            let amount = wallet.balance().await?;
+            assert_eq!(amount.value, value.to_string());
+            assert_eq!(amount.currency, config.currency());
+            assert!(amount.metadata.is_none());
+            Ok(())
+        })
+        .await;
         Ok(())
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
+    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
     pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
         T: BlockchainClient,
@@ -408,29 +438,31 @@ pub mod tests {
         let env =
             Env::new(&format!("{env_id}-construction"), config.clone(), start_connector).await?;
 
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let value = u128::pow(10, config.currency_decimals);
-        let alice = env.ephemeral_wallet().await?;
-        let bob = env.ephemeral_wallet().await?;
-        assert_ne!(alice.public_key(), bob.public_key());
+        crate::run_test(env, |env| async move {
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            let value = u128::pow(10, config.currency_decimals);
+            let alice = env.ephemeral_wallet().await?;
+            let bob = env.ephemeral_wallet().await?;
+            assert_ne!(alice.public_key(), bob.public_key());
 
-        // Alice and bob have no balance
-        let balance = alice.balance().await?;
-        assert_eq!(balance.value, "0");
-        let balance = bob.balance().await?;
-        assert_eq!(balance.value, "0");
+            // Alice and bob have no balance
+            let balance = alice.balance().await?;
+            assert_eq!(balance.value, "0");
+            let balance = bob.balance().await?;
+            assert_eq!(balance.value, "0");
 
-        // Transfer faucets to alice
-        alice.faucet(faucet).await?;
-        let balance = alice.balance().await?;
-        assert_eq!(balance.value, faucet.to_string());
+            // Transfer faucets to alice
+            alice.faucet(faucet).await?;
+            let balance = alice.balance().await?;
+            assert_eq!(balance.value, faucet.to_string());
 
-        // Alice transfers to bob
-        alice.transfer(bob.account(), value).await?;
-        let amount = bob.balance().await?;
-        assert_eq!(amount.value, value.to_string());
-
-        env.shutdown().await?;
+            // Alice transfers to bob
+            alice.transfer(bob.account(), value).await?;
+            let amount = bob.balance().await?;
+            assert_eq!(amount.value, value.to_string());
+            Ok(())
+        })
+        .await;
         Ok(())
     }
 }
