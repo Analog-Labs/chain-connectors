@@ -1,10 +1,7 @@
 #![allow(missing_docs)]
 use crate::{
     crypto::{address::Address, PublicKey},
-    types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
-    },
+    types::{Block, CallRequest, Transaction, TransactionIdentifier},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
@@ -109,6 +106,21 @@ pub enum GenericCallResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericAtBlock {
+    Ethereum(<EthereumClient as BlockchainClient>::AtBlock),
+    Polkadot(<PolkadotClient as BlockchainClient>::AtBlock),
+}
+
+impl From<GenericBlockIdentifier> for GenericAtBlock {
+    fn from(block: GenericBlockIdentifier) -> Self {
+        match block {
+            GenericBlockIdentifier::Ethereum(block) => Self::Ethereum(block.into()),
+            GenericBlockIdentifier::Polkadot(block) => Self::Polkadot(block.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericBlockIdentifier {
     Ethereum(<EthereumClient as BlockchainClient>::BlockIdentifier),
     Polkadot(<PolkadotClient as BlockchainClient>::BlockIdentifier),
@@ -132,34 +144,71 @@ impl BlockchainClient for GenericClient {
     type Call = GenericCall;
     type CallResult = GenericCallResult;
 
+    type AtBlock = GenericAtBlock;
     type BlockIdentifier = GenericBlockIdentifier;
 
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())
     }
 
-    fn genesis_block(&self) -> &BlockIdentifier {
-        dispatch!(self.genesis_block())
+    fn genesis_block(&self) -> Self::BlockIdentifier {
+        // dispatch!(self.genesis_block())
+        match self {
+            Self::Ethereum(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
+            Self::Astar(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
+            Self::Polkadot(client) => GenericBlockIdentifier::Polkadot(client.genesis_block()),
+        }
     }
 
     async fn node_version(&self) -> Result<String> {
         dispatch!(self.node_version().await)
     }
 
-    async fn current_block(&self) -> Result<BlockIdentifier> {
-        dispatch!(self.current_block().await)
+    async fn current_block(&self) -> Result<Self::BlockIdentifier> {
+        // dispatch!(self.current_block().await)
+        match self {
+            Self::Ethereum(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Astar(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Polkadot(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Polkadot)
+            },
+        }
     }
 
-    async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        dispatch!(self.finalized_block().await)
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
+        // dispatch!(self.finalized_block().await)
+        match self {
+            Self::Ethereum(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Astar(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Polkadot(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Polkadot)
+            },
+        }
     }
 
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        dispatch!(self.balance(address, block).await)
-    }
-
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        dispatch!(self.coins(address, block).await)
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
+        match self {
+            Self::Ethereum(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Astar(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Polkadot(client) => match block {
+                GenericAtBlock::Polkadot(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
+            },
+        }
     }
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
@@ -189,16 +238,42 @@ impl BlockchainClient for GenericClient {
         dispatch!(self.submit(transaction).await)
     }
 
-    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
-        dispatch!(self.block(block).await)
+    async fn block(&self, block: &GenericAtBlock) -> Result<Block> {
+        match self {
+            Self::Ethereum(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.block(at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Astar(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.block(at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Polkadot(client) => match block {
+                GenericAtBlock::Polkadot(at_block) => client.block(at_block).await,
+                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
+            },
+        }
     }
 
     async fn block_transaction(
         &self,
-        block: &BlockIdentifier,
+        block: &Self::BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        dispatch!(self.block_transaction(block, tx).await)
+        match self {
+            Self::Ethereum(client) => match block {
+                Self::BlockIdentifier::Ethereum(block) => client.block_transaction(block, tx).await,
+                Self::BlockIdentifier::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Astar(client) => match block {
+                Self::BlockIdentifier::Ethereum(block) => client.block_transaction(block, tx).await,
+                Self::BlockIdentifier::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Polkadot(client) => match block {
+                Self::BlockIdentifier::Polkadot(block) => client.block_transaction(block, tx).await,
+                Self::BlockIdentifier::Ethereum(_) => anyhow::bail!("invalid block identifier"),
+            },
+        }
     }
 
     async fn call(&self, req: &GenericCall) -> Result<GenericCallResult> {

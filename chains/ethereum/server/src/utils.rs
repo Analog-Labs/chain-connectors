@@ -44,7 +44,7 @@ impl TryFrom<ethers::types::Block<H256>> for NonPendingBlock {
         Ok(Self {
             hash,
             number: number.as_u64(),
-            identifier: BlockIdentifier::new(number.as_u64(), hex::encode(hash)),
+            identifier: BlockIdentifier::new(number.as_u64(), hash.0),
             block,
         })
     }

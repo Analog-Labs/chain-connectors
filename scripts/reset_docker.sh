@@ -24,7 +24,7 @@ fi
 
 # Remove all containers
 dockerContainers=()
-while IFS='' read -r line; do dockerContainers+=("${line}"); done < <(docker ps -a -q)
+while IFS='' read -r line; do dockerContainers+=("${line}"); done < <(docker ps -a -q --filter status=paused)
 if [[ "${#dockerContainers[@]}" -gt 0 ]]; then
   docker rm "${dockerContainers[@]}"
 fi

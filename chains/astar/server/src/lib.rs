@@ -13,9 +13,7 @@ use rosetta_core::{
         address::{Address, AddressFormat},
         PublicKey,
     },
-    types::{
-        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
-    },
+    types::{Block, BlockIdentifier, PartialBlockIdentifier, Transaction, TransactionIdentifier},
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::default_client;
@@ -26,7 +24,9 @@ use subxt::{
     backend::{
         legacy::{rpc_methods::BlockNumber, LegacyBackend, LegacyRpcMethods},
         rpc::RpcClient,
+        BlockRef,
     },
+    config::substrate::U256,
     dynamic::Value as SubtxValue,
     ext::sp_core::{self, crypto::Ss58AddressFormat},
     tx::PairSigner,
@@ -74,7 +74,7 @@ impl AstarClient {
     async fn account_info(
         &self,
         address: &Address,
-        maybe_block: Option<&BlockIdentifier>,
+        maybe_block: Option<&PartialBlockIdentifier>,
     ) -> Result<AccountInfo<u32, AccountData<u128>>> {
         let account: AccountId32 = address
             .address()
@@ -86,16 +86,87 @@ impl AstarClient {
         let storage_query =
             subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
 
-        let block_hash = {
-            let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
-            self.rpc_methods
-                .chain_get_block_hash(block_number)
+        // TODO: Change the `PartialBlockIdentifier` for distinguish between ethereum blocks and
+        // substrate blocks.
+        let block_hash = match maybe_block {
+            Some(PartialBlockIdentifier { hash: Some(block_hash), .. }) => {
+                // If a hash if provided, we don't know if it's a ethereum block hash or substrate
+                // block hash. We try to fetch the block using ethereum first, and
+                // if it fails, we try to fetch it using substrate.
+                let ethereum_block = self
+                    .client
+                    .block(&PartialBlockIdentifier { index: None, hash: Some(*block_hash) })
+                    .await;
+
+                if let Ok(ethereum_block) = ethereum_block {
+                    // Convert ethereum block to substrate block by fetching the block by number.
+                    let substrate_block_number =
+                        BlockNumber::Number(ethereum_block.block_identifier.index);
+                    let substrate_block_hash = self
+                        .rpc_methods
+                        .chain_get_block_hash(Some(substrate_block_number))
+                        .await?
+                        .map(BlockRef::from_hash)
+                        .ok_or_else(|| anyhow::anyhow!("no block hash found"))?;
+
+                    // Verify if the ethereum block belongs to this substrate block.
+                    let query_current_eth_block =
+                        astar_metadata::storage().ethereum().current_block();
+
+                    // Fetch ethereum block from `ethereum.current_block` state.
+                    let Some(actual_eth_block) = self
+                        .ws_client
+                        .storage()
+                        .at(substrate_block_hash.clone())
+                        .fetch(&query_current_eth_block)
+                        .await?
+                    else {
+                        // This error should not happen, once all astar blocks must have one
+                        // ethereum block
+                        anyhow::bail!("[report this bug!] no ethereum block found for astar at block {substrate_block_hash:?}");
+                    };
+
+                    // Verify if the ethereum block hash matches the provided ethereum block hash.
+                    // TODO: compute the block hash
+                    if U256(actual_eth_block.header.number.0) !=
+                        U256::from(ethereum_block.block_identifier.index)
+                    {
+                        anyhow::bail!("ethereum block hash mismatch");
+                    }
+                    if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
+                        &ethereum_block.parent_block_identifier.hash
+                    {
+                        anyhow::bail!("ethereum block hash mismatch");
+                    }
+                    substrate_block_hash
+                } else {
+                    self.rpc_methods
+                        .chain_get_block_hash(Some(BlockNumber::Hex(U256::from_big_endian(
+                            block_hash,
+                        ))))
+                        .await?
+                        .map(BlockRef::from_hash)
+                        .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+                }
+            },
+            Some(PartialBlockIdentifier { index: Some(block_number), .. }) => {
+                // If a block number is provided, the value is the same for ethereum blocks and
+                // substrate blocks.
+                self.rpc_methods
+                    .chain_get_block_hash(Some(BlockNumber::Number(*block_number)))
+                    .await?
+                    .map(BlockRef::from_hash)
+                    .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+            },
+            Some(PartialBlockIdentifier { .. }) | None => self
+                .rpc_methods
+                .chain_get_block_hash(None)
                 .await?
-                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+                .map(BlockRef::from_hash)
+                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?,
         };
 
         let account_info = self.ws_client.storage().at(block_hash).fetch(&storage_query).await?;
-
         account_info.map_or_else(
             || {
                 Ok(AccountInfo::<u32, AccountData<u128>> {
@@ -127,13 +198,14 @@ impl BlockchainClient for AstarClient {
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
+    type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
     }
 
-    fn genesis_block(&self) -> &BlockIdentifier {
+    fn genesis_block(&self) -> Self::BlockIdentifier {
         self.client.genesis_block()
     }
 
@@ -141,15 +213,15 @@ impl BlockchainClient for AstarClient {
         self.client.node_version().await
     }
 
-    async fn current_block(&self) -> Result<BlockIdentifier> {
+    async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         self.client.current_block().await
     }
 
-    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
         self.client.finalized_block().await
     }
 
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         let balance = match address.format() {
             AddressFormat::Ss58(_) => {
                 let account_info = self.account_info(address, Some(block)).await?;
@@ -168,10 +240,6 @@ impl BlockchainClient for AstarClient {
             AddressFormat::Bech32(_) => return Err(anyhow::anyhow!("invalid address format")),
         };
         Ok(balance)
-    }
-
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        self.client.coins(address, block).await
     }
 
     async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
@@ -213,13 +281,13 @@ impl BlockchainClient for AstarClient {
         self.client.submit(transaction).await
     }
 
-    async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
+    async fn block(&self, block_identifier: &Self::AtBlock) -> Result<Block> {
         self.client.block(block_identifier).await
     }
 
     async fn block_transaction(
         &self,
-        block_identifier: &BlockIdentifier,
+        block_identifier: &Self::BlockIdentifier,
         tx: &TransactionIdentifier,
     ) -> Result<Transaction> {
         self.client.block_transaction(block_identifier, tx).await

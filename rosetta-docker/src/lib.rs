@@ -315,7 +315,10 @@ pub mod tests {
     use super::Env;
     use anyhow::Result;
     use nanoid::nanoid;
-    use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, BlockchainConfig};
+    use rosetta_core::{
+        types::{BlockIdentifier, PartialBlockIdentifier},
+        BlockchainClient, BlockchainConfig,
+    };
     use std::future::Future;
 
     fn env_id() -> String {
@@ -331,7 +334,7 @@ pub mod tests {
         config: BlockchainConfig,
     ) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -352,10 +355,7 @@ pub mod tests {
         // Check if the current block is consistent
         let expected_current = client.current_block().await?;
         let actual_current = client
-            .block(&PartialBlockIdentifier {
-                index: None,
-                hash: Some(expected_current.hash.clone()),
-            })
+            .block(&PartialBlockIdentifier { index: None, hash: Some(expected_current.hash) })
             .await?
             .block_identifier;
         assert_eq!(expected_current, actual_current);
@@ -363,10 +363,7 @@ pub mod tests {
         // Check if the finalized block is consistent
         let expected_finalized = client.finalized_block().await?;
         let actual_finalized = client
-            .block(&PartialBlockIdentifier {
-                index: None,
-                hash: Some(expected_finalized.hash.clone()),
-            })
+            .block(&PartialBlockIdentifier { index: None, hash: Some(expected_finalized.hash) })
             .await?
             .block_identifier;
         assert_eq!(expected_finalized, actual_finalized);
@@ -378,7 +375,7 @@ pub mod tests {
     #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -400,7 +397,7 @@ pub mod tests {
     #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc)]
     pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -414,8 +411,10 @@ pub mod tests {
         let bob = env.ephemeral_wallet().await?;
         assert_ne!(alice.public_key(), bob.public_key());
 
+        println!("will verify balance");
         // Alice and bob have no balance
         let balance = alice.balance().await?;
+        println!("got balance");
         assert_eq!(balance.value, "0");
         let balance = bob.balance().await?;
         assert_eq!(balance.value, "0");

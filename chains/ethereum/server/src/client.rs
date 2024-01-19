@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use ethers::{
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
-    types::Bytes,
+    types::{Bytes, U64},
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
@@ -84,8 +84,8 @@ where
         &self.config
     }
 
-    pub const fn genesis_block(&self) -> &BlockIdentifier {
-        &self.genesis_block.identifier
+    pub fn genesis_block(&self) -> BlockIdentifier {
+        self.genesis_block.identifier.clone()
     }
 
     pub async fn node_version(&self) -> Result<String> {
@@ -94,11 +94,16 @@ where
 
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_number().await?.as_u64();
-        let Some(block_hash) = self.client.get_block(index).await?.context("missing block")?.hash
+        let Some(block_hash) = self
+            .client
+            .get_block(BlockId::Number(BlockNumber::Number(U64::from(index))))
+            .await?
+            .context("missing block")?
+            .hash
         else {
             anyhow::bail!("FATAL: block hash is missing");
         };
-        Ok(BlockIdentifier { index, hash: hex::encode(block_hash) })
+        Ok(BlockIdentifier { index, hash: block_hash.0 })
     }
 
     pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
@@ -130,16 +135,24 @@ where
         Ok(finalized_block)
     }
 
-    pub async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        let block = hex::decode(&block.hash)?
-            .try_into()
-            .map_err(|_| anyhow::anyhow!("invalid block hash"))?;
+    pub async fn balance(
+        &self,
+        address: &Address,
+        block_identifier: &PartialBlockIdentifier,
+    ) -> Result<u128> {
+        println!("balance address: {address:?} block: {block_identifier:?}");
+        let block_id = block_identifier.hash.as_ref().map_or_else(
+            || {
+                let index = block_identifier
+                    .index
+                    .map_or(BlockNumber::Latest, |index| BlockNumber::Number(U64::from(index)));
+                BlockId::Number(index)
+            },
+            |hash| BlockId::Hash(H256(*hash)),
+        );
         let address: H160 = address.address().parse()?;
-        Ok(self
-            .client
-            .get_balance(address, Some(BlockId::Hash(H256(block))))
-            .await?
-            .as_u128())
+        println!("balance at block: {block_id:?}");
+        Ok(self.client.get_balance(address, Some(block_id)).await?.as_u128())
     }
 
     #[allow(clippy::unused_async)]
@@ -211,14 +224,15 @@ where
     }
 
     pub async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
-        let block_id = if let Some(hash) = block_identifier.hash.as_ref() {
-            BlockId::Hash(H256::from_str(hash)?)
-        } else {
-            let index = block_identifier
-                .index
-                .map_or(BlockNumber::Latest, |index| BlockNumber::Number(U64::from(index)));
-            BlockId::Number(index)
-        };
+        let block_id = block_identifier.hash.as_ref().map_or_else(
+            || {
+                let index = block_identifier
+                    .index
+                    .map_or(BlockNumber::Latest, |index| BlockNumber::Number(U64::from(index)));
+                BlockId::Number(index)
+            },
+            |hash| BlockId::Hash(H256(*hash)),
+        );
         let block = self
             .client
             .get_block_with_txs(block_id)
@@ -244,13 +258,10 @@ where
             transactions.push(transaction);
         }
         Ok(Block {
-            block_identifier: BlockIdentifier {
-                index: block_number.as_u64(),
-                hash: hex::encode(block_hash),
-            },
+            block_identifier: BlockIdentifier { index: block_number.as_u64(), hash: block_hash.0 },
             parent_block_identifier: BlockIdentifier {
                 index: block_number.as_u64().saturating_sub(1),
-                hash: hex::encode(block.parent_hash),
+                hash: block.parent_hash.0,
             },
             timestamp: i64::try_from(block.timestamp.as_u64()).context("timestamp overflow")?,
             transactions,
@@ -266,7 +277,7 @@ where
         let tx_id = H256::from_str(&tx.hash)?;
         let block = self
             .client
-            .get_block(BlockId::Hash(H256::from_str(&block.hash)?))
+            .get_block(BlockId::Hash(H256(block.hash)))
             .await?
             .context("block not found")?;
         let transaction =

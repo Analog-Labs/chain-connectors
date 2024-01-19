@@ -1,10 +1,10 @@
 use crate::{
-    client::{GenericClient, GenericMetadata, GenericMetadataParams},
+    client::{GenericBlockIdentifier, GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
-    types::{AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier},
+    types::{AccountIdentifier, Amount, BlockIdentifier, PublicKey, TransactionIdentifier},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
@@ -99,16 +99,52 @@ impl Wallet {
     /// Returns the latest finalized block identifier.
     #[allow(clippy::missing_errors_doc)]
     pub async fn status(&self) -> Result<BlockIdentifier> {
-        self.client.finalized_block().await
+        // self.client.finalized_block().await
+        match &self.client {
+            GenericClient::Astar(client) => client.finalized_block().await,
+            GenericClient::Ethereum(client) => client.finalized_block().await,
+            GenericClient::Polkadot(client) => client.finalized_block().await,
+        }
     }
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
     pub async fn balance(&self) -> Result<Amount> {
+        println!("will current_block");
         let block = self.client.current_block().await?;
+        println!("got block: {block:?}");
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
-        let balance = self.client.balance(&address, &block).await?;
+        let balance = match &self.client {
+            GenericClient::Astar(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    let block_identifier = PartialBlockIdentifier::from(block);
+                    println!("will get balance: {block_identifier:?}");
+                    client.balance(&address, &block_identifier).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Ethereum(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    let block_identifier = PartialBlockIdentifier::from(block);
+                    client.balance(&address, &block_identifier).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Polkadot(client) => match block {
+                GenericBlockIdentifier::Polkadot(block) => {
+                    let block_identifier = PartialBlockIdentifier::from(block);
+                    client.balance(&address, &block_identifier).await?
+                },
+                GenericBlockIdentifier::Ethereum(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+        };
         Ok(Amount {
             value: format!("{balance}"),
             currency: self.client.config().currency(),
@@ -127,8 +163,12 @@ impl Wallet {
     /// Returns block data
     /// Takes `PartialBlockIdentifier`
     #[allow(clippy::missing_errors_doc)]
-    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
-        self.client.block(&data).await
+    pub async fn block(&self, at_block: PartialBlockIdentifier) -> Result<Block> {
+        match &self.client {
+            GenericClient::Astar(client) => client.block(&at_block).await,
+            GenericClient::Ethereum(client) => client.block(&at_block).await,
+            GenericClient::Polkadot(client) => client.block(&at_block).await,
+        }
     }
 
     /// Returns transactions included in a block
@@ -141,16 +181,18 @@ impl Wallet {
         block_identifer: BlockIdentifier,
         tx_identifier: TransactionIdentifier,
     ) -> Result<Transaction> {
-        self.client.block_transaction(&block_identifer, &tx_identifier).await
-    }
-
-    /// Returns the coins of the wallet.
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn coins(&self) -> Result<Vec<Coin>> {
-        let block = self.client.current_block().await?;
-        let address =
-            Address::new(self.client.config().address_format, self.account.address.clone());
-        self.client.coins(&address, &block).await
+        match &self.client {
+            GenericClient::Astar(client) => {
+                client.block_transaction(&block_identifer, &tx_identifier).await
+            },
+            GenericClient::Ethereum(client) => {
+                client.block_transaction(&block_identifer, &tx_identifier).await
+            },
+            GenericClient::Polkadot(client) => {
+                client.block_transaction(&block_identifer, &tx_identifier).await
+            },
+        }
+        // self.client.block_transaction(&block_identifer, &tx_identifier).await
     }
 
     /// Returns the on chain metadata.

@@ -5,7 +5,7 @@ pub use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
+        Block, BlockIdentifier, CallRequest, PartialBlockIdentifier, Transaction,
         TransactionIdentifier,
     },
     BlockchainClient, BlockchainConfig, EmptyEventStream,
@@ -16,11 +16,17 @@ use sp_keyring::AccountKeyring;
 use std::time::Duration;
 use subxt::{
     backend::{
-        legacy::{rpc_methods::BlockNumber, LegacyRpcMethods},
+        legacy::{
+            rpc_methods::{BlockNumber, NumberOrHex},
+            LegacyRpcMethods,
+        },
         rpc::RpcClient,
     },
     blocks::BlockRef,
-    config::{Hasher, Header},
+    config::{
+        substrate::{H256, U256},
+        Hasher, Header,
+    },
     // dynamic::Value as SubtxValue,
     tx::{PairSigner, SubmittableExtrinsic},
     utils::{AccountId32, MultiAddress},
@@ -64,14 +70,14 @@ impl PolkadotClient {
             (client, rpc_methods)
         };
         let genesis = client.genesis_hash();
-        let genesis_block = BlockIdentifier { index: 0, hash: hex::encode(genesis.as_ref()) };
+        let genesis_block = BlockIdentifier { index: 0, hash: genesis.0 };
         Ok(Self { config, client, rpc_methods, genesis_block })
     }
 
     async fn account_info(
         &self,
         address: &Address,
-        maybe_block: Option<&BlockIdentifier>,
+        maybe_block: Option<BlockNumber>,
     ) -> Result<AccountInfo<u32, AccountData>> {
         let account: AccountId32 = address
             .address()
@@ -82,23 +88,35 @@ impl PolkadotClient {
         // Build a dynamic storage query to iterate account information.
         // let storage_query =
         //     subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
-
         let storage_query = westend_dev_metadata::storage().system().account(account);
 
-        let block_hash = {
-            let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
-            self.rpc_methods
-                .chain_get_block_hash(block_number)
-                .await?
-                .map(BlockRef::from_hash)
-                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+        // Convert `BlockNumber` to `BlockRef<H256>`
+        let block_hash = match maybe_block {
+            Some(NumberOrHex::Hex(block_hash)) => {
+                // Convert U256 to BlockRef<H256>
+                let mut bytes = [0u8; 32];
+                block_hash.to_big_endian(&mut bytes);
+                let block_hash = H256(bytes);
+                BlockRef::from_hash(block_hash)
+            },
+            Some(NumberOrHex::Number(block_number)) => {
+                // Get block hash by number
+                self.rpc_methods
+                    .chain_get_block_hash(Some(BlockNumber::Number(block_number)))
+                    .await?
+                    .map(BlockRef::from_hash)
+                    .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+            },
+            None => {
+                // Get latest block hash
+                self.rpc_methods
+                    .chain_get_block_hash(None)
+                    .await?
+                    .map(BlockRef::from_hash)
+                    .ok_or_else(|| anyhow::anyhow!("[report this bug] latest block not found"))?
+            },
         };
-
-        let account_info = self.client.storage().at(block_hash).fetch(&storage_query).await?;
-
-        // let account_info = self.client.storage().at(block_hash).fetch(&storage_query).await?;
-
-        account_info.map_or_else(
+        self.client.storage().at(block_hash).fetch(&storage_query).await?.map_or_else(
             || {
                 Ok(AccountInfo {
                     nonce: 0,
@@ -133,14 +151,15 @@ impl BlockchainClient for PolkadotClient {
     type Call = CallRequest;
     type CallResult = Value;
 
+    type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
     fn config(&self) -> &BlockchainConfig {
         &self.config
     }
 
-    fn genesis_block(&self) -> &BlockIdentifier {
-        &self.genesis_block
+    fn genesis_block(&self) -> BlockIdentifier {
+        self.genesis_block.clone()
     }
 
     async fn node_version(&self) -> Result<String> {
@@ -151,7 +170,7 @@ impl BlockchainClient for PolkadotClient {
         let block = self.rpc_methods.chain_get_block(None).await?.context("no current block")?;
         let index = u64::from(block.block.header.number);
         let hash = block.block.header.hash();
-        Ok(BlockIdentifier { index, hash: hex::encode(hash.as_ref()) })
+        Ok(BlockIdentifier { index, hash: hash.0 })
     }
 
     async fn finalized_block(&self) -> Result<BlockIdentifier> {
@@ -163,16 +182,25 @@ impl BlockchainClient for PolkadotClient {
             .context("no finalized block")?;
         let index = u64::from(block.block.header.number);
         let hash = block.block.header.hash();
-        Ok(BlockIdentifier { index, hash: hex::encode(hash.as_ref()) })
+        Ok(BlockIdentifier { index, hash: hash.0 })
     }
 
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        let account_info = self.account_info(address, Some(block)).await?;
+    async fn balance(
+        &self,
+        address: &Address,
+        block_identifier: &PartialBlockIdentifier,
+    ) -> Result<u128> {
+        let block_number = match block_identifier {
+            PartialBlockIdentifier { hash: Some(block_bash), .. } => {
+                Some(BlockNumber::Hex(U256::from_big_endian(block_bash)))
+            },
+            PartialBlockIdentifier { index: Some(block_number), .. } => {
+                Some(BlockNumber::Number(*block_number))
+            },
+            PartialBlockIdentifier { hash: None, index: None } => None,
+        };
+        let account_info = self.account_info(address, block_number).await?;
         Ok(account_info.data.free)
-    }
-
-    async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        anyhow::bail!("not a utxo chain")
     }
 
     async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
@@ -239,7 +267,7 @@ impl BlockchainClient for PolkadotClient {
 
     async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         let block_hash = if let Some(hash) = block_identifier.hash.as_ref() {
-            hash.parse()?
+            H256(*hash)
         } else {
             self.rpc_methods
                 .chain_get_block_hash(block_identifier.index.map(BlockNumber::from))
@@ -265,11 +293,11 @@ impl BlockchainClient for PolkadotClient {
         Ok(Block {
             block_identifier: BlockIdentifier {
                 index: u64::from(block.number()),
-                hash: hex::encode(block.hash()),
+                hash: block.hash().to_fixed_bytes(),
             },
             parent_block_identifier: BlockIdentifier {
                 index: u64::from(block.number().saturating_sub(1)),
-                hash: hex::encode(block.header().parent_hash),
+                hash: block.header().parent_hash.to_fixed_bytes(),
             },
             timestamp: i64::try_from(Duration::from_millis(timestamp).as_nanos())
                 .context("timestamp overflow")?,
@@ -283,7 +311,7 @@ impl BlockchainClient for PolkadotClient {
         block_identifier: &BlockIdentifier,
         transaction_identifier: &TransactionIdentifier,
     ) -> Result<Transaction> {
-        let block_hash = block_identifier.hash.parse::<<PolkadotConfig as Config>::Hash>()?;
+        let block_hash = <PolkadotConfig as Config>::Hash::from(block_identifier.hash);
         let transaction_hash = transaction_identifier.hash.parse()?;
         let block = self.client.blocks().at(block_hash).await?;
         let extrinsic = block
