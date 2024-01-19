@@ -8,6 +8,10 @@ use ethereum_types::{Address, Bloom, H256, U256};
 #[cfg(feature = "serde")]
 use crate::serde_utils::{bytes_to_hex, uint_to_hex};
 
+pub type SignedTransaction = transaction::SignedTransaction<transaction::TypedTransaction>;
+pub type FullBlock = block::Block<SignedTransaction, header::Header>;
+pub type BlockRef = block::Block<H256, H256>;
+
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
@@ -421,9 +425,9 @@ pub struct EIP1186ProofResponse {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
+    use crate::rstd::str::FromStr;
     use hex_literal::hex;
     use serde_json::json;
-    use std::str::FromStr;
 
     use super::{AtBlock, CallResult, EIP1186ProofResponse, StorageProof};
     use ethereum_types::{Address, H256, U256};

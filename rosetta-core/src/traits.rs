@@ -3,7 +3,6 @@ use core::{
     fmt::{Debug, Display},
     str::FromStr,
 };
-use std::vec::Vec;
 
 /// Macro for creating `Maybe*` marker traits.
 ///
@@ -72,8 +71,8 @@ pub trait Header: Clone + Send + Sync + Eq + Debug + 'static {
     /// Header hash type
     type Hash: HashOutput;
 
-    /// Returns a reference to the header number.
-    fn number(&self) -> &Self::Number;
+    /// Returns the header block number.
+    fn number(&self) -> Self::Number;
 
     /// Returns the hash of the header.
     fn hash(&self) -> Self::Hash;
@@ -147,17 +146,17 @@ pub trait Block: Clone + Send + Sync + Eq + Debug + 'static {
     /// Returns a reference to the list of transactions.
     fn transactions(&self) -> &[Self::Transaction];
 
-    /// Split the block into header and list of transactions.
-    fn deconstruct(self) -> (Self::Header, Vec<Self::Transaction>);
-
-    /// Creates new block from header and transactions.
-    fn new(header: Self::Header, extrinsics: Vec<Self::Transaction>) -> Self;
-
     /// Returns the hash of the block.
     fn hash(&self) -> Self::Hash;
 }
 
 pub trait BlockchainConfig {
+    const NAME: &'static str;
+    const SYMBOL: &'static str;
+    const BIP44: u32;
+    const DEV: bool;
+
     type Block: Clone + Send + Sync + 'static;
     type Transaction: Clone + Send + Sync + 'static;
+    type UnsignedTransaction: Clone + Send + Sync + 'static;
 }
