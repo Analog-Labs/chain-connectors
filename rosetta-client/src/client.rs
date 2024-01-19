@@ -28,18 +28,23 @@ pub enum GenericClient {
 
 #[allow(clippy::missing_errors_doc)]
 impl GenericClient {
-    pub async fn new(blockchain: Blockchain, network: &str, url: &str) -> Result<Self> {
+    pub async fn new(
+        blockchain: Blockchain,
+        network: &str,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         Ok(match blockchain {
             Blockchain::Ethereum => {
-                let client = EthereumClient::new("ethereum", network, url).await?;
+                let client = EthereumClient::new("ethereum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Polygon => {
-                let client = EthereumClient::new("polygon", network, url).await?;
+                let client = EthereumClient::new("polygon", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = EthereumClient::new("arbitrum", network, url).await?;
+                let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {
@@ -56,11 +61,15 @@ impl GenericClient {
         })
     }
 
-    pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
+    pub async fn from_config(
+        config: BlockchainConfig,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
             Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
-                let client = EthereumClient::from_config(config, url).await?;
+                let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {

@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use ethers::{
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
-    types::{Bytes, U64},
+    types::{transaction::eip2718::TypedTransaction, Bytes, U64},
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
@@ -22,7 +22,13 @@ use rosetta_core::{
     },
     BlockchainConfig,
 };
-use std::{str::FromStr, sync::Arc};
+use std::{
+    str::FromStr,
+    sync::{
+        atomic::{self, Ordering},
+        Arc,
+    },
+};
 
 /// Strategy used to determine the finalized block
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +58,8 @@ pub struct EthereumClient<P> {
     client: Arc<Provider<P>>,
     genesis_block: NonPendingBlock,
     block_finality_strategy: BlockFinalityStrategy,
+    nonce: Arc<std::sync::atomic::AtomicU32>,
+    private_key: Option<[u8; 32]>,
 }
 
 impl<P> Clone for EthereumClient<P> {
@@ -61,6 +69,8 @@ impl<P> Clone for EthereumClient<P> {
             client: self.client.clone(),
             genesis_block: self.genesis_block.clone(),
             block_finality_strategy: self.block_finality_strategy,
+            nonce: self.nonce.clone(),
+            private_key: self.private_key,
         }
     }
 }
@@ -69,15 +79,30 @@ impl<P> EthereumClient<P>
 where
     P: JsonRpcClient + 'static,
 {
-    pub async fn new(config: BlockchainConfig, rpc_client: P) -> Result<Self> {
+    #[allow(clippy::missing_errors_doc)]
+    pub async fn new(
+        config: BlockchainConfig,
+        rpc_client: P,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
+        let (private_key, nonce) = if let Some(private) = private_key {
+            let wallet = LocalWallet::from_bytes(&private)?;
+            let address = wallet.address();
+            let nonce = Arc::new(atomic::AtomicU32::from(
+                client.get_transaction_count(address, None).await?.as_u32(),
+            ));
+            (private_key, nonce)
+        } else {
+            (None, Arc::new(atomic::AtomicU32::new(0)))
+        };
         let Some(genesis_block) =
             get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
         else {
             anyhow::bail!("FATAL: genesis block not found");
         };
-        Ok(Self { config, client, genesis_block, block_finality_strategy })
+        Ok(Self { config, client, genesis_block, block_finality_strategy, nonce, private_key })
     }
 
     pub const fn config(&self) -> &BlockchainConfig {
@@ -88,10 +113,12 @@ where
         self.genesis_block.identifier.clone()
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn node_version(&self) -> Result<String> {
         Ok(self.client.client_version().await?)
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_number().await?.as_u64();
         let Some(block_hash) = self
@@ -106,6 +133,7 @@ where
         Ok(BlockIdentifier { index, hash: block_hash.0 })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
         let number: BlockNumber = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
@@ -135,12 +163,13 @@ where
         Ok(finalized_block)
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn balance(
         &self,
         address: &Address,
         block_identifier: &PartialBlockIdentifier,
     ) -> Result<u128> {
-        println!("balance address: {address:?} block: {block_identifier:?}");
+        // Convert `PartialBlockIdentifier` to `BlockId`
         let block_id = block_identifier.hash.as_ref().map_or_else(
             || {
                 let index = block_identifier
@@ -151,32 +180,69 @@ where
             |hash| BlockId::Hash(H256(*hash)),
         );
         let address: H160 = address.address().parse()?;
-        println!("balance at block: {block_id:?}");
         Ok(self.client.get_balance(address, Some(block_id)).await?.as_u128())
     }
 
-    #[allow(clippy::unused_async)]
+    #[allow(clippy::unused_async, clippy::missing_errors_doc)]
     pub async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
         anyhow::bail!("not a utxo chain");
     }
 
+    #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
     pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        // first account will be the coinbase account on a dev net
-        let coinbase = self.client.get_accounts().await?[0];
-        let address: H160 = address.address().parse()?;
-        let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
-        Ok(self
-            .client
-            .send_transaction(tx, None)
-            .await?
-            .confirmations(2)
-            .await?
-            .context("failed to retrieve tx receipt")?
-            .transaction_hash
-            .0
-            .to_vec())
+        match self.private_key {
+            Some(private_key) => {
+                let chain_id = self.client.get_chainid().await?.as_u64();
+                let address: H160 = address.address().parse()?;
+                let wallet = LocalWallet::from_bytes(&private_key)?;
+                let nonce_u32 = U256::from(self.nonce.load(Ordering::Relaxed));
+                // Create a transaction request
+                let transaction_request = TransactionRequest {
+                    from: None,
+                    to: Some(ethers::types::NameOrAddress::Address(address)),
+                    value: Some(U256::from(param)),
+                    gas: Some(U256::from(210_000)),
+                    gas_price: Some(U256::from(500_000_000)),
+                    nonce: Some(nonce_u32),
+                    data: None,
+                    chain_id: Some(chain_id.into()),
+                };
+
+                let tx: TypedTransaction = transaction_request.into();
+                let signature = wallet.sign_transaction(&tx).await?;
+                let tx = tx.rlp_signed(&signature);
+                let response = self
+                    .client
+                    .send_raw_transaction(tx)
+                    .await?
+                    .confirmations(2)
+                    .await?
+                    .context("failed to retrieve tx receipt")?
+                    .transaction_hash
+                    .0
+                    .to_vec();
+                Ok(response)
+            },
+            None => {
+                // first account will be the coinbase account on a dev net
+                let coinbase = self.client.get_accounts().await?[0];
+                let address: H160 = address.address().parse()?;
+                let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
+                Ok(self
+                    .client
+                    .send_transaction(tx, None)
+                    .await?
+                    .confirmations(2)
+                    .await?
+                    .context("failed to retrieve tx receipt")?
+                    .transaction_hash
+                    .0
+                    .to_vec())
+            },
+        }
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn metadata(
         &self,
         public_key: &PublicKey,
@@ -209,6 +275,7 @@ where
         })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         let tx = transaction.to_vec().into();
         Ok(self
@@ -223,6 +290,7 @@ where
             .to_vec())
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
         let block_id = block_identifier.hash.as_ref().map_or_else(
             || {
@@ -247,16 +315,6 @@ where
         let block_reward_transaction =
             crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
         transactions.push(block_reward_transaction);
-        for transaction in &block.transactions {
-            let transaction = crate::utils::get_transaction(
-                &self.client,
-                self.config(),
-                block.clone(),
-                transaction,
-            )
-            .await?;
-            transactions.push(transaction);
-        }
         Ok(Block {
             block_identifier: BlockIdentifier { index: block_number.as_u64(), hash: block_hash.0 },
             parent_block_identifier: BlockIdentifier {
@@ -269,6 +327,7 @@ where
         })
     }
 
+    #[allow(clippy::missing_errors_doc)]
     pub async fn block_transaction(
         &self,
         block: &BlockIdentifier,
@@ -287,7 +346,7 @@ where
         Ok(transaction)
     }
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]
     pub async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         let result = match req {
             EthQuery::GetBalance(GetBalance { address, block }) => {
@@ -425,6 +484,7 @@ impl<P> EthereumClient<P>
 where
     P: PubsubClient + 'static,
 {
+    #[allow(clippy::missing_errors_doc)]
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_head_subscription = self.client.subscribe_blocks().await?;
         Ok(EthereumEventStream::new(self, new_head_subscription))

@@ -37,8 +37,9 @@ impl Wallet {
         network: &str,
         url: &str,
         keyfile: Option<&Path>,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let client = GenericClient::new(blockchain, network, url).await?;
+        let client = GenericClient::new(blockchain, network, url, private_key).await?;
         Self::from_client(client, keyfile)
     }
 
@@ -48,8 +49,9 @@ impl Wallet {
         config: BlockchainConfig,
         url: &str,
         keyfile: Option<&Path>,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let client = GenericClient::from_config(config, url).await?;
+        let client = GenericClient::from_config(config, url, private_key).await?;
         Self::from_client(client, keyfile)
     }
 

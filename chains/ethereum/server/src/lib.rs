@@ -1,5 +1,5 @@
 use anyhow::Result;
-use client::EthereumClient;
+pub use client::EthereumClient;
 use ethers::providers::Http;
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
@@ -34,7 +34,7 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     /// Creates a new ethereum client from `network` and `addr`.
-    /// Supported blockchains are `ethereum` and `polygon`
+    /// Supported blockchains are `ethereum`, `polygon` and `arbitrum`
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
@@ -42,6 +42,7 @@ impl MaybeWsEthereumClient {
         blockchain: &str,
         network: &str,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let config = match blockchain {
             "ethereum" => rosetta_config_ethereum::config(network)?,
@@ -49,7 +50,7 @@ impl MaybeWsEthereumClient {
             "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
-        Self::from_config(config, addr).await
+        Self::from_config(config, addr, private_key).await
     }
 
     /// Creates a new ethereum client from `config` and `addr`
@@ -59,14 +60,15 @@ impl MaybeWsEthereumClient {
     pub async fn from_config<S: AsRef<str> + Send>(
         config: BlockchainConfig,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
-            Self::from_jsonrpsee(config, client).await
+            Self::from_jsonrpsee(config, client, private_key).await
         } else {
             let http_connection = Http::new(uri);
-            let client = EthereumClient::new(config, http_connection).await?;
+            let client = EthereumClient::new(config, http_connection, private_key).await?;
             Ok(Self::Http(client))
         }
     }
@@ -76,9 +78,13 @@ impl MaybeWsEthereumClient {
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
-    pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
+    pub async fn from_jsonrpsee(
+        config: BlockchainConfig,
+        client: DefaultClient,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
-        let client = EthereumClient::new(config, ws_connection).await?;
+        let client = EthereumClient::new(config, ws_connection, private_key).await?;
         Ok(Self::Ws(client))
     }
 }
@@ -206,7 +212,7 @@ mod tests {
     use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
-    use rosetta_docker::Env;
+    use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
 
@@ -221,7 +227,7 @@ mod tests {
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
-        MaybeWsEthereumClient::from_config(config, url.as_str()).await
+        MaybeWsEthereumClient::from_config(config, url.as_str(), None).await
     }
 
     #[tokio::test]
@@ -277,78 +283,89 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("dev").unwrap();
 
         let env = Env::new("ethereum-smart-contract", config.clone(), client_from_config).await?;
 
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
 
-        let bytes = compile_snippet(
-            r"
-            event AnEvent();
-            function emitEvent() public {
-                emit AnEvent();
-            }
-        ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-        let tx_hash = {
-            let call = TestContract::emitEventCall {};
-            wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await?
-        };
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        assert_eq!(receipt.logs.len(), 1);
-        let topic = receipt.logs[0].topics[0];
-        let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
-        assert_eq!(topic, expected);
-        env.shutdown().await?;
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            wallet.faucet(faucet).await.unwrap();
+
+            let bytes = compile_snippet(
+                r"
+                    event AnEvent();
+                    function emitEvent() public {
+                        emit AnEvent();
+                    }
+                ",
+            )
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+            let tx_hash = {
+                let call = TestContract::emitEventCall {};
+                wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
+            };
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            assert_eq!(receipt.logs.len(), 1);
+            let topic = receipt.logs[0].topics[0];
+            let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
+            assert_eq!(topic, expected);
+        })
+        .await;
         Ok(())
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("ethereum-smart-contract-view", config.clone(), client_from_config)
+            .await
+            .unwrap();
 
-        let env =
-            Env::new("ethereum-smart-contract-view", config.clone(), client_from_config).await?;
+        //here is run test function
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            wallet.faucet(faucet).await.unwrap();
 
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
-
-        let bytes = compile_snippet(
-            r"
-            function identity(bool a) public view returns (bool) {
-                return a;
-            }
-        ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-
-        let response = {
-            let call = TestContract::identityCall { a: true };
-            wallet
-                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-                .await?
-        };
-        assert_eq!(
-            response,
-            CallResult::Success(
-                [
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 1
-                ]
-                .to_vec()
+            let bytes = compile_snippet(
+                r"
+                function identity(bool a) public view returns (bool) {
+                    return a;
+                }
+            ",
             )
-        );
-        env.shutdown().await?;
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+
+            let response = {
+                let call = TestContract::identityCall { a: true };
+                wallet
+                    .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                    .await
+                    .unwrap()
+            };
+            assert_eq!(
+                response,
+                CallResult::Success(
+                    [
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 1
+                    ]
+                    .to_vec()
+                )
+            );
+        })
+        .await;
         Ok(())
     }
 }

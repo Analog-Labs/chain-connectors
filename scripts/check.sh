@@ -103,7 +103,8 @@ if [[ "${RUN_TESTS}" == "1" ]]; then
     --exclude rosetta-server-astar \
     --exclude rosetta-server-ethereum \
     --exclude rosetta-server-polkadot \
-    --exclude rosetta-client
+    --exclude rosetta-client \
+    --exclude rosetta-testing-arbitrum
   # cargo test --locked --all-features --workspace
   exec_cmd 'cleanup docker' "${SCRIPT_DIR}/reset_docker.sh"
 fi

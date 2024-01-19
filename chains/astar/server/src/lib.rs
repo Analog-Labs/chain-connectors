@@ -67,7 +67,8 @@ impl AstarClient {
         let backend = LegacyBackend::new(rpc_client);
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        let ethereum_client =
+            MaybeWsEthereumClient::from_jsonrpsee(config, ws_client, None).await?;
         Ok(Self { client: ethereum_client, ws_client: substrate_client, rpc_methods })
     }
 
@@ -309,7 +310,7 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
-    use rosetta_docker::Env;
+    use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
 
@@ -371,78 +372,86 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
         let env = Env::new("astar-smart-contract", config.clone(), client_from_config).await?;
+        run_test(env, |env| async move {
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            wallet.faucet(faucet).await.unwrap();
 
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
-
-        let bytes = compile_snippet(
-            r"
-            event AnEvent();
-            function emitEvent() public {
-                emit AnEvent();
-            }
-            ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-        let tx_hash = {
-            let data = TestContract::emitEventCall::SELECTOR.to_vec();
-            wallet.eth_send_call(contract_address.0, data, 0).await?
-        };
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let logs = receipt.logs;
-        assert_eq!(logs.len(), 1);
-        let topic = logs[0].topics[0];
-        let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
-        assert_eq!(topic, expected);
-        env.shutdown().await?;
+            let bytes = compile_snippet(
+                r"
+                event AnEvent();
+                function emitEvent() public {
+                    emit AnEvent();
+                }
+                ",
+            )
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+            let tx_hash = {
+                let data = TestContract::emitEventCall::SELECTOR.to_vec();
+                wallet.eth_send_call(contract_address.0, data, 0).await.unwrap()
+            };
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let logs = receipt.logs;
+            assert_eq!(logs.len(), 1);
+            let topic = logs[0].topics[0];
+            let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
+            assert_eq!(topic, expected);
+        })
+        .await;
         Ok(())
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
-        let faucet = 100 * u128::pow(10, config.currency_decimals);
 
-        let env = Env::new("astar-smart-contract-view", config, client_from_config).await?;
+        let env = Env::new("astar-smart-contract-view", config.clone(), client_from_config).await?;
 
-        let wallet = env.ephemeral_wallet().await?;
-        wallet.faucet(faucet).await?;
+        run_test(env, |env| async move {
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            wallet.faucet(faucet).await.unwrap();
 
-        let bytes = compile_snippet(
-            r"
-            function identity(bool a) public view returns (bool) {
-                return a;
-            }
-        ",
-        )?;
-        let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-        let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-        let contract_address = receipt.contract_address.unwrap();
-
-        let response = {
-            let call = TestContract::identityCall { a: true };
-            wallet
-                .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-                .await?
-        };
-        assert_eq!(
-            response,
-            CallResult::Success(
-                [
-                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    0, 0, 0, 0, 0, 1
-                ]
-                .to_vec()
+            let bytes = compile_snippet(
+                r"
+                function identity(bool a) public view returns (bool) {
+                    return a;
+                }
+            ",
             )
-        );
-        env.shutdown().await?;
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+
+            let response = {
+                let call = TestContract::identityCall { a: true };
+                wallet
+                    .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                    .await
+                    .unwrap()
+            };
+            assert_eq!(
+                response,
+                CallResult::Success(
+                    [
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 1
+                    ]
+                    .to_vec()
+                )
+            );
+        })
+        .await;
         Ok(())
     }
 }

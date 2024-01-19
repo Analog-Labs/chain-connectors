@@ -5343,6 +5343,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-testing-arbitrum"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.5.4",
+ "anyhow",
+ "ethers",
+ "ethers-solc",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server-ethereum",
+ "sequential-test",
+ "serde_json",
+ "sha3",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "rosetta-tx-ethereum"
 version = "0.5.0"
 dependencies = [
@@ -5988,6 +6009,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 
 [[package]]
+name = "sequential-macro"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb5facc5f409a55d25bf271c853402a00e1187097d326757043f5dd711944d07"
+
+[[package]]
+name = "sequential-test"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0d9c0d773bc7e7733264f460e5dfa00b2510421ddd6284db0749eef8dfb79e9"
+dependencies = [
+ "sequential-macro",
+]
+
+[[package]]
 name = "serde"
 version = "1.0.195"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6260,9 +6296,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.12.0"
+version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2593d31f82ead8df961d8bd23a64c2ccf2eb5dd34b0a34bfb4dd54011c72009e"
+checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "smol"
