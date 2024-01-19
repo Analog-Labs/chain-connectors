@@ -67,7 +67,8 @@ impl AstarClient {
         let backend = LegacyBackend::new(rpc_client);
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        let ethereum_client =
+            MaybeWsEthereumClient::from_jsonrpsee(config, ws_client, None).await?;
         Ok(Self { client: ethereum_client, ws_client: substrate_client, rpc_methods })
     }
 
@@ -301,6 +302,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
 
@@ -336,6 +338,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_astar::config("dev")?;
         let faucet = 100 * u128::pow(10, config.currency_decimals);

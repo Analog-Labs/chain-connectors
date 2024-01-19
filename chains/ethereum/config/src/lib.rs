@@ -32,6 +32,7 @@ pub fn polygon_config(network: &str) -> Result<BlockchainConfig> {
 /// # Errors
 /// Returns `Err` if the network is not supported
 pub fn arbitrum_config(network: &str) -> Result<BlockchainConfig> {
+    // All available networks are listed here:
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
         "goerli" => ("goerli", 1, true),

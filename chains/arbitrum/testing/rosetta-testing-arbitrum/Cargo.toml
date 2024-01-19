@@ -1,0 +1,26 @@
+[package]
+name = "rosetta-testing-arbitrum"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Arbitrum unit test."
+
+[dependencies]
+anyhow = "1.0"
+ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
+rosetta-config-ethereum.workspace = true
+rosetta-core.workspace = true
+rosetta-docker = { workspace = true, features = ["tests"] }
+rosetta-server-ethereum.workspace = true
+sequential-test = "0.2.4"
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing = "0.1.40"
+
+[dev-dependencies]
+alloy-sol-types = { version = "0.5" }
+ethers-solc = "2.0"
+rosetta-client.workspace = true
+sha3 = "0.10"
+url = "2.4"

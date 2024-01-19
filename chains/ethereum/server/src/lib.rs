@@ -1,5 +1,5 @@
 use anyhow::Result;
-use client::EthereumClient;
+pub use client::EthereumClient;
 use ethers::providers::Http;
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
@@ -36,7 +36,7 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     /// Creates a new ethereum client from `network` and `addr`.
-    /// Supported blockchains are `ethereum` and `polygon`
+    /// Supported blockchains are `ethereum`, `polygon` and `arbitrum`
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
@@ -44,6 +44,7 @@ impl MaybeWsEthereumClient {
         blockchain: &str,
         network: &str,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let config = match blockchain {
             "ethereum" => rosetta_config_ethereum::config(network)?,
@@ -51,7 +52,7 @@ impl MaybeWsEthereumClient {
             "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
-        Self::from_config(config, addr).await
+        Self::from_config(config, addr, private_key).await
     }
 
     /// Creates a new bitcoin client from `config` and `addr`
@@ -61,14 +62,15 @@ impl MaybeWsEthereumClient {
     pub async fn from_config<S: AsRef<str> + Send>(
         config: BlockchainConfig,
         addr: S,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
             let client = default_client(uri.as_str(), None).await?;
-            Self::from_jsonrpsee(config, client).await
+            Self::from_jsonrpsee(config, client, private_key).await
         } else {
             let http_connection = Http::new(uri);
-            let client = EthereumClient::new(config, http_connection).await?;
+            let client = EthereumClient::new(config, http_connection, private_key).await?;
             Ok(Self::Http(client))
         }
     }
@@ -78,9 +80,13 @@ impl MaybeWsEthereumClient {
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
-    pub async fn from_jsonrpsee(config: BlockchainConfig, client: DefaultClient) -> Result<Self> {
+    pub async fn from_jsonrpsee(
+        config: BlockchainConfig,
+        client: DefaultClient,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let ws_connection = EthPubsubAdapter::new(client);
-        let client = EthereumClient::new(config, ws_connection).await?;
+        let client = EthereumClient::new(config, ws_connection, private_key).await?;
         Ok(Self::Ws(client))
     }
 }
@@ -227,7 +233,7 @@ mod tests {
 
     pub async fn client_from_config(config: BlockchainConfig) -> Result<MaybeWsEthereumClient> {
         let url = config.node_uri.to_string();
-        MaybeWsEthereumClient::from_config(config, url.as_str()).await
+        MaybeWsEthereumClient::from_config(config, url.as_str(), None).await
     }
 
     #[tokio::test]
@@ -283,6 +289,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 
@@ -317,6 +324,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev")?;
 

@@ -61,7 +61,7 @@ impl<T: BlockchainClient> Env<T> {
     pub async fn ephemeral_wallet(&self) -> Result<Wallet> {
         let config = self.client.config().clone();
         let node_uri = config.node_uri.to_string();
-        Wallet::from_config(config, &node_uri, None).await
+        Wallet::from_config(config, &node_uri, None, None).await
     }
 
     /// Stop all containers
