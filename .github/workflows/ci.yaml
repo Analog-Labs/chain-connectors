@@ -27,6 +27,12 @@ jobs:
     - name: Dprint check
       run: dprint check
 
+    - name: Install nightly toolchain
+      run: rustup toolchain install nightly
+
+    - name: Install cargo-fmt for nightly toolchain
+      run: rustup component add rustfmt --toolchain nightly
+
     - name: cargo fmt
       run: cargo +nightly fmt --all -- --check
 
@@ -68,9 +74,10 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.74.1
         components: clippy
         target: x86_64-unknown-linux-musl
+        override: true
     
     - name: cargo clippy (${{ matrix.crate }})
       run: |
@@ -108,10 +115,19 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: stable
+        toolchain: 1.74.1
         components: clippy
         target: x86_64-unknown-linux-musl
+        override: true
     
+    - name: Checkout code
+      run: git clone -b release --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
+
+    - name: Run the arbitrum nitro-testnode
+      run: |
+        cd nitro-testnode
+        ./test-node.bash --detach
+
     - name: clippy
       run: |
         cargo clippy --locked --workspace --examples --tests --all-features \
@@ -128,9 +144,6 @@ jobs:
           -Dclippy::pedantic \
           -Aclippy::module_name_repetitions
 
-    - name: Cleanup Docker
-      run: ./scripts/reset_docker.sh
-
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
 
@@ -142,3 +155,6 @@ jobs:
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
+
+    - name: Cleanup Docker
+      run: ./scripts/reset_docker.sh
