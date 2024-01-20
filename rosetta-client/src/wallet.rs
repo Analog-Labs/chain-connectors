@@ -112,17 +112,13 @@ impl Wallet {
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
     pub async fn balance(&self) -> Result<Amount> {
-        println!("will current_block");
         let block = self.client.current_block().await?;
-        println!("got block: {block:?}");
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = match &self.client {
             GenericClient::Astar(client) => match block {
                 GenericBlockIdentifier::Ethereum(block) => {
-                    let block_identifier = PartialBlockIdentifier::from(block);
-                    println!("will get balance: {block_identifier:?}");
-                    client.balance(&address, &block_identifier).await?
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
                 },
                 GenericBlockIdentifier::Polkadot(_) => {
                     anyhow::bail!("[this is bug] client returned an invalid block identifier")
@@ -130,8 +126,7 @@ impl Wallet {
             },
             GenericClient::Ethereum(client) => match block {
                 GenericBlockIdentifier::Ethereum(block) => {
-                    let block_identifier = PartialBlockIdentifier::from(block);
-                    client.balance(&address, &block_identifier).await?
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
                 },
                 GenericBlockIdentifier::Polkadot(_) => {
                     anyhow::bail!("[this is bug] client returned an invalid block identifier")
@@ -139,8 +134,7 @@ impl Wallet {
             },
             GenericClient::Polkadot(client) => match block {
                 GenericBlockIdentifier::Polkadot(block) => {
-                    let block_identifier = PartialBlockIdentifier::from(block);
-                    client.balance(&address, &block_identifier).await?
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
                 },
                 GenericBlockIdentifier::Ethereum(_) => {
                     anyhow::bail!("[this is bug] client returned an invalid block identifier")
