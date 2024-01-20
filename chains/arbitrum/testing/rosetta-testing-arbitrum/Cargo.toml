@@ -9,9 +9,10 @@ description = "Arbitrum unit test."
 [dev-dependencies]
 alloy-sol-types = { version = "0.6" }
 anyhow = "1.0"
-ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
+ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
 ethers-solc = "2.0"
 hex-literal = "0.4"
+rand_core = { version = "0.6", features = ["getrandom"] }
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true

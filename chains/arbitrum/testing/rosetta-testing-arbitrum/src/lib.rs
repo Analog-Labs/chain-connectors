@@ -54,13 +54,21 @@ mod tests {
     use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sha3::Digest;
-    use std::{
-        collections::BTreeMap,
-        future::Future,
-        path::Path,
-        sync::atomic::{AtomicU64, Ordering},
-        time::Duration,
-    };
+    use std::{collections::BTreeMap, future::Future, path::Path, time::Duration};
+
+    /// Account used to fund other testing accounts.
+    const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
+        hex!("8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36");
+
+    /// Account used exclusively to continuously sending tx to mine new blocks.
+    const BLOCK_INCREMENTER_PRIVATE_KEY: [u8; 32] =
+        hex!("b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659");
+
+    /// Arbitrum rpc url
+    const ARBITRUM_RPC_HTTP_URL: &str = "http://127.0.0.1:8547";
+    const ARBITRUM_RPC_WS_URL: &str = "ws://127.0.0.1:8548";
+
+    type WsProvider = ethers::providers::Provider<ethers::providers::Ws>;
 
     sol! {
         interface TestContract {
@@ -71,64 +79,44 @@ mod tests {
         }
     }
 
-    macro_rules! create_account {
-        ($name: literal, $value: expr) => {{
-            use ethers::core::k256::ecdsa::SigningKey;
-            let private_key: [u8; 32] =
-                sha3::Keccak256::digest(concat!(module_path!(), "::", $name)).into();
-            let address = ::ethers::utils::secret_key_to_address(
-                &SigningKey::from_bytes(private_key.as_ref().into()).unwrap(),
-            );
-            sync_send_funds(address, { $value }).await.unwrap();
-            private_key
-        }};
-    }
+    /// Send funds from funding account to the provided account.
+    /// This function is can be called concurrently.
+    async fn sync_send_funds(dest: H160, amount: u128) -> Result<()> {
+        // Guarantee the funding account nonce is incremented atomically
+        static NONCE: tokio::sync::Mutex<u64> = tokio::sync::Mutex::const_new(0);
 
-    /// Arbitrum faucet account private key.
-    const FAUCET_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36");
-
-    /// Account used exclusively to continuously sending tx to mine new blocks.
-    const BLOCK_MANEGER_PRIVATE_KEY: [u8; 32] =
-        hex!("b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659");
-    // const BLOCK_MANEGER_ADDRESS: H160 = H160(hex!("3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E"));
-
-    /// Arbitrum rpc url
-    const ARBITRUM_RPC_URL: &str = "http://localhost:8547";
-
-    /// Send funds to the provided account
-    async fn sync_send_funds<I: Into<U256> + Send>(dest: H160, amount: I) -> Result<()> {
-        // Guarantee the faucet nonce is incremented is sequentially
-        static NONCE: std::sync::OnceLock<std::sync::atomic::AtomicU64> =
-            std::sync::OnceLock::new();
-
-        let amount = amount.into();
         // Connect to the provider
-        let wallet = LocalWallet::from_bytes(&FAUCET_ACCOUNT_PRIVATE_KEY)?;
+        let wallet = LocalWallet::from_bytes(&FUNDING_ACCOUNT_PRIVATE_KEY)?;
         let provider =
-            ethers::providers::Provider::<ethers::providers::Http>::try_from(ARBITRUM_RPC_URL)
+            ethers::providers::Provider::<ethers::providers::Http>::try_from(ARBITRUM_RPC_HTTP_URL)
                 .context("Failed to create HTTP provider")?
                 .interval(Duration::from_secs(1));
 
-        // retrieve the current nonce
-        let nonce = provider
-            .get_transaction_count(wallet.address(), Some(BlockId::Number(BlockNumber::Latest)))
-            .await?
-            .as_u64();
-        let nonce = NONCE.get_or_init(|| AtomicU64::new(nonce));
-        let nonce = nonce.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
         // Retrieve chain id
         let chain_id = provider.get_chainid().await?.as_u64();
+
+        // Acquire nonce lock
+        let mut nonce_lock = NONCE.lock().await;
+
+        // Initialize nonce if necessary
+        if *nonce_lock == 0 {
+            // retrieve the current nonce, used to initialize the nonce if necessary, once
+            // `OnceLock` doesn't support async functions
+            let current_nonce = provider
+                .get_transaction_count(wallet.address(), Some(BlockId::Number(BlockNumber::Latest)))
+                .await?
+                .as_u64();
+            *nonce_lock = current_nonce;
+        }
 
         // Create a transaction request
         let transaction_request = TransactionRequest {
             from: None,
             to: Some(ethers::types::NameOrAddress::Address(dest)),
-            value: Some(amount),
+            value: Some(U256::from(amount)),
             gas: Some(U256::from(210_000)),
             gas_price: Some(U256::from(500_000_000)),
-            nonce: Some(U256::from(nonce)),
+            nonce: Some(U256::from(*nonce_lock)),
             data: None,
             chain_id: Some(chain_id.into()),
         };
@@ -137,134 +125,131 @@ mod tests {
         let tx: TypedTransaction = transaction_request.into();
         let signature = wallet.sign_transaction(&tx).await?;
         let tx = tx.rlp_signed(&signature);
-        let receipt = provider
-            .send_raw_transaction(tx)
-            .await?
-            .confirmations(1)
-            .await?
-            .context("failed to retrieve tx receipt")?;
+        let pending_tx = provider.send_raw_transaction(tx).await?;
+
+        // Increment and release nonce lock
+        // increment only after successfully send the tx to avoid nonce reuse
+        *nonce_lock += 1;
+        drop(nonce_lock);
 
         // Verify if the tx reverted
+        let receipt =
+            pending_tx.confirmations(1).await?.context("failed to retrieve tx receipt")?;
         if !matches!(receipt.status, Some(U64([1]))) {
             anyhow::bail!("Transaction reverted: {:?}", receipt.transaction_hash);
         }
         Ok(())
     }
 
+    /// Creates a random account and send funds to it
+    async fn create_test_account(initial_balance: u128) -> Result<[u8; 32]> {
+        use ethers::core::k256::ecdsa::SigningKey;
+        use rand_core::OsRng;
+        let signing_key = SigningKey::random(&mut OsRng);
+        let address = ::ethers::utils::secret_key_to_address(&signing_key);
+        sync_send_funds(address, initial_balance).await?;
+        Ok(signing_key.to_bytes().into())
+    }
+
     /// Run the test in another thread and while sending txs to force arbitrum to mine new blocks
-    /// Panics if the test panics
+    /// # Panic
+    /// Panics if the future panics
     async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {
-        static TEST_ID_MANAGER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
-        static CURRENT_TEST: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-        static NONCE: std::sync::OnceLock<std::sync::atomic::AtomicU64> =
-            std::sync::OnceLock::new();
+        // Guarantee that only one test is incrementing blocks at a time
+        static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-        // Create a unique id for this test context
-        let test_id = TEST_ID_MANAGER.fetch_add(1, Ordering::SeqCst);
+        // Run the test in another thread
+        let test_handler = tokio::spawn(future);
 
-        let wallet = LocalWallet::from_bytes(&BLOCK_MANEGER_PRIVATE_KEY).unwrap();
-        let provider =
-            ethers::providers::Provider::<ethers::providers::Http>::try_from(ARBITRUM_RPC_URL)
-                .expect("Failed to create HTTP provider")
-                .interval(Duration::from_secs(1));
-        let address = H160(hex!("8Db77D3B019a52788bD3804724f5653d7C9Cf0b6"));
+        // Acquire Lock
+        let guard = LOCK.lock().await;
 
-        let nonce = provider
+        // Check if the test is finished after acquiring the lock
+        if test_handler.is_finished() {
+            // Release lock
+            drop(guard);
+
+            // Now is safe to panic
+            if let Err(err) = test_handler.await {
+                std::panic::resume_unwind(err.into_panic());
+            }
+            return;
+        }
+
+        // Connect to arbitrum node
+        let wallet = LocalWallet::from_bytes(&BLOCK_INCREMENTER_PRIVATE_KEY).unwrap();
+        let provider = WsProvider::connect(ARBITRUM_RPC_WS_URL)
+            .await
+            .map(|provider| provider.interval(Duration::from_millis(500)))
+            .unwrap();
+
+        // Retrieve chain id
+        let chain_id = provider.get_chainid().await.unwrap().as_u64();
+
+        // Retrieve current nonce
+        let mut nonce = provider
             .get_transaction_count(wallet.address(), None)
             .await
             .expect("failed to retrieve account nonce")
             .as_u64();
 
-        let chain_id = provider.get_chainid().await.unwrap().as_u64();
+        // Create a transaction request
+        let transaction_request = TransactionRequest {
+            from: None,
+            to: Some(wallet.address().into()),
+            value: None,
+            gas: Some(U256::from(210_000)),
+            gas_price: Some(U256::from(500_000_000)),
+            nonce: None,
+            data: None,
+            chain_id: Some(chain_id.into()),
+        };
+        let mut tx: TypedTransaction = transaction_request.into();
 
-        let nonce = NONCE.get_or_init(|| AtomicU64::new(nonce));
+        // Mine a new block by sending a transaction until the test finishes
+        while !test_handler.is_finished() {
+            // Set tx nonce
+            tx.set_nonce(nonce);
 
-        // Run the test in another thread
-        let handler = tokio::spawn(future);
-
-        loop {
-            let current_test = CURRENT_TEST.load(std::sync::atomic::Ordering::SeqCst);
-            if current_test == 0 {
-                let result =
-                    CURRENT_TEST.compare_exchange(0, test_id, Ordering::Acquire, Ordering::Relaxed);
-                if result.is_ok() {
-                    break;
-                }
-            } else if current_test == test_id {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(4000)).await;
-        }
-
-        // Force arbitrum to mine a new block by sending a transaction until the test finishes
-        while !handler.is_finished() {
-            let next_nonce = nonce.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-
-            // Create a transaction request
-            let transaction_request = TransactionRequest {
-                from: None,
-                to: Some(ethers::types::NameOrAddress::Address(address)),
-                value: Some(U256::from(1)),
-                gas: Some(U256::from(210_000)),
-                gas_price: Some(U256::from(500_000_000)),
-                nonce: Some(U256::from(next_nonce)),
-                data: None,
-                chain_id: Some(chain_id.into()),
-            };
+            // Increment nonce
+            nonce += 1;
 
             // Sign and send the transaction
-            let tx: TypedTransaction = transaction_request.into();
-            let signature = match wallet.sign_transaction(&tx).await {
-                Ok(signature) => signature,
-                Err(err) => {
-                    CURRENT_TEST.store(0, std::sync::atomic::Ordering::SeqCst);
-                    panic!("{err}");
-                },
-            };
+            let signature = wallet.sign_transaction(&tx).await.expect("failed to sign tx");
             let tx: ethers::types::Bytes = tx.rlp_signed(&signature);
-            let pending_tx = match provider.send_raw_transaction(tx).await {
-                Ok(tx) => tx,
-                Err(err) => {
-                    CURRENT_TEST.store(0, std::sync::atomic::Ordering::SeqCst);
-                    panic!("{err}");
-                },
-            };
+            let receipt = provider
+                .send_raw_transaction(tx)
+                .await
+                .unwrap()
+                .confirmations(1)
+                .await
+                .unwrap()
+                .expect("tx receipt not found");
+
+            // Verify if the tx reverted
+            assert!(receipt.status.unwrap().as_u64() == 1, "Transaction reverted: {receipt:?}");
 
             // Wait 500ms for the tx to be mined
-            match pending_tx.confirmations(1).await {
-                Ok(Some(_)) => {
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                },
-                Ok(None) => {
-                    CURRENT_TEST.store(0, std::sync::atomic::Ordering::SeqCst);
-                    panic!("no tx receipt");
-                },
-                Err(err) => {
-                    CURRENT_TEST.store(0, std::sync::atomic::Ordering::SeqCst);
-                    panic!("{err}");
-                },
-            };
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         }
-        if CURRENT_TEST.load(Ordering::SeqCst) == test_id {
-            CURRENT_TEST.store(0, Ordering::SeqCst);
-        }
+        // Release lock
+        drop(guard);
 
         // Now is safe to panic
-        if let Err(err) = handler.await {
+        if let Err(err) = test_handler.await {
             // Resume the panic on the main task
             std::panic::resume_unwind(err.into_panic());
         }
     }
 
     #[tokio::test]
-    // #[sequential]
     async fn network_status() {
-        run_test(async {
-            let private_key = create_account!("network_status", 20 * u128::pow(10, 18));
+        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "arbitrum",
                 "dev",
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 Some(private_key),
             )
             .await
@@ -298,21 +283,20 @@ mod tests {
     }
 
     #[tokio::test]
-    // #[sequential]
     async fn test_account() {
-        run_test(async {
-            let private_key = create_account!("test_account", 20 * u128::pow(10, 18));
+        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "arbitrum",
                 "dev",
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 Some(private_key),
             )
             .await
             .expect("Error creating ArbitrumClient");
             let wallet = Wallet::from_config(
                 client.config().clone(),
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 None,
                 Some(private_key),
             )
@@ -354,14 +338,13 @@ mod tests {
     }
 
     #[tokio::test]
-    // #[sequential]
     async fn test_smart_contract() {
-        run_test(async {
-            let private_key = create_account!("test_smart_contract", 20 * u128::pow(10, 18));
+        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "arbitrum",
                 "dev",
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 Some(private_key),
             )
             .await
@@ -369,7 +352,7 @@ mod tests {
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet = Wallet::from_config(
                 client.config().clone(),
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 None,
                 Some(private_key),
             )
@@ -403,14 +386,13 @@ mod tests {
     }
 
     #[tokio::test]
-    // #[sequential]
     async fn test_smart_contract_view() {
+        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
-            let private_key = create_account!("test_smart_contract_view", 20 * u128::pow(10, 18));
             let client = MaybeWsEthereumClient::new(
                 "arbitrum",
                 "dev",
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 Some(private_key),
             )
             .await
@@ -418,7 +400,7 @@ mod tests {
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet = Wallet::from_config(
                 client.config().clone(),
-                "ws://127.0.0.1:8548",
+                ARBITRUM_RPC_WS_URL,
                 None,
                 Some(private_key),
             )
