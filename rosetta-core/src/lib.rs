@@ -63,16 +63,6 @@ impl BlockchainConfig {
             metadata: None,
         }
     }
-
-    #[must_use]
-    pub fn node_url(&self) -> String {
-        self.node_uri.with_host("rosetta.analog.one").to_string()
-    }
-
-    #[must_use]
-    pub fn connector_url(&self) -> String {
-        format!("http://rosetta.analog.one:{}", self.connector_port)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
