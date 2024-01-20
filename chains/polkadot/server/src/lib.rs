@@ -154,6 +154,8 @@ impl BlockchainClient for PolkadotClient {
     type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
+    type Transaction = Vec<u8>;
+
     fn config(&self) -> &BlockchainConfig {
         &self.config
     }
@@ -209,8 +211,8 @@ impl BlockchainClient for PolkadotClient {
             .parse()
             .map_err(|err| anyhow::anyhow!("{}", err))
             .context("invalid address")?;
-        let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
 
+        let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
         let tx = westend_dev_metadata::tx().balances().transfer_keep_alive(address.into(), value);
         let hash = self
             .client

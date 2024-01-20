@@ -135,6 +135,12 @@ pub enum GenericBlockIdentifier {
     Polkadot(<PolkadotClient as BlockchainClient>::BlockIdentifier),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericTransaction {
+    Ethereum(<EthereumClient as BlockchainClient>::Transaction),
+    Polkadot(<PolkadotClient as BlockchainClient>::Transaction),
+}
+
 macro_rules! dispatch {
     ($self:tt$($method:tt)+) => {
         match $self {
@@ -155,6 +161,8 @@ impl BlockchainClient for GenericClient {
 
     type AtBlock = GenericAtBlock;
     type BlockIdentifier = GenericBlockIdentifier;
+
+    type Transaction = GenericTransaction;
 
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())

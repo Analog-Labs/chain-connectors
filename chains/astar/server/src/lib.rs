@@ -202,6 +202,8 @@ impl BlockchainClient for AstarClient {
     type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
+    type Transaction = rosetta_config_ethereum::SignedTransaction;
+
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
     }

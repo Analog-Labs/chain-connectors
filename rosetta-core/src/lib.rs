@@ -110,6 +110,8 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type AtBlock: Clone + Send + Sync + Sized + Eq + From<Self::BlockIdentifier> + 'static;
     type BlockIdentifier: Clone + Send + Sync + Sized + Eq + 'static;
 
+    type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
+
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> Self::BlockIdentifier;
     async fn node_version(&self) -> Result<String>;
@@ -150,6 +152,8 @@ where
 
     type AtBlock = <T as BlockchainClient>::AtBlock;
     type BlockIdentifier = <T as BlockchainClient>::BlockIdentifier;
+
+    type Transaction = <T as BlockchainClient>::Transaction;
 
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))
