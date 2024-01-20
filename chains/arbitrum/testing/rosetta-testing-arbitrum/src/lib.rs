@@ -128,7 +128,7 @@ mod tests {
         let pending_tx = provider.send_raw_transaction(tx).await?;
 
         // Increment and release nonce lock
-        // increment only after successfully send the tx to avoid nonce reuse
+        // increment only after successfully send the tx to avoid nonce gaps
         *nonce_lock += 1;
         drop(nonce_lock);
 
@@ -151,7 +151,7 @@ mod tests {
         Ok(signing_key.to_bytes().into())
     }
 
-    /// Run the test in another thread and while sending txs to force arbitrum to mine new blocks
+    /// Run the test in another thread while sending txs to force arbitrum to mine new blocks
     /// # Panic
     /// Panics if the future panics
     async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {
