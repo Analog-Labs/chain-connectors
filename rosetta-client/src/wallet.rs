@@ -4,12 +4,12 @@ use crate::{
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
-    types::{AccountIdentifier, Amount, BlockIdentifier, PublicKey, TransactionIdentifier},
+    types::{AccountIdentifier, Amount, BlockIdentifier, PublicKey},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
 use rosetta_core::{
-    types::{Block, PartialBlockIdentifier, Transaction},
+    types::{Block, PartialBlockIdentifier},
     BlockchainClient, RosettaAlgorithm,
 };
 use rosetta_server_ethereum::config::{
@@ -165,30 +165,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.block(&at_block).await,
             GenericClient::Polkadot(client) => client.block(&at_block).await,
         }
-    }
-
-    /// Returns transactions included in a block
-    /// Parameters:
-    /// 1. `block_identifier`: `BlockIdentifier` containing block number and hash
-    /// 2. `tx_identifier`: `TransactionIdentifier` containing hash of transaction
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block_transaction(
-        &self,
-        block_identifer: BlockIdentifier,
-        tx_identifier: TransactionIdentifier,
-    ) -> Result<Transaction> {
-        match &self.client {
-            GenericClient::Astar(client) => {
-                client.block_transaction(&block_identifer, &tx_identifier).await
-            },
-            GenericClient::Ethereum(client) => {
-                client.block_transaction(&block_identifer, &tx_identifier).await
-            },
-            GenericClient::Polkadot(client) => {
-                client.block_transaction(&block_identifer, &tx_identifier).await
-            },
-        }
-        // self.client.block_transaction(&block_identifer, &tx_identifier).await
     }
 
     /// Returns the on chain metadata.

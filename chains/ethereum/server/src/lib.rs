@@ -6,7 +6,7 @@ pub use rosetta_config_ethereum::{
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    types::{Block, BlockIdentifier, PartialBlockIdentifier, Transaction, TransactionIdentifier},
+    types::{Block, BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::{default_client, DefaultClient};
@@ -174,17 +174,6 @@ impl BlockchainClient for MaybeWsEthereumClient {
         match self {
             Self::Http(http_client) => http_client.block(block_identifier).await,
             Self::Ws(ws_client) => ws_client.block(block_identifier).await,
-        }
-    }
-
-    async fn block_transaction(
-        &self,
-        block: &Self::BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        match self {
-            Self::Http(http_client) => http_client.block_transaction(block, tx).await,
-            Self::Ws(ws_client) => ws_client.block_transaction(block, tx).await,
         }
     }
 

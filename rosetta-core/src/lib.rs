@@ -6,10 +6,7 @@ use crate::{
         address::{Address, AddressFormat},
         Algorithm, PublicKey, SecretKey,
     },
-    types::{
-        Block, BlockIdentifier, Currency, CurveType, NetworkIdentifier, SignatureType, Transaction,
-        TransactionIdentifier,
-    },
+    types::{Block, BlockIdentifier, Currency, CurveType, NetworkIdentifier, SignatureType},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -126,11 +123,6 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
     async fn block(&self, block: &Self::AtBlock) -> Result<Block>;
-    async fn block_transaction(
-        &self,
-        block: &Self::BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction>;
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
@@ -188,13 +180,6 @@ where
     }
     async fn block(&self, block: &Self::AtBlock) -> Result<Block> {
         BlockchainClient::block(Self::as_ref(self), block).await
-    }
-    async fn block_transaction(
-        &self,
-        block: &Self::BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        BlockchainClient::block_transaction(Self::as_ref(self), block, tx).await
     }
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult> {
         BlockchainClient::call(Self::as_ref(self), req).await

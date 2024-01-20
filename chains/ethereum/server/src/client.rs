@@ -17,17 +17,12 @@ use rosetta_config_ethereum::{
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    types::{
-        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
-    },
+    types::{Block, BlockIdentifier, Coin, PartialBlockIdentifier},
     BlockchainConfig,
 };
-use std::{
-    str::FromStr,
-    sync::{
-        atomic::{self, Ordering},
-        Arc,
-    },
+use std::sync::{
+    atomic::{self, Ordering},
+    Arc,
 };
 
 /// Strategy used to determine the finalized block
@@ -325,25 +320,6 @@ where
             transactions,
             metadata: None,
         })
-    }
-
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block_transaction(
-        &self,
-        block: &BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        let tx_id = H256::from_str(&tx.hash)?;
-        let block = self
-            .client
-            .get_block(BlockId::Hash(H256(block.hash)))
-            .await?
-            .context("block not found")?;
-        let transaction =
-            self.client.get_transaction(tx_id).await?.context("transaction not found")?;
-        let transaction =
-            crate::utils::get_transaction(&self.client, self.config(), block, &transaction).await?;
-        Ok(transaction)
     }
 
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]

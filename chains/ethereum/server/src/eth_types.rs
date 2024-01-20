@@ -1,21 +1,13 @@
 use ethers::types::{Bytes, H160, U256, U64};
 use serde::{Deserialize, Serialize};
 
-pub const FEE_OP_TYPE: &str = "FEE";
-pub const CALL_OP_TYPE: &str = "CALL";
 pub const MINING_REWARD_OP_TYPE: &str = "MINER_REWARD";
 pub const UNCLE_REWARD_OP_TYPE: &str = "UNCLE_REWARD";
 pub const _CALL_CODE_OP_TYPE: &str = "CALLCODE";
 pub const _DELEGATE_CALL_OP_TYPE: &str = "DELEGATECALL";
 pub const _STATIC_CALL_OP_TYPE: &str = "STATICCALL";
-pub const SELF_DESTRUCT_OP_TYPE: &str = "SELFDESTRUCT";
-pub const DESTRUCT_OP_TYPE: &str = "DESTRUCT";
-
-pub const CREATE_OP_TYPE: &str = "CREATE";
-pub const CREATE2_OP_TYPE: &str = "CREATE2";
 
 pub const SUCCESS_STATUS: &str = "SUCCESS";
-pub const FAILURE_STATUS: &str = "FAILURE";
 
 pub const UNCLE_REWARD_MULTIPLIER: u64 = 32;
 pub const MAX_UNCLE_DEPTH: u64 = 8;

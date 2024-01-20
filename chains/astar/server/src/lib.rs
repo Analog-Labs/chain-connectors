@@ -13,7 +13,7 @@ use rosetta_core::{
         address::{Address, AddressFormat},
         PublicKey,
     },
-    types::{Block, BlockIdentifier, PartialBlockIdentifier, Transaction, TransactionIdentifier},
+    types::{Block, BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::default_client;
@@ -286,14 +286,6 @@ impl BlockchainClient for AstarClient {
 
     async fn block(&self, block_identifier: &Self::AtBlock) -> Result<Block> {
         self.client.block(block_identifier).await
-    }
-
-    async fn block_transaction(
-        &self,
-        block_identifier: &Self::BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        self.client.block_transaction(block_identifier, tx).await
     }
 
     async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {

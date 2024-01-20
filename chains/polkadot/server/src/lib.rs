@@ -4,10 +4,7 @@ use rosetta_config_polkadot::metadata::westend::dev as westend_dev_metadata;
 pub use rosetta_config_polkadot::{PolkadotMetadata, PolkadotMetadataParams};
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    types::{
-        Block, BlockIdentifier, CallRequest, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
-    },
+    types::{Block, BlockIdentifier, CallRequest, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig, EmptyEventStream,
 };
 use rosetta_server::ws::default_client;
@@ -25,12 +22,11 @@ use subxt::{
     blocks::BlockRef,
     config::{
         substrate::{H256, U256},
-        Hasher, Header,
+        Header,
     },
     // dynamic::Value as SubtxValue,
     tx::{PairSigner, SubmittableExtrinsic},
     utils::{AccountId32, MultiAddress},
-    Config,
     OnlineClient,
     PolkadotConfig,
 };
@@ -306,29 +302,6 @@ impl BlockchainClient for PolkadotClient {
             transactions,
             metadata: None,
         })
-    }
-
-    async fn block_transaction(
-        &self,
-        block_identifier: &BlockIdentifier,
-        transaction_identifier: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        let block_hash = <PolkadotConfig as Config>::Hash::from(block_identifier.hash);
-        let transaction_hash = transaction_identifier.hash.parse()?;
-        let block = self.client.blocks().at(block_hash).await?;
-        let extrinsic = block
-            .extrinsics()
-            .await?
-            .iter()
-            .filter_map(Result::ok)
-            .find(|extrinsic| {
-                <PolkadotConfig as Config>::Hasher::hash_of(&extrinsic.bytes()) == transaction_hash
-            })
-            .context("transaction not found")?;
-
-        let identifier = crate::block::get_transaction_identifier(&extrinsic);
-        let events = extrinsic.events().await?;
-        crate::block::get_transaction(self.config(), identifier, &events)
     }
 
     async fn call(&self, request: &CallRequest) -> Result<Value> {

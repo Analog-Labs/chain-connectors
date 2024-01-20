@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use crate::{
     crypto::{address::Address, PublicKey},
-    types::{Block, CallRequest, Transaction, TransactionIdentifier},
+    types::{Block, CallRequest},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
@@ -268,27 +268,6 @@ impl BlockchainClient for GenericClient {
             Self::Polkadot(client) => match block {
                 GenericAtBlock::Polkadot(at_block) => client.block(at_block).await,
                 GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
-            },
-        }
-    }
-
-    async fn block_transaction(
-        &self,
-        block: &Self::BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        match self {
-            Self::Ethereum(client) => match block {
-                Self::BlockIdentifier::Ethereum(block) => client.block_transaction(block, tx).await,
-                Self::BlockIdentifier::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Astar(client) => match block {
-                Self::BlockIdentifier::Ethereum(block) => client.block_transaction(block, tx).await,
-                Self::BlockIdentifier::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Polkadot(client) => match block {
-                Self::BlockIdentifier::Polkadot(block) => client.block_transaction(block, tx).await,
-                Self::BlockIdentifier::Ethereum(_) => anyhow::bail!("invalid block identifier"),
             },
         }
     }
