@@ -418,22 +418,6 @@ pub mod tests {
         Ok(())
     }
 
-    // ===
-    //             // Check if the finalized block is consistent
-    //             let expected_finalized = client.finalized_block().await?;
-    //             let actual_finalized = client
-    //                 .block(&PartialBlockIdentifier {
-    //                     index: None,
-    //                     hash: Some(expected_finalized.hash.clone()),
-    //                 })
-    //                 .await?
-    //                 .block_identifier;
-    //             assert_eq!(expected_finalized, actual_finalized);
-    //             Ok(())
-    //         })
-    //         .await;
-    // >>> master
-
     #[allow(
         clippy::missing_panics_doc,
         clippy::unwrap_used,
