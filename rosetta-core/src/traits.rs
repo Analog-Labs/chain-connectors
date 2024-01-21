@@ -44,8 +44,8 @@ impl_maybe_marker!(
 );
 
 /// A type that can be used in runtime structures.
-pub trait Member: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + 'static {}
-impl<T: Send + Sync + Sized + Debug + Eq + PartialEq + Clone + 'static> Member for T {}
+pub trait Member: Debug + Send + Sync + Sized + PartialEq + Eq + Clone + 'static {}
+impl<T: Debug + Send + Sync + Sized + PartialEq + Eq + Clone + 'static> Member for T {}
 
 /// Super trait with all the attributes for a hashing output.
 pub trait HashOutput:
@@ -151,9 +151,12 @@ pub trait BlockchainConfig {
     type UnsignedTransaction: Clone + Send + Sync + 'static;
 }
 
-pub trait Query {
-    type Params: Send + Sync + 'static;
-    type Result: Send + Sync + 'static;
+pub trait Query: Member {
+    type Result: Member;
+}
+
+impl Query for () {
+    type Result = ();
 }
 
 // pub enum QueryEnum<T: BlockchainConfig, CUSTOM> {

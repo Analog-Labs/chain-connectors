@@ -15,13 +15,19 @@ use subxt::ext::sp_core::crypto::Ss58AddressFormat;
 pub mod metadata {
     #[cfg(feature = "polkadot-metadata")]
     pub mod polkadot {
-        #[subxt::subxt(runtime_metadata_path = "res/polkadot-v1000001.scale")]
+        #[subxt::subxt(
+            runtime_metadata_path = "res/polkadot-v1000001.scale",
+            derive_for_all_types = "Clone, Eq, PartialEq"
+        )]
         pub mod dev {}
     }
 
     #[cfg(feature = "westend-metadata")]
     pub mod westend {
-        #[subxt::subxt(runtime_metadata_path = "res/westend-dev-v1.5.0.scale")]
+        #[subxt::subxt(
+            runtime_metadata_path = "res/westend-dev-v1.5.0.scale",
+            derive_for_all_types = "Clone, Eq, PartialEq"
+        )]
         pub mod dev {}
     }
 }

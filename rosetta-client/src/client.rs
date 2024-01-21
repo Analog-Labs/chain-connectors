@@ -162,6 +162,7 @@ impl BlockchainClient for GenericClient {
     type AtBlock = GenericAtBlock;
     type BlockIdentifier = GenericBlockIdentifier;
 
+    type Query = ();
     type Transaction = GenericTransaction;
 
     fn config(&self) -> &BlockchainConfig {

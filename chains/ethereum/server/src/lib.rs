@@ -100,6 +100,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
+    type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
 
     fn config(&self) -> &BlockchainConfig {

@@ -205,6 +205,10 @@ pub enum Query {
     ChainId,
 }
 
+impl rosetta_core::traits::Query for Query {
+    type Result = QueryResult;
+}
+
 /// The result of contract call execution
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]

@@ -33,6 +33,7 @@ use subxt::{
 
 mod block;
 mod call;
+mod types;
 
 pub struct PolkadotClient {
     config: BlockchainConfig,
@@ -139,6 +140,30 @@ impl PolkadotClient {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WestendDevConfig;
+
+impl types::ClientConfig for WestendDevConfig {
+    type Hash = <PolkadotConfig as subxt::Config>::Hash;
+
+    type AccountId = <PolkadotConfig as subxt::Config>::AccountId;
+
+    type Address = <PolkadotConfig as subxt::Config>::Address;
+
+    type Signature = <PolkadotConfig as subxt::Config>::Signature;
+
+    type Hasher = <PolkadotConfig as subxt::Config>::Hasher;
+
+    type Header = <PolkadotConfig as subxt::Config>::Header;
+
+    type ExtrinsicParams =
+        subxt::config::polkadot::PolkadotExtrinsicParams<types::SubxtConfigAdapter<Self>>;
+
+    type AssetId = <PolkadotConfig as subxt::Config>::AssetId;
+
+    type AccountInfo = ();
+}
+
 #[async_trait::async_trait]
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
@@ -150,6 +175,7 @@ impl BlockchainClient for PolkadotClient {
     type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
+    type Query = types::Query<WestendDevConfig>;
     type Transaction = Vec<u8>;
 
     fn config(&self) -> &BlockchainConfig {
