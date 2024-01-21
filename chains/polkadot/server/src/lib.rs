@@ -33,6 +33,7 @@ use subxt::{
 
 mod block;
 mod call;
+// mod client;
 mod types;
 
 pub struct PolkadotClient {
@@ -178,16 +179,20 @@ impl BlockchainClient for PolkadotClient {
     type Query = types::Query<WestendDevConfig>;
     type Transaction = Vec<u8>;
 
+    async fn query(
+        &self,
+        _query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+
+        anyhow::bail!("unsupported query");
+    }
+
     fn config(&self) -> &BlockchainConfig {
         &self.config
     }
 
     fn genesis_block(&self) -> BlockIdentifier {
         self.genesis_block.clone()
-    }
-
-    async fn node_version(&self) -> Result<String> {
-        self.rpc_methods.system_version().await.map_err(anyhow::Error::from)
     }
 
     async fn current_block(&self) -> Result<BlockIdentifier> {

@@ -109,11 +109,6 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn node_version(&self) -> Result<String> {
-        Ok(self.client.client_version().await?)
-    }
-
-    #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let index = self.client.get_block_number().await?.as_u64();
         let Some(block_hash) = self

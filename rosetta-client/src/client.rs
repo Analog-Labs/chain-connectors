@@ -165,6 +165,13 @@ impl BlockchainClient for GenericClient {
     type Query = ();
     type Transaction = GenericTransaction;
 
+    async fn query(
+        &self,
+        _query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+        anyhow::bail!("unsupported query");
+    }
+
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())
     }
@@ -176,10 +183,6 @@ impl BlockchainClient for GenericClient {
             Self::Astar(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
             Self::Polkadot(client) => GenericBlockIdentifier::Polkadot(client.genesis_block()),
         }
-    }
-
-    async fn node_version(&self) -> Result<String> {
-        dispatch!(self.node_version().await)
     }
 
     async fn current_block(&self) -> Result<Self::BlockIdentifier> {

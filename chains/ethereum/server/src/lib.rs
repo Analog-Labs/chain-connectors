@@ -103,6 +103,16 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
 
+    async fn query(
+        &self,
+        query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+        match self {
+            Self::Http(http_client) => http_client.call(&query).await,
+            Self::Ws(ws_client) => ws_client.call(&query).await,
+        }
+    }
+
     fn config(&self) -> &BlockchainConfig {
         match self {
             Self::Http(http_client) => http_client.config(),
@@ -114,13 +124,6 @@ impl BlockchainClient for MaybeWsEthereumClient {
         match self {
             Self::Http(http_client) => http_client.genesis_block(),
             Self::Ws(ws_client) => ws_client.genesis_block(),
-        }
-    }
-
-    async fn node_version(&self) -> Result<String> {
-        match self {
-            Self::Http(http_client) => http_client.node_version().await,
-            Self::Ws(ws_client) => ws_client.node_version().await,
         }
     }
 

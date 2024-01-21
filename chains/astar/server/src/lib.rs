@@ -205,16 +205,19 @@ impl BlockchainClient for AstarClient {
     type Query = rosetta_config_ethereum::Query;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
 
+    async fn query(
+        &self,
+        query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+        self.client.query(query).await
+    }
+
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
     }
 
     fn genesis_block(&self) -> Self::BlockIdentifier {
         self.client.genesis_block()
-    }
-
-    async fn node_version(&self) -> Result<String> {
-        self.client.node_version().await
     }
 
     async fn current_block(&self) -> Result<Self::BlockIdentifier> {

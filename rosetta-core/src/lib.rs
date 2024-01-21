@@ -110,9 +110,10 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Query: traits::Query;
     type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
 
+    async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result>;
+
     fn config(&self) -> &BlockchainConfig;
     fn genesis_block(&self) -> Self::BlockIdentifier;
-    async fn node_version(&self) -> Result<String>;
     async fn current_block(&self) -> Result<Self::BlockIdentifier>;
     async fn finalized_block(&self) -> Result<Self::BlockIdentifier>;
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128>;
@@ -149,14 +150,15 @@ where
     type Query = <T as BlockchainClient>::Query;
     type Transaction = <T as BlockchainClient>::Transaction;
 
+    async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result> {
+        BlockchainClient::query(Self::as_ref(self), query).await
+    }
+
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))
     }
     fn genesis_block(&self) -> Self::BlockIdentifier {
         BlockchainClient::genesis_block(Self::as_ref(self))
-    }
-    async fn node_version(&self) -> Result<String> {
-        BlockchainClient::node_version(Self::as_ref(self)).await
     }
     async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         BlockchainClient::current_block(Self::as_ref(self)).await
