@@ -4,7 +4,7 @@ use crate::{
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
-    types::{AccountIdentifier, Amount, BlockIdentifier, PublicKey},
+    types::{AccountIdentifier, BlockIdentifier, PublicKey},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
@@ -108,7 +108,7 @@ impl Wallet {
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn balance(&self) -> Result<Amount> {
+    pub async fn balance(&self) -> Result<u128> {
         let block = self.client.current_block().await?;
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
@@ -138,11 +138,7 @@ impl Wallet {
                 },
             },
         };
-        Ok(Amount {
-            value: format!("{balance}"),
-            currency: self.client.config().currency(),
-            metadata: None,
-        })
+        Ok(balance)
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.

@@ -6,7 +6,7 @@ use crate::{
         address::{Address, AddressFormat},
         Algorithm, PublicKey, SecretKey,
     },
-    types::{Block, BlockIdentifier, Currency, CurveType, NetworkIdentifier, SignatureType},
+    types::{Block, BlockIdentifier, CurveType, NetworkIdentifier, SignatureType},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -49,15 +49,6 @@ impl BlockchainConfig {
             blockchain: self.blockchain.into(),
             network: self.network.into(),
             sub_network_identifier: None,
-        }
-    }
-
-    #[must_use]
-    pub fn currency(&self) -> Currency {
-        Currency {
-            symbol: self.currency_symbol.into(),
-            decimals: self.currency_decimals,
-            metadata: None,
         }
     }
 }

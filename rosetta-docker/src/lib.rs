@@ -418,10 +418,8 @@ pub mod tests {
             let value = 100 * u128::pow(10, config.currency_decimals);
             let wallet = env.ephemeral_wallet().await.unwrap();
             wallet.faucet(value).await.unwrap();
-            let amount = wallet.balance().await.unwrap();
-            assert_eq!(amount.value, value.to_string());
-            assert_eq!(amount.currency, config.currency());
-            assert!(amount.metadata.is_none());
+            let balance = wallet.balance().await.unwrap();
+            assert_eq!(balance, value);
         })
         .await;
         Ok(())
@@ -452,19 +450,19 @@ pub mod tests {
 
             // Alice and bob have no balance
             let balance = alice.balance().await.unwrap();
-            assert_eq!(balance.value, "0");
+            assert_eq!(balance, 0);
             let balance = bob.balance().await.unwrap();
-            assert_eq!(balance.value, "0");
+            assert_eq!(balance, 0);
 
             // Transfer faucets to alice
             alice.faucet(faucet).await.unwrap();
             let balance = alice.balance().await.unwrap();
-            assert_eq!(balance.value, faucet.to_string());
+            assert_eq!(balance, faucet);
 
             // Alice transfers to bob
             alice.transfer(bob.account(), value).await.unwrap();
             let amount = bob.balance().await.unwrap();
-            assert_eq!(amount.value, value.to_string());
+            assert_eq!(amount, value);
         })
         .await;
         Ok(())

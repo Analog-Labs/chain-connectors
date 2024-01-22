@@ -13,7 +13,6 @@ use rosetta_server::ws::{default_client, DefaultClient};
 use url::Url;
 
 mod client;
-mod eth_types;
 mod event_stream;
 mod proof;
 mod utils;

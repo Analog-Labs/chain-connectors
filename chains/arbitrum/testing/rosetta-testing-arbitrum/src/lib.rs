@@ -295,9 +295,7 @@ mod tests {
             let value = 10 * u128::pow(10, client.config().currency_decimals);
             let _ = wallet.faucet(value).await;
             let amount = wallet.balance().await.unwrap();
-            assert_eq!((amount.value), (value).to_string());
-            assert_eq!(amount.currency, client.config().currency());
-            assert!(amount.metadata.is_none());
+            assert_eq!(amount, value);
         })
         .await;
     }
