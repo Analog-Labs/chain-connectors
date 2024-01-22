@@ -13,7 +13,7 @@ use rosetta_core::{
         address::{Address, AddressFormat},
         PublicKey,
     },
-    types::{Block, BlockIdentifier, PartialBlockIdentifier},
+    types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
 use rosetta_server::ws::default_client;
@@ -94,15 +94,17 @@ impl AstarClient {
                 // If a hash if provided, we don't know if it's a ethereum block hash or substrate
                 // block hash. We try to fetch the block using ethereum first, and
                 // if it fails, we try to fetch it using substrate.
-                let ethereum_block = self
-                    .client
-                    .block(&PartialBlockIdentifier { index: None, hash: Some(*block_hash) })
-                    .await;
+                let ethereum_block =
+                    self.client.call(&EthQuery::GetBlockByHash(H256(*block_hash))).await.map(
+                        |result| match result {
+                            EthQueryResult::GetBlockByHash(block) => block,
+                            _ => unreachable!(),
+                        },
+                    );
 
-                if let Ok(ethereum_block) = ethereum_block {
+                if let Ok(Some(ethereum_block)) = ethereum_block {
                     // Convert ethereum block to substrate block by fetching the block by number.
-                    let substrate_block_number =
-                        BlockNumber::Number(ethereum_block.block_identifier.index);
+                    let substrate_block_number = BlockNumber::Number(ethereum_block.header.number);
                     let substrate_block_hash = self
                         .rpc_methods
                         .chain_get_block_hash(Some(substrate_block_number))
@@ -130,12 +132,12 @@ impl AstarClient {
                     // Verify if the ethereum block hash matches the provided ethereum block hash.
                     // TODO: compute the block hash
                     if U256(actual_eth_block.header.number.0) !=
-                        U256::from(ethereum_block.block_identifier.index)
+                        U256::from(ethereum_block.header.number)
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
                     if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
-                        &ethereum_block.parent_block_identifier.hash
+                        &ethereum_block.header.parent_hash.0
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
@@ -286,10 +288,6 @@ impl BlockchainClient for AstarClient {
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         self.client.submit(transaction).await
-    }
-
-    async fn block(&self, block_identifier: &Self::AtBlock) -> Result<Block> {
-        self.client.block(block_identifier).await
     }
 
     async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {

@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 use crate::{
     crypto::{address::Address, PublicKey},
-    types::{Block, CallRequest},
+    types::CallRequest,
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
@@ -257,23 +257,6 @@ impl BlockchainClient for GenericClient {
 
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         dispatch!(self.submit(transaction).await)
-    }
-
-    async fn block(&self, block: &GenericAtBlock) -> Result<Block> {
-        match self {
-            Self::Ethereum(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.block(at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Astar(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.block(at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Polkadot(client) => match block {
-                GenericAtBlock::Polkadot(at_block) => client.block(at_block).await,
-                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
-            },
-        }
     }
 
     async fn call(&self, req: &GenericCall) -> Result<GenericCallResult> {

@@ -124,7 +124,6 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
-    async fn block(&self, block: &Self::AtBlock) -> Result<Block>;
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
@@ -181,9 +180,6 @@ where
     }
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         BlockchainClient::submit(Self::as_ref(self), transaction).await
-    }
-    async fn block(&self, block: &Self::AtBlock) -> Result<Block> {
-        BlockchainClient::block(Self::as_ref(self), block).await
     }
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult> {
         BlockchainClient::call(Self::as_ref(self), req).await

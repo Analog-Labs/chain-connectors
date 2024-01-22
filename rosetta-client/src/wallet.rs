@@ -8,10 +8,7 @@ use crate::{
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
-use rosetta_core::{
-    types::{Block, PartialBlockIdentifier},
-    BlockchainClient, RosettaAlgorithm,
-};
+use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
 use rosetta_server_ethereum::config::{
     ethereum_types::{self, Address as EthAddress, H256, U256},
     AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
@@ -154,17 +151,6 @@ impl Wallet {
         &self,
     ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
         self.client.listen().await
-    }
-
-    /// Returns block data
-    /// Takes `PartialBlockIdentifier`
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block(&self, at_block: PartialBlockIdentifier) -> Result<Block> {
-        match &self.client {
-            GenericClient::Astar(client) => client.block(&at_block).await,
-            GenericClient::Ethereum(client) => client.block(&at_block).await,
-            GenericClient::Polkadot(client) => client.block(&at_block).await,
-        }
     }
 
     /// Returns the on chain metadata.

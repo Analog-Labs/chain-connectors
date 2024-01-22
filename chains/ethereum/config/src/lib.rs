@@ -116,7 +116,7 @@ impl rosetta_core::traits::Header for types::header::Header {
     }
 }
 
-impl rosetta_core::traits::Block for types::FullBlock {
+impl rosetta_core::traits::Block for types::BlockFull {
     type Transaction = types::SignedTransaction;
     type Header = types::header::Header;
     type Hash = BlockHash;

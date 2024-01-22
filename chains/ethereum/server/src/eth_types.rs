@@ -1,33 +1,11 @@
 use ethers::types::{Bytes, H160, U256, U64};
 use serde::{Deserialize, Serialize};
 
-pub const MINING_REWARD_OP_TYPE: &str = "MINER_REWARD";
-pub const UNCLE_REWARD_OP_TYPE: &str = "UNCLE_REWARD";
 pub const _CALL_CODE_OP_TYPE: &str = "CALLCODE";
 pub const _DELEGATE_CALL_OP_TYPE: &str = "DELEGATECALL";
 pub const _STATIC_CALL_OP_TYPE: &str = "STATICCALL";
 
-pub const SUCCESS_STATUS: &str = "SUCCESS";
-
-pub const UNCLE_REWARD_MULTIPLIER: u64 = 32;
-pub const MAX_UNCLE_DEPTH: u64 = 8;
-
 pub const _TRANSFER_GAS_LIMIT: u64 = 21000;
-
-pub const FRONTIER_BLOCK_REWARD: u64 = 5_000_000_000_000_000_000;
-pub const BYZANTIUM_BLOCK_REWARD: u64 = 3_000_000_000_000_000_000;
-pub const CONSTANTINOPLE_BLOCK_REWARD: u64 = 2_000_000_000_000_000_000;
-
-pub struct ChainConfig {
-    pub byzantium_block: u64,
-    pub constantinople_block: u64,
-}
-
-pub const _MAINNET_CHAIN_CONFIG: ChainConfig =
-    ChainConfig { byzantium_block: 4_370_000, constantinople_block: 7_280_000 };
-
-pub const TESTNET_CHAIN_CONFIG: ChainConfig =
-    ChainConfig { byzantium_block: 0, constantinople_block: 0 };
 
 #[derive(Deserialize, Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct Trace {

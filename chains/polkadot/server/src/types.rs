@@ -1,6 +1,5 @@
 use rosetta_core::{traits::Member, types::PartialBlockIdentifier};
 use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
-// use rosetta_config_polkadot::metadata::westend::dev as westend_dev_metadata;
 use subxt::{
     config::{ExtrinsicParams, Hasher, Header},
     ext::{codec::Encode, scale_decode::DecodeAsType, scale_encode::EncodeAsType},

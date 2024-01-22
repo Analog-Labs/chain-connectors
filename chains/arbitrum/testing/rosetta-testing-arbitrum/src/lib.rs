@@ -50,7 +50,7 @@ mod tests {
     use hex_literal::hex;
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
-    use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient};
+    use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sha3::Digest;
     use std::{collections::BTreeMap, future::Future, path::Path, time::Duration};
@@ -254,29 +254,20 @@ mod tests {
             .await
             .expect("Error creating client");
             // Check if the genesis is consistent
-            let expected_genesis = client.genesis_block().clone();
-            let actual_genesis = client
-                .block(&PartialBlockIdentifier { index: Some(0), hash: None })
-                .await
-                .unwrap()
-                .block_identifier;
+            let genesis_block = client.genesis_block();
+            assert_eq!(genesis_block.index, 0);
 
-            assert_eq!(expected_genesis, actual_genesis);
             // Check if the current block is consistent
-            let expected_current = client.current_block().await.unwrap();
-            let actual_current = client
-                .block(&PartialBlockIdentifier { index: None, hash: Some(expected_current.hash) })
-                .await
-                .unwrap();
-            assert_eq!(expected_current, actual_current.block_identifier);
+            let current_block = client.current_block().await.unwrap();
+            if current_block.index > 0 {
+                assert_ne!(current_block.hash, genesis_block.hash);
+            } else {
+                assert_eq!(current_block.hash, genesis_block.hash);
+            }
 
             // Check if the finalized block is consistent
-            let expected_finalized = client.finalized_block().await.unwrap();
-            let actual_finalized = client
-                .block(&PartialBlockIdentifier { index: None, hash: Some(expected_finalized.hash) })
-                .await
-                .unwrap();
-            assert_eq!(expected_finalized, actual_finalized.block_identifier);
+            let finalized_block = client.finalized_block().await.unwrap();
+            assert!(finalized_block.index >= genesis_block.index);
         })
         .await;
     }

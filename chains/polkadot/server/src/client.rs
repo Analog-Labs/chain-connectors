@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::types::{BlockIdentifier, ClientConfig, SubxtConfigAdapter};
 use anyhow::Context;
 use std::{borrow::Borrow, future::Future, sync::Arc};
@@ -16,8 +15,8 @@ type Config<T> = SubxtConfigAdapter<T>;
 type OnlineClient<T> = subxt::OnlineClient<Config<T>>;
 type LegacyRpcMethods<T> = subxt::backend::legacy::LegacyRpcMethods<Config<T>>;
 type LegacyBackend<T> = subxt::backend::legacy::LegacyBackend<Config<T>>;
-type PairSigner<T> = subxt::tx::PairSigner<Config<T>, <T as ClientConfig>::Pair>;
-type Block<T> = subxt::blocks::Block<Config<T>, OnlineClient<T>>;
+// type PairSigner<T> = subxt::tx::PairSigner<Config<T>, <T as ClientConfig>::Pair>;
+// type Block<T> = subxt::blocks::Block<Config<T>, OnlineClient<T>>;
 type BlockDetails<T> = subxt::backend::legacy::rpc_methods::BlockDetails<Config<T>>;
 
 pub struct SubstrateClient<T: ClientConfig> {
@@ -36,10 +35,6 @@ impl<T: ClientConfig> SubstrateClient<T> {
         let backend = LegacyBackend::<T>::new(rpc_client);
         let client = OnlineClient::<T>::from_backend(Arc::new(backend)).await?;
         Ok(Self { client, rpc_methods })
-    }
-
-    pub const fn rpc_methods(&self) -> &LegacyRpcMethods<T> {
-        &self.rpc_methods
     }
 
     pub const fn client(&self) -> &OnlineClient<T> {
@@ -93,17 +88,17 @@ impl<T: ClientConfig> SubstrateClient<T> {
         }
     }
 
-    pub fn block(
-        &self,
-        block_identifier: impl Into<BlockIdentifier<T::Hash>> + Send,
-    ) -> impl Future<Output = anyhow::Result<Block<T>>> + Sized + Send + '_ {
-        let block_identifier = block_identifier.into();
-        async move {
-            let block_hash = self.block_identifier_to_hash(block_identifier).await?;
-            let block = self.client.blocks().at(BlockRef::from_hash(block_hash)).await?;
-            Ok(block)
-        }
-    }
+    // pub fn block(
+    //     &self,
+    //     block_identifier: impl Into<BlockIdentifier<T::Hash>> + Send,
+    // ) -> impl Future<Output = anyhow::Result<Block<T>>> + Sized + Send + '_ {
+    //     let block_identifier = block_identifier.into();
+    //     async move {
+    //         let block_hash = self.block_identifier_to_hash(block_identifier).await?;
+    //         let block = self.client.blocks().at(BlockRef::from_hash(block_hash)).await?;
+    //         Ok(block)
+    //     }
+    // }
 
     pub fn block_details(
         &self,

@@ -9,7 +9,7 @@ use ethereum_types::{Address, Bloom, H256, U256};
 use crate::serde_utils::{bytes_to_hex, uint_to_hex};
 
 pub type SignedTransaction = transaction::SignedTransaction<transaction::TypedTransaction>;
-pub type FullBlock = block::Block<SignedTransaction, header::Header>;
+pub type BlockFull = block::Block<SignedTransaction, header::Header>;
 pub type BlockRef = block::Block<H256, H256>;
 
 #[derive(Clone, Debug)]
@@ -199,6 +199,10 @@ pub enum Query {
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(GetProof),
+    /// Returns information about a block whose hash is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    GetBlockByHash(H256),
     /// Returns the currently configured chain ID, a value used in replay-protected transaction
     /// signing as introduced by EIP-155
     #[cfg_attr(feature = "serde", serde(rename = "eth_chainId"))]
@@ -258,6 +262,10 @@ pub enum QueryResult {
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(EIP1186ProofResponse),
+    /// Returns information about a block whose hash is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    GetBlockByHash(Option<BlockFull>),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.

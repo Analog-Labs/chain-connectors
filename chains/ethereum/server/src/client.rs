@@ -11,13 +11,13 @@ use ethers::{
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    AtBlock, CallContract, CallResult, EIP1186ProofResponse, EthereumMetadata,
+    header::Header, AtBlock, CallContract, CallResult, EIP1186ProofResponse, EthereumMetadata,
     EthereumMetadataParams, GetBalance, GetProof, GetStorageAt, GetTransactionReceipt, Log,
     Query as EthQuery, QueryResult as EthQueryResult, StorageProof, TransactionReceipt,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    types::{Block, BlockIdentifier, Coin, PartialBlockIdentifier},
+    types::{BlockIdentifier, Coin, PartialBlockIdentifier},
     BlockchainConfig,
 };
 use std::sync::{
@@ -280,43 +280,6 @@ where
             .to_vec())
     }
 
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
-        let block_id = block_identifier.hash.as_ref().map_or_else(
-            || {
-                let index = block_identifier
-                    .index
-                    .map_or(BlockNumber::Latest, |index| BlockNumber::Number(U64::from(index)));
-                BlockId::Number(index)
-            },
-            |hash| BlockId::Hash(H256(*hash)),
-        );
-        let block = self
-            .client
-            .get_block_with_txs(block_id)
-            .await
-            .map_err(|error| {
-                anyhow::anyhow!("Failed to get block with transactions: {}", error.to_string())
-            })?
-            .context("block not found")?;
-        let block_number = block.number.context("Unable to fetch block number")?;
-        let block_hash = block.hash.context("Unable to fetch block hash")?;
-        let mut transactions = vec![];
-        let block_reward_transaction =
-            crate::utils::block_reward_transaction(&self.client, self.config(), &block).await?;
-        transactions.push(block_reward_transaction);
-        Ok(Block {
-            block_identifier: BlockIdentifier { index: block_number.as_u64(), hash: block_hash.0 },
-            parent_block_identifier: BlockIdentifier {
-                index: block_number.as_u64().saturating_sub(1),
-                hash: block.parent_hash.0,
-            },
-            timestamp: i64::try_from(block.timestamp.as_u64()).context("timestamp overflow")?,
-            transactions,
-            metadata: None,
-        })
-    }
-
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]
     pub async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         let result = match req {
@@ -441,6 +404,52 @@ where
                         })
                         .collect(),
                 })
+            },
+            EthQuery::GetBlockByHash(block_hash) => {
+                use rosetta_config_ethereum::BlockFull;
+                let Some(block) = self.client.get_block(*block_hash).await? else {
+                    return Ok(EthQueryResult::GetBlockByHash(None));
+                };
+                let block = BlockFull {
+                    hash: *block_hash,
+                    header: Header {
+                        parent_hash: block.parent_hash,
+                        ommers_hash: block.uncles_hash,
+                        beneficiary: block.author.unwrap_or_default(),
+                        state_root: block.state_root,
+                        transactions_root: block.transactions_root,
+                        receipts_root: block.receipts_root,
+                        logs_bloom: block.logs_bloom.unwrap_or_default(),
+                        difficulty: block.difficulty,
+                        number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
+                        gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
+                        gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
+                        timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
+                        extra_data: block.extra_data.to_vec(),
+                        mix_hash: block.mix_hash.unwrap_or_default(),
+                        nonce: block
+                            .nonce
+                            .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
+                            .unwrap_or_default(),
+                        base_fee_per_gas: block
+                            .base_fee_per_gas
+                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                        withdrawals_root: block.withdrawals_root,
+                        blob_gas_used: block
+                            .blob_gas_used
+                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                        excess_blob_gas: block
+                            .excess_blob_gas
+                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                        parent_beacon_block_root: block.parent_beacon_block_root,
+                    },
+                    total_difficulty: block.total_difficulty,
+                    seal_fields: Vec::new(),
+                    transactions: Vec::new(),
+                    uncles: Vec::new(),
+                    size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                };
+                EthQueryResult::GetBlockByHash(Some(block))
             },
             EthQuery::ChainId => {
                 let chain_id = self.client.get_chainid().await?.as_u64();
