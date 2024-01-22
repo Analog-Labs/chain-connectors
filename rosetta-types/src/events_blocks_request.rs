@@ -12,8 +12,6 @@
 /// indicating which blocks were added and removed from storage to reach the current state.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct EventsBlocksRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     /// offset is the offset into the event stream to sync events from. If this field is not
     /// populated, we return the limit events backwards from tip. If this is set to 0, we start
     /// from the beginning.
@@ -29,7 +27,7 @@ impl EventsBlocksRequest {
     /// `EventsBlocksRequest` is utilized to fetch a sequence of `BlockEvents` indicating which
     /// blocks were added and removed from storage to reach the current state.
     #[must_use]
-    pub const fn new(network_identifier: crate::NetworkIdentifier) -> Self {
-        Self { network_identifier, offset: None, limit: None }
+    pub const fn new() -> Self {
+        Self { offset: None, limit: None }
     }
 }

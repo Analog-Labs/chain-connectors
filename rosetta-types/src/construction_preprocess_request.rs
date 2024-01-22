@@ -16,8 +16,6 @@
 /// `/construction/metadata`.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionPreprocessRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "operations")]
     pub operations: Vec<crate::Operation>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
@@ -32,10 +30,7 @@ impl ConstructionPreprocessRequest {
     /// populate required Metadata). If live data is required for construction, it MUST be fetched
     /// in the call to `/construction/metadata`.
     #[must_use]
-    pub const fn new(
-        network_identifier: crate::NetworkIdentifier,
-        operations: Vec<crate::Operation>,
-    ) -> Self {
-        Self { network_identifier, operations, metadata: None }
+    pub const fn new(operations: Vec<crate::Operation>) -> Self {
+        Self { operations, metadata: None }
     }
 }

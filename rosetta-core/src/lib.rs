@@ -7,7 +7,7 @@ use crate::{
         address::{Address, AddressFormat},
         Algorithm, PublicKey, SecretKey,
     },
-    types::{Block, BlockIdentifier, CurveType, NetworkIdentifier, SignatureType},
+    types::{Block, BlockIdentifier, CurveType, SignatureType},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -41,17 +41,6 @@ pub struct BlockchainConfig {
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
     pub testnet: bool,
-}
-
-impl BlockchainConfig {
-    #[must_use]
-    pub fn network(&self) -> NetworkIdentifier {
-        NetworkIdentifier {
-            blockchain: self.blockchain.into(),
-            network: self.network.into(),
-            sub_network_identifier: None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
