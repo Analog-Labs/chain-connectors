@@ -33,7 +33,8 @@ use subxt::{
 
 mod block;
 mod call;
-// mod client;
+mod chains;
+mod client;
 mod types;
 
 pub struct PolkadotClient {
@@ -141,30 +142,6 @@ impl PolkadotClient {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WestendDevConfig;
-
-impl types::ClientConfig for WestendDevConfig {
-    type Hash = <PolkadotConfig as subxt::Config>::Hash;
-
-    type AccountId = <PolkadotConfig as subxt::Config>::AccountId;
-
-    type Address = <PolkadotConfig as subxt::Config>::Address;
-
-    type Signature = <PolkadotConfig as subxt::Config>::Signature;
-
-    type Hasher = <PolkadotConfig as subxt::Config>::Hasher;
-
-    type Header = <PolkadotConfig as subxt::Config>::Header;
-
-    type ExtrinsicParams =
-        subxt::config::polkadot::PolkadotExtrinsicParams<types::SubxtConfigAdapter<Self>>;
-
-    type AssetId = <PolkadotConfig as subxt::Config>::AssetId;
-
-    type AccountInfo = ();
-}
-
 #[async_trait::async_trait]
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
@@ -176,14 +153,13 @@ impl BlockchainClient for PolkadotClient {
     type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
-    type Query = types::Query<WestendDevConfig>;
+    type Query = types::Query<chains::WestendDevConfig>;
     type Transaction = Vec<u8>;
 
     async fn query(
         &self,
         _query: Self::Query,
     ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
-
         anyhow::bail!("unsupported query");
     }
 
@@ -236,7 +212,7 @@ impl BlockchainClient for PolkadotClient {
         let address: AccountId32 = address
             .address()
             .parse()
-            .map_err(|err| anyhow::anyhow!("{}", err))
+            .map_err(|err| anyhow::anyhow!("{err}"))
             .context("invalid address")?;
 
         let signer = PairSigner::<PolkadotConfig, _>::new(AccountKeyring::Alice.pair());
