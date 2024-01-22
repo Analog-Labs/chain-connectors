@@ -1,4 +1,4 @@
-use rosetta_core::traits::Member;
+use rosetta_core::{traits::Member, types::PartialBlockIdentifier};
 use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
 // use rosetta_config_polkadot::metadata::westend::dev as westend_dev_metadata;
 use subxt::{
@@ -72,19 +72,12 @@ where
     T: ClientConfig,
 {
     type Hash = <T as ClientConfig>::Hash;
-
     type AccountId = <T as ClientConfig>::AccountId;
-
     type Address = <T as ClientConfig>::Address;
-
     type Signature = <T as ClientConfig>::Signature;
-
     type Hasher = <T as ClientConfig>::Hasher;
-
     type Header = <T as ClientConfig>::Header;
-
     type ExtrinsicParams = <T as ClientConfig>::ExtrinsicParams;
-
     type AssetId = <T as ClientConfig>::AssetId;
 }
 
@@ -100,6 +93,47 @@ pub struct StorageQuery {
 pub enum BlockIdentifier<BlockHash> {
     Number(u64),
     Hash(BlockHash),
+    Latest,
+    Finalized,
+}
+
+impl<T> From<rosetta_core::types::BlockIdentifier> for BlockIdentifier<T>
+where
+    T: From<[u8; 32]>,
+{
+    fn from(block_identifier: rosetta_core::types::BlockIdentifier) -> Self {
+        Self::Hash(T::from(block_identifier.hash))
+    }
+}
+
+impl<T> From<PartialBlockIdentifier> for BlockIdentifier<T>
+where
+    T: From<[u8; 32]>,
+{
+    fn from(block_identifier: PartialBlockIdentifier) -> Self {
+        match block_identifier {
+            PartialBlockIdentifier { hash: Some(block_hash), .. } => {
+                Self::Hash((block_hash).into())
+            },
+            PartialBlockIdentifier { index: Some(block_number), .. } => Self::Number(block_number),
+            PartialBlockIdentifier { hash: None, index: None } => Self::Latest,
+        }
+    }
+}
+
+impl<T> From<&PartialBlockIdentifier> for BlockIdentifier<T>
+where
+    T: From<[u8; 32]>,
+{
+    fn from(block_identifier: &PartialBlockIdentifier) -> Self {
+        match block_identifier {
+            PartialBlockIdentifier { hash: Some(block_hash), .. } => {
+                Self::Hash((*block_hash).into())
+            },
+            PartialBlockIdentifier { index: Some(block_number), .. } => Self::Number(*block_number),
+            PartialBlockIdentifier { hash: None, index: None } => Self::Latest,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

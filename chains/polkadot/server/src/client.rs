@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use crate::types::{BlockIdentifier, ClientConfig, SubxtConfigAdapter};
+use anyhow::Context;
 use std::{borrow::Borrow, future::Future, sync::Arc};
 use subxt::{
     backend::{
@@ -11,12 +12,13 @@ use subxt::{
     utils::AccountId32,
 };
 
-type OnlineClient<T> = subxt::OnlineClient<SubxtConfigAdapter<T>>;
-type LegacyRpcMethods<T> = subxt::backend::legacy::LegacyRpcMethods<SubxtConfigAdapter<T>>;
-type LegacyBackend<T> = subxt::backend::legacy::LegacyBackend<SubxtConfigAdapter<T>>;
-type PairSigner<T> = subxt::tx::PairSigner<SubxtConfigAdapter<T>, <T as ClientConfig>::Pair>;
-type Block<T> = subxt::backend::legacy::rpc_methods::Block<SubxtConfigAdapter<T>>;
-type BlockDetails<T> = subxt::backend::legacy::rpc_methods::BlockDetails<SubxtConfigAdapter<T>>;
+type Config<T> = SubxtConfigAdapter<T>;
+type OnlineClient<T> = subxt::OnlineClient<Config<T>>;
+type LegacyRpcMethods<T> = subxt::backend::legacy::LegacyRpcMethods<Config<T>>;
+type LegacyBackend<T> = subxt::backend::legacy::LegacyBackend<Config<T>>;
+type PairSigner<T> = subxt::tx::PairSigner<Config<T>, <T as ClientConfig>::Pair>;
+type Block<T> = subxt::blocks::Block<Config<T>, OnlineClient<T>>;
+type BlockDetails<T> = subxt::backend::legacy::rpc_methods::BlockDetails<Config<T>>;
 
 pub struct SubstrateClient<T: ClientConfig> {
     client: OnlineClient<T>,
@@ -44,23 +46,10 @@ impl<T: ClientConfig> SubstrateClient<T> {
         &self.client
     }
 
-    pub fn account_info(
-        &self,
-        account: impl Borrow<AccountId32>,
-        block_ref: BlockRef<T::Hash>,
-    ) -> impl Future<Output = anyhow::Result<T::AccountInfo>> + Sized + Send + '_ {
-        let account = account.borrow();
-        let tx = T::account_info(account);
-        async move {
-            let account = self.client.storage().at(block_ref).fetch_or_default(&tx).await?;
-            Ok(account)
-        }
-    }
-
-    pub async fn block(
+    async fn block_identifier_to_hash(
         &self,
         block_identifier: BlockIdentifier<T::Hash>,
-    ) -> anyhow::Result<Option<BlockDetails<T>>> {
+    ) -> anyhow::Result<T::Hash> {
         use subxt::backend::legacy::rpc_methods::BlockNumber;
         let block_hash = match block_identifier {
             BlockIdentifier::Hash(block_hash) => block_hash,
@@ -70,18 +59,67 @@ impl<T: ClientConfig> SubstrateClient<T> {
                     .chain_get_block_hash(Some(BlockNumber::Number(block_number)))
                     .await?
                 else {
-                    return Ok(None);
+                    anyhow::bail!("block not found: {block_identifier:?}");
                 };
                 block_hash
             },
+            BlockIdentifier::Latest => self
+                .rpc_methods
+                .chain_get_block_hash(None)
+                .await?
+                .context("latest block not found")?,
+            BlockIdentifier::Finalized => self.rpc_methods.chain_get_finalized_head().await?,
         };
-        self.rpc_methods
-            .chain_get_block(Some(block_hash))
-            .await
-            .map_err(anyhow::Error::from)
+        Ok(block_hash)
     }
 
-    async fn faucet(
+    pub fn account_info(
+        &self,
+        account: impl Borrow<AccountId32>,
+        block_identifier: impl Into<BlockIdentifier<T::Hash>>,
+    ) -> impl Future<Output = anyhow::Result<T::AccountInfo>> + Sized + Send + '_ {
+        let account = account.borrow();
+        let tx = T::account_info(account);
+        let block_identifier = block_identifier.into();
+        async move {
+            let block_hash = self.block_identifier_to_hash(block_identifier).await?;
+            let account = self
+                .client
+                .storage()
+                .at(BlockRef::from_hash(block_hash))
+                .fetch_or_default(&tx)
+                .await?;
+            Ok(account)
+        }
+    }
+
+    pub fn block(
+        &self,
+        block_identifier: impl Into<BlockIdentifier<T::Hash>> + Send,
+    ) -> impl Future<Output = anyhow::Result<Block<T>>> + Sized + Send + '_ {
+        let block_identifier = block_identifier.into();
+        async move {
+            let block_hash = self.block_identifier_to_hash(block_identifier).await?;
+            let block = self.client.blocks().at(BlockRef::from_hash(block_hash)).await?;
+            Ok(block)
+        }
+    }
+
+    pub fn block_details(
+        &self,
+        block_identifier: impl Into<BlockIdentifier<T::Hash>> + Send,
+    ) -> impl Future<Output = anyhow::Result<Option<BlockDetails<T>>>> + Sized + Send + '_ {
+        let block_identifier = block_identifier.into();
+        async move {
+            let block_hash = self.block_identifier_to_hash(block_identifier).await?;
+            self.rpc_methods
+                .chain_get_block(Some(block_hash))
+                .await
+                .map_err(anyhow::Error::from)
+        }
+    }
+
+    pub async fn faucet(
         &self,
         signer: T::Pair,
         dest: subxt::utils::MultiAddress<AccountId32, ()>,
@@ -99,15 +137,15 @@ impl<T: ClientConfig> SubstrateClient<T> {
         Ok(hash)
     }
 
-    fn runtime_version(&self) -> RuntimeVersion {
+    pub fn runtime_version(&self) -> RuntimeVersion {
         self.client.runtime_version()
     }
 
-    fn metadata(&self) -> Metadata {
+    pub fn metadata(&self) -> Metadata {
         self.client.metadata()
     }
 
-    fn genesis_hash(&self) -> T::Hash {
+    pub fn genesis_hash(&self) -> T::Hash {
         self.client.genesis_hash()
     }
 }
