@@ -27,8 +27,6 @@ impl Signature {
     pub fn to_raw_signature(&self, output: &mut [u8; 65]) {
         self.r.to_big_endian(&mut output[0..32]);
         self.s.to_big_endian(&mut output[32..64]);
-        // output[0..32].copy_from_slice(self.r.as_fixed_bytes());
-        // output[32..64].copy_from_slice(self.s.as_fixed_bytes());
         output[64] = self.v.y_parity() as u8;
     }
 }
