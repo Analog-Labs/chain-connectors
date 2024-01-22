@@ -17,7 +17,7 @@ use rosetta_config_ethereum::{
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    types::{BlockIdentifier, Coin, PartialBlockIdentifier},
+    types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainConfig,
 };
 use std::sync::{
@@ -171,11 +171,6 @@ where
         );
         let address: H160 = address.address().parse()?;
         Ok(self.client.get_balance(address, Some(block_id)).await?.as_u128())
-    }
-
-    #[allow(clippy::unused_async, clippy::missing_errors_doc)]
-    pub async fn coins(&self, _address: &Address, _block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        anyhow::bail!("not a utxo chain");
     }
 
     #[allow(clippy::single_match_else, clippy::missing_errors_doc)]

@@ -1,5 +1,6 @@
 mod node_uri;
 pub mod traits;
+pub mod types;
 
 use crate::{
     crypto::{
@@ -18,7 +19,7 @@ use futures_util::stream::Empty;
 
 pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
-pub use rosetta_types as types;
+// pub use rosetta_types as types;
 
 type NodeCommand = Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>;
 
