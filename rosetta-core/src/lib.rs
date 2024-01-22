@@ -1,14 +1,13 @@
 mod node_uri;
+pub mod traits;
+pub mod types;
 
 use crate::{
     crypto::{
         address::{Address, AddressFormat},
         Algorithm, PublicKey, SecretKey,
     },
-    types::{
-        Block, BlockIdentifier, Coin, Currency, CurveType, NetworkIdentifier,
-        PartialBlockIdentifier, SignatureType, Transaction, TransactionIdentifier,
-    },
+    types::{Block, BlockIdentifier, CurveType, SignatureType},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -20,7 +19,7 @@ use futures_util::stream::Empty;
 
 pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
-pub use rosetta_types as types;
+// pub use rosetta_types as types;
 
 type NodeCommand = Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>;
 
@@ -42,36 +41,6 @@ pub struct BlockchainConfig {
     pub node_additional_ports: &'static [u16],
     pub connector_port: u16,
     pub testnet: bool,
-}
-
-impl BlockchainConfig {
-    #[must_use]
-    pub fn network(&self) -> NetworkIdentifier {
-        NetworkIdentifier {
-            blockchain: self.blockchain.into(),
-            network: self.network.into(),
-            sub_network_identifier: None,
-        }
-    }
-
-    #[must_use]
-    pub fn currency(&self) -> Currency {
-        Currency {
-            symbol: self.currency_symbol.into(),
-            decimals: self.currency_decimals,
-            metadata: None,
-        }
-    }
-
-    #[must_use]
-    pub fn node_url(&self) -> String {
-        self.node_uri.with_host("rosetta.analog.one").to_string()
-    }
-
-    #[must_use]
-    pub fn connector_url(&self) -> String {
-        format!("http://rosetta.analog.one:{}", self.connector_port)
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -116,13 +85,19 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Call: Send + Sync + Sized + 'static;
     type CallResult: Send + Sync + Sized + 'static;
 
+    type AtBlock: Clone + Send + Sync + Sized + Eq + From<Self::BlockIdentifier> + 'static;
+    type BlockIdentifier: Clone + Send + Sync + Sized + Eq + 'static;
+
+    type Query: traits::Query;
+    type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
+
+    async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result>;
+
     fn config(&self) -> &BlockchainConfig;
-    fn genesis_block(&self) -> &BlockIdentifier;
-    async fn node_version(&self) -> Result<String>;
-    async fn current_block(&self) -> Result<BlockIdentifier>;
-    async fn finalized_block(&self) -> Result<BlockIdentifier>;
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128>;
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>>;
+    fn genesis_block(&self) -> Self::BlockIdentifier;
+    async fn current_block(&self) -> Result<Self::BlockIdentifier>;
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier>;
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128>;
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
     async fn metadata(
         &self,
@@ -130,12 +105,6 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
-    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block>;
-    async fn block_transaction(
-        &self,
-        block: &BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction>;
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
@@ -155,26 +124,30 @@ where
     type Call = <T as BlockchainClient>::Call;
     type CallResult = <T as BlockchainClient>::CallResult;
 
+    type AtBlock = <T as BlockchainClient>::AtBlock;
+    type BlockIdentifier = <T as BlockchainClient>::BlockIdentifier;
+
+    type Query = <T as BlockchainClient>::Query;
+    type Transaction = <T as BlockchainClient>::Transaction;
+
+    async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result> {
+        BlockchainClient::query(Self::as_ref(self), query).await
+    }
+
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))
     }
-    fn genesis_block(&self) -> &BlockIdentifier {
+    fn genesis_block(&self) -> Self::BlockIdentifier {
         BlockchainClient::genesis_block(Self::as_ref(self))
     }
-    async fn node_version(&self) -> Result<String> {
-        BlockchainClient::node_version(Self::as_ref(self)).await
-    }
-    async fn current_block(&self) -> Result<BlockIdentifier> {
+    async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         BlockchainClient::current_block(Self::as_ref(self)).await
     }
-    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
         BlockchainClient::finalized_block(Self::as_ref(self)).await
     }
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         BlockchainClient::balance(Self::as_ref(self), address, block).await
-    }
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        BlockchainClient::coins(Self::as_ref(self), address, block).await
     }
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         BlockchainClient::faucet(Self::as_ref(self), address, param).await
@@ -188,16 +161,6 @@ where
     }
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
         BlockchainClient::submit(Self::as_ref(self), transaction).await
-    }
-    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
-        BlockchainClient::block(Self::as_ref(self), block).await
-    }
-    async fn block_transaction(
-        &self,
-        block: &BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        BlockchainClient::block_transaction(Self::as_ref(self), block, tx).await
     }
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult> {
         BlockchainClient::call(Self::as_ref(self), req).await

@@ -13,7 +13,6 @@ Methods implemented are:
 - `metadata`
 - `submit`
 - `block`
-- `block_transaction`
 - `call`
 
 ### `config`:
@@ -41,13 +40,6 @@ Fetches account balance from on chain and returns it. It takes two arguments:
 ### `block`:
 
 This function takes `PartialBlockIdentifier` which contains a block index or hash and returns block transaction and operations happened in that transaction.
-
-### `block_transaction`:
-
-This function takes:
-`block`: Which is a block identifier of block from which we want to fetch transaction from.
-`tx`: Transaction identifier of transaction we want to fetch.
-And returns a specific transaction and its operations within specified block.
 
 ### `faucet`:
 

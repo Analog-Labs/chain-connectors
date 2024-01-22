@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use super::reconnect::Reconnect;
 use futures_timer::Delay;
 use futures_util::{

@@ -1,8 +1,16 @@
+pub mod block;
+pub mod constants;
+pub mod header;
+pub mod transaction;
 pub use ethereum_types;
 use ethereum_types::{Address, Bloom, H256, U256};
 
 #[cfg(feature = "serde")]
 use crate::serde_utils::{bytes_to_hex, uint_to_hex};
+
+pub type SignedTransaction = transaction::SignedTransaction<transaction::TypedTransaction>;
+pub type BlockFull = block::Block<SignedTransaction, header::Header>;
+pub type BlockRef = block::Block<H256, H256>;
 
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -191,10 +199,18 @@ pub enum Query {
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(GetProof),
+    /// Returns information about a block whose hash is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    GetBlockByHash(H256),
     /// Returns the currently configured chain ID, a value used in replay-protected transaction
     /// signing as introduced by EIP-155
     #[cfg_attr(feature = "serde", serde(rename = "eth_chainId"))]
     ChainId,
+}
+
+impl rosetta_core::traits::Query for Query {
+    type Result = QueryResult;
 }
 
 /// The result of contract call execution
@@ -246,6 +262,10 @@ pub enum QueryResult {
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
     GetProof(EIP1186ProofResponse),
+    /// Returns information about a block whose hash is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    GetBlockByHash(Option<BlockFull>),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.
@@ -417,9 +437,9 @@ pub struct EIP1186ProofResponse {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
+    use crate::rstd::str::FromStr;
     use hex_literal::hex;
     use serde_json::json;
-    use std::str::FromStr;
 
     use super::{AtBlock, CallResult, EIP1186ProofResponse, StorageProof};
     use ethereum_types::{Address, H256, U256};

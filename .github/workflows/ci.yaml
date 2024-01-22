@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-bitcoin, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -94,6 +94,16 @@ jobs:
 
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
+    
+    - name: Checkout nitro-testnode
+      if: ${{ matrix.crate == 'rosetta-testing-arbitrum' }}
+      run: git clone -b release --depth=1 --no-tags --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
+
+    - name: Start arbitrum nitro-testnode
+      if: ${{ matrix.crate == 'rosetta-testing-arbitrum' }}
+      run: |
+        cd nitro-testnode
+        ./test-node.bash --detach
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
@@ -119,20 +129,12 @@ jobs:
         components: clippy
         target: x86_64-unknown-linux-musl
         override: true
-    
-    - name: Checkout code
-      run: git clone -b release --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
-
-    - name: Run the arbitrum nitro-testnode
-      run: |
-        cd nitro-testnode
-        ./test-node.bash --detach
 
     - name: clippy
       run: |
         cargo clippy --locked --workspace --examples --tests --all-features \
+          --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
-          --exclude rosetta-server-bitcoin \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
@@ -150,8 +152,8 @@ jobs:
     - name: cargo test
       run: |
         cargo test --locked --workspace --all-features \
+          --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
-          --exclude rosetta-server-bitcoin \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client

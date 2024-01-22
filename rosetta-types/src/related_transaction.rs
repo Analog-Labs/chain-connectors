@@ -13,8 +13,6 @@
 /// is on the same network.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RelatedTransaction {
-    #[serde(rename = "network_identifier", skip_serializing_if = "Option::is_none")]
-    pub network_identifier: Option<crate::NetworkIdentifier>,
     #[serde(rename = "transaction_identifier")]
     pub transaction_identifier: crate::TransactionIdentifier,
     #[serde(rename = "direction")]
@@ -30,6 +28,6 @@ impl RelatedTransaction {
         transaction_identifier: crate::TransactionIdentifier,
         direction: crate::Direction,
     ) -> Self {
-        Self { network_identifier: None, transaction_identifier, direction }
+        Self { transaction_identifier, direction }
     }
 }

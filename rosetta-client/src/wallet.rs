@@ -1,17 +1,14 @@
 use crate::{
-    client::{GenericClient, GenericMetadata, GenericMetadataParams},
+    client::{GenericBlockIdentifier, GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
-    types::{AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier},
+    types::{AccountIdentifier, BlockIdentifier, PublicKey},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
-use rosetta_core::{
-    types::{Block, PartialBlockIdentifier, Transaction},
-    BlockchainClient, RosettaAlgorithm,
-};
+use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
 use rosetta_server_ethereum::config::{
     ethereum_types::{self, Address as EthAddress, H256, U256},
     AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
@@ -101,21 +98,47 @@ impl Wallet {
     /// Returns the latest finalized block identifier.
     #[allow(clippy::missing_errors_doc)]
     pub async fn status(&self) -> Result<BlockIdentifier> {
-        self.client.finalized_block().await
+        // self.client.finalized_block().await
+        match &self.client {
+            GenericClient::Astar(client) => client.finalized_block().await,
+            GenericClient::Ethereum(client) => client.finalized_block().await,
+            GenericClient::Polkadot(client) => client.finalized_block().await,
+        }
     }
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn balance(&self) -> Result<Amount> {
+    pub async fn balance(&self) -> Result<u128> {
         let block = self.client.current_block().await?;
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
-        let balance = self.client.balance(&address, &block).await?;
-        Ok(Amount {
-            value: format!("{balance}"),
-            currency: self.client.config().currency(),
-            metadata: None,
-        })
+        let balance = match &self.client {
+            GenericClient::Astar(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Ethereum(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Polkadot(client) => match block {
+                GenericBlockIdentifier::Polkadot(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Ethereum(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+        };
+        Ok(balance)
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
@@ -124,35 +147,6 @@ impl Wallet {
         &self,
     ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
         self.client.listen().await
-    }
-
-    /// Returns block data
-    /// Takes `PartialBlockIdentifier`
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
-        self.client.block(&data).await
-    }
-
-    /// Returns transactions included in a block
-    /// Parameters:
-    /// 1. `block_identifier`: `BlockIdentifier` containing block number and hash
-    /// 2. `tx_identifier`: `TransactionIdentifier` containing hash of transaction
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block_transaction(
-        &self,
-        block_identifer: BlockIdentifier,
-        tx_identifier: TransactionIdentifier,
-    ) -> Result<Transaction> {
-        self.client.block_transaction(&block_identifer, &tx_identifier).await
-    }
-
-    /// Returns the coins of the wallet.
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn coins(&self) -> Result<Vec<Coin>> {
-        let block = self.client.current_block().await?;
-        let address =
-            Address::new(self.client.config().address_format, self.account.address.clone());
-        self.client.coins(&address, &block).await
     }
 
     /// Returns the on chain metadata.
@@ -251,7 +245,7 @@ impl Wallet {
             match self.metadata(&metadata_params).await? {
                 GenericMetadata::Ethereum(metadata) => metadata,
                 GenericMetadata::Astar(metadata) => metadata.0,
-                _ => anyhow::bail!("unsupported op"),
+                GenericMetadata::Polkadot(_) => anyhow::bail!("unsupported op"),
             };
         Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
     }
@@ -276,7 +270,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_view_call"),
         };
         let EthQueryResult::CallContract(exit_reason) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -304,7 +297,6 @@ impl Wallet {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetStorageAt(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -331,7 +323,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetProof(proof) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -355,7 +346,6 @@ impl Wallet {
                 client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetTransactionReceipt(maybe_receipt) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -373,7 +363,6 @@ impl Wallet {
             GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_chainId"),
         };
         let EthQueryResult::ChainId(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");

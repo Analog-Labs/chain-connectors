@@ -1,3 +1,4 @@
+use crate::rstd::{option::Option, result::Result, vec::Vec};
 use impl_serde::serialize::{deserialize_check_len, serialize_uint, ExpectedLen};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -9,7 +10,7 @@ pub mod uint_to_hex {
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
-        T: SerializableNumber,
+        T: SerializableNumber + core::fmt::Debug,
         S: Serializer,
     {
         T::serialize_eth_uint(value, serializer)
@@ -44,6 +45,20 @@ pub mod bytes_to_hex {
     {
         T::deserialize_bytes(deserializer)
     }
+}
+
+/// Deserialize that always returns `Some(T)` or `Some(T::default())` must be used with
+/// `#[serde(deserialize_with = "deserialize_null_default")]` attribute
+///
+/// # Errors
+/// returns an error if fails to deserialize T
+pub fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Default + Deserialize<'de>,
+    D: Deserializer<'de>,
+{
+    let opt = <Option<T> as Deserialize<'de>>::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }
 
 /// Serialize a primitive uint as hexadecimal string, must be used with `#[serde(serialize_with =
@@ -94,7 +109,7 @@ pub trait DeserializableNumber<'de>: Sized {
 
 impl<'de, T> DeserializableNumber<'de> for Option<T>
 where
-    T: DeserializableNumber<'de>,
+    T: DeserializableNumber<'de> + core::fmt::Debug,
 {
     /// Deserialize a primitive uint from hexadecimal string
     /// # Errors
@@ -111,6 +126,24 @@ where
 
 /// Helper for deserializing optional uints from hexadecimal string
 struct DeserializeWrapper<T>(T);
+
+impl<T> core::fmt::Debug for DeserializeWrapper<T>
+where
+    T: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("DeserializeWrapper").field(&self.0).finish()
+    }
+}
+
+impl<T> core::fmt::Display for DeserializeWrapper<T>
+where
+    T: core::fmt::Display,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        <T as core::fmt::Display>::fmt(&self.0, f)
+    }
+}
 
 impl<T> DeserializeWrapper<T> {
     fn into_inner(self) -> T {

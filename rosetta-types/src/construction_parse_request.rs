@@ -13,8 +13,6 @@
 /// transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionParseRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     /// Signed is a boolean indicating whether the transaction is signed.
     #[serde(rename = "signed")]
     pub signed: bool,
@@ -28,11 +26,7 @@ impl ConstructionParseRequest {
     /// `ConstructionParseRequest` is the input to the `/construction/parse` endpoint. It allows the
     /// caller to parse either an unsigned or signed transaction.
     #[must_use]
-    pub const fn new(
-        network_identifier: crate::NetworkIdentifier,
-        signed: bool,
-        transaction: String,
-    ) -> Self {
-        Self { network_identifier, signed, transaction }
+    pub const fn new(signed: bool, transaction: String) -> Self {
+        Self { signed, transaction }
     }
 }

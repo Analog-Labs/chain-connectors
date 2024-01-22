@@ -11,7 +11,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 derive_more = "0.99"
 dirs-next = "2.0"
-fraction = { version = "0.13", default-features = false, features = ["with-bigint", "with-decimal"] }
+fraction = { version = "0.15", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3"
 getrandom = "0.2"
 hex = "0.4"
@@ -19,14 +19,12 @@ log = "0.4"
 num-traits = "0.2"
 rosetta-core.workspace = true
 rosetta-server-astar.workspace = true
-rosetta-server-bitcoin.workspace = true
 rosetta-server-ethereum.workspace = true
 rosetta-server-polkadot.workspace = true
 rosetta-tx-ethereum.workspace = true
 rosetta-tx-polkadot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-void = "1.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

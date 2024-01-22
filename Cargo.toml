@@ -2,8 +2,6 @@
 members = [
   "chains/astar/config",
   "chains/astar/server",
-  "chains/bitcoin/config",
-  "chains/bitcoin/server",
   "chains/ethereum/config",
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
@@ -27,8 +25,6 @@ resolver = "2"
 [workspace.dependencies]
 rosetta-config-astar = { path = "chains/astar/config", default-features = false }
 rosetta-server-astar = { path = "chains/astar/server" }
-rosetta-config-bitcoin = { path = "chains/bitcoin/config" }
-rosetta-server-bitcoin = { path = "chains/bitcoin/server" }
 rosetta-config-ethereum = { path = "chains/ethereum/config" }
 rosetta-server-ethereum = { path = "chains/ethereum/server" }
 rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client" }

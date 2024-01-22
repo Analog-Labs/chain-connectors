@@ -9,11 +9,11 @@ use subxt::{
     dynamic::Value as SubxtValue,
     ext::scale_value::{self, scale::TypeId, BitSequence, ValueDef},
     metadata::types::StorageEntryType,
-    OnlineClient, PolkadotConfig as GenericConfig,
+    OnlineClient,
 };
 
-pub fn dynamic_constant_req(
-    subxt: &OnlineClient<GenericConfig>,
+pub fn dynamic_constant_req<T: subxt::Config>(
+    subxt: &OnlineClient<T>,
     pallet_name: &str,
     constant_name: &str,
 ) -> Result<Value> {
@@ -24,8 +24,8 @@ pub fn dynamic_constant_req(
     Ok(serde_val)
 }
 
-pub async fn dynamic_storage_req(
-    subxt: &OnlineClient<GenericConfig>,
+pub async fn dynamic_storage_req<T: subxt::Config>(
+    subxt: &OnlineClient<T>,
     pallet_name: &str,
     storage_name: &str,
     params: Value,

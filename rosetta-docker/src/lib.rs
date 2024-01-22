@@ -310,11 +310,13 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
     })
 }
 
+/// Helper function to run a test and shutdown docker containers regardless if the test panics or
+/// not
 #[allow(clippy::future_not_send)]
 pub async fn run_test<T, Fut, F>(env: Env<T>, cb: F)
 where
     T: Sync + Send + 'static + rosetta_core::BlockchainClient,
-    Fut: Future<Output = Result<()>> + Send + 'static,
+    Fut: Future<Output = ()> + Send + 'static,
     F: FnOnce(&'static mut Env<T>) -> Fut + Sync + Send,
 {
     // Convert the context into a raw pointer
@@ -343,7 +345,10 @@ pub mod tests {
     use super::Env;
     use anyhow::{Ok, Result};
     use nanoid::nanoid;
-    use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, BlockchainConfig};
+    use rosetta_core::{
+        types::{BlockIdentifier, PartialBlockIdentifier},
+        BlockchainClient, BlockchainConfig,
+    };
     use std::future::Future;
 
     fn env_id() -> String {
@@ -353,13 +358,18 @@ pub mod tests {
         )
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
+    #[allow(
+        clippy::missing_panics_doc,
+        clippy::unwrap_used,
+        clippy::missing_errors_doc,
+        clippy::future_not_send
+    )]
     pub async fn network_status<T, Fut, F>(
         start_connector: F,
         config: BlockchainConfig,
     ) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -371,43 +381,34 @@ pub mod tests {
             let client = env.node();
 
             // Check if the genesis is consistent
-            let expected_genesis = client.genesis_block().clone();
-            let actual_genesis = client
-                .block(&PartialBlockIdentifier { index: Some(0), hash: None })
-                .await?
-                .block_identifier;
-            assert_eq!(expected_genesis, actual_genesis);
+            let genesis_block = client.genesis_block();
+            assert_eq!(genesis_block.index, 0);
+
             // Check if the current block is consistent
-            let expected_current = client.current_block().await?;
-            let actual_current = client
-                .block(&PartialBlockIdentifier {
-                    index: None,
-                    hash: Some(expected_current.hash.clone()),
-                })
-                .await?
-                .block_identifier;
-            assert_eq!(expected_current, actual_current);
+            let current_block = client.current_block().await.unwrap();
+            if current_block.index > 0 {
+                assert_ne!(current_block.hash, genesis_block.hash);
+            } else {
+                assert_eq!(current_block.hash, genesis_block.hash);
+            }
 
             // Check if the finalized block is consistent
-            let expected_finalized = client.finalized_block().await?;
-            let actual_finalized = client
-                .block(&PartialBlockIdentifier {
-                    index: None,
-                    hash: Some(expected_finalized.hash.clone()),
-                })
-                .await?
-                .block_identifier;
-            assert_eq!(expected_finalized, actual_finalized);
-            Ok(())
+            let finalized_block = client.finalized_block().await.unwrap();
+            assert!(finalized_block.index >= genesis_block.index);
         })
         .await;
         Ok(())
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
+    #[allow(
+        clippy::missing_panics_doc,
+        clippy::unwrap_used,
+        clippy::missing_errors_doc,
+        clippy::future_not_send
+    )]
     pub async fn account<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -415,22 +416,24 @@ pub mod tests {
         let env = Env::new(&format!("{env_id}-account"), config.clone(), start_connector).await?;
         crate::run_test(env, |env| async move {
             let value = 100 * u128::pow(10, config.currency_decimals);
-            let wallet = env.ephemeral_wallet().await?;
-            wallet.faucet(value).await?;
-            let amount = wallet.balance().await?;
-            assert_eq!(amount.value, value.to_string());
-            assert_eq!(amount.currency, config.currency());
-            assert!(amount.metadata.is_none());
-            Ok(())
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            wallet.faucet(value).await.unwrap();
+            let balance = wallet.balance().await.unwrap();
+            assert_eq!(balance, value);
         })
         .await;
         Ok(())
     }
 
-    #[allow(clippy::missing_panics_doc, clippy::missing_errors_doc, clippy::future_not_send)]
+    #[allow(
+        clippy::missing_panics_doc,
+        clippy::unwrap_used,
+        clippy::missing_errors_doc,
+        clippy::future_not_send
+    )]
     pub async fn construction<T, Fut, F>(start_connector: F, config: BlockchainConfig) -> Result<()>
     where
-        T: BlockchainClient,
+        T: BlockchainClient<AtBlock = PartialBlockIdentifier, BlockIdentifier = BlockIdentifier>,
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
@@ -441,26 +444,25 @@ pub mod tests {
         crate::run_test(env, |env| async move {
             let faucet = 100 * u128::pow(10, config.currency_decimals);
             let value = u128::pow(10, config.currency_decimals);
-            let alice = env.ephemeral_wallet().await?;
-            let bob = env.ephemeral_wallet().await?;
+            let alice = env.ephemeral_wallet().await.unwrap();
+            let bob = env.ephemeral_wallet().await.unwrap();
             assert_ne!(alice.public_key(), bob.public_key());
 
             // Alice and bob have no balance
-            let balance = alice.balance().await?;
-            assert_eq!(balance.value, "0");
-            let balance = bob.balance().await?;
-            assert_eq!(balance.value, "0");
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, 0);
+            let balance = bob.balance().await.unwrap();
+            assert_eq!(balance, 0);
 
             // Transfer faucets to alice
-            alice.faucet(faucet).await?;
-            let balance = alice.balance().await?;
-            assert_eq!(balance.value, faucet.to_string());
+            alice.faucet(faucet).await.unwrap();
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, faucet);
 
             // Alice transfers to bob
-            alice.transfer(bob.account(), value).await?;
-            let amount = bob.balance().await?;
-            assert_eq!(amount.value, value.to_string());
-            Ok(())
+            alice.transfer(bob.account(), value).await.unwrap();
+            let amount = bob.balance().await.unwrap();
+            assert_eq!(amount, value);
         })
         .await;
         Ok(())

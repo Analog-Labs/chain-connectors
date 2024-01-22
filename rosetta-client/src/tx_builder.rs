@@ -23,7 +23,7 @@ impl GenericTransactionBuilder {
             "polkadot" | "westend" | "rococo" => {
                 Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder)
             },
-            _ => anyhow::bail!("unsupported blockchain"),
+            _ => anyhow::bail!("unsupported blockchain: {}", config.blockchain),
         })
     }
 
