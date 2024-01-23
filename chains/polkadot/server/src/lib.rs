@@ -54,7 +54,7 @@ impl PolkadotClient {
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
-    type EventStream<'a> = EmptyEventStream;
+    type EventStream<'a> = EmptyEventStream<Self::BlockIdentifier>;
     type Call = CallRequest;
     type CallResult = Value;
 
@@ -63,6 +63,7 @@ impl BlockchainClient for PolkadotClient {
 
     type Query = types::Query<chains::WestendDevConfig>;
     type Transaction = Vec<u8>;
+    type Subscription = ();
 
     async fn query(
         &self,
@@ -202,6 +203,10 @@ impl BlockchainClient for PolkadotClient {
                 anyhow::bail!("invalid query type");
             },
         }
+    }
+
+    fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+        anyhow::bail!("not implemented");
     }
 }
 

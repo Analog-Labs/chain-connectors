@@ -13,6 +13,7 @@ derive_more = "0.99"
 dirs-next = "2.0"
 fraction = { version = "0.15", default-features = false, features = ["with-bigint", "with-decimal"] }
 futures = "0.3"
+futures-util = "0.3"
 getrandom = "0.2"
 hex = "0.4"
 log = "0.4"

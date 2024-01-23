@@ -101,6 +101,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
 
     type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
+    type Subscription = ();
 
     async fn query(
         &self,
@@ -188,6 +189,10 @@ impl BlockchainClient for MaybeWsEthereumClient {
                 Ok(Some(subscription))
             },
         }
+    }
+
+    fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+        anyhow::bail!("not implemented");
     }
 }
 

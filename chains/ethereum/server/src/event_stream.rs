@@ -1,7 +1,7 @@
 use crate::{client::EthereumClient, utils::NonPendingBlock};
 use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt};
-use rosetta_core::{stream::Stream, BlockOrIdentifier, ClientEvent};
+use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use std::{cmp::Ordering, pin::Pin, task::Poll};
 
 // Maximum number of failures in sequence before closing the stream
@@ -36,7 +36,7 @@ impl<P> Stream for EthereumEventStream<'_, P>
 where
     P: PubsubClient + 'static,
 {
-    type Item = ClientEvent;
+    type Item = ClientEvent<BlockIdentifier>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,

@@ -5105,6 +5105,7 @@ dependencies = [
  "dirs-next",
  "fraction",
  "futures",
+ "futures-util",
  "getrandom 0.2.12",
  "hex",
  "js-sys",
