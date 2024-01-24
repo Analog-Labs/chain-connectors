@@ -102,6 +102,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
     type Subscription = ();
+    type Event = ();
 
     async fn query(
         &self,

@@ -166,6 +166,7 @@ impl BlockchainClient for GenericClient {
     type Query = ();
     type Transaction = GenericTransaction;
     type Subscription = ();
+    type Event = ();
 
     async fn query(
         &self,
@@ -321,7 +322,7 @@ pub enum GenericClientStream<'a> {
 }
 
 impl<'a> Stream for GenericClientStream<'a> {
-    type Item = ClientEvent<GenericBlockIdentifier>;
+    type Item = ClientEvent<GenericBlockIdentifier, ()>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,

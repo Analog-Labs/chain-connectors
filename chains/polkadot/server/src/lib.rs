@@ -54,7 +54,7 @@ impl PolkadotClient {
 impl BlockchainClient for PolkadotClient {
     type MetadataParams = PolkadotMetadataParams;
     type Metadata = PolkadotMetadata;
-    type EventStream<'a> = EmptyEventStream<Self::BlockIdentifier>;
+    type EventStream<'a> = EmptyEventStream<Self::BlockIdentifier, Self::Event>;
     type Call = CallRequest;
     type CallResult = Value;
 
@@ -64,6 +64,7 @@ impl BlockchainClient for PolkadotClient {
     type Query = types::Query<chains::WestendDevConfig>;
     type Transaction = Vec<u8>;
     type Subscription = ();
+    type Event = ();
 
     async fn query(
         &self,

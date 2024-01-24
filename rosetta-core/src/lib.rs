@@ -76,36 +76,50 @@ impl<T: BlockchainClient> From<Block> for BlockOrIdentifier<T> {
 
 /// Event produced by a handler.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ClientEvent<BID> {
+pub enum ClientEvent<BID, EV> {
     /// New header was appended to the chain, or a chain reorganization occur.
     NewHead(BlockOrIdentifier<BID>),
 
     /// A new block was finalized.
     NewFinalized(BlockOrIdentifier<BID>),
 
+    /// Blockchain specific event.
+    Event(EV),
+
     /// Close the connection for the given reason.
     Close(String),
 }
 
-impl<BID> ClientEvent<BID> {
+impl<BID, EV> ClientEvent<BID, EV> {
     #[must_use]
-    pub fn map_block_identifier<T, FN: FnOnce(BID) -> T>(self, map: FN) -> ClientEvent<T> {
+    pub fn map_block_identifier<T, FN: FnOnce(BID) -> T>(self, map: FN) -> ClientEvent<T, EV> {
         match self {
             Self::NewHead(block) => ClientEvent::NewHead(block.map_identifier(map)),
             Self::NewFinalized(block) => ClientEvent::NewFinalized(block.map_identifier(map)),
+            Self::Event(event) => ClientEvent::Event(event),
+            Self::Close(reason) => ClientEvent::Close(reason),
+        }
+    }
+
+    #[must_use]
+    pub fn map_event<T, FN: FnOnce(EV) -> T>(self, map: FN) -> ClientEvent<BID, T> {
+        match self {
+            Self::NewHead(block) => ClientEvent::NewHead(block),
+            Self::NewFinalized(block) => ClientEvent::NewFinalized(block),
+            Self::Event(event) => ClientEvent::Event(map(event)),
             Self::Close(reason) => ClientEvent::Close(reason),
         }
     }
 }
 
 /// An empty event stream. Use this if the blockchain doesn't support events.
-pub type EmptyEventStream<BID> = Empty<ClientEvent<BID>>;
+pub type EmptyEventStream<BID, EV> = Empty<ClientEvent<BID, EV>>;
 
 #[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Serialize + Send + Sync + 'static;
     type Metadata: DeserializeOwned + Serialize + Send + Sync + 'static;
-    type EventStream<'a>: stream::Stream<Item = ClientEvent<Self::BlockIdentifier>>
+    type EventStream<'a>: stream::Stream<Item = ClientEvent<Self::BlockIdentifier, Self::Event>>
         + Send
         + Unpin
         + 'a;
@@ -118,6 +132,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Query: traits::Query;
     type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
     type Subscription: Clone + Send + Sync + Sized + Eq + 'static;
+    type Event: Clone + Send + Sync + Sized + Eq + 'static;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result>;
 
@@ -161,6 +176,7 @@ where
     type Query = <T as BlockchainClient>::Query;
     type Transaction = <T as BlockchainClient>::Transaction;
     type Subscription = <T as BlockchainClient>::Subscription;
+    type Event = <T as BlockchainClient>::Event;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result> {
         BlockchainClient::query(Self::as_ref(self), query).await

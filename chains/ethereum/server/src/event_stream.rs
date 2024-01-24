@@ -36,7 +36,7 @@ impl<P> Stream for EthereumEventStream<'_, P>
 where
     P: PubsubClient + 'static,
 {
-    type Item = ClientEvent<BlockIdentifier>;
+    type Item = ClientEvent<BlockIdentifier, ()>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,

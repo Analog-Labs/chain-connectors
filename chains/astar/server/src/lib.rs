@@ -207,6 +207,7 @@ impl BlockchainClient for AstarClient {
     type Query = rosetta_config_ethereum::Query;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
     type Subscription = <MaybeWsEthereumClient as BlockchainClient>::Subscription;
+    type Event = <MaybeWsEthereumClient as BlockchainClient>::Event;
 
     async fn query(
         &self,
