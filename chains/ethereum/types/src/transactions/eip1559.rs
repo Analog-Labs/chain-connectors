@@ -265,7 +265,7 @@ impl super::TransactionT for Eip1559Transaction {
 }
 
 #[cfg(all(test, any(feature = "serde", feature = "with-rlp")))]
-mod tests {
+pub(crate) mod tests {
     use super::Eip1559Transaction;
     use crate::{
         bytes::Bytes,

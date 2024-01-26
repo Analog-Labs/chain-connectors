@@ -246,3 +246,84 @@ impl TransactionT for TypedTransaction {
         }
     }
 }
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+    use super::TypedTransaction;
+    use crate::transactions::{
+        eip1559::tests::build_eip1559,
+        eip2930::tests::build_eip2930,
+        legacy::tests::{build_legacy, build_legacy_eip155},
+        signature::Signature,
+    };
+
+    #[allow(clippy::unwrap_used)]
+    fn build_typed_transaction<T: Into<TypedTransaction>>(
+        builder: fn() -> (T, Signature, serde_json::Value),
+    ) -> (TypedTransaction, serde_json::Value) {
+        let (tx, _, mut expected) = builder();
+        let tx: TypedTransaction = tx.into();
+        let tx_type = match &tx {
+            TypedTransaction::Legacy(_) => "0x0",
+            TypedTransaction::Eip2930(_) => "0x1",
+            TypedTransaction::Eip1559(_) => "0x2",
+        };
+        // Add the type field to the json
+        let old_value = expected
+            .as_object_mut()
+            .unwrap()
+            .insert("type".to_string(), serde_json::json!(tx_type));
+
+        // Guarantee that the type field was not already present
+        assert_eq!(old_value, None);
+        (tx, expected)
+    }
+
+    #[test]
+    fn can_encode_eip1559() {
+        let (tx, expected) = build_typed_transaction(build_eip1559);
+        let actual = serde_json::to_value(&tx).unwrap();
+        assert_eq!(expected, actual);
+
+        // can decode json
+        let json = serde_json::to_value(&tx).unwrap();
+        let decoded = serde_json::from_value::<TypedTransaction>(json).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn can_encode_eip2930() {
+        let (tx, expected) = build_typed_transaction(build_eip2930);
+        let actual = serde_json::to_value(&tx).unwrap();
+        assert_eq!(expected, actual);
+
+        // can decode json
+        let json_str = serde_json::to_string(&tx).unwrap();
+        let decoded = serde_json::from_str::<TypedTransaction>(&json_str).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn can_encode_legacy() {
+        let (tx, expected) = build_typed_transaction(build_legacy);
+        let actual = serde_json::to_value(&tx).unwrap();
+        assert_eq!(expected, actual);
+
+        // can decode json
+        let json_str = serde_json::to_string(&tx).unwrap();
+        let decoded = serde_json::from_str::<TypedTransaction>(&json_str).unwrap();
+        assert_eq!(tx, decoded);
+    }
+
+    #[test]
+    fn can_encode_legacy_eip155() {
+        let (tx, expected) = build_typed_transaction(build_legacy_eip155);
+        let actual = serde_json::to_value(&tx).unwrap();
+        assert_eq!(expected, actual);
+
+        // can decode json
+        let json_str = serde_json::to_string(&tx).unwrap();
+        let decoded = serde_json::from_str::<TypedTransaction>(&json_str).unwrap();
+        assert_eq!(tx, decoded);
+    }
+}

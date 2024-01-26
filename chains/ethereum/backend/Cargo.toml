@@ -27,4 +27,4 @@ std = [
   "scale-info?/std",
   "serde?/std",
 ]
-jsonrpsee = ["dep:jsonrpsee-core", "std", "serde"]
+jsonrpsee = ["dep:jsonrpsee-core", "serde"]

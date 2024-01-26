@@ -94,7 +94,7 @@ pub struct RpcTransaction {
             default,
             rename = "type",
             skip_serializing_if = "Option::is_none",
-            with = "uint_to_hex"
+            with = "uint_to_hex",
         )
     )]
     pub transaction_type: Option<u64>,
@@ -124,7 +124,7 @@ impl TryFrom<RpcTransaction> for LegacyTransaction {
         };
 
         let chain_id = if tx.signature.r.is_zero() && tx.signature.s.is_zero() {
-            tx.chain_id
+            tx.chain_id.or_else(|| tx.signature.v.chain_id())
         } else {
             tx.signature.v.chain_id()
         };
@@ -246,8 +246,10 @@ impl TryFrom<RpcTransaction> for SignedTransaction<TypedTransaction> {
             None => {
                 if tx.max_fee_per_gas.is_some() || tx.max_priority_fee_per_gas.is_some() {
                     TypedTransaction::Eip1559(tx.try_into()?)
-                } else {
+                } else if tx.access_list.is_empty() {
                     TypedTransaction::Legacy(tx.try_into()?)
+                } else {
+                    TypedTransaction::Eip2930(tx.try_into()?)
                 }
             },
         };

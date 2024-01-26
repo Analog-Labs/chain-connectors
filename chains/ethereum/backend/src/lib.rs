@@ -3,11 +3,11 @@
 #[cfg(feature = "jsonrpsee")]
 pub mod jsonrpsee;
 
+#[cfg(not(feature = "std"))]
 extern crate alloc;
-use core::pin::Pin;
 
-use alloc::{borrow::Cow, boxed::Box};
-use futures_core::{future::BoxFuture, Future};
+use async_trait::async_trait;
+use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcTransaction},
     AccessListWithGasUsed, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Header,
@@ -17,7 +17,7 @@ use rosetta_ethereum_types::{
 /// Re-exports for proc-macro library to not require any additional
 /// dependencies to be explicitly added on the client side.
 #[doc(hidden)]
-pub mod __reexports {
+pub mod ext {
     pub use async_trait::async_trait;
     #[cfg(feature = "with-codec")]
     pub use parity_scale_codec;
@@ -25,6 +25,40 @@ pub mod __reexports {
     #[cfg(feature = "serde")]
     pub use serde;
 }
+
+#[cfg(feature = "std")]
+pub(crate) mod rstd {
+    #[cfg(feature = "jsonrpsee")]
+    pub use std::{ops, string, vec};
+
+    pub mod sync {
+        pub use std::sync::Arc;
+    }
+    pub use std::{borrow, boxed, fmt, marker};
+}
+
+#[cfg(not(feature = "std"))]
+pub(crate) mod rstd {
+    #[cfg(feature = "jsonrpsee")]
+    pub use alloc::{string, vec};
+
+    #[cfg(feature = "jsonrpsee")]
+    pub use core::ops;
+
+    pub mod sync {
+        pub use alloc::sync::Arc;
+    }
+    pub use alloc::{borrow, boxed, fmt};
+    pub use core::marker;
+}
+
+use rstd::{
+    borrow::Cow,
+    boxed::Box,
+    fmt::{Display, Formatter, Result as FmtResult},
+    marker::Sized,
+    sync::Arc,
+};
 
 /// Exit reason
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -72,16 +106,16 @@ pub enum AtBlock {
     At(BlockIdentifier),
 }
 
-impl alloc::fmt::Display for AtBlock {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl Display for AtBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Latest => f.write_str("latest"),
             Self::Finalized => f.write_str("finalized"),
             Self::Safe => f.write_str("safe"),
             Self::Earliest => f.write_str("earliest"),
             Self::Pending => f.write_str("ending"),
-            Self::At(BlockIdentifier::Hash(hash)) => alloc::fmt::Display::fmt(&hash, f),
-            Self::At(BlockIdentifier::Number(number)) => alloc::fmt::Display::fmt(&number, f),
+            Self::At(BlockIdentifier::Hash(hash)) => Display::fmt(&hash, f),
+            Self::At(BlockIdentifier::Number(number)) => Display::fmt(&number, f),
         }
     }
 }
@@ -110,10 +144,10 @@ impl From<BlockIdentifier> for AtBlock {
 }
 
 /// EVM backend.
-#[async_trait::async_trait]
+#[async_trait]
 #[auto_impl::auto_impl(&, Arc, Box)]
 pub trait EthereumRpc {
-    type Error: core::fmt::Display;
+    type Error: Display;
 
     /// Returns the balance of the account.
     async fn get_balance(&self, account: Address, at: AtBlock) -> Result<U256, Self::Error>;
@@ -133,7 +167,7 @@ pub trait EthereumRpc {
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
+    ) -> BoxFuture<'async_trait, Result<ExitReason, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait;
@@ -143,7 +177,7 @@ pub trait EthereumRpc {
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<Box<dyn Future<Output = Result<U256, Self::Error>> + Send + 'async_trait>>
+    ) -> BoxFuture<'async_trait, Result<U256, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait;
@@ -169,9 +203,7 @@ pub trait EthereumRpc {
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<
-        Box<dyn Future<Output = Result<AccessListWithGasUsed, Self::Error>> + Send + 'async_trait>,
-    >
+    ) -> BoxFuture<'async_trait, Result<AccessListWithGasUsed, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait;
@@ -183,9 +215,7 @@ pub trait EthereumRpc {
         address: Address,
         storage_keys: &'life1 [H256],
         at: AtBlock,
-    ) -> Pin<
-        Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send + 'async_trait>,
-    >
+    ) -> BoxFuture<'async_trait, Result<EIP1186ProofResponse, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait;
@@ -213,19 +243,16 @@ pub trait EthereumRpc {
 }
 
 /// EVM backend.
-#[async_trait::async_trait]
+#[async_trait]
 pub trait EthereumPubSub: EthereumRpc {
-    type SubscriptionError: core::fmt::Display + Send + 'static;
-    type NewHeadsStream<'a>: futures_core::Stream<Item = Result<Block<H256>, Self::SubscriptionError>>
+    type SubscriptionError: Display + Send + 'static;
+    type NewHeadsStream<'a>: Stream<Item = Result<Block<H256>, Self::SubscriptionError>>
         + Send
         + Unpin
         + 'a
     where
         Self: 'a;
-    type LogsStream<'a>: futures_core::Stream<Item = Result<Log, Self::SubscriptionError>>
-        + Send
-        + Unpin
-        + 'a
+    type LogsStream<'a>: Stream<Item = Result<Log, Self::SubscriptionError>> + Send + Unpin + 'a
     where
         Self: 'a;
 
@@ -248,7 +275,7 @@ pub trait EthereumPubSub: EthereumRpc {
     ) -> Result<Self::LogsStream<'a>, Self::Error>;
 }
 
-impl<'b, T: 'b + EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for &'b T {
+impl<'b, T: 'b + EthereumPubSub + ?Sized> EthereumPubSub for &'b T {
     type SubscriptionError = T::SubscriptionError;
     type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
     type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
@@ -277,7 +304,7 @@ impl<'b, T: 'b + EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for &'b
 
 // #[auto_impl] doesn't work with generic associated types:
 // https://github.com/auto-impl-rs/auto_impl/issues/93
-impl<T: EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for alloc::sync::Arc<T> {
+impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Arc<T> {
     type SubscriptionError = T::SubscriptionError;
     type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
     type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
@@ -305,7 +332,7 @@ impl<T: EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for alloc::sync:
     }
 }
 
-impl<T: EthereumPubSub + ?::core::marker::Sized> EthereumPubSub for alloc::boxed::Box<T> {
+impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Box<T> {
     type SubscriptionError = T::SubscriptionError;
     type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
     type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;

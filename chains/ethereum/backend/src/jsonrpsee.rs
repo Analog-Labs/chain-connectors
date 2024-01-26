@@ -1,12 +1,15 @@
-use ::core::{
-    future::Future,
+use crate::rstd::{
+    boxed::Box,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
     marker::Send,
     ops::{Deref, DerefMut},
-    pin::Pin,
+    string::ToString,
+    vec::Vec,
 };
+use async_trait::async_trait;
+use futures_core::future::BoxFuture;
 
 use crate::{AccessListWithGasUsed, AtBlock, CallRequest, EthereumPubSub, EthereumRpc, ExitReason};
-use alloc::boxed::Box;
 pub use jsonrpsee_core as core;
 use jsonrpsee_core::{
     client::{ClientT, SubscriptionClientT},
@@ -89,25 +92,25 @@ where
     }
 }
 
-impl<T> alloc::fmt::Debug for Adapter<T>
+impl<T> Debug for Adapter<T>
 where
-    T: ClientT + Send + Sync + alloc::fmt::Debug,
+    T: ClientT + Send + Sync + Debug,
 {
-    fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_tuple("Adapter").field(&self.0).finish()
     }
 }
 
-impl<T> alloc::fmt::Display for Adapter<T>
+impl<T> Display for Adapter<T>
 where
-    T: ClientT + Send + Sync + alloc::fmt::Display,
+    T: ClientT + Send + Sync + Display,
 {
-    fn fmt(&self, f: &mut alloc::fmt::Formatter<'_>) -> alloc::fmt::Result {
-        <T as alloc::fmt::Display>::fmt(&self.0, f)
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        <T as Display>::fmt(&self.0, f)
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl<T> EthereumRpc for Adapter<T>
 where
     T: ClientT + Send + Sync,
@@ -148,7 +151,7 @@ where
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<Box<dyn Future<Output = Result<ExitReason, Self::Error>> + Send + 'async_trait>>
+    ) -> BoxFuture<'async_trait, Result<ExitReason, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait,
@@ -166,7 +169,7 @@ where
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<Box<dyn Future<Output = Result<U256, Self::Error>> + Send + 'async_trait>>
+    ) -> BoxFuture<'async_trait, Result<U256, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait,
@@ -204,9 +207,7 @@ where
         &'life0 self,
         tx: &'life1 CallRequest,
         at: AtBlock,
-    ) -> Pin<
-        Box<dyn Future<Output = Result<AccessListWithGasUsed, Self::Error>> + Send + 'async_trait>,
-    >
+    ) -> BoxFuture<'async_trait, Result<AccessListWithGasUsed, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait,
@@ -222,9 +223,7 @@ where
         address: Address,
         storage_keys: &'life1 [H256],
         at: AtBlock,
-    ) -> Pin<
-        Box<dyn Future<Output = Result<EIP1186ProofResponse, Self::Error>> + Send + 'async_trait>,
-    >
+    ) -> BoxFuture<'async_trait, Result<EIP1186ProofResponse, Self::Error>>
     where
         'life0: 'async_trait,
         Self: 'async_trait,
@@ -322,7 +321,7 @@ struct LogsParams<'a> {
     topics: &'a [H256],
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl<T> EthereumPubSub for Adapter<T>
 where
     T: SubscriptionClientT + Send + Sync,
@@ -377,13 +376,7 @@ where
         &'life0 self,
         method: &'life1 str,
         params: Params,
-    ) -> Pin<
-        Box<
-            dyn Future<Output = ::core::result::Result<(), ::jsonrpsee_core::ClientError>>
-                + Send
-                + 'async_trait,
-        >,
-    >
+    ) -> BoxFuture<'async_trait, Result<(), ::jsonrpsee_core::ClientError>>
     where
         Params: ::jsonrpsee_core::traits::ToRpcParams + Send,
         Params: 'async_trait,
@@ -400,13 +393,7 @@ where
         &'life0 self,
         method: &'life1 str,
         params: Params,
-    ) -> Pin<
-        Box<
-            dyn Future<Output = ::core::result::Result<R, ::jsonrpsee_core::ClientError>>
-                + Send
-                + 'async_trait,
-        >,
-    >
+    ) -> BoxFuture<'async_trait, Result<R, ::jsonrpsee_core::ClientError>>
     where
         R: ::serde::de::DeserializeOwned,
         Params: ::jsonrpsee_core::traits::ToRpcParams + Send,
@@ -424,19 +411,12 @@ where
     fn batch_request<'a, 'life0, 'async_trait, R>(
         &'life0 self,
         batch: ::jsonrpsee_core::params::BatchRequestBuilder<'a>,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = ::core::result::Result<
-                        ::jsonrpsee_core::client::BatchResponse<'a, R>,
-                        ::jsonrpsee_core::ClientError,
-                    >,
-                > + Send
-                + 'async_trait,
-        >,
+    ) -> BoxFuture<
+        'async_trait,
+        Result<::jsonrpsee_core::client::BatchResponse<'a, R>, ::jsonrpsee_core::ClientError>,
     >
     where
-        R: ::serde::de::DeserializeOwned + ::core::fmt::Debug + 'a,
+        R: ::serde::de::DeserializeOwned + Debug + 'a,
         'a: 'async_trait,
         R: 'async_trait,
         'life0: 'async_trait,
@@ -457,16 +437,9 @@ where
         subscribe_method: &'a str,
         params: Params,
         unsubscribe_method: &'a str,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = ::core::result::Result<
-                        ::jsonrpsee_core::client::Subscription<Notif>,
-                        ::jsonrpsee_core::ClientError,
-                    >,
-                > + Send
-                + 'async_trait,
-        >,
+    ) -> BoxFuture<
+        'async_trait,
+        Result<::jsonrpsee_core::client::Subscription<Notif>, ::jsonrpsee_core::ClientError>,
     >
     where
         Params: ::jsonrpsee_core::traits::ToRpcParams + Send,
@@ -490,16 +463,9 @@ where
     fn subscribe_to_method<'a, 'life0, 'async_trait, Notif>(
         &'life0 self,
         method: &'a str,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = ::core::result::Result<
-                        ::jsonrpsee_core::client::Subscription<Notif>,
-                        ::jsonrpsee_core::ClientError,
-                    >,
-                > + Send
-                + 'async_trait,
-        >,
+    ) -> BoxFuture<
+        'async_trait,
+        Result<::jsonrpsee_core::client::Subscription<Notif>, ::jsonrpsee_core::ClientError>,
     >
     where
         Notif: ::serde::de::DeserializeOwned,
