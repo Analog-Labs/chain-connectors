@@ -25,17 +25,13 @@ use crate::{
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
-#[cfg_attr(
-    feature = "with-serde",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(tag = "type")
-)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize), serde(tag = "type"))]
 pub enum TypedTransaction {
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x0"))]
+    #[cfg_attr(feature = "serde", serde(rename = "0x0"))]
     Legacy(LegacyTransaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x1"))]
+    #[cfg_attr(feature = "serde", serde(rename = "0x1"))]
     Eip2930(Eip2930Transaction),
-    #[cfg_attr(feature = "with-serde", serde(rename = "0x2"))]
+    #[cfg_attr(feature = "serde", serde(rename = "0x2"))]
     Eip1559(Eip1559Transaction),
 }
 

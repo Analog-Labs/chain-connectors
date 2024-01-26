@@ -22,7 +22,7 @@ pub mod __reexports {
     #[cfg(feature = "with-codec")]
     pub use parity_scale_codec;
     pub use rosetta_ethereum_types as types;
-    #[cfg(feature = "with-serde")]
+    #[cfg(feature = "serde")]
     pub use serde;
 }
 
@@ -32,7 +32,7 @@ pub mod __reexports {
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
-#[cfg_attr(feature = "with-serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ExitReason {
     /// Machine has succeeded.
     Succeed(Bytes),
@@ -86,7 +86,7 @@ impl alloc::fmt::Display for AtBlock {
     }
 }
 
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 impl serde::Serialize for AtBlock {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

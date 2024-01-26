@@ -10,10 +10,10 @@ use crate::rstd::{
 /// Wrapper type around [`bytes::Bytes`] to support "0x" prefixed hex strings.
 #[derive(Clone, Default, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
-#[cfg_attr(feature = "with-serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bytes(
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(serialize_with = "serialize_bytes", deserialize_with = "deserialize_bytes")
     )]
     pub bytes::Bytes,
@@ -249,7 +249,7 @@ impl FromStr for Bytes {
 ///
 /// # Errors
 /// never fails
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 pub fn serialize_bytes<S, T>(d: T, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -262,7 +262,7 @@ where
 ///
 /// # Errors
 /// never fails
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 pub fn deserialize_bytes<'de, D>(d: D) -> Result<bytes::Bytes, D::Error>
 where
     D: serde::Deserializer<'de>,

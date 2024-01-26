@@ -12,7 +12,7 @@ use fixed_hash::*;
 use impl_codec_macro::impl_fixed_hash_codec;
 #[cfg(feature = "with-rlp")]
 use impl_rlp_macro::impl_fixed_hash_rlp;
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use impl_serde_macro::impl_fixed_hash_serde;
 pub use primitive_types::{H128, H160, H256, H384, H512};
 
@@ -30,7 +30,7 @@ macro_rules! impl_hash {
         impl_fixed_hash_codec!($hash, $n_bytes);
         #[cfg(feature = "with-rlp")]
         impl_fixed_hash_rlp!($hash, $n_bytes);
-        #[cfg(feature = "with-serde")]
+        #[cfg(feature = "serde")]
         impl_fixed_hash_serde!($hash, $n_bytes);
 
         #[cfg(feature = "with-codec")]

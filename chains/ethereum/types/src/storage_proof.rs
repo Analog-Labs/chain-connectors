@@ -5,7 +5,7 @@ use crate::{
     rstd::vec::Vec,
 };
 
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -13,7 +13,7 @@ use crate::serde_utils::uint_to_hex;
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
-#[cfg_attr(feature = "with-serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StorageProof {
     pub key: U256,
     pub proof: Vec<Bytes>,
@@ -26,7 +26,7 @@ pub struct StorageProof {
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -34,7 +34,7 @@ pub struct EIP1186ProofResponse {
     pub address: Address,
     pub balance: U256,
     pub code_hash: H256,
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
     pub storage_hash: H256,
     pub account_proof: Vec<Bytes>,

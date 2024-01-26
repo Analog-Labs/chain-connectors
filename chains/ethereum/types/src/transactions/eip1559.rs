@@ -15,7 +15,7 @@ use crate::{
     eth_hash::H256,
 };
 
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 
 /// Transactions with type 0x2 are transactions introduced in EIP-1559, included in Ethereum's
@@ -40,7 +40,7 @@ use crate::serde_utils::uint_to_hex;
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -50,11 +50,11 @@ pub struct Eip1559Transaction {
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     /// [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
     /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub chain_id: u64,
 
     /// The nonce of the transaction.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
 
     /// Represents the maximum tx fee that will go to the miner as part of the user's
@@ -79,26 +79,23 @@ pub struct Eip1559Transaction {
     pub max_fee_per_gas: U256,
 
     /// Supplied gas
-    #[cfg_attr(feature = "with-serde", serde(rename = "gas", with = "uint_to_hex",))]
+    #[cfg_attr(feature = "serde", serde(rename = "gas", with = "uint_to_hex",))]
     pub gas_limit: u64,
 
     /// Recipient address (None for contract creation)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub to: Option<Address>,
 
     /// Transferred value
     pub value: U256,
 
     /// The data of the transaction.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Bytes::is_empty"))]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Bytes::is_empty"))]
     pub data: Bytes,
 
     /// Optional access list introduced in EIP-2930.
     /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
-    #[cfg_attr(
-        feature = "with-serde",
-        serde(default, skip_serializing_if = "AccessList::is_empty")
-    )]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "AccessList::is_empty"))]
     pub access_list: AccessList,
 }
 
@@ -267,7 +264,7 @@ impl super::TransactionT for Eip1559Transaction {
     }
 }
 
-#[cfg(all(test, any(feature = "with-serde", feature = "with-rlp")))]
+#[cfg(all(test, any(feature = "serde", feature = "with-rlp")))]
 mod tests {
     use super::Eip1559Transaction;
     use crate::{
@@ -285,7 +282,7 @@ mod tests {
     #[cfg(feature = "with-rlp")]
     static RLP_EIP1559_UNSIGNED: &[u8] = &hex!("02f9033401758405f5e10085069b8cf27b8302db9d943fc91a3afd70395cd496c647d5a6cc9d4b2b7fad8832a767a9562d0000b902843593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006547d41700000000000000000000000000000000000000000000000000000000000000020b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000032a767a9562d00000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000032a767a9562d000000000000000000000000000000000000000000000021b60af11987fa0670342f00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000bb8b55ee890426341fe45ee6dc788d2d93d25b59063000000000000000000000000000000000000000000f87cf87a943fc91a3afd70395cd496c647d5a6cc9d4b2b7fadf863a00000000000000000000000000000000000000000000000000000000000000000a0a19fd53308a1c44a3ed22d3f20ed4229aa8909e0d0a90510ca482367ad42caa6a0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
-    fn build_eip1559() -> (Eip1559Transaction, Signature) {
+    pub fn build_eip1559() -> (Eip1559Transaction, Signature, serde_json::Value) {
         let tx = Eip1559Transaction {
             chain_id: 1,
             nonce: 117,
@@ -294,7 +291,7 @@ mod tests {
             gas_limit: 187_293,
             to: Some(hex!("3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad").into()),
             value: 3_650_000_000_000_000_000u128.into(),
-            data: Bytes::from(hex!("3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006547d41700000000000000000000000000000000000000000000000000000000000000020b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000032a767a9562d00000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000032a767a9562d000000000000000000000000000000000000000000000021b60af11987fa0670342f00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000bb8b55ee890426341fe45ee6dc788d2d93d25b59063000000000000000000000000000000000000000000")),
+            data: hex!("3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000006547d41700000000000000000000000000000000000000000000000000000000000000020b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000032a767a9562d00000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000032a767a9562d000000000000000000000000000000000000000000000021b60af11987fa0670342f00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000bb8b55ee890426341fe45ee6dc788d2d93d25b59063000000000000000000000000000000000000000000").to_vec().into(),
             access_list: AccessList(vec![AccessListItem {
                 address: Address::from(hex!("3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad")),
                 storage_keys: vec![
@@ -313,15 +310,7 @@ mod tests {
             r: hex!("bde8e920a9acce0c9950f112d02d457d517835297b2610b4d0bcd56df114010f").into(),
             s: hex!("66ee7972cde2c5bd85fdb06aa358da04944b3ad5e56fe3e06d8fcb1137a52939").into(),
         };
-        (tx, signature)
-    }
-
-    #[cfg(feature = "with-serde")]
-    #[test]
-    fn serde_encode_works() {
-        let tx = build_eip1559().0;
-        let actual = serde_json::to_value(&tx).unwrap();
-        let expected = serde_json::json!({
+        let json = serde_json::json!({
             "chainId": "0x1",
             "nonce": "0x75",
             "maxPriorityFeePerGas": "0x5f5e100",
@@ -344,6 +333,14 @@ mod tests {
             // "r": "0xbde8e920a9acce0c9950f112d02d457d517835297b2610b4d0bcd56df114010f",
             // "s": "0x66ee7972cde2c5bd85fdb06aa358da04944b3ad5e56fe3e06d8fcb1137a52939"
         });
+        (tx, signature, json)
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn serde_encode_works() {
+        let (tx, _, expected) = build_eip1559();
+        let actual = serde_json::to_value(&tx).unwrap();
         assert_eq!(expected, actual);
 
         // can decode json
@@ -356,7 +353,7 @@ mod tests {
     #[test]
     fn rlp_encode_signed_works() {
         use crate::rlp_utils::RlpEncodableTransaction;
-        let (tx, sig) = build_eip1559();
+        let (tx, sig, _) = build_eip1559();
         let expected = Bytes::from_static(RLP_EIP1559_SIGNED);
         let actual = Bytes::from(tx.rlp_signed(&sig));
         assert_eq!(expected, actual);
@@ -376,7 +373,7 @@ mod tests {
     #[test]
     fn rlp_decode_signed_works() {
         use crate::rlp_utils::RlpDecodableTransaction;
-        let (expected_tx, expected_sig) = build_eip1559();
+        let (expected_tx, expected_sig, _) = build_eip1559();
         let (actual_tx, actual_sig) = {
             let rlp = rlp::Rlp::new(RLP_EIP1559_SIGNED);
             Eip1559Transaction::rlp_decode_signed(&rlp).unwrap()
@@ -420,7 +417,7 @@ mod tests {
     #[test]
     fn compute_eip1559_tx_hash() {
         use super::super::TransactionT;
-        let (tx, sig) = build_eip1559();
+        let (tx, sig, _) = build_eip1559();
         let expected =
             H256(hex!("20a0f172aaeefc91c346fa0d43a9e56a1058a2a0c0c6fa8a2e9204f8047d1008"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));

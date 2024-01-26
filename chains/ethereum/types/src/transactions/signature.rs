@@ -1,4 +1,4 @@
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 use crate::{eth_hash::H520, eth_uint::U256};
 
@@ -7,7 +7,7 @@ use crate::{eth_hash::H520, eth_uint::U256};
 #[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -44,11 +44,11 @@ impl From<Signature> for H520 {
 #[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-pub struct RecoveryId(#[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))] u64);
+pub struct RecoveryId(#[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))] u64);
 
 impl RecoveryId {
     #[must_use]

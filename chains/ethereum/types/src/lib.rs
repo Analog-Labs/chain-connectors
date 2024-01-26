@@ -11,7 +11,7 @@ mod log;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
 pub mod rpc;
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 pub mod serde_utils;
 mod storage_proof;
 pub mod transactions;
@@ -35,12 +35,12 @@ pub use transactions::{
 pub use tx_receipt::TransactionReceipt;
 
 #[cfg(not(feature = "std"))]
-#[cfg_attr(all(test, any(feature = "with-serde", feature = "with-rlp")), macro_use)]
+#[cfg_attr(all(test, any(feature = "serde", feature = "with-rlp")), macro_use)]
 extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
-    #[cfg(feature = "with-serde")]
+    #[cfg(feature = "serde")]
     pub use std::{format, option, result};
 
     pub use std::{borrow, cmp, fmt, ops, str, string, vec};
@@ -48,10 +48,10 @@ pub(crate) mod rstd {
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
-    #[cfg(feature = "with-serde")]
+    #[cfg(feature = "serde")]
     pub use core::{option, result};
 
-    #[cfg(feature = "with-serde")]
+    #[cfg(feature = "serde")]
     pub use alloc::format;
 
     pub use alloc::{borrow, fmt, string, vec};
@@ -80,7 +80,7 @@ impl From<H256> for BlockIdentifier {
     }
 }
 
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 impl serde::Serialize for BlockIdentifier {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

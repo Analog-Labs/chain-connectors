@@ -1,4 +1,4 @@
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::{deserialize_null_default, uint_to_hex};
 use crate::{
     bytes::Bytes,
@@ -18,7 +18,7 @@ use crate::{
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -26,60 +26,60 @@ pub struct RpcTransaction {
     /// Hash
     pub hash: TxHash,
     /// Nonce
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
     /// Block hash
-    #[cfg_attr(feature = "with-serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub block_hash: Option<H256>,
     /// Block number
-    #[cfg_attr(feature = "with-serde", serde(default, with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub block_number: Option<u64>,
     /// Transaction Index
-    #[cfg_attr(feature = "with-serde", serde(default, with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub transaction_index: Option<u64>,
     /// Sender
     pub from: Address,
     /// Recipient
-    #[cfg_attr(feature = "with-serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub to: Option<Address>,
     /// Transfered value
     pub value: U256,
     /// Gas Price
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub gas_price: Option<U256>,
     /// Max BaseFeePerGas the user is willing to pay.
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
     /// The miner's tip.
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_priority_fee_per_gas: Option<U256>,
     /// Gas limit
-    #[cfg_attr(feature = "with-serde", serde(default, rename = "gas"))]
+    #[cfg_attr(feature = "serde", serde(default, rename = "gas"))]
     pub gas_limit: U256,
     /// Data
-    #[cfg_attr(feature = "with-serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub input: Bytes,
     /// Creates contract
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub creates: Option<Address>,
     /// Raw transaction data
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub raw: Option<Bytes>,
     /// Public key of the signer.
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub public_key: Option<H512>,
     /// The network id of the transaction, if any.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub chain_id: Option<u64>,
     /// The V field of the signature.
-    #[cfg_attr(feature = "with-serde", serde(default, flatten))]
+    #[cfg_attr(feature = "serde", serde(default, flatten))]
     pub signature: Signature,
     /// Pre-pay to warm storage access.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(
             default,
             skip_serializing_if = "AccessList::is_empty",
@@ -89,12 +89,12 @@ pub struct RpcTransaction {
     pub access_list: AccessList,
     /// EIP-2718 type
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(
             default,
             rename = "type",
             skip_serializing_if = "Option::is_none",
-            with = "uint_to_hex",
+            with = "uint_to_hex"
         )
     )]
     pub transaction_type: Option<u64>,
@@ -255,7 +255,7 @@ impl TryFrom<RpcTransaction> for SignedTransaction<TypedTransaction> {
     }
 }
 
-#[cfg(all(test, feature = "with-serde", feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(all(test, feature = "serde", feature = "with-rlp", feature = "with-crypto"))]
 mod tests {
     use super::RpcTransaction;
     use crate::{

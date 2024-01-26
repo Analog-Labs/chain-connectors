@@ -20,21 +20,21 @@ use crate::{
     codec(dumb_trait_bound)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
 #[derive(Derivative)]
 #[derivative(Clone, PartialEq, Eq, Debug)]
 pub struct SignedTransaction<T> {
-    #[cfg_attr(feature = "with-serde", serde(rename = "hash"))]
+    #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     pub tx_hash: TxHash,
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(bound = "T: serde::Serialize + serde::de::DeserializeOwned", flatten)
     )]
     pub payload: T,
-    #[cfg_attr(feature = "with-serde", serde(flatten))]
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: Signature,
 }
 
@@ -195,7 +195,7 @@ where
     }
 }
 
-#[cfg(all(test, feature = "with-serde", feature = "with-rlp", feature = "with-crypto"))]
+#[cfg(all(test, feature = "serde", feature = "with-rlp", feature = "with-crypto"))]
 mod tests {
     use super::super::eip2930::Eip2930Transaction;
     use crate::{

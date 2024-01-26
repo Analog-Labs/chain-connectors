@@ -1,4 +1,4 @@
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::{bytes_to_hex, uint_to_hex};
 use crate::{
     bytes::Bytes,
@@ -17,7 +17,7 @@ use ethbloom::Bloom;
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -26,11 +26,11 @@ pub struct Header {
     /// block’s header, in its entirety; formally Hp.
     pub parent_hash: H256,
     /// The Keccak 256-bit hash of the ommers list portion of this block; formally Ho.
-    #[cfg_attr(feature = "with-serde", serde(rename = "sha3Uncles"))]
+    #[cfg_attr(feature = "serde", serde(rename = "sha3Uncles"))]
     pub ommers_hash: H256,
     /// The 160-bit address to which all fees collected from the successful mining of this block
     /// be transferred; formally Hc.
-    #[cfg_attr(feature = "with-serde", serde(rename = "miner", alias = "beneficiary"))]
+    #[cfg_attr(feature = "serde", serde(rename = "miner", alias = "beneficiary"))]
     pub beneficiary: Address,
     /// The Keccak 256-bit hash of the root node of the state trie, after all transactions are
     /// executed and finalisations applied; formally Hr.
@@ -50,31 +50,31 @@ pub struct Header {
     pub difficulty: U256,
     /// A scalar value equal to the number of ancestor blocks. The genesis block has a number of
     /// zero; formally Hi.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub number: u64,
     /// A scalar value equal to the current limit of gas expenditure per block; formally Hl.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub gas_limit: u64,
     /// A scalar value equal to the total gas used in transactions in this block; formally Hg.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub gas_used: u64,
     /// A scalar value equal to the reasonable output of Unix’s time() at this block’s inception;
     /// formally Hs.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub timestamp: u64,
     /// An arbitrary byte array containing data relevant to this block. This must be 32 bytes or
     /// fewer; formally Hx.
-    #[cfg_attr(feature = "with-serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub extra_data: Bytes,
     /// A 256-bit hash which, combined with the
     /// nonce, proves that a sufficient amount of computation has been carried out on this block;
     /// formally Hm.
-    #[cfg_attr(feature = "with-serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default))]
     pub mix_hash: H256,
     /// A 64-bit value which, combined with the mixhash, proves that a sufficient amount of
     /// computation has been carried out on this block; formally Hn.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(
             deserialize_with = "uint_to_hex::deserialize",
             serialize_with = "bytes_to_hex::serialize"
@@ -88,18 +88,18 @@ pub struct Header {
     /// above the gas target, and decreasing when blocks are below the gas target. The base fee per
     /// gas is burned.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub base_fee_per_gas: Option<u64>,
     /// The Keccak 256-bit hash of the withdrawals list portion of this block.
     /// <https://eips.ethereum.org/EIPS/eip-4895>
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub withdrawals_root: Option<H256>,
     /// The total amount of blob gas consumed by the transactions within the block, added in
     /// EIP-4844.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub blob_gas_used: Option<u64>,
@@ -107,7 +107,7 @@ pub struct Header {
     /// with above-target blob gas consumption increase this value, blocks with below-target blob
     /// gas consumption decrease it (bounded at 0). This was added in EIP-4844.
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub excess_blob_gas: Option<u64>,
@@ -118,7 +118,7 @@ pub struct Header {
     /// and more.
     ///
     /// The beacon roots contract handles root storage, enhancing Ethereum's functionalities.
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub parent_beacon_block_root: Option<H256>,
 }
 
@@ -575,7 +575,7 @@ mod tests {
         assert_eq!(actual_hash, expected_hash);
     }
 
-    #[cfg(feature = "with-serde")]
+    #[cfg(feature = "serde")]
     #[test]
     fn test_decode_header_from_json() {
         // Block from devnet-7

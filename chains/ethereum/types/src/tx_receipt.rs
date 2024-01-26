@@ -6,7 +6,7 @@ use crate::{
 };
 use ethbloom::Bloom;
 
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 
 /// "Receipt" of an executed transaction: details of its execution.
@@ -16,7 +16,7 @@ use crate::serde_utils::uint_to_hex;
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -25,14 +25,14 @@ pub struct TransactionReceipt {
     pub transaction_hash: H256,
 
     /// Index within the block.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub transaction_index: u64,
 
     /// Hash of the block this transaction was included within.
     pub block_hash: Option<H256>,
 
     /// Number of the block this transaction was included within.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub block_number: Option<u64>,
 
     /// address of the sender.
@@ -57,16 +57,13 @@ pub struct TransactionReceipt {
 
     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(rename = "status", skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub status_code: Option<u64>,
 
     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-    #[cfg_attr(
-        feature = "with-serde",
-        serde(rename = "root", skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(rename = "root", skip_serializing_if = "Option::is_none"))]
     pub state_root: Option<H256>,
 
     /// Logs bloom
@@ -75,12 +72,12 @@ pub struct TransactionReceipt {
     /// The price paid post-execution by the transaction (i.e. base fee + priority fee).
     /// Both fields in 1559-style transactions are *maximums* (max fee + max priority fee), the
     /// amount that's actually paid by users can only be determined post-execution
-    #[cfg_attr(feature = "with-serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub effective_gas_price: Option<U256>,
 
     /// EIP-2718 transaction type
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(
             rename = "type",
             default,

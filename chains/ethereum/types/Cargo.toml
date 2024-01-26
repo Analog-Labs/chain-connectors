@@ -47,7 +47,7 @@ with-codec = [
   "primitive-types/codec",
   "primitive-types/scale-info",
 ]
-with-serde = [
+serde = [
   "dep:serde",
   "dep:impl-serde-macro",
   "const-hex/serde",

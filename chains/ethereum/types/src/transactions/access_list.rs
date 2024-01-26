@@ -15,7 +15,7 @@ use crate::{
     derive(rlp_derive::RlpEncodableWrapper, rlp_derive::RlpDecodableWrapper)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -66,7 +66,7 @@ impl IntoIterator for AccessList {
 )]
 #[cfg_attr(feature = "with-rlp", derive(rlp_derive::RlpEncodable, rlp_derive::RlpDecodable))]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -89,7 +89,7 @@ impl From<Vec<AccessListItem>> for AccessList {
 )]
 #[cfg_attr(feature = "with-rlp", derive(rlp_derive::RlpEncodable, rlp_derive::RlpDecodable))]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
@@ -100,7 +100,7 @@ pub struct AccessListItem {
     pub storage_keys: Vec<H256>,
 }
 
-#[cfg(all(test, feature = "with-serde"))]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
     use super::{AccessList, AccessListItem, Address, H256};
 

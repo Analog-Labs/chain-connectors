@@ -19,7 +19,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"], opti
 [features]
 default = ["std", "jsonrpsee"]
 with-codec = ["dep:parity-scale-codec", "dep:scale-info", "rosetta-ethereum-types/with-codec"]
-with-serde = ["dep:serde", "rosetta-ethereum-types/with-serde"]
+serde = ["dep:serde", "rosetta-ethereum-types/serde"]
 std = [
   "futures-core/std",
   "rosetta-ethereum-types/std",
@@ -27,4 +27,4 @@ std = [
   "scale-info?/std",
   "serde?/std",
 ]
-jsonrpsee = ["dep:jsonrpsee-core", "std", "with-serde"]
+jsonrpsee = ["dep:jsonrpsee-core", "std", "serde"]

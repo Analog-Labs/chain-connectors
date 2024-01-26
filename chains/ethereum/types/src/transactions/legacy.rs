@@ -1,5 +1,5 @@
 #![allow(clippy::missing_errors_doc)]
-#[cfg(feature = "with-serde")]
+#[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 
 use crate::{bytes::Bytes, eth_hash::Address, eth_uint::U256};
@@ -25,31 +25,31 @@ use crate::{
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 #[cfg_attr(
-    feature = "with-serde",
+    feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
 pub struct LegacyTransaction {
     /// The nonce of the transaction. If set to `None`, no checks are performed.
-    #[cfg_attr(feature = "with-serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub nonce: u64,
 
     /// Gas price
     pub gas_price: U256,
 
     /// Supplied gas
-    #[cfg_attr(feature = "with-serde", serde(rename = "gas", with = "uint_to_hex",))]
+    #[cfg_attr(feature = "serde", serde(rename = "gas", with = "uint_to_hex",))]
     pub gas_limit: u64,
 
     /// Recipient address (None for contract creation)
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub to: Option<Address>,
 
     /// Transferred value
     pub value: U256,
 
     /// The data of the transaction.
-    #[cfg_attr(feature = "with-serde", serde(skip_serializing_if = "Bytes::is_empty"))]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Bytes::is_empty"))]
     pub data: Bytes,
 
     /// The chain ID of the transaction. If set to `None`, no checks are performed.
@@ -58,7 +58,7 @@ pub struct LegacyTransaction {
     ///
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
     #[cfg_attr(
-        feature = "with-serde",
+        feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub chain_id: Option<u64>,
@@ -229,7 +229,7 @@ impl super::TransactionT for LegacyTransaction {
     }
 }
 
-#[cfg(all(test, any(feature = "with-serde", feature = "with-rlp")))]
+#[cfg(all(test, any(feature = "serde", feature = "with-rlp")))]
 mod tests {
     use super::LegacyTransaction;
     #[cfg(feature = "with-crypto")]
@@ -251,46 +251,63 @@ mod tests {
     #[cfg(feature = "with-rlp")]
     static RLP_EIP155_TX_UNSIGNED: &[u8] = &hex!("f9047481898504bfef4c00830f424094dc6c91b569c98f9f6f74d90f9beff99fdaf4248b8803dd2c5609333800b90444288b8133920339b815ee42a02099dcca27c01d192418334751613a1eea786a0c3a673cec000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000032464a3bc15000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000b14232b0204b2f7bb6ba5aff59ef36030f7fe38b00000000000000000000000041f8d14c9475444f30a80431c68cf24dc9a8369a000000000000000000000000b9e29984fe50602e7a619662ebed4f90d93824c7000000000000000000000000dc6c91b569c98f9f6f74d90f9beff99fdaf4248b0000000000000000000000000000000000000000000000000000000002faf08000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005d7625241afaa81faf3c2bd525f64f6e0ec3af39c1053d672b65c2f64992521e6f454e67000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000581b96d32320d6cb174e807b585a41f4faa8ba7da95e117f2abbcadbb257d37a5fcc16c2ba6db86200888ed85dd5eba547bb07fa0f9910950d3133026abafdd5c09e1f3896a7abb3c99e1f38f77be69448ee7770d18c001e0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000561c7dd7d43db98e3b7a6e18b4e97f0e254a5a6bb9b373d49d7e6676ccb1b02d50f131bca36928cb48cd0daec0499e9e93a390253c733607437bbebf0aa13b7080911f3896a7abb3c99e1f38f77be69448ee7770d18c0400000000000000000000018080");
 
-    fn build_legacy(eip155: bool) -> (LegacyTransaction, Signature) {
-        if eip155 {
-            let tx = LegacyTransaction {
-                chain_id: Some(1),
-                nonce: 137,
-                gas_price: 20_400_000_000u64.into(),
-                gas_limit: 1_000_000,
-                to: Some(hex!("dc6c91b569c98f9f6f74d90f9beff99fdaf4248b").into()),
-                value: 278_427_500_000_000_000u64.into(),
-                data: Bytes::from(hex!("288b8133920339b815ee42a02099dcca27c01d192418334751613a1eea786a0c3a673cec000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000032464a3bc15000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000b14232b0204b2f7bb6ba5aff59ef36030f7fe38b00000000000000000000000041f8d14c9475444f30a80431c68cf24dc9a8369a000000000000000000000000b9e29984fe50602e7a619662ebed4f90d93824c7000000000000000000000000dc6c91b569c98f9f6f74d90f9beff99fdaf4248b0000000000000000000000000000000000000000000000000000000002faf08000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005d7625241afaa81faf3c2bd525f64f6e0ec3af39c1053d672b65c2f64992521e6f454e67000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000581b96d32320d6cb174e807b585a41f4faa8ba7da95e117f2abbcadbb257d37a5fcc16c2ba6db86200888ed85dd5eba547bb07fa0f9910950d3133026abafdd5c09e1f3896a7abb3c99e1f38f77be69448ee7770d18c001e0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000561c7dd7d43db98e3b7a6e18b4e97f0e254a5a6bb9b373d49d7e6676ccb1b02d50f131bca36928cb48cd0daec0499e9e93a390253c733607437bbebf0aa13b7080911f3896a7abb3c99e1f38f77be69448ee7770d18c0400000000000000000000")),
-            };
-            let signature = Signature {
-                v: RecoveryId::from(0x25),
-                r: hex!("020d7064f0b3c956e603c994fd83247499ede5a1209d6c997d2b2ea29b5627a7").into(),
-                s: hex!("6f6c3ceb0a57952386cbb9ceb3e4d05f1d4bc8d30b67d56281d89775f972a34d").into(),
-            };
-            (tx, signature)
-        } else {
-            let tx = LegacyTransaction {
-                chain_id: None,
-                nonce: 3166,
-                gas_price: 60_000_000_000u64.into(),
-                gas_limit: 300_000,
-                to: Some(hex!("6b92c944c82c694725acbd1c000c277ea1a44f00").into()),
-                value: 0.into(),
-                data: hex!("41c0e1b5").into(),
-            };
-            let signature = Signature {
-                v: RecoveryId::from(0x1c),
-                r: hex!("989506185a9ae63f316a850ecba0c2446a8d42bd77afcddbdd001118194f5d79").into(),
-                s: hex!("2c8e3dd2b351426b735c8e818ea975887957b05fb591017faad7d75add9feb0f").into(),
-            };
-            (tx, signature)
-        }
+    fn build_legacy() -> (LegacyTransaction, Signature, serde_json::Value) {
+        let tx = LegacyTransaction {
+            chain_id: None,
+            nonce: 3166,
+            gas_price: 60_000_000_000u64.into(),
+            gas_limit: 300_000,
+            to: Some(hex!("6b92c944c82c694725acbd1c000c277ea1a44f00").into()),
+            value: 0.into(),
+            data: hex!("41c0e1b5").into(),
+        };
+        let signature = Signature {
+            v: RecoveryId::from(0x1c),
+            r: hex!("989506185a9ae63f316a850ecba0c2446a8d42bd77afcddbdd001118194f5d79").into(),
+            s: hex!("2c8e3dd2b351426b735c8e818ea975887957b05fb591017faad7d75add9feb0f").into(),
+        };
+        let json: serde_json::Value = serde_json::json!({
+            "gas": "0x493e0",
+            "gasPrice": "0xdf8475800",
+            "data": "0x41c0e1b5",
+            "nonce": "0xc5e",
+            "to": "0x6b92c944c82c694725acbd1c000c277ea1a44f00",
+            "value": "0x0",
+        });
+        (tx, signature, json)
     }
 
-    #[cfg(feature = "with-serde")]
+    fn build_legacy_eip155() -> (LegacyTransaction, Signature, serde_json::Value) {
+        let tx = LegacyTransaction {
+            chain_id: Some(1),
+            nonce: 137,
+            gas_price: 20_400_000_000u64.into(),
+            gas_limit: 1_000_000,
+            to: Some(hex!("dc6c91b569c98f9f6f74d90f9beff99fdaf4248b").into()),
+            value: 278_427_500_000_000_000u64.into(),
+            data: Bytes::from(hex!("288b8133920339b815ee42a02099dcca27c01d192418334751613a1eea786a0c3a673cec000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000032464a3bc15000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000b14232b0204b2f7bb6ba5aff59ef36030f7fe38b00000000000000000000000041f8d14c9475444f30a80431c68cf24dc9a8369a000000000000000000000000b9e29984fe50602e7a619662ebed4f90d93824c7000000000000000000000000dc6c91b569c98f9f6f74d90f9beff99fdaf4248b0000000000000000000000000000000000000000000000000000000002faf08000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005d7625241afaa81faf3c2bd525f64f6e0ec3af39c1053d672b65c2f64992521e6f454e67000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000581b96d32320d6cb174e807b585a41f4faa8ba7da95e117f2abbcadbb257d37a5fcc16c2ba6db86200888ed85dd5eba547bb07fa0f9910950d3133026abafdd5c09e1f3896a7abb3c99e1f38f77be69448ee7770d18c001e0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000561c7dd7d43db98e3b7a6e18b4e97f0e254a5a6bb9b373d49d7e6676ccb1b02d50f131bca36928cb48cd0daec0499e9e93a390253c733607437bbebf0aa13b7080911f3896a7abb3c99e1f38f77be69448ee7770d18c0400000000000000000000")),
+        };
+        let signature = Signature {
+            v: RecoveryId::from(0x25),
+            r: hex!("020d7064f0b3c956e603c994fd83247499ede5a1209d6c997d2b2ea29b5627a7").into(),
+            s: hex!("6f6c3ceb0a57952386cbb9ceb3e4d05f1d4bc8d30b67d56281d89775f972a34d").into(),
+        };
+        let json = serde_json::json!({
+            "nonce": "0x89",
+            "gas": "0xf4240",
+            "gasPrice": "0x4bfef4c00",
+            "to": "0xdc6c91b569c98f9f6f74d90f9beff99fdaf4248b",
+            "value": "0x3dd2c5609333800",
+            "data": "0x288b8133920339b815ee42a02099dcca27c01d192418334751613a1eea786a0c3a673cec000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000000000000032464a3bc15000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000002a0000000000000000000000000b14232b0204b2f7bb6ba5aff59ef36030f7fe38b00000000000000000000000041f8d14c9475444f30a80431c68cf24dc9a8369a000000000000000000000000b9e29984fe50602e7a619662ebed4f90d93824c7000000000000000000000000dc6c91b569c98f9f6f74d90f9beff99fdaf4248b0000000000000000000000000000000000000000000000000000000002faf08000000000000000000000000000000000000000000000000003dd2c560933380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005d7625241afaa81faf3c2bd525f64f6e0ec3af39c1053d672b65c2f64992521e6f454e67000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024f47261b0000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000581b96d32320d6cb174e807b585a41f4faa8ba7da95e117f2abbcadbb257d37a5fcc16c2ba6db86200888ed85dd5eba547bb07fa0f9910950d3133026abafdd5c09e1f3896a7abb3c99e1f38f77be69448ee7770d18c001e0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000561c7dd7d43db98e3b7a6e18b4e97f0e254a5a6bb9b373d49d7e6676ccb1b02d50f131bca36928cb48cd0daec0499e9e93a390253c733607437bbebf0aa13b7080911f3896a7abb3c99e1f38f77be69448ee7770d18c0400000000000000000000",
+            "chainId": "0x1",
+        });
+        (tx, signature, json)
+    }
+
+    #[cfg(feature = "serde")]
     #[test]
     fn serde_encode_works() {
-        let tx = build_legacy(true).0;
+        let tx = build_legacy_eip155().0;
         let actual = serde_json::to_value(&tx).unwrap();
         let expected = serde_json::json!({
             "nonce": "0x89",
@@ -303,7 +320,7 @@ mod tests {
         });
         assert_eq!(expected, actual);
 
-        let tx = build_legacy(false).0;
+        let tx = build_legacy().0;
         let actual = serde_json::to_value(&tx).unwrap();
         let expected: serde_json::Value = serde_json::json!({
             "gas": "0x493e0",
@@ -320,12 +337,12 @@ mod tests {
     #[test]
     fn rlp_encode_signed_works() {
         use crate::rlp_utils::RlpEncodableTransaction;
-        let (tx, sig) = build_legacy(false);
+        let (tx, sig, _) = build_legacy();
         let expected = Bytes::from_static(RLP_LEGACY_TX_SIGNED);
         let actual = Bytes::from(tx.rlp_signed(&sig));
         assert_eq!(expected, actual);
 
-        let (tx, sig) = build_legacy(true);
+        let (tx, sig, _) = build_legacy_eip155();
         let expected = Bytes::from_static(RLP_EIP155_TX_SIGNED);
         let actual = Bytes::from(tx.rlp_signed(&sig));
         assert_eq!(expected, actual);
@@ -364,12 +381,12 @@ mod tests {
     #[test]
     fn rlp_encode_unsigned_works() {
         use crate::rlp_utils::RlpEncodableTransaction;
-        let tx = build_legacy(false).0;
+        let tx = build_legacy().0;
         let expected = Bytes::from_static(RLP_LEGACY_TX_UNSIGNED);
         let actual = Bytes::from(tx.rlp_unsigned());
         assert_eq!(expected, actual);
 
-        let tx: LegacyTransaction = build_legacy(true).0;
+        let tx: LegacyTransaction = build_legacy_eip155().0;
         let expected = Bytes::from_static(RLP_EIP155_TX_UNSIGNED);
         let actual = Bytes::from(tx.rlp_unsigned());
         assert_eq!(expected, actual);
@@ -379,7 +396,7 @@ mod tests {
     #[test]
     fn rlp_decode_signed_works() {
         use crate::rlp_utils::RlpDecodableTransaction;
-        let (expected_tx, expected_sig) = build_legacy(false);
+        let (expected_tx, expected_sig, _) = build_legacy();
         let (actual_tx, actual_sig) = {
             let rlp = rlp::Rlp::new(RLP_LEGACY_TX_SIGNED);
             LegacyTransaction::rlp_decode_signed(&rlp).unwrap()
@@ -387,7 +404,7 @@ mod tests {
         assert_eq!(expected_tx, actual_tx);
         assert_eq!(Some(expected_sig), actual_sig);
 
-        let (expected_tx, expected_sig) = build_legacy(true);
+        let (expected_tx, expected_sig, _) = build_legacy_eip155();
         let (actual_tx, actual_sig) = {
             let rlp = rlp::Rlp::new(RLP_EIP155_TX_SIGNED);
             LegacyTransaction::rlp_decode_signed(&rlp).unwrap()
@@ -401,7 +418,7 @@ mod tests {
     fn rlp_decode_unsigned_works() {
         use crate::rlp_utils::RlpDecodableTransaction;
         // Can decode unsigned raw transaction
-        let expected = build_legacy(false).0;
+        let expected = build_legacy().0;
         let actual = {
             let rlp = rlp::Rlp::new(RLP_LEGACY_TX_UNSIGNED);
             LegacyTransaction::rlp_decode_unsigned(&rlp).unwrap()
@@ -409,7 +426,7 @@ mod tests {
         assert_eq!(expected, actual);
 
         // Can decode eip155 raw transaction
-        let expected = build_legacy(true).0;
+        let expected = build_legacy_eip155().0;
         let actual = {
             let rlp = rlp::Rlp::new(RLP_EIP155_TX_UNSIGNED);
             LegacyTransaction::rlp_decode_unsigned(&rlp).unwrap()
@@ -423,12 +440,12 @@ mod tests {
         use super::super::TransactionT;
         use crate::eth_hash::H256;
 
-        let tx = build_legacy(false).0;
+        let tx = build_legacy().0;
         let expected =
             H256(hex!("c8519e5053848e75bc9c6dc20710410d56c9186b486a9b27900eb3355fed085e"));
         assert_eq!(expected, tx.sighash());
 
-        let tx = build_legacy(true).0;
+        let tx = build_legacy_eip155().0;
         let expected =
             H256(hex!("bb88aee10d01fe0a01135bf346a6eba268e1c5f3ab3e3045c14a97b02245f90f"));
         assert_eq!(expected, tx.sighash());
@@ -440,12 +457,12 @@ mod tests {
         use super::super::TransactionT;
         use crate::eth_hash::H256;
 
-        let (tx, sig) = build_legacy(false);
+        let (tx, sig, _) = build_legacy();
         let expected =
             H256(hex!("5a2dbc3b236ddf99c6a380a1a057023ff5d2f35ada1e38b5cbe125ee87cd4777"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
 
-        let (tx, sig) = build_legacy(true);
+        let (tx, sig, _) = build_legacy_eip155();
         let expected =
             H256(hex!("df99f8176f765d84ed1c00a12bba00206c6da97986c802a532884aca5aaa3809"));
         assert_eq!(expected, tx.compute_tx_hash(&sig));
