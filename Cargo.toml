@@ -18,6 +18,7 @@ members = [
   "rosetta-server",
   "rosetta-types",
   "chains/arbitrum/testing/rosetta-testing-arbitrum",
+  "rosetta-utils/serde",
 ]
 resolver = "2"
 
@@ -42,6 +43,7 @@ rosetta-crypto = { path = "rosetta-crypto" }
 rosetta-docker = { path = "rosetta-docker" }
 rosetta-server = { path = "rosetta-server", default-features = false }
 rosetta-types = { path = "rosetta-types" }
+rosetta-utils-serde = { path = "rosetta-utils/serde", default-features = false }
 
 ## Crates we want all members to use the same version
 jsonrpsee = { version = "0.21", default-features = false }

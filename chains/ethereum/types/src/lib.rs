@@ -58,6 +58,8 @@ pub(crate) mod rstd {
     pub use core::{cmp, ops, str};
 }
 
+use rstd::fmt::{Display, Formatter, Result as FmtResult};
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
@@ -91,5 +93,63 @@ impl serde::Serialize for BlockIdentifier {
             Self::Hash(hash) => <H256 as serde::Serialize>::serialize(hash, serializer),
             Self::Number(number) => uint_to_hex::serialize(number, serializer),
         }
+    }
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+pub enum AtBlock {
+    /// Latest block
+    #[default]
+    Latest,
+    /// Finalized block accepted as canonical
+    Finalized,
+    /// Safe head block
+    Safe,
+    /// Earliest block (genesis)
+    Earliest,
+    /// Pending block (not yet part of the blockchain)
+    Pending,
+    /// Specific Block
+    At(BlockIdentifier),
+}
+
+impl Display for AtBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Latest => f.write_str("latest"),
+            Self::Finalized => f.write_str("finalized"),
+            Self::Safe => f.write_str("safe"),
+            Self::Earliest => f.write_str("earliest"),
+            Self::Pending => f.write_str("ending"),
+            Self::At(BlockIdentifier::Hash(hash)) => Display::fmt(&hash, f),
+            Self::At(BlockIdentifier::Number(number)) => Display::fmt(&number, f),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for AtBlock {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        match self {
+            Self::Latest => <str as serde::Serialize>::serialize("latest", serializer),
+            Self::Finalized => <str as serde::Serialize>::serialize("finalized", serializer),
+            Self::Safe => <str as serde::Serialize>::serialize("safe", serializer),
+            Self::Earliest => <str as serde::Serialize>::serialize("earliest", serializer),
+            Self::Pending => <str as serde::Serialize>::serialize("pending", serializer),
+            Self::At(at) => <BlockIdentifier as serde::Serialize>::serialize(at, serializer),
+        }
+    }
+}
+
+impl From<BlockIdentifier> for AtBlock {
+    fn from(block: BlockIdentifier) -> Self {
+        Self::At(block)
     }
 }

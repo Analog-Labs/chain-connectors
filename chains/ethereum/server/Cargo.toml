@@ -16,6 +16,7 @@ futures-util = "0.3"
 hex = "0.4"
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
+rosetta-ethereum-backend = { workspace = true, features = ["jsonrpsee"] }
 rosetta-ethereum-rpc-client.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 serde.workspace = true

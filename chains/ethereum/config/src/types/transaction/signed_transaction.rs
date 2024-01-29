@@ -15,6 +15,7 @@ use super::signature::Signature;
 pub struct SignedTransaction<T> {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     pub tx_hash: H256,
+
     #[cfg_attr(
         feature = "serde",
         serde(
@@ -26,6 +27,7 @@ pub struct SignedTransaction<T> {
         )
     )]
     pub payload: T,
+
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: Signature,
 }

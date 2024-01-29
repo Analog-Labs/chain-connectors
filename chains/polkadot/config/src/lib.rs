@@ -11,7 +11,6 @@ use std::sync::Arc;
 use subxt::ext::sp_core::crypto::Ss58AddressFormat;
 
 // Generate an interface that we can use from the node's metadata.
-
 pub mod metadata {
     #[cfg(feature = "polkadot-metadata")]
     pub mod polkadot {

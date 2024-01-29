@@ -44,14 +44,20 @@ pub struct Block<TX, OMMERS = H256> {
     /// Transactions
     #[cfg_attr(
         feature = "serde",
-        serde(bound = "TX: serde::Serialize + serde::de::DeserializeOwned")
+        serde(bound(
+            serialize = "TX: serde::Serialize",
+            deserialize = "TX: serde::de::DeserializeOwned"
+        ))
     )]
     pub transactions: Vec<TX>,
 
     /// Uncles' hashes
     #[cfg_attr(
         feature = "serde",
-        serde(bound = "OMMERS: serde::Serialize + serde::de::DeserializeOwned")
+        serde(bound(
+            serialize = "OMMERS: serde::Serialize",
+            deserialize = "OMMERS: serde::de::DeserializeOwned"
+        ))
     )]
     pub uncles: Vec<OMMERS>,
 
