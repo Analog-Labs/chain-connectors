@@ -29,11 +29,13 @@ use crate::{
 pub struct SignedTransaction<T> {
     #[cfg_attr(feature = "serde", serde(rename = "hash"))]
     pub tx_hash: TxHash,
+
     #[cfg_attr(
         feature = "serde",
         serde(bound = "T: serde::Serialize + serde::de::DeserializeOwned", flatten)
     )]
     pub payload: T,
+
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: Signature,
 }

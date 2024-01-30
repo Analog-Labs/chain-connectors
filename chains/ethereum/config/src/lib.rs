@@ -1,18 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "serde")]
-mod serde_utils;
 mod types;
+mod util;
 
-pub use ethereum_types;
-
-use ethereum_types::H256;
 use rosetta_config_astar::config as astar_config;
 use rosetta_core::{
     crypto::{address::AddressFormat, Algorithm},
     BlockchainConfig, NodeUri,
 };
-pub use types::*;
+#[allow(deprecated)]
+pub use types::{
+    AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
+    EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
+    GetTransactionReceipt, Header, Query, QueryResult, SignedTransaction, StorageProof,
+    TransactionReceipt, H256,
+};
 
 #[cfg(not(feature = "std"))]
 #[cfg_attr(test, macro_use)]
@@ -20,33 +22,30 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
-    #[cfg(feature = "serde")]
-    pub use std::option;
-
-    // borrow, boxed, cmp, default, hash, iter, marker, mem, ops, rc, result,
-    // time,
-    pub use std::{convert, fmt, result, str, sync, vec};
-    // pub mod error {
-    //     pub use std::error::Error;
-    // }
+    pub use std::{convert, fmt, mem, option, result, slice, str, sync, vec};
 }
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
-    #[cfg(feature = "serde")]
-    pub use core::option;
-
     pub use alloc::{sync, vec};
-    pub use core::{convert, fmt, result, str};
-    // pub use alloc::{borrow, boxed, rc, vec};
-    // pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result, time};
-    // pub mod error {
-    //     pub trait Error {}
-    //     impl<T> Error for T {}
-    // }
+    pub use core::{convert, fmt, mem, option, result, slice, str};
 }
 
-impl rosetta_core::traits::Transaction for types::SignedTransaction {
+/// Re-export external crates that are made use of in the client API.
+pub mod ext {
+    pub use rosetta_ethereum_types as types;
+
+    #[cfg(feature = "scale-info")]
+    pub use scale_info;
+
+    #[cfg(feature = "scale-codec")]
+    pub use parity_scale_codec;
+
+    #[cfg(feature = "serde")]
+    pub use serde;
+}
+
+impl rosetta_core::traits::Transaction for SignedTransaction {
     type Call = ();
 
     type SignaturePayload = ();
@@ -60,7 +59,7 @@ impl rosetta_core::traits::Transaction for types::SignedTransaction {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-pub struct BlockHash(pub ethereum_types::H256);
+pub struct BlockHash(pub H256);
 
 impl From<H256> for BlockHash {
     fn from(hash: H256) -> Self {
@@ -103,11 +102,11 @@ impl rstd::fmt::Display for BlockHash {
 
 impl rosetta_core::traits::HashOutput for BlockHash {}
 
-impl rosetta_core::traits::Header for types::header::Header {
+impl rosetta_core::traits::Header for Header {
     type Hash = BlockHash;
 
     fn number(&self) -> rosetta_core::traits::BlockNumber {
-        self.number
+        self.0.number
     }
 
     fn hash(&self) -> Self::Hash {
@@ -116,21 +115,41 @@ impl rosetta_core::traits::Header for types::header::Header {
     }
 }
 
-impl rosetta_core::traits::Block for types::BlockFull {
-    type Transaction = types::SignedTransaction;
-    type Header = types::header::Header;
+const _: () = {
+    use rstd::mem::{align_of, size_of};
+    type BlockTx = <BlockFull as rosetta_core::traits::Block>::Transaction;
+    type RegularTx = types::SignedTransactionInner;
+    assert!(
+        !(size_of::<BlockTx>() != size_of::<RegularTx>()),
+        "BlockFull and BlockFullInner must have the same memory size"
+    );
+    assert!(
+        !(align_of::<BlockTx>() != align_of::<RegularTx>()),
+        "BlockFull and BlockFullInner must have the same memory alignment"
+    );
+};
+
+impl rosetta_core::traits::Block for BlockFull {
+    type Transaction = SignedTransaction;
+    type Header = Header;
     type Hash = BlockHash;
 
     fn header(&self) -> &Self::Header {
-        &self.header
+        (&self.0.header).into()
     }
 
     fn transactions(&self) -> &[Self::Transaction] {
-        self.transactions.as_slice()
+        // Safety: `Self::Transaction` and  block transactions have the same memory layout
+        unsafe {
+            rstd::slice::from_raw_parts(
+                self.0.transactions.as_ptr().cast(),
+                self.0.transactions.len(),
+            )
+        }
     }
 
     fn hash(&self) -> Self::Hash {
-        BlockHash(self.hash)
+        BlockHash(self.0.hash)
     }
 }
 

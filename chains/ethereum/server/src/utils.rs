@@ -12,6 +12,27 @@ pub struct NonPendingBlock {
     pub block: ethers::types::Block<H256>,
 }
 
+pub trait AtBlockExt {
+    fn as_block_id(&self) -> ethers::types::BlockId;
+}
+
+impl AtBlockExt for rosetta_config_ethereum::AtBlock {
+    fn as_block_id(&self) -> ethers::types::BlockId {
+        use rosetta_config_ethereum::ext::types::BlockIdentifier;
+        match self {
+            Self::Latest => BlockId::Number(BlockNumber::Latest),
+            Self::Earliest => BlockId::Number(BlockNumber::Earliest),
+            Self::Finalized => BlockId::Number(BlockNumber::Finalized),
+            Self::Pending => BlockId::Number(BlockNumber::Pending),
+            Self::Safe => BlockId::Number(BlockNumber::Safe),
+            Self::At(BlockIdentifier::Hash(hash)) => BlockId::Hash(*hash),
+            Self::At(BlockIdentifier::Number(number)) => {
+                BlockId::Number(BlockNumber::Number((*number).into()))
+            },
+        }
+    }
+}
+
 impl TryFrom<ethers::types::Block<H256>> for NonPendingBlock {
     type Error = anyhow::Error;
 

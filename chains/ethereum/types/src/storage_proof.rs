@@ -15,7 +15,7 @@ use crate::serde_utils::uint_to_hex;
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StorageProof {
-    pub key: U256,
+    pub key: H256,
     pub proof: Vec<Bytes>,
     pub value: U256,
 }

@@ -96,7 +96,7 @@ impl serde::Serialize for BlockIdentifier {
     }
 }
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -115,6 +115,18 @@ pub enum AtBlock {
     Pending,
     /// Specific Block
     At(BlockIdentifier),
+}
+
+impl From<H256> for AtBlock {
+    fn from(hash: H256) -> Self {
+        Self::At(BlockIdentifier::Hash(hash))
+    }
+}
+
+impl From<u64> for AtBlock {
+    fn from(block_number: u64) -> Self {
+        Self::At(BlockIdentifier::Number(block_number))
+    }
 }
 
 impl Display for AtBlock {
@@ -144,6 +156,42 @@ impl serde::Serialize for AtBlock {
             Self::Earliest => <str as serde::Serialize>::serialize("earliest", serializer),
             Self::Pending => <str as serde::Serialize>::serialize("pending", serializer),
             Self::At(at) => <BlockIdentifier as serde::Serialize>::serialize(at, serializer),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for AtBlock {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use core::str::FromStr;
+
+        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        match s.as_str() {
+            "latest" => return Ok(Self::Latest),
+            "finalized" => return Ok(Self::Finalized),
+            "safe" => return Ok(Self::Safe),
+            "earliest" => return Ok(Self::Earliest),
+            "pending" => return Ok(Self::Pending),
+            _ => {},
+        }
+
+        if let Some(hexdecimal) = s.strip_prefix("0x") {
+            if s.len() == 66 {
+                let hash = H256::from_str(hexdecimal).map_err(serde::de::Error::custom)?;
+                Ok(Self::At(BlockIdentifier::Hash(hash)))
+            } else if hexdecimal.is_empty() {
+                Ok(Self::At(BlockIdentifier::Number(0)))
+            } else {
+                let number =
+                    u64::from_str_radix(hexdecimal, 16).map_err(serde::de::Error::custom)?;
+                Ok(Self::At(BlockIdentifier::Number(number)))
+            }
+        } else {
+            let number = s.parse::<u64>().map_err(serde::de::Error::custom)?;
+            Ok(Self::At(BlockIdentifier::Number(number)))
         }
     }
 }

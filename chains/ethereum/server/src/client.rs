@@ -1,7 +1,7 @@
 use crate::{
     event_stream::EthereumEventStream,
     proof::verify_proof,
-    utils::{get_non_pending_block, NonPendingBlock},
+    utils::{get_non_pending_block, AtBlockExt, NonPendingBlock},
 };
 use anyhow::{Context, Result};
 use ethers::{
@@ -11,9 +11,10 @@ use ethers::{
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    header::Header, AtBlock, CallContract, CallResult, EIP1186ProofResponse, EthereumMetadata,
-    EthereumMetadataParams, GetBalance, GetProof, GetStorageAt, GetTransactionReceipt, Log,
-    Query as EthQuery, QueryResult as EthQueryResult, StorageProof, TransactionReceipt,
+    ext::types::{EIP1186ProofResponse, Header, Log},
+    CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
+    GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
+    StorageProof, TransactionReceipt,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -279,21 +280,12 @@ where
     pub async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         let result = match req {
             EthQuery::GetBalance(GetBalance { address, block }) => {
-                let block_id = match *block {
-                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
-                    AtBlock::Number(number) => BlockId::Number(number.into()),
-                    AtBlock::Hash(hash) => BlockId::Hash(hash),
-                };
-                let balance = self.client.get_balance(*address, Some(block_id)).await?;
+                let balance = self.client.get_balance(*address, Some(block.as_block_id())).await?;
                 EthQueryResult::GetBalance(balance)
             },
             EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
-                let block_id = match *block {
-                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
-                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
-                    AtBlock::Hash(hash) => BlockId::Hash(hash),
-                };
-                let value = self.client.get_storage_at(*address, *at, Some(block_id)).await?;
+                let value =
+                    self.client.get_storage_at(*address, *at, Some(block.as_block_id())).await?;
                 EthQueryResult::GetStorageAt(value)
             },
             EthQuery::GetTransactionReceipt(GetTransactionReceipt { tx_hash }) => {
@@ -303,7 +295,7 @@ where
                         transaction_index: receipt.transaction_index.as_u64(),
                         block_hash: receipt.block_hash,
                         block_number: receipt.block_number.map(|number| number.as_u64()),
-                        from: receipt.from,
+                        from: Some(receipt.from),
                         to: receipt.to,
                         cumulative_gas_used: receipt.cumulative_gas_used,
                         gas_used: receipt.gas_used,
@@ -316,7 +308,7 @@ where
                             .map(|log| Log {
                                 address: log.address,
                                 topics: log.topics,
-                                data: log.data.to_vec(),
+                                data: log.data.0.into(),
                                 block_hash: log.block_hash,
                                 block_number: log.block_number.map(|n| n.as_u64()),
                                 transaction_hash: log.transaction_hash,
@@ -335,11 +327,7 @@ where
                 EthQueryResult::GetTransactionReceipt(receipt)
             },
             EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
-                let block_id = match *block {
-                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
-                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
-                    AtBlock::Hash(hash) => BlockId::Hash(hash),
-                };
+                let block_id = block.as_block_id();
                 let tx = Eip1559TransactionRequest {
                     from: *from,
                     to: Some((*to).into()),
@@ -352,13 +340,10 @@ where
                 EthQueryResult::CallContract(CallResult::Success(received_data.to_vec()))
             },
             EthQuery::GetProof(GetProof { account, storage_keys, block }) => {
-                let block_id = match *block {
-                    AtBlock::Latest => BlockId::Number(BlockNumber::Latest),
-                    AtBlock::Number(number) => BlockId::Number(BlockNumber::Number(number.into())),
-                    AtBlock::Hash(hash) => BlockId::Hash(hash),
-                };
-                let proof_data =
-                    self.client.get_proof(*account, storage_keys.clone(), Some(block_id)).await?;
+                let proof_data = self
+                    .client
+                    .get_proof(*account, storage_keys.clone(), Some(block.as_block_id()))
+                    .await?;
 
                 //process verfiicatin of proof
                 let storage_hash = proof_data.storage_hash;
@@ -383,7 +368,7 @@ where
                     account_proof: proof_data
                         .account_proof
                         .into_iter()
-                        .map(|bytes| bytes.0.to_vec())
+                        .map(|bytes| bytes.0.into())
                         .collect(),
                     storage_proof: proof_data
                         .storage_proof
@@ -393,7 +378,7 @@ where
                             proof: storage_proof
                                 .proof
                                 .into_iter()
-                                .map(|proof| proof.0.to_vec())
+                                .map(|proof| proof.0.into())
                                 .collect(),
                             value: storage_proof.value,
                         })
@@ -401,13 +386,15 @@ where
                 })
             },
             EthQuery::GetBlockByHash(block_hash) => {
-                use rosetta_config_ethereum::BlockFull;
-                let Some(block) = self.client.get_block(*block_hash).await? else {
+                use rosetta_config_ethereum::ext::types::{
+                    Block as BlockInner, Header as HeaderInner,
+                };
+                let Some(block) = self.client.get_block_with_txs(*block_hash).await? else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
-                let block = BlockFull {
+                let block = BlockInner {
                     hash: *block_hash,
-                    header: Header {
+                    header: HeaderInner {
                         parent_hash: block.parent_hash,
                         ommers_hash: block.uncles_hash,
                         beneficiary: block.author.unwrap_or_default(),
@@ -420,7 +407,7 @@ where
                         gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
                         gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
                         timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
-                        extra_data: block.extra_data.to_vec(),
+                        extra_data: block.extra_data.to_vec().into(),
                         mix_hash: block.mix_hash.unwrap_or_default(),
                         nonce: block
                             .nonce
@@ -440,11 +427,15 @@ where
                     },
                     total_difficulty: block.total_difficulty,
                     seal_fields: Vec::new(),
-                    transactions: Vec::new(),
-                    uncles: Vec::new(),
+                    transactions: Vec::<
+                        rosetta_config_ethereum::ext::types::SignedTransaction<
+                            rosetta_config_ethereum::ext::types::TypedTransaction,
+                        >,
+                    >::new(),
+                    uncles: Vec::<Header>::new(),
                     size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
                 };
-                EthQueryResult::GetBlockByHash(Some(block))
+                EthQueryResult::GetBlockByHash(Some(block.into()))
             },
             EthQuery::ChainId => {
                 let chain_id = self.client.get_chainid().await?.as_u64();

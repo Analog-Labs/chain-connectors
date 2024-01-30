@@ -10,7 +10,7 @@ use crate::{
 use anyhow::Result;
 use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
 use rosetta_server_ethereum::config::{
-    ethereum_types::{self, Address as EthAddress, H256, U256},
+    ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
     AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
     GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt,
 };
