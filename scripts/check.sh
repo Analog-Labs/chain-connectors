@@ -6,6 +6,7 @@ cd "${SCRIPT_DIR}/../"
 
 RUN_FIX=0
 RUN_TESTS=0
+TEST_ETH_BACKEND=0
 
 # process arguments
 while [[ $# -gt 0 ]]
@@ -17,6 +18,10 @@ do
         ;;
         --fix)
           RUN_FIX=1
+          shift 1
+        ;;
+        --eth-backend)
+          TEST_ETH_BACKEND=1
           shift 1
         ;;
         *)
@@ -86,12 +91,24 @@ exec_cmd 'cargo deny' 'cargo deny check'
 #   exec_cmd "ethereum clippy ${features}" "cargo clippy -p rosetta-config-ethereum --no-default-features --features=${features} ${LINT_FLAGS}"
 # done
 
+CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
+
 # exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-client' 'cargo clippy --locked -p rosetta-client --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-exec_cmd 'clippy' 'cargo clippy --locked --workspace --examples --tests --all-features --exclude playground -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'build connectors' "${SCRIPT_DIR}/build_connectors.sh"
+# exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
+
+if [[ "${TEST_ETH_BACKEND}" == "1" ]]; then
+  NAME='rosetta-ethereum-backend'
+  exec_cmd 'clippy all-features' "cargo clippy -p ${NAME} --tests --all-features -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy no-default-features' "cargo clippy -p ${NAME} --tests --no-default-features -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy std' "cargo clippy -p ${NAME} --tests --no-default-features --features=std -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy serde' "cargo clippy -p ${NAME} --tests --no-default-features --features=serde -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy jsonrpsee' "cargo clippy -p ${NAME} --tests --no-default-features --features=jsonrpsee -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy with-codec' "cargo clippy -p ${NAME} --tests --no-default-features --features=with-codec -- ${CLIPPY_FLAGS}"
+  exec_cmd 'build wasm32-unknown-unknown' "cargo build -p ${NAME} --target wasm32-unknown-unknown --no-default-features --features=with-codec,jsonrpsee,serde"
+fi
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
   exec_cmd 'cleanup docker' "${SCRIPT_DIR}/reset_docker.sh"

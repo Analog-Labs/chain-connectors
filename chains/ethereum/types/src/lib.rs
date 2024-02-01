@@ -167,8 +167,7 @@ impl<'de> serde::Deserialize<'de> for AtBlock {
         D: serde::Deserializer<'de>,
     {
         use core::str::FromStr;
-
-        let s: String = serde::Deserialize::deserialize(deserializer)?;
+        let s = <rstd::string::String as serde::Deserialize>::deserialize(deserializer)?;
         match s.as_str() {
             "latest" => return Ok(Self::Latest),
             "finalized" => return Ok(Self::Finalized),
