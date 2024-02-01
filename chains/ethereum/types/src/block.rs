@@ -66,6 +66,17 @@ pub struct BlockBody<TX, OMMERS = H256> {
 }
 
 impl<TX, OMMERS> BlockBody<TX, OMMERS> {
+    #[must_use]
+    pub fn with_transactions<T>(self, transactions: Vec<T>) -> BlockBody<T, OMMERS> {
+        BlockBody {
+            total_difficulty: self.total_difficulty,
+            seal_fields: self.seal_fields,
+            transactions,
+            uncles: self.uncles,
+            size: self.size,
+        }
+    }
+
     pub fn map_transactions<T>(self, cb: impl FnMut(TX) -> T) -> BlockBody<T, OMMERS> {
         BlockBody {
             total_difficulty: self.total_difficulty,

@@ -79,6 +79,16 @@ impl ExitReason {
     }
 }
 
+#[cfg(feature = "serde")]
+pub trait MaybeDeserializeOwned: serde::de::DeserializeOwned {}
+#[cfg(feature = "serde")]
+impl<T: serde::de::DeserializeOwned> MaybeDeserializeOwned for T {}
+
+#[cfg(not(feature = "serde"))]
+pub trait MaybeDeserializeOwned {}
+#[cfg(not(feature = "serde"))]
+impl<T> MaybeDeserializeOwned for T {}
+
 /// EVM backend.
 #[async_trait]
 #[auto_impl::auto_impl(&, Arc, Box)]
@@ -165,7 +175,10 @@ pub trait EthereumRpc {
     ) -> Result<H256, Self::Error>;
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256>>, Self::Error>;
+    async fn block<T: MaybeDeserializeOwned, O: MaybeDeserializeOwned>(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<SealedBlock<T, O>>, Self::Error>;
 
     /// Returns information about a block.
     async fn block_full(

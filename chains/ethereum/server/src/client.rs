@@ -12,14 +12,23 @@ use ethers::{
 };
 use rosetta_config_ethereum::{
     ext::types::{EIP1186ProofResponse, Log},
-    CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
-    GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
-    StorageProof, TransactionReceipt,
+    BlockFull, CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance,
+    GetProof, GetStorageAt, GetTransactionReceipt, Query as EthQuery,
+    QueryResult as EthQueryResult, StorageProof, TransactionReceipt,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
+    traits::{Block, Header},
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainConfig,
+};
+use rosetta_ethereum_backend::{
+    ext::types::AtBlock,
+    jsonrpsee::{
+        core::client::{ClientT, SubscriptionClientT},
+        Adapter,
+    },
+    EthereumRpc,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -52,7 +61,7 @@ impl BlockFinalityStrategy {
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     client: Arc<Provider<P>>,
-    genesis_block: NonPendingBlock,
+    genesis_block: BlockFull,
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU32>,
     private_key: Option<[u8; 32]>,
@@ -73,7 +82,7 @@ impl<P> Clone for EthereumClient<P> {
 
 impl<P> EthereumClient<P>
 where
-    P: JsonRpcClient + 'static,
+    P: ClientT + JsonRpcClient + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
     pub async fn new(
@@ -81,6 +90,18 @@ where
         rpc_client: P,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
+        let rpc_client = Adapter(rpc_client);
+        let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
+        let Some(genesis_block) = rpc_client
+            .block::<rosetta_config_ethereum::ext::types::SignedTransaction<
+                rosetta_config_ethereum::ext::types::TypedTransaction,
+            >, rosetta_config_ethereum::ext::types::SealedHeader>(at)
+            .await?
+        else {
+            anyhow::bail!("FATAL: genesis block not found");
+        };
+        let rpc_client = rpc_client.into_inner();
+
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
         let (private_key, nonce) = if let Some(private) = private_key {
@@ -93,12 +114,19 @@ where
         } else {
             (None, Arc::new(atomic::AtomicU32::new(0)))
         };
-        let Some(genesis_block) =
-            get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
-        else {
-            anyhow::bail!("FATAL: genesis block not found");
-        };
-        Ok(Self { config, client, genesis_block, block_finality_strategy, nonce, private_key })
+        // let Some(genesis_block) =
+        //     get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
+        // else {
+        //     anyhow::bail!("FATAL: genesis block not found");
+        // };
+        Ok(Self {
+            config,
+            client,
+            genesis_block: genesis_block.into(),
+            block_finality_strategy,
+            nonce,
+            private_key,
+        })
     }
 
     pub const fn config(&self) -> &BlockchainConfig {
@@ -106,7 +134,11 @@ where
     }
 
     pub fn genesis_block(&self) -> BlockIdentifier {
-        self.genesis_block.identifier.clone()
+        BlockIdentifier {
+            index: self.genesis_block.header().0.header().number,
+            hash: self.genesis_block.0.header().hash().0,
+        }
+        // self.genesis_block.header().0.hash().identifier.clone()
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -140,7 +172,56 @@ where
                 let block_number = latest_block.saturating_sub(confirmations);
                 // If the number is zero, the latest finalized is the genesis block
                 if block_number == 0 {
-                    return Ok(self.genesis_block.clone());
+                    let genesis = &self.genesis_block;
+                    let header = genesis.header().0.header();
+                    let body = genesis.0.body();
+                    let block = NonPendingBlock {
+                        hash: genesis.hash().0,
+                        number: genesis.header().number(),
+                        identifier: BlockIdentifier {
+                            hash: genesis.hash().0 .0,
+                            index: genesis.header().number(),
+                        },
+                        block: ethers::types::Block {
+                            hash: Some(genesis.header().hash().0),
+                            parent_hash: header.parent_hash,
+                            uncles_hash: header.ommers_hash,
+                            author: Some(header.beneficiary),
+                            state_root: header.state_root,
+                            transactions_root: header.transactions_root,
+                            receipts_root: header.receipts_root,
+                            number: Some(header.number.into()),
+                            gas_used: header.gas_used.into(),
+                            gas_limit: header.gas_limit.into(),
+                            extra_data: header.extra_data.0.clone().into(),
+                            logs_bloom: Some(header.logs_bloom),
+                            timestamp: header.timestamp.into(),
+                            difficulty: header.difficulty,
+                            total_difficulty: body.total_difficulty,
+                            seal_fields: body
+                                .seal_fields
+                                .iter()
+                                .map(|b| b.0.clone().into())
+                                .collect(),
+                            uncles: body
+                                .uncles
+                                .iter()
+                                .map(rosetta_config_ethereum::ext::types::SealedHeader::hash)
+                                .collect(),
+                            transactions: Vec::new(), // Genesis doesn't contain transactions
+                            size: body.size.map(U256::from),
+                            mix_hash: Some(header.mix_hash),
+                            nonce: Some(H64::from_low_u64_ne(header.nonce)),
+                            base_fee_per_gas: header.base_fee_per_gas.map(U256::from),
+                            blob_gas_used: header.blob_gas_used.map(U256::from),
+                            excess_blob_gas: header.excess_blob_gas.map(U256::from),
+                            withdrawals_root: header.withdrawals_root,
+                            withdrawals: None,
+                            parent_beacon_block_root: header.parent_beacon_block_root,
+                            other: OtherFields::default(),
+                        },
+                    };
+                    return Ok(block);
                 }
                 BlockNumber::Number(U64::from(block_number))
             },
@@ -441,49 +522,6 @@ where
                     header.seal_slow::<rosetta_config_ethereum::ext::types::crypto::DefaultCrypto>()
                 };
                 let block = rosetta_config_ethereum::ext::types::SealedBlock::new(header, body);
-                // let block = BlockInner {
-                //     hash: *block_hash,
-                //     header: HeaderInner {
-                //         parent_hash: block.parent_hash,
-                //         ommers_hash: block.uncles_hash,
-                //         beneficiary: block.author.unwrap_or_default(),
-                //         state_root: block.state_root,
-                //         transactions_root: block.transactions_root,
-                //         receipts_root: block.receipts_root,
-                //         logs_bloom: block.logs_bloom.unwrap_or_default(),
-                //         difficulty: block.difficulty,
-                //         number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
-                //         gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
-                //         gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
-                //         timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
-                //         extra_data: block.extra_data.to_vec().into(),
-                //         mix_hash: block.mix_hash.unwrap_or_default(),
-                //         nonce: block
-                //             .nonce
-                //             .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
-                //             .unwrap_or_default(),
-                //         base_fee_per_gas: block
-                //             .base_fee_per_gas
-                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                //         withdrawals_root: block.withdrawals_root,
-                //         blob_gas_used: block
-                //             .blob_gas_used
-                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                //         excess_blob_gas: block
-                //             .excess_blob_gas
-                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                //         parent_beacon_block_root: block.parent_beacon_block_root,
-                //     },
-                //     total_difficulty: block.total_difficulty,
-                //     seal_fields: Vec::new(),
-                //     transactions: Vec::<
-                //         rosetta_config_ethereum::ext::types::SignedTransaction<
-                //             rosetta_config_ethereum::ext::types::TypedTransaction,
-                //         >,
-                //     >::new(),
-                //     uncles: Vec::<Header>::new(),
-                //     size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                // };
                 EthQueryResult::GetBlockByHash(Some(block.into()))
             },
             EthQuery::ChainId => {
@@ -497,7 +535,7 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + PubsubClient + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {

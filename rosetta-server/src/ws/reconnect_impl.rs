@@ -362,7 +362,7 @@ impl<T: Config> ReconnectFuture<T> {
 impl<T: Config> Future for ReconnectFuture<T> {
     type Output = Result<Arc<T::Client>, Arc<Error>>;
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let _enter = this.span.enter();

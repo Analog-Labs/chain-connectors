@@ -97,7 +97,7 @@ CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::n
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-client' 'cargo clippy --locked -p rosetta-client --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
+exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
 
 if [[ "${TEST_ETH_BACKEND}" == "1" ]]; then
   NAME='rosetta-ethereum-backend'

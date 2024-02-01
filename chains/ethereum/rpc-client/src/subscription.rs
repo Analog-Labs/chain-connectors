@@ -53,6 +53,7 @@ impl EthSubscription {
 impl Stream for EthSubscription {
     type Item = Box<RawValue>;
 
+    #[allow(clippy::cognitive_complexity)]
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // For streams and futures, the span is entered when the stream/future is polled
         // https://docs.rs/tracing/0.1.37/tracing/span/index.html#closing-spans

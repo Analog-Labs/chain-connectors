@@ -1,10 +1,13 @@
-use crate::rstd::{
-    boxed::Box,
-    fmt::{Debug, Display, Formatter, Result as FmtResult},
-    marker::Send,
-    ops::{Deref, DerefMut},
-    string::ToString,
-    vec::Vec,
+use crate::{
+    rstd::{
+        boxed::Box,
+        fmt::{Debug, Display, Formatter, Result as FmtResult},
+        marker::Send,
+        ops::{Deref, DerefMut},
+        string::ToString,
+        vec::Vec,
+    },
+    MaybeDeserializeOwned,
 };
 use async_trait::async_trait;
 use futures_core::future::BoxFuture;
@@ -243,23 +246,30 @@ where
     }
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256>>, Self::Error> {
-        let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<SealedBlock<TxHash>, _>(
+    async fn block<TX, OMMERS>(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<SealedBlock<TX, OMMERS>>, Self::Error>
+    where
+        TX: MaybeDeserializeOwned,
+        OMMERS: MaybeDeserializeOwned,
+    {
+        let maybe_block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
+            <T as ClientT>::request::<Option<SealedBlock<TX, OMMERS>>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, false],
             )
             .await?
         } else {
-            <T as ClientT>::request::<SealedBlock<TxHash>, _>(
+            <T as ClientT>::request::<Option<SealedBlock<TX, OMMERS>>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, false],
             )
             .await?
         };
-        Ok(Some(block))
+        Ok(maybe_block)
     }
 
     /// Returns information about a block.

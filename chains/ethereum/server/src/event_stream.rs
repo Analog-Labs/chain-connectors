@@ -2,12 +2,13 @@ use crate::{client::EthereumClient, utils::NonPendingBlock};
 use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt};
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
+use rosetta_ethereum_backend::jsonrpsee::core::client::ClientT;
 use std::{cmp::Ordering, pin::Pin, task::Poll};
 
 // Maximum number of failures in sequence before closing the stream
 const FAILURE_THRESHOLD: u32 = 10;
 
-pub struct EthereumEventStream<'a, P: PubsubClient + 'static> {
+pub struct EthereumEventStream<'a, P: ClientT + PubsubClient + 'static> {
     /// Ethereum subscription for new heads
     new_head_stream: Option<SubscriptionStream<'a, P, Block<H256>>>,
     /// Finalized blocks stream
@@ -18,7 +19,7 @@ pub struct EthereumEventStream<'a, P: PubsubClient + 'static> {
 
 impl<P> EthereumEventStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: ClientT + PubsubClient + 'static,
 {
     pub fn new<'a>(
         client: &'a EthereumClient<P>,
@@ -34,7 +35,7 @@ where
 
 impl<P> Stream for EthereumEventStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: ClientT + PubsubClient + 'static,
 {
     type Item = ClientEvent<BlockIdentifier, ()>;
 
@@ -118,7 +119,7 @@ where
 
 struct FinalizedBlockStream<'a, P>
 where
-    P: PubsubClient + 'static,
+    P: ClientT + PubsubClient + 'static,
 {
     /// Ethereum client used to retrieve the finalized block
     client: &'a EthereumClient<P>,
@@ -139,7 +140,7 @@ where
 
 impl<'a, P> FinalizedBlockStream<'a, P>
 where
-    P: PubsubClient + 'static,
+    P: ClientT + PubsubClient + 'static,
 {
     pub fn new(client: &EthereumClient<P>) -> FinalizedBlockStream<'_, P> {
         FinalizedBlockStream {
@@ -172,7 +173,7 @@ where
 
 impl<P> Stream for FinalizedBlockStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: ClientT + PubsubClient + 'static,
 {
     type Item = Result<NonPendingBlock, String>;
 

@@ -32,23 +32,19 @@ pub struct SignedTransaction<T> {
 
     #[cfg_attr(
         feature = "serde",
-        serde(bound = "T: serde::Serialize + serde::de::DeserializeOwned", flatten)
+        serde(
+            bound(
+                serialize = "T: serde::Serialize",
+                deserialize = "T: serde::de::DeserializeOwned"
+            ),
+            flatten
+        )
     )]
     pub payload: T,
 
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub signature: Signature,
 }
-
-// impl <T> Default for SignedTransaction<T> where T: Default {
-//     fn default() -> Self {
-//         Self {
-//             tx_hash: H256::zero(),
-//             payload: T::default(),
-//             signature: Signature::default(),
-//         }
-//     }
-// }
 
 impl<T> SignedTransaction<T>
 where

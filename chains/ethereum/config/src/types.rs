@@ -1,6 +1,6 @@
 pub use rosetta_ethereum_types::{
-    Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header, StorageProof, TransactionReceipt,
-    H256, U256,
+    rpc::RpcTransaction, Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header,
+    StorageProof, TransactionReceipt, H256, U256,
 };
 
 #[cfg(feature = "serde")]
@@ -25,6 +25,14 @@ impl_wrapper! {
 impl_wrapper! {
     #[derive(Clone, PartialEq, Eq, Debug)]
     pub struct SignedTransaction(SignedTransactionInner);
+}
+
+impl TryFrom<RpcTransaction> for SignedTransaction {
+    type Error = <SignedTransactionInner as TryFrom<RpcTransaction>>::Error;
+
+    fn try_from(value: RpcTransaction) -> Result<Self, Self::Error> {
+        Ok(Self(SignedTransactionInner::try_from(value)?))
+    }
 }
 
 impl_wrapper! {
