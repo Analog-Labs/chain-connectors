@@ -11,7 +11,7 @@ use ethers::{
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    ext::types::{EIP1186ProofResponse, Header, Log},
+    ext::types::{EIP1186ProofResponse, Log},
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
     StorageProof, TransactionReceipt,
@@ -386,45 +386,13 @@ where
                 })
             },
             EthQuery::GetBlockByHash(block_hash) => {
-                use rosetta_config_ethereum::ext::types::{
-                    Block as BlockInner, Header as HeaderInner,
-                };
+                // use rosetta_config_ethereum::ext::types::{
+                //     BlockBody, SealedBlock,
+                // };
                 let Some(block) = self.client.get_block_with_txs(*block_hash).await? else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
-                let block = BlockInner {
-                    hash: *block_hash,
-                    header: HeaderInner {
-                        parent_hash: block.parent_hash,
-                        ommers_hash: block.uncles_hash,
-                        beneficiary: block.author.unwrap_or_default(),
-                        state_root: block.state_root,
-                        transactions_root: block.transactions_root,
-                        receipts_root: block.receipts_root,
-                        logs_bloom: block.logs_bloom.unwrap_or_default(),
-                        difficulty: block.difficulty,
-                        number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
-                        gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
-                        gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
-                        timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
-                        extra_data: block.extra_data.to_vec().into(),
-                        mix_hash: block.mix_hash.unwrap_or_default(),
-                        nonce: block
-                            .nonce
-                            .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
-                            .unwrap_or_default(),
-                        base_fee_per_gas: block
-                            .base_fee_per_gas
-                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                        withdrawals_root: block.withdrawals_root,
-                        blob_gas_used: block
-                            .blob_gas_used
-                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                        excess_blob_gas: block
-                            .excess_blob_gas
-                            .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                        parent_beacon_block_root: block.parent_beacon_block_root,
-                    },
+                let body = rosetta_config_ethereum::ext::types::BlockBody {
                     total_difficulty: block.total_difficulty,
                     seal_fields: Vec::new(),
                     transactions: Vec::<
@@ -432,9 +400,90 @@ where
                             rosetta_config_ethereum::ext::types::TypedTransaction,
                         >,
                     >::new(),
-                    uncles: Vec::<Header>::new(),
+                    uncles: Vec::<rosetta_config_ethereum::ext::types::SealedHeader>::new(),
                     size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
                 };
+                let header = rosetta_config_ethereum::ext::types::Header {
+                    parent_hash: block.parent_hash,
+                    ommers_hash: block.uncles_hash,
+                    beneficiary: block.author.unwrap_or_default(),
+                    state_root: block.state_root,
+                    transactions_root: block.transactions_root,
+                    receipts_root: block.receipts_root,
+                    logs_bloom: block.logs_bloom.unwrap_or_default(),
+                    difficulty: block.difficulty,
+                    number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
+                    gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
+                    gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
+                    timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
+                    extra_data: block.extra_data.to_vec().into(),
+                    mix_hash: block.mix_hash.unwrap_or_default(),
+                    nonce: block
+                        .nonce
+                        .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
+                        .unwrap_or_default(),
+                    base_fee_per_gas: block
+                        .base_fee_per_gas
+                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                    withdrawals_root: block.withdrawals_root,
+                    blob_gas_used: block
+                        .blob_gas_used
+                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                    excess_blob_gas: block
+                        .excess_blob_gas
+                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                    parent_beacon_block_root: block.parent_beacon_block_root,
+                };
+
+                let header = if let Some(block_hash) = block.hash {
+                    header.seal(block_hash)
+                } else {
+                    header.seal_slow::<rosetta_config_ethereum::ext::types::crypto::DefaultCrypto>()
+                };
+                let block = rosetta_config_ethereum::ext::types::SealedBlock::new(header, body);
+                // let block = BlockInner {
+                //     hash: *block_hash,
+                //     header: HeaderInner {
+                //         parent_hash: block.parent_hash,
+                //         ommers_hash: block.uncles_hash,
+                //         beneficiary: block.author.unwrap_or_default(),
+                //         state_root: block.state_root,
+                //         transactions_root: block.transactions_root,
+                //         receipts_root: block.receipts_root,
+                //         logs_bloom: block.logs_bloom.unwrap_or_default(),
+                //         difficulty: block.difficulty,
+                //         number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
+                //         gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
+                //         gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
+                //         timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
+                //         extra_data: block.extra_data.to_vec().into(),
+                //         mix_hash: block.mix_hash.unwrap_or_default(),
+                //         nonce: block
+                //             .nonce
+                //             .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
+                //             .unwrap_or_default(),
+                //         base_fee_per_gas: block
+                //             .base_fee_per_gas
+                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                //         withdrawals_root: block.withdrawals_root,
+                //         blob_gas_used: block
+                //             .blob_gas_used
+                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                //         excess_blob_gas: block
+                //             .excess_blob_gas
+                //             .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                //         parent_beacon_block_root: block.parent_beacon_block_root,
+                //     },
+                //     total_difficulty: block.total_difficulty,
+                //     seal_fields: Vec::new(),
+                //     transactions: Vec::<
+                //         rosetta_config_ethereum::ext::types::SignedTransaction<
+                //             rosetta_config_ethereum::ext::types::TypedTransaction,
+                //         >,
+                //     >::new(),
+                //     uncles: Vec::<Header>::new(),
+                //     size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
+                // };
                 EthQueryResult::GetBlockByHash(Some(block.into()))
             },
             EthQuery::ChainId => {

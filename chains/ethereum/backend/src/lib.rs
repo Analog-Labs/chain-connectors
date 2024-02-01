@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcTransaction},
-    AccessListWithGasUsed, Address, AtBlock, Block, Bytes, EIP1186ProofResponse, Header, Log,
-    TransactionReceipt, TxHash, H256, U256,
+    AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, Log, SealedBlock,
+    SealedHeader, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -165,13 +165,13 @@ pub trait EthereumRpc {
     ) -> Result<H256, Self::Error>;
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<Block<H256>>, Self::Error>;
+    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256>>, Self::Error>;
 
     /// Returns information about a block.
     async fn block_full(
         &self,
         at: AtBlock,
-    ) -> Result<Option<Block<RpcTransaction, Header>>, Self::Error>;
+    ) -> Result<Option<SealedBlock<RpcTransaction, SealedHeader>>, Self::Error>;
 
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.
@@ -182,7 +182,7 @@ pub trait EthereumRpc {
 #[async_trait]
 pub trait EthereumPubSub: EthereumRpc {
     type SubscriptionError: Display + Send + 'static;
-    type NewHeadsStream<'a>: Stream<Item = Result<Block<H256>, Self::SubscriptionError>>
+    type NewHeadsStream<'a>: Stream<Item = Result<SealedBlock<H256>, Self::SubscriptionError>>
         + Send
         + Unpin
         + 'a

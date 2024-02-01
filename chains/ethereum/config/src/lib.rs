@@ -8,12 +8,11 @@ use rosetta_core::{
     crypto::{address::AddressFormat, Algorithm},
     BlockchainConfig, NodeUri,
 };
-#[allow(deprecated)]
 pub use types::{
     AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionReceipt, Header, Query, QueryResult, SignedTransaction, StorageProof,
-    TransactionReceipt, H256,
+    GetTransactionReceipt, Header, Query, QueryResult, SealedHeader, SignedTransaction,
+    StorageProof, TransactionReceipt, H256,
 };
 
 #[cfg(not(feature = "std"))]
@@ -102,16 +101,15 @@ impl rstd::fmt::Display for BlockHash {
 
 impl rosetta_core::traits::HashOutput for BlockHash {}
 
-impl rosetta_core::traits::Header for Header {
+impl rosetta_core::traits::Header for SealedHeader {
     type Hash = BlockHash;
 
     fn number(&self) -> rosetta_core::traits::BlockNumber {
-        self.0.number
+        self.0.header().number
     }
 
     fn hash(&self) -> Self::Hash {
-        // TODO: compute header hash
-        BlockHash(H256::zero())
+        BlockHash(self.0.hash())
     }
 }
 
@@ -131,25 +129,21 @@ const _: () = {
 
 impl rosetta_core::traits::Block for BlockFull {
     type Transaction = SignedTransaction;
-    type Header = Header;
+    type Header = SealedHeader;
     type Hash = BlockHash;
 
     fn header(&self) -> &Self::Header {
-        (&self.0.header).into()
+        (self.0.header()).into()
     }
 
     fn transactions(&self) -> &[Self::Transaction] {
         // Safety: `Self::Transaction` and  block transactions have the same memory layout
-        unsafe {
-            rstd::slice::from_raw_parts(
-                self.0.transactions.as_ptr().cast(),
-                self.0.transactions.len(),
-            )
-        }
+        let transactions: &[types::SignedTransactionInner] = self.0.body().transactions.as_ref();
+        unsafe { rstd::slice::from_raw_parts(transactions.as_ptr().cast(), transactions.len()) }
     }
 
     fn hash(&self) -> Self::Hash {
-        BlockHash(self.0.hash)
+        BlockHash(self.0.header().hash())
     }
 }
 

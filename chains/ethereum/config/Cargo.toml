@@ -12,7 +12,7 @@ derivative = { version = "2.2", default-features = false, features = ["use_core"
 hex-literal = { version = "0.4" }
 rosetta-config-astar = { workspace = true }
 rosetta-core.workspace = true
-rosetta-ethereum-types = { workspace = true }
+rosetta-ethereum-types = { workspace = true, features = ["with-rlp"] }
 
 # optional dependencies
 parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
@@ -25,7 +25,7 @@ hex-literal = { version = "0.4" }
 serde_json = { version = "1.0" }
 
 [features]
-default = ["std", "serde", "scale-info", "scale-codec"]
+default = ["std", "serde", "scale-info", "scale-codec", "rosetta-ethereum-types/with-crypto"]
 std = [
   "dep:thiserror",
   "serde?/std",
@@ -43,4 +43,9 @@ scale-info = [
 scale-codec = [
   "dep:parity-scale-codec",
   "rosetta-ethereum-types/with-codec",
+]
+# Include a default implementation for keccak256 and ecrecover functions
+# You may want to disable this feature if you want to use a custom implementation
+default-crypto = [
+  "rosetta-ethereum-types/with-crypto",
 ]

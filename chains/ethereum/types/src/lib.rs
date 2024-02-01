@@ -17,12 +17,12 @@ mod storage_proof;
 pub mod transactions;
 mod tx_receipt;
 
-pub use block::Block;
+pub use block::{Block, BlockBody, SealedBlock};
 pub use bytes::Bytes;
 pub use eth_hash::{Address, Public, Secret, TxHash, H128, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
-pub use header::Header;
+pub use header::{Header, SealedHeader};
 pub use log::Log;
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{

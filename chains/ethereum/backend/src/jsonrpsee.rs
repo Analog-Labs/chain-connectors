@@ -16,8 +16,8 @@ use jsonrpsee_core::{
     rpc_params, ClientError as Error,
 };
 use rosetta_ethereum_types::{
-    rpc::RpcTransaction, Address, Block, BlockIdentifier, Bytes, EIP1186ProofResponse, Header, Log,
-    TransactionReceipt, TxHash, H256, U256,
+    rpc::RpcTransaction, Address, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, SealedBlock,
+    SealedHeader, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -243,16 +243,16 @@ where
     }
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<Block<H256>>, Self::Error> {
+    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256>>, Self::Error> {
         let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<Block<TxHash>, _>(
+            <T as ClientT>::request::<SealedBlock<TxHash>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, false],
             )
             .await?
         } else {
-            <T as ClientT>::request::<Block<TxHash>, _>(
+            <T as ClientT>::request::<SealedBlock<TxHash>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, false],
@@ -266,27 +266,28 @@ where
     async fn block_full(
         &self,
         at: AtBlock,
-    ) -> Result<Option<Block<RpcTransaction, Header>>, Self::Error> {
+    ) -> Result<Option<SealedBlock<RpcTransaction, SealedHeader>>, Self::Error> {
         let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<Block<RpcTransaction>, _>(
+            <T as ClientT>::request::<SealedBlock<RpcTransaction>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, true],
             )
             .await?
         } else {
-            <T as ClientT>::request::<Block<RpcTransaction>, _>(
+            <T as ClientT>::request::<SealedBlock<RpcTransaction>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, true],
             )
             .await?
         };
+        let (header, body) = block.unseal();
 
-        let at = BlockIdentifier::Hash(block.hash);
-        let mut ommers = Vec::with_capacity(block.uncles.len());
-        for index in 0..block.uncles.len() {
-            let uncle = <T as ClientT>::request::<Header, _>(
+        let at = BlockIdentifier::Hash(header.hash());
+        let mut ommers = Vec::with_capacity(body.uncles.len());
+        for index in 0..body.uncles.len() {
+            let uncle = <T as ClientT>::request::<SealedHeader, _>(
                 &self.0,
                 "eth_getUncleByBlockHashAndIndex",
                 rpc_params![at, U256::from(index)],
@@ -294,16 +295,15 @@ where
             .await?;
             ommers.push(uncle);
         }
-        let block = Block {
-            hash: block.hash,
-            header: block.header,
-            total_difficulty: block.total_difficulty,
-            seal_fields: block.seal_fields,
-            transactions: block.transactions,
-            uncles: ommers,
-            size: block.size,
-        };
-        Ok(Some(block))
+        let body: rosetta_ethereum_types::BlockBody<RpcTransaction, SealedHeader> =
+            rosetta_ethereum_types::BlockBody {
+                total_difficulty: body.total_difficulty,
+                seal_fields: body.seal_fields,
+                transactions: body.transactions,
+                uncles: ommers,
+                size: body.size,
+            };
+        Ok(Some(SealedBlock::new(header, body)))
     }
 
     /// Returns the currently configured chain ID, a value used in replay-protected
@@ -327,7 +327,7 @@ where
     T: SubscriptionClientT + Send + Sync,
 {
     type SubscriptionError = <Self as EthereumRpc>::Error;
-    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<Block<H256>> where Self: 'a;
+    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<SealedBlock<H256>> where Self: 'a;
     type LogsStream<'a> = jsonrpsee_core::client::Subscription<Log> where Self: 'a;
 
     /// Fires a notification each time a new header is appended to the chain, including chain

@@ -1,16 +1,16 @@
-// #![allow(deprecated)]
 pub use rosetta_ethereum_types::{
-    Address, AtBlock, Block, Bloom, EIP1186ProofResponse, StorageProof, TransactionReceipt, H256,
-    U256,
+    Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header, StorageProof, TransactionReceipt,
+    H256, U256,
 };
 
 #[cfg(feature = "serde")]
 use rosetta_ethereum_types::serde_utils::{bytes_to_hex, uint_to_hex};
 
-pub type HeaderInner = rosetta_ethereum_types::Header;
+pub type SealedHeaderInner = rosetta_ethereum_types::SealedHeader;
 pub type SignedTransactionInner =
     rosetta_ethereum_types::SignedTransaction<rosetta_ethereum_types::TypedTransaction>;
-pub type BlockFullInner = rosetta_ethereum_types::Block<SignedTransactionInner, HeaderInner>;
+pub type BlockFullInner =
+    rosetta_ethereum_types::SealedBlock<SignedTransactionInner, SealedHeaderInner>;
 
 use crate::{
     rstd::{option::Option, vec::Vec},
@@ -19,7 +19,7 @@ use crate::{
 
 impl_wrapper! {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-    pub struct Header(HeaderInner);
+    pub struct SealedHeader(SealedHeaderInner);
 }
 
 impl_wrapper! {
@@ -37,7 +37,6 @@ impl_wrapper! {
     pub struct BlockRef(Block<H256, H256>);
 }
 
-// #[deprecated(since = "0.5.0", note = "Use SignedTransaction instead")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
@@ -50,7 +49,6 @@ pub struct EthereumMetadataParams {
     pub data: Vec<u8>,
 }
 
-// #[deprecated(since = "0.5.0", note = "Use SignedTransaction instead")]
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
@@ -68,61 +66,6 @@ pub struct EthereumMetadata {
     pub max_fee_per_gas: [u64; 4],
     pub gas_limit: [u64; 4],
 }
-
-// #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, Hash)]
-// #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-// #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode,
-// parity_scale_codec::Decode))] pub enum AtBlock {
-//     #[default]
-//     Latest,
-//     Hash(H256),
-//     Number(u64),
-// }
-
-// #[cfg(feature = "serde")]
-// impl<'de> serde::Deserialize<'de> for AtBlock {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: serde::Deserializer<'de>,
-//     {
-//         use core::str::FromStr;
-
-//         let s: String = serde::Deserialize::deserialize(deserializer)?;
-//         if s == "latest" {
-//             return Ok(Self::Latest);
-//         }
-
-//         if let Some(hexdecimal) = s.strip_prefix("0x") {
-//             if s.len() == 66 {
-//                 let hash = H256::from_str(hexdecimal).map_err(serde::de::Error::custom)?;
-//                 Ok(Self::Hash(hash))
-//             } else if s.len() > 2 {
-//                 let number =
-//                     u64::from_str_radix(hexdecimal, 16).map_err(serde::de::Error::custom)?;
-//                 Ok(Self::Number(number))
-//             } else {
-//                 Ok(Self::Number(0))
-//             }
-//         } else {
-//             let number = s.parse::<u64>().map_err(serde::de::Error::custom)?;
-//             Ok(Self::Number(number))
-//         }
-//     }
-// }
-
-// #[cfg(feature = "serde")]
-// impl serde::Serialize for AtBlock {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::ser::Serializer,
-//     {
-//         match self {
-//             Self::Latest => serializer.serialize_str("latest"),
-//             Self::Hash(hash) => <H256 as serde::Serialize>::serialize(hash, serializer),
-//             Self::Number(number) => uint_to_hex::serialize(number, serializer),
-//         }
-//     }
-// }
 
 ///·Returns·the·balance·of·the·account·of·given·address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -359,110 +302,6 @@ pub struct Log {
     /// false if it's a valid log.
     pub removed: Option<bool>,
 }
-
-// /// "Receipt" of an executed transaction: details of its execution.
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-// #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-// #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode,
-// parity_scale_codec::Decode))] #[cfg_attr(
-//     feature = "serde",
-//     derive(serde::Serialize, serde::Deserialize),
-//     serde(rename_all = "camelCase")
-// )]
-// pub struct TransactionReceipt {
-//     /// Transaction hash.
-//     pub transaction_hash: H256,
-
-//     /// Index within the block.
-//     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
-//     pub transaction_index: u64,
-
-//     /// Hash of the block this transaction was included within.
-//     pub block_hash: Option<H256>,
-
-//     /// Number of the block this transaction was included within.
-//     #[cfg_attr(
-//         feature = "serde",
-//         serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
-//     )]
-//     pub block_number: Option<u64>,
-
-//     /// address of the sender.
-//     pub from: Address,
-
-//     // address of the receiver. null when its a contract creation transaction.
-//     pub to: Option<Address>,
-
-//     /// Cumulative gas used within the block after this was executed.
-//     pub cumulative_gas_used: U256,
-
-//     /// Gas used by this transaction alone.
-//     ///
-//     /// Gas used is `None` if the the client is running in light client mode.
-//     pub gas_used: Option<U256>,
-
-//     /// Contract address created, or `None` if not a deployment.
-//     pub contract_address: Option<Address>,
-
-//     /// Logs generated within this transaction.
-//     pub logs: Vec<Log>,
-
-//     /// Status: either 1 (success) or 0 (failure). Only present after activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-//     #[cfg_attr(
-//         feature = "serde",
-//         serde(rename = "status", skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
-//     )]
-//     pub status_code: Option<u64>,
-
-//     /// State root. Only present before activation of [EIP-658](https://eips.ethereum.org/EIPS/eip-658)
-//     pub state_root: Option<H256>,
-
-//     /// Logs bloom
-//     pub logs_bloom: Bloom,
-
-//     /// The price paid post-execution by the transaction (i.e. base fee + priority fee).
-//     /// Both fields in 1559-style transactions are *maximums* (max fee + max priority fee), the
-//     /// amount that's actually paid by users can only be determined post-execution
-//     pub effective_gas_price: Option<U256>,
-
-//     /// EIP-2718 transaction type
-//     #[cfg_attr(
-//         feature = "serde",
-//         serde(rename = "type", skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
-//     )]
-//     pub transaction_type: Option<u64>,
-// }
-
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-// #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-// #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode,
-// parity_scale_codec::Decode))] #[cfg_attr(feature = "serde", derive(serde::Serialize,
-// serde::Deserialize))] pub struct StorageProof {
-//     pub key: H256,
-//     #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
-//     pub proof: Vec<Vec<u8>>,
-//     pub value: U256,
-// }
-
-// #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
-// #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-// #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode,
-// parity_scale_codec::Decode))] #[cfg_attr(
-//     feature = "serde",
-//     derive(serde::Serialize, serde::Deserialize),
-//     serde(rename_all = "camelCase")
-// )]
-// pub struct EIP1186ProofResponse {
-//     pub address: Address,
-//     pub balance: U256,
-//     pub code_hash: H256,
-//     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
-//     pub nonce: u64,
-//     pub storage_hash: H256,
-//     #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
-//     pub account_proof: Vec<Vec<u8>>,
-//     pub storage_proof: Vec<StorageProof>,
-// }
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {

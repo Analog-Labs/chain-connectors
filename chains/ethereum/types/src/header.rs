@@ -124,7 +124,23 @@ pub struct Header {
 
 #[cfg(feature = "with-rlp")]
 impl Header {
+    /// Seal the block with a known hash.
+    ///
+    /// WARNING: This method does not perform validation whether the hash is correct.
+    #[must_use]
+    pub const fn seal(self, hash: H256) -> SealedHeader {
+        SealedHeader::new(self, hash)
+    }
+
+    /// Compute the block hash and seal the header.
+    #[must_use]
+    pub fn seal_slow<C: Crypto>(self) -> SealedHeader {
+        let hash = self.compute_hash::<C>();
+        SealedHeader::new(self, hash)
+    }
+
     /// Compute the block hash.
+    #[must_use]
     pub fn compute_hash<C: Crypto>(&self) -> H256 {
         let bytes = rlp::Encodable::rlp_bytes(self).freeze();
         C::keccak256(bytes)
@@ -347,6 +363,73 @@ impl rlp::Encodable for Header {
         if let Some(ref parent_beacon_block_root) = self.parent_beacon_block_root {
             s.append(parent_beacon_block_root);
         }
+    }
+}
+
+/// A [`Header`] that is sealed at a precalculated hash, use [`SealedHeader::unseal()`] if you want
+/// to modify header.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct SealedHeader {
+    /// Locked Header hash.
+    hash: H256,
+
+    /// Locked Header fields.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    header: Header,
+}
+
+impl SealedHeader {
+    /// Creates the sealed header with the corresponding block hash.
+    #[must_use]
+    #[inline]
+    pub const fn new(header: Header, hash: H256) -> Self {
+        Self { hash, header }
+    }
+
+    /// Unseal the header
+    #[must_use]
+    pub fn unseal(self) -> Header {
+        self.header
+    }
+
+    /// Returns the sealed Header fields.
+    #[must_use]
+    #[inline]
+    pub const fn header(&self) -> &Header {
+        &self.header
+    }
+
+    /// Returns header/block hash.
+    #[must_use]
+    #[inline]
+    pub const fn hash(&self) -> H256 {
+        self.hash
+    }
+}
+
+#[cfg(all(feature = "with-rlp", feature = "with-crypto"))]
+impl rlp::Decodable for SealedHeader {
+    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        use crate::crypto::DefaultCrypto;
+        let header = <Header as rlp::Decodable>::decode(rlp)?;
+        let hash = header.compute_hash::<DefaultCrypto>();
+        Ok(Self::new(header, hash))
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Encodable for SealedHeader {
+    fn rlp_append(&self, s: &mut rlp::RlpStream) {
+        self.header.rlp_append(s);
     }
 }
 
