@@ -6,7 +6,7 @@ use ethers::{
     },
 };
 
-pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec<u8>) -> bool {
+pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();
     let mut path_offset = 0;
 
@@ -39,7 +39,7 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec
                 }
 
                 // inclusion proof
-                if &node_list[1] == value {
+                if node_list[1] == value {
                     return paths_match(
                         &node_list[0],
                         skip_length(&node_list[0]),
@@ -66,7 +66,7 @@ pub fn verify_proof(proof: &Vec<Bytes>, root: &[u8], path: &Vec<u8>, value: &Vec
     false
 }
 
-fn paths_match(p1: &Vec<u8>, s1: usize, p2: &Vec<u8>, s2: usize) -> bool {
+fn paths_match(p1: &[u8], s1: usize, p2: &[u8], s2: usize) -> bool {
     let len1 = p1.len() * 2 - s1;
     let len2 = p2.len() * 2 - s2;
 
@@ -87,7 +87,7 @@ fn paths_match(p1: &Vec<u8>, s1: usize, p2: &Vec<u8>, s2: usize) -> bool {
 }
 
 #[allow(dead_code)]
-fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
+fn get_rest_path(p: &[u8], s: usize) -> String {
     let mut ret = String::new();
     for i in s..p.len() * 2 {
         let n = get_nibble(p, i);
@@ -97,7 +97,7 @@ fn get_rest_path(p: &Vec<u8>, s: usize) -> String {
 }
 
 #[allow(clippy::unwrap_used)]
-fn is_empty_value(value: &Vec<u8>) -> bool {
+fn is_empty_value(value: &[u8]) -> bool {
     let mut stream = RlpStream::new();
     stream.begin_list(4);
     stream.append_empty_data();
@@ -109,11 +109,11 @@ fn is_empty_value(value: &Vec<u8>) -> bool {
     let empty_account = stream.out();
 
     let is_empty_slot = value.len() == 1 && value[0] == 0x80;
-    let is_empty_account = value == &empty_account;
+    let is_empty_account = value == empty_account;
     is_empty_slot || is_empty_account
 }
 
-fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>) -> usize {
+fn shared_prefix_length(path: &[u8], path_offset: usize, node_path: &[u8]) -> usize {
     let skip_length = skip_length(node_path);
 
     let len = std::cmp::min(node_path.len() * 2 - skip_length, path.len() * 2 - path_offset);
@@ -133,7 +133,7 @@ fn shared_prefix_length(path: &Vec<u8>, path_offset: usize, node_path: &Vec<u8>)
     prefix_len
 }
 
-fn skip_length(node: &Vec<u8>) -> usize {
+const fn skip_length(node: &[u8]) -> usize {
     if node.is_empty() {
         return 0;
     }

@@ -24,6 +24,7 @@ pub use eth_uint::{U128, U256, U512};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use header::{Header, SealedHeader};
 pub use log::Log;
+use rstd::fmt::{Display, Formatter, Result as FmtResult};
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
     access_list::{AccessList, AccessListItem, AccessListWithGasUsed},
@@ -58,7 +59,29 @@ pub(crate) mod rstd {
     pub use core::{cmp, ops, str};
 }
 
-use rstd::fmt::{Display, Formatter, Result as FmtResult};
+/// Re-exports for proc-macro library to not require any additional
+/// dependencies to be explicitly added on the client side.
+pub mod ext {
+    pub use bytes;
+    pub use ethbloom;
+    #[cfg(feature = "with-crypto")]
+    pub use libsecp256k1;
+    #[cfg(feature = "with-codec")]
+    pub use parity_scale_codec;
+    pub use primitive_types;
+    #[cfg(feature = "with-rlp")]
+    pub use rlp;
+    #[cfg(feature = "with-rlp")]
+    pub use rlp_derive;
+    #[cfg(feature = "with-codec")]
+    pub use scale_info;
+    #[cfg(feature = "serde")]
+    pub use serde;
+    #[cfg(feature = "with-crypto")]
+    pub use sha3;
+    #[cfg(feature = "with-crypto")]
+    pub use trie_root;
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(

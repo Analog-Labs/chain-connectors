@@ -114,11 +114,6 @@ where
         } else {
             (None, Arc::new(atomic::AtomicU32::new(0)))
         };
-        // let Some(genesis_block) =
-        //     get_non_pending_block(Arc::clone(&client), BlockNumber::Number(0.into())).await?
-        // else {
-        //     anyhow::bail!("FATAL: genesis block not found");
-        // };
         Ok(Self {
             config,
             client,
@@ -138,7 +133,6 @@ where
             index: self.genesis_block.header().0.header().number,
             hash: self.genesis_block.0.header().hash().0,
         }
-        // self.genesis_block.header().0.hash().identifier.clone()
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -375,13 +369,13 @@ where
                         transaction_hash: receipt.transaction_hash,
                         transaction_index: receipt.transaction_index.as_u64(),
                         block_hash: receipt.block_hash,
-                        block_number: receipt.block_number.map(|number| number.as_u64()),
+                        block_number: receipt.block_number.map(|number| number.0[0]),
                         from: Some(receipt.from),
                         to: receipt.to,
                         cumulative_gas_used: receipt.cumulative_gas_used,
                         gas_used: receipt.gas_used,
                         contract_address: receipt.contract_address,
-                        status_code: receipt.status.map(|number| number.as_u64()),
+                        status_code: receipt.status.map(|number| number.0[0]),
                         state_root: receipt.root,
                         logs: receipt
                             .logs
@@ -432,13 +426,13 @@ where
 
                 let key = &storage_proof.key;
                 let key_hash = keccak256(key);
-                let encoded_val = storage_proof.value.rlp_bytes().to_vec();
+                let encoded_val = storage_proof.value.rlp_bytes().freeze();
 
                 let _is_valid = verify_proof(
                     &storage_proof.proof,
                     storage_hash.as_bytes(),
-                    &key_hash.to_vec(),
-                    &encoded_val,
+                    key_hash.as_ref(),
+                    encoded_val.as_ref(),
                 );
                 EthQueryResult::GetProof(EIP1186ProofResponse {
                     address: proof_data.address,
@@ -467,9 +461,6 @@ where
                 })
             },
             EthQuery::GetBlockByHash(block_hash) => {
-                // use rosetta_config_ethereum::ext::types::{
-                //     BlockBody, SealedBlock,
-                // };
                 let Some(block) = self.client.get_block_with_txs(*block_hash).await? else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
