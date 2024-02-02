@@ -456,4 +456,49 @@ mod tests {
         .await;
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_subscription() -> Result<()> {
+        use futures_util::StreamExt;
+        use rosetta_client::client::GenericBlockIdentifier;
+        use rosetta_core::{BlockOrIdentifier, ClientEvent};
+        let config = rosetta_config_astar::config("dev").unwrap();
+        let env = Env::new("astar-subscription", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let mut stream = wallet.listen().await.unwrap().unwrap();
+
+            let mut last_head: Option<u64> = None;
+            let mut last_finalized: Option<u64> = None;
+            for _ in 0..10 {
+                let event = stream.next().await.unwrap();
+                match event {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(head),
+                    )) => {
+                        if let Some(block_number) = last_head {
+                            assert!(head.index > block_number);
+                        }
+                        last_head = Some(head.index);
+                    },
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(finalized),
+                    )) => {
+                        if let Some(block_number) = last_finalized {
+                            assert!(finalized.index > block_number);
+                        }
+                        last_finalized = Some(finalized.index);
+                    },
+                    event => panic!("unexpected event: {event:?}"),
+                }
+            }
+            assert!(last_head.is_some());
+            assert!(last_finalized.is_some());
+        })
+        .await;
+        Ok(())
+    }
 }

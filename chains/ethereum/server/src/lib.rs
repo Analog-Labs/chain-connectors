@@ -322,7 +322,6 @@ mod tests {
             .await
             .unwrap();
 
-        //here is run test function
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
             let faucet = 100 * u128::pow(10, config.currency_decimals);
@@ -365,25 +364,43 @@ mod tests {
     #[tokio::test]
     async fn test_subscription() -> Result<()> {
         use futures_util::StreamExt;
+        use rosetta_client::client::GenericBlockIdentifier;
+        use rosetta_core::{BlockOrIdentifier, ClientEvent};
         let config = rosetta_config_ethereum::config("dev").unwrap();
         let env = Env::new("ethereum-subscription", config.clone(), client_from_config)
             .await
             .unwrap();
 
-        //here is run test function
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
             let mut stream = wallet.listen().await.unwrap().unwrap();
 
-            let mut count = 0;
-            loop {
+            let mut last_head: Option<u64> = None;
+            let mut last_finalized: Option<u64> = None;
+            for _ in 0..10 {
                 let event = stream.next().await.unwrap();
-                println!("{event:?}");
-                count += 1;
-                if count == 10 {
-                    break;
+                match event {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(head),
+                    )) => {
+                        if let Some(block_number) = last_head {
+                            assert!(head.index > block_number);
+                        }
+                        last_head = Some(head.index);
+                    },
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(finalized),
+                    )) => {
+                        if let Some(block_number) = last_finalized {
+                            assert!(finalized.index > block_number);
+                        }
+                        last_finalized = Some(finalized.index);
+                    },
+                    event => panic!("unexpected event: {event:?}"),
                 }
             }
+            assert!(last_head.is_some());
+            assert!(last_finalized.is_some());
         })
         .await;
         Ok(())
