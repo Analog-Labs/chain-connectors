@@ -13,6 +13,7 @@ hex-literal = { version = "0.4" }
 rosetta-config-astar = { workspace = true }
 rosetta-core.workspace = true
 rosetta-ethereum-types = { workspace = true, features = ["with-rlp"] }
+static_assertions = "1.1.0"
 
 # optional dependencies
 parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }

@@ -414,6 +414,13 @@ impl SealedHeader {
     pub const fn hash(&self) -> H256 {
         self.hash
     }
+
+    /// Returns block number.
+    #[must_use]
+    #[inline]
+    pub const fn number(&self) -> u64 {
+        self.header.number
+    }
 }
 
 #[cfg(all(feature = "with-rlp", feature = "with-crypto"))]

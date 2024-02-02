@@ -87,6 +87,17 @@ impl<TX, OMMERS> BlockBody<TX, OMMERS> {
         }
     }
 
+    #[must_use]
+    pub fn with_ommers<T>(self, uncles: Vec<T>) -> BlockBody<TX, T> {
+        BlockBody {
+            total_difficulty: self.total_difficulty,
+            seal_fields: self.seal_fields,
+            transactions: self.transactions,
+            uncles,
+            size: self.size,
+        }
+    }
+
     pub fn map_ommers<T>(self, cb: impl FnMut(OMMERS) -> T) -> BlockBody<TX, T> {
         BlockBody {
             total_difficulty: self.total_difficulty,

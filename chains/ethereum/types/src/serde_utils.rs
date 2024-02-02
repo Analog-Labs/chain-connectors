@@ -1,9 +1,10 @@
 use crate::{
     eth_hash::{H128, H256, H32, H64},
     eth_uint::U256,
-    rstd::{format, option::Option, result::Result, vec::Vec},
+    rstd::{format, mem, option::Option, result::Result, vec::Vec},
 };
 use impl_serde_macro::serialize::{deserialize_check_len, serialize_uint, ExpectedLen};
+use num_rational::Rational64;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// serde functions for converting `u64` to and from hexadecimal string
@@ -494,5 +495,249 @@ where
             core::mem::transmute::<Vec<DeserializeBytesWrapper<T>>, Self>(wrapped)
         };
         Ok(res)
+    }
+}
+
+#[inline]
+const fn is_digit(c: u8) -> bool {
+    c >= b'0' && c <= b'9'
+}
+
+#[inline]
+const fn parse_digit(c: u8) -> Option<u8> {
+    if is_digit(c) {
+        Some(c - b'0')
+    } else {
+        None
+    }
+}
+
+#[inline]
+const fn next_digit(chars: &[u8]) -> Option<(u8, &[u8])> {
+    let Some((digit, rest)) = chars.split_first() else {
+        return None;
+    };
+    if let Some(num) = parse_digit(*digit) {
+        Some((num, rest))
+    } else {
+        None
+    }
+}
+
+#[inline]
+const fn next_int(chars: &[u8], initial: i64) -> Option<(i64, &[u8])> {
+    let Some((value, mut chars)) = next_digit(chars) else {
+        return None;
+    };
+    let mut value = (initial * 10) + value as i64;
+    while let Some((d, rest)) = next_digit(chars) {
+        chars = rest;
+        value *= 10;
+        value += d as i64;
+    }
+    Some((value, chars))
+}
+
+macro_rules! parse_num {
+    ($body: expr, $val: expr) => {
+        match next_int($body, $val) {
+            Some(v) => v,
+            None => return None,
+        }
+    };
+}
+
+const fn parse_numeric(chars: &[u8]) -> Option<(i64, usize)> {
+    match chars {
+        [b'-', rest @ ..] => match parse_num!(rest, 0) {
+            (num, []) => Some((-num, 0)),
+            (num, [b'.', fract @ ..]) => match parse_num!(fract, num) {
+                (den, []) => Some((den, fract.len())),
+                _ => None,
+            },
+            _ => None,
+        },
+        [b'0', rest @ ..] => match rest {
+            [b'.', fract @ ..] => match parse_num!(rest, 0) {
+                (den, []) => Some((den, fract.len())),
+                _ => None,
+            },
+            _ => None,
+        },
+        rest => match parse_num!(rest, 0) {
+            (num, []) => Some((num, 1)),
+            (num, [b'.', fract @ ..]) => match parse_num!(fract, num) {
+                (den, []) => Some((den, fract.len())),
+                _ => None,
+            },
+            _ => None,
+        },
+    }
+}
+
+/// serde functions for converting numeric value to and from rational number
+pub mod numeric_to_rational {
+    use super::{DeserializableRational, SerializableRational};
+    use serde::{Deserializer, Serializer};
+
+    /// # Errors
+    /// Returns `Err` if the value cannot be encoded as bytes
+    pub fn serialize<T, S>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        T: SerializableRational,
+        S: Serializer,
+    {
+        <T as SerializableRational>::serialize_as_rational(value, serializer)
+    }
+
+    /// # Errors
+    /// Returns `Err` source is not a valid hexadecimal string
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<T, D::Error>
+    where
+        T: DeserializableRational<'de>,
+        D: Deserializer<'de>,
+    {
+        <T as DeserializableRational<'de>>::deserialize_as_rational(deserializer)
+    }
+}
+
+pub trait SerializableRational {
+    #[allow(clippy::missing_errors_doc)]
+    fn serialize_as_rational<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer;
+}
+
+pub trait DeserializableRational<'de>: Sized {
+    /// Deserialize a rational value
+    /// # Errors
+    /// should never fails
+    fn deserialize_as_rational<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>;
+}
+
+impl SerializableRational for Rational64 {
+    fn serialize_as_rational<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let value = RationalNumber(*self);
+        <RationalNumber as Serialize>::serialize(&value, serializer)
+    }
+}
+
+impl SerializableRational for Vec<Rational64> {
+    fn serialize_as_rational<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Safety: `Vec<Rational64>` and `Vec<RationalNumber>` have the same memory layout
+        #[allow(clippy::transmute_undefined_repr)]
+        let value = unsafe { &*(self as *const Self).cast::<Vec<RationalNumber>>() };
+        <Vec<RationalNumber> as Serialize>::serialize(value, serializer)
+    }
+}
+
+impl<'de> DeserializableRational<'de> for Rational64 {
+    fn deserialize_as_rational<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ratio = <RationalNumber as Deserialize<'de>>::deserialize(deserializer)?;
+        Ok(ratio.0)
+    }
+}
+
+impl<'de> DeserializableRational<'de> for Vec<Rational64> {
+    fn deserialize_as_rational<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let ratio = <Vec<RationalNumber> as Deserialize<'de>>::deserialize(deserializer)?;
+        // Safety: `Vec<Rational64>` and `Vec<RationalNumber>` have the same memory layout
+        #[allow(clippy::transmute_undefined_repr)]
+        let ratio = unsafe { mem::transmute::<Vec<RationalNumber>, Self>(ratio) };
+        Ok(ratio)
+    }
+}
+
+#[repr(transparent)]
+struct RationalNumber(pub Rational64);
+
+impl Serialize for RationalNumber {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        use num_traits::ToPrimitive;
+        let float = self.0.to_f64().unwrap_or(f64::NAN);
+        <f64 as Serialize>::serialize(&float, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for RationalNumber {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let numeric = <StringifiedNumeric as Deserialize<'de>>::deserialize(deserializer)?;
+        let ratio = match numeric {
+            StringifiedNumeric::String(s) => {
+                let Some((num, decimals)) = parse_numeric(s.as_bytes()) else {
+                    return Err(serde::de::Error::custom("invalid character"));
+                };
+                #[allow(clippy::cast_possible_truncation)]
+                Rational64::new(num, 10i64.pow(decimals as u32))
+            },
+            StringifiedNumeric::Num(numer) => Rational64::new(numer, 1),
+            StringifiedNumeric::Float(float) => {
+                let Some(ratio) = num_rational::Rational64::approximate_float(float) else {
+                    return Err(serde::de::Error::custom("invalid fraction"));
+                };
+                ratio
+            },
+        };
+        Ok(Self(ratio))
+    }
+}
+
+/// Helper type to parse numeric strings, `u64` and `U256`
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum StringifiedNumeric {
+    String(String),
+    Num(i64),
+    Float(f64),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use num_traits::ToPrimitive;
+
+    const TEST_CASES: [f64; 5] = [
+        0.529_074_766_666_666_6,
+        0.492_404_533_333_333_34,
+        0.461_557_6,
+        0.494_070_833_333_333_35,
+        0.466_905_3,
+    ];
+
+    #[test]
+    fn deserialize_rational_works() {
+        for float in TEST_CASES {
+            let ratio = serde_json::from_str::<RationalNumber>(&float.to_string()).unwrap().0;
+            let value = ratio.to_f64().unwrap();
+            assert!((value - float).abs() < f64::EPSILON);
+        }
+    }
+
+    #[test]
+    fn serialize_rational_works() {
+        for float in TEST_CASES {
+            let ratio = RationalNumber(Rational64::approximate_float(float).unwrap());
+            assert_eq!(serde_json::to_string(&ratio).unwrap(), float.to_string());
+        }
     }
 }

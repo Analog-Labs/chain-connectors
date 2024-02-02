@@ -21,13 +21,13 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
-    pub use std::{convert, fmt, mem, option, result, slice, str, sync, vec};
+    pub use std::{convert, fmt, option, result, slice, str, sync, vec};
 }
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
     pub use alloc::{sync, vec};
-    pub use core::{convert, fmt, mem, option, result, slice, str};
+    pub use core::{convert, fmt, option, result, slice, str};
 }
 
 /// Re-export external crates that are made use of in the client API.
@@ -113,19 +113,15 @@ impl rosetta_core::traits::Header for SealedHeader {
     }
 }
 
-const _: () = {
-    use rstd::mem::{align_of, size_of};
-    type BlockTx = <BlockFull as rosetta_core::traits::Block>::Transaction;
-    type RegularTx = types::SignedTransactionInner;
-    assert!(
-        !(size_of::<BlockTx>() != size_of::<RegularTx>()),
-        "BlockFull and BlockFullInner must have the same memory size"
-    );
-    assert!(
-        !(align_of::<BlockTx>() != align_of::<RegularTx>()),
-        "BlockFull and BlockFullInner must have the same memory alignment"
-    );
-};
+// Make sure that `Transaction` has the same memory layout as `SignedTransactionInner`
+static_assertions::assert_eq_size!(
+    <BlockFull as rosetta_core::traits::Block>::Transaction,
+    types::SignedTransactionInner
+);
+static_assertions::assert_eq_align!(
+    <BlockFull as rosetta_core::traits::Block>::Transaction,
+    types::SignedTransactionInner
+);
 
 impl rosetta_core::traits::Block for BlockFull {
     type Transaction = SignedTransaction;

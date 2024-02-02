@@ -19,13 +19,13 @@ use jsonrpsee_core::{
     rpc_params, ClientError as Error,
 };
 use rosetta_ethereum_types::{
-    rpc::RpcTransaction, Address, BlockIdentifier, Bytes, EIP1186ProofResponse, Log, SealedBlock,
-    SealedHeader, TransactionReceipt, TxHash, H256, U256,
+    rpc::RpcTransaction, Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log,
+    SealedBlock, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
 #[repr(transparent)]
-pub struct Adapter<T: ClientT + Send + Sync>(pub T);
+pub struct Adapter<T>(pub T);
 
 impl<T> Adapter<T>
 where
@@ -85,7 +85,7 @@ where
 
 impl<T> Clone for Adapter<T>
 where
-    T: ClientT + Send + Sync + Clone,
+    T: Clone,
 {
     fn clone(&self) -> Self {
         Self(self.0.clone())
@@ -246,23 +246,16 @@ where
     }
 
     /// Returns information about a block.
-    async fn block<TX, OMMERS>(
-        &self,
-        at: AtBlock,
-    ) -> Result<Option<SealedBlock<TX, OMMERS>>, Self::Error>
-    where
-        TX: MaybeDeserializeOwned,
-        OMMERS: MaybeDeserializeOwned,
-    {
+    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256, H256>>, Self::Error> {
         let maybe_block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<Option<SealedBlock<TX, OMMERS>>, _>(
+            <T as ClientT>::request::<Option<SealedBlock<H256, H256>>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, false],
             )
             .await?
         } else {
-            <T as ClientT>::request::<Option<SealedBlock<TX, OMMERS>>, _>(
+            <T as ClientT>::request::<Option<SealedBlock<H256, H256>>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, false],
@@ -273,31 +266,43 @@ where
     }
 
     /// Returns information about a block.
-    async fn block_full(
+    async fn block_full<TX, OMMERS>(
         &self,
         at: AtBlock,
-    ) -> Result<Option<SealedBlock<RpcTransaction, SealedHeader>>, Self::Error> {
-        let block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<SealedBlock<RpcTransaction>, _>(
+    ) -> Result<Option<SealedBlock<TX, OMMERS>>, Self::Error>
+    where
+        TX: MaybeDeserializeOwned + Send,
+        OMMERS: MaybeDeserializeOwned + Send,
+    {
+        let maybe_block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
+            <T as ClientT>::request::<Option<SealedBlock<TX, H256>>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, true],
             )
             .await?
         } else {
-            <T as ClientT>::request::<SealedBlock<RpcTransaction>, _>(
+            <T as ClientT>::request::<Option<SealedBlock<TX, H256>>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, true],
             )
             .await?
         };
+
+        // If the block is not found, return None
+        let Some(block) = maybe_block else {
+            return Ok(None);
+        };
+
+        // Unseal the block
         let (header, body) = block.unseal();
 
+        // Fetch the ommers
         let at = BlockIdentifier::Hash(header.hash());
         let mut ommers = Vec::with_capacity(body.uncles.len());
         for index in 0..body.uncles.len() {
-            let uncle = <T as ClientT>::request::<SealedHeader, _>(
+            let uncle = <T as ClientT>::request::<OMMERS, _>(
                 &self.0,
                 "eth_getUncleByBlockHashAndIndex",
                 rpc_params![at, U256::from(index)],
@@ -305,15 +310,16 @@ where
             .await?;
             ommers.push(uncle);
         }
-        let body: rosetta_ethereum_types::BlockBody<RpcTransaction, SealedHeader> =
-            rosetta_ethereum_types::BlockBody {
-                total_difficulty: body.total_difficulty,
-                seal_fields: body.seal_fields,
-                transactions: body.transactions,
-                uncles: ommers,
-                size: body.size,
-            };
+        let body = body.with_ommers(ommers);
         Ok(Some(SealedBlock::new(header, body)))
+    }
+
+    /// Returns the current latest block number.
+    async fn block_number(&self) -> Result<u64, Self::Error> {
+        let res =
+            <T as ClientT>::request::<U256, _>(&self.0, "eth_blockNumber", rpc_params![]).await?;
+        u64::try_from(res)
+            .map_err(|_| Error::Custom("invalid block number, it exceeds 2^64-1".to_string()))
     }
 
     /// Returns the currently configured chain ID, a value used in replay-protected
@@ -322,6 +328,23 @@ where
         let res = <T as ClientT>::request::<U256, _>(&self.0, "eth_chainId", rpc_params![]).await?;
         u64::try_from(res)
             .map_err(|_| Error::Custom("invalid chain_id, it exceeds 2^64-1".to_string()))
+    }
+
+    /// Returns a list of addresses owned by client.
+    async fn get_accounts(&self) -> Result<Vec<Address>, Self::Error> {
+        <T as ClientT>::request(&self.0, "eth_accounts", rpc_params![]).await
+    }
+
+    /// Returns historical gas information, allowing you to track trends over time.
+    async fn fee_history(
+        &self,
+        block_count: u64,
+        last_block: AtBlock,
+        reward_percentiles: &[f64],
+    ) -> Result<FeeHistory, Self::Error> {
+        let block_count = U256::from(block_count);
+        let params = rpc_params![block_count, last_block, reward_percentiles];
+        <T as ClientT>::request::<FeeHistory, _>(&self.0, "eth_feeHistory", params).await
     }
 }
 

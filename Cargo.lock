@@ -5223,6 +5223,7 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+ "static_assertions",
  "thiserror",
 ]
 
@@ -5346,6 +5347,8 @@ dependencies = [
  "impl-rlp",
  "impl-serde",
  "libsecp256k1",
+ "num-rational",
+ "num-traits",
  "parity-scale-codec",
  "primitive-types",
  "rlp",

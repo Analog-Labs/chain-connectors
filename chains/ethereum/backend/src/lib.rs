@@ -10,8 +10,8 @@ use async_trait::async_trait;
 use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcTransaction},
-    AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, Log, SealedBlock,
-    SealedHeader, TransactionReceipt, TxHash, H256, U256,
+    AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, FeeHistory, Log,
+    SealedBlock, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -175,20 +175,31 @@ pub trait EthereumRpc {
     ) -> Result<H256, Self::Error>;
 
     /// Returns information about a block.
-    async fn block<T: MaybeDeserializeOwned, O: MaybeDeserializeOwned>(
+    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256, H256>>, Self::Error>;
+
+    /// Returns information about a block.
+    async fn block_full<T: MaybeDeserializeOwned + Send, O: MaybeDeserializeOwned + Send>(
         &self,
         at: AtBlock,
     ) -> Result<Option<SealedBlock<T, O>>, Self::Error>;
 
-    /// Returns information about a block.
-    async fn block_full(
-        &self,
-        at: AtBlock,
-    ) -> Result<Option<SealedBlock<RpcTransaction, SealedHeader>>, Self::Error>;
+    /// Returns the current latest block number.
+    async fn block_number(&self) -> Result<u64, Self::Error>;
 
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.
     async fn chain_id(&self) -> Result<u64, Self::Error>;
+
+    /// Returns a list of addresses owned by client.
+    async fn get_accounts(&self) -> Result<Vec<Address>, Self::Error>;
+
+    /// Returns historical gas information, allowing you to track trends over time.
+    async fn fee_history(
+        &self,
+        block_count: u64,
+        last_block: AtBlock,
+        reward_percentiles: &[f64],
+    ) -> Result<FeeHistory, Self::Error>;
 }
 
 /// EVM backend.

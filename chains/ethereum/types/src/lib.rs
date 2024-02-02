@@ -6,6 +6,7 @@ pub mod constants;
 pub mod crypto;
 mod eth_hash;
 mod eth_uint;
+mod fee_history;
 pub mod header;
 mod log;
 #[cfg(feature = "with-rlp")]
@@ -22,8 +23,10 @@ pub use bytes::Bytes;
 pub use eth_hash::{Address, Public, Secret, TxHash, H128, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
+pub use fee_history::FeeHistory;
 pub use header::{Header, SealedHeader};
 pub use log::Log;
+pub use num_rational::Rational64;
 use rstd::fmt::{Display, Formatter, Result as FmtResult};
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
@@ -42,7 +45,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
     #[cfg(feature = "serde")]
-    pub use std::{format, option, result};
+    pub use std::{format, mem, option, result};
 
     pub use std::{borrow, cmp, fmt, ops, str, string, vec};
 }
@@ -50,7 +53,7 @@ pub(crate) mod rstd {
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
     #[cfg(feature = "serde")]
-    pub use core::{option, result};
+    pub use core::{mem, option, result};
 
     #[cfg(feature = "serde")]
     pub use alloc::format;
@@ -146,9 +149,21 @@ impl From<H256> for AtBlock {
     }
 }
 
+impl From<[u8; 32]> for AtBlock {
+    fn from(hash: [u8; 32]) -> Self {
+        Self::At(BlockIdentifier::Hash(H256(hash)))
+    }
+}
+
 impl From<u64> for AtBlock {
     fn from(block_number: u64) -> Self {
         Self::At(BlockIdentifier::Number(block_number))
+    }
+}
+
+impl From<u32> for AtBlock {
+    fn from(block_number: u32) -> Self {
+        Self::At(BlockIdentifier::Number(u64::from(block_number)))
     }
 }
 

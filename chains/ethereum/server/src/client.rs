@@ -1,20 +1,20 @@
 use crate::{
     event_stream::EthereumEventStream,
     proof::verify_proof,
-    utils::{get_non_pending_block, AtBlockExt, NonPendingBlock},
+    utils::{get_non_pending_block, AtBlockExt, EthereumRpcExt, NonPendingBlock},
 };
 use anyhow::{Context, Result};
 use ethers::{
     prelude::*,
     providers::{JsonRpcClient, Middleware, Provider},
-    types::{transaction::eip2718::TypedTransaction, Bytes, U64},
+    types::{transaction::eip2718::TypedTransaction, U64},
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    ext::types::{EIP1186ProofResponse, Log},
+    ext::types::{rpc::CallRequest, AccessList},
     BlockFull, CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance,
     GetProof, GetStorageAt, GetTransactionReceipt, Query as EthQuery,
-    QueryResult as EthQueryResult, StorageProof, TransactionReceipt,
+    QueryResult as EthQueryResult,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -28,7 +28,7 @@ use rosetta_ethereum_backend::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    EthereumRpc,
+    EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -60,6 +60,7 @@ impl BlockFinalityStrategy {
 
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
+    backend: Adapter<P>,
     client: Arc<Provider<P>>,
     genesis_block: BlockFull,
     block_finality_strategy: BlockFinalityStrategy,
@@ -67,10 +68,14 @@ pub struct EthereumClient<P> {
     private_key: Option<[u8; 32]>,
 }
 
-impl<P> Clone for EthereumClient<P> {
+impl<P> Clone for EthereumClient<P>
+where
+    P: Clone,
+{
     fn clone(&self) -> Self {
         Self {
             config: self.config.clone(),
+            backend: self.backend.clone(),
             client: self.client.clone(),
             genesis_block: self.genesis_block.clone(),
             block_finality_strategy: self.block_finality_strategy,
@@ -82,7 +87,7 @@ impl<P> Clone for EthereumClient<P> {
 
 impl<P> EthereumClient<P>
 where
-    P: ClientT + JsonRpcClient + 'static,
+    P: ClientT + JsonRpcClient + Clone + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
     pub async fn new(
@@ -90,17 +95,16 @@ where
         rpc_client: P,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let rpc_client = Adapter(rpc_client);
+        let backend = Adapter(rpc_client.clone());
         let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
-        let Some(genesis_block) = rpc_client
-            .block::<rosetta_config_ethereum::ext::types::SignedTransaction<
+        let Some(genesis_block) = backend
+            .block_full::<rosetta_config_ethereum::ext::types::SignedTransaction<
                 rosetta_config_ethereum::ext::types::TypedTransaction,
             >, rosetta_config_ethereum::ext::types::SealedHeader>(at)
             .await?
         else {
             anyhow::bail!("FATAL: genesis block not found");
         };
-        let rpc_client = rpc_client.into_inner();
 
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let client = Arc::new(Provider::new(rpc_client));
@@ -116,6 +120,7 @@ where
         };
         Ok(Self {
             config,
+            backend,
             client,
             genesis_block: genesis_block.into(),
             block_finality_strategy,
@@ -123,7 +128,12 @@ where
             private_key,
         })
     }
+}
 
+impl<P> EthereumClient<P>
+where
+    P: ClientT + JsonRpcClient + 'static,
+{
     pub const fn config(&self) -> &BlockchainConfig {
         &self.config
     }
@@ -137,17 +147,11 @@ where
 
     #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
-        let index = self.client.get_block_number().await?.as_u64();
-        let Some(block_hash) = self
-            .client
-            .get_block(BlockId::Number(BlockNumber::Number(U64::from(index))))
-            .await?
-            .context("missing block")?
-            .hash
+        let Some(header) = self.backend.block(AtBlock::Latest).await?.map(|block| block.unseal().0)
         else {
-            anyhow::bail!("FATAL: block hash is missing");
+            anyhow::bail!("[report this bug] latest block not found");
         };
-        Ok(BlockIdentifier { index, hash: block_hash.0 })
+        Ok(BlockIdentifier { index: header.number(), hash: header.hash().0 })
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -157,11 +161,10 @@ where
                 let latest_block = match latest_block {
                     Some(number) => number,
                     None => self
-                        .client
-                        .get_block_number()
+                        .backend
+                        .block_number()
                         .await
-                        .context("Failed to retrieve latest block number")?
-                        .as_u64(),
+                        .context("Failed to retrieve latest block number")?,
                 };
                 let block_number = latest_block.saturating_sub(confirmations);
                 // If the number is zero, the latest finalized is the genesis block
@@ -235,25 +238,20 @@ where
         address: &Address,
         block_identifier: &PartialBlockIdentifier,
     ) -> Result<u128> {
-        // Convert `PartialBlockIdentifier` to `BlockId`
-        let block_id = block_identifier.hash.as_ref().map_or_else(
-            || {
-                let index = block_identifier
-                    .index
-                    .map_or(BlockNumber::Latest, |index| BlockNumber::Number(U64::from(index)));
-                BlockId::Number(index)
-            },
-            |hash| BlockId::Hash(H256(*hash)),
-        );
+        // Convert `PartialBlockIdentifier` to `AtBlock`
+        let at_block = AtBlock::from_partial_identifier(block_identifier);
         let address: H160 = address.address().parse()?;
-        Ok(self.client.get_balance(address, Some(block_id)).await?.as_u128())
+        let balance = self.backend.get_balance(address, at_block).await?;
+        let balance = u128::try_from(balance)
+            .map_err(|err| anyhow::format_err!("balance overflow: {err}"))?;
+        Ok(balance)
     }
 
     #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
     pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self.private_key {
             Some(private_key) => {
-                let chain_id = self.client.get_chainid().await?.as_u64();
+                let chain_id = self.backend.chain_id().await?;
                 let address: H160 = address.address().parse()?;
                 let wallet = LocalWallet::from_bytes(&private_key)?;
                 let nonce_u32 = U256::from(self.nonce.load(Ordering::Relaxed));
@@ -272,21 +270,27 @@ where
                 let tx: TypedTransaction = transaction_request.into();
                 let signature = wallet.sign_transaction(&tx).await?;
                 let tx = tx.rlp_signed(&signature);
-                let response = self
-                    .client
-                    .send_raw_transaction(tx)
-                    .await?
-                    .confirmations(2)
-                    .await?
-                    .context("failed to retrieve tx receipt")?
-                    .transaction_hash
-                    .0
-                    .to_vec();
-                Ok(response)
+                let tx_hash = self.backend.send_raw_transaction(tx.0.into()).await?;
+
+                // Wait for the transaction to be mined
+                let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
+
+                // Check if the transaction was successful
+                if !matches!(receipt.status_code, Some(1)) {
+                    anyhow::bail!("Transaction reverted: {tx_hash}");
+                }
+                Ok(tx_hash.0.to_vec())
             },
             None => {
                 // first account will be the coinbase account on a dev net
-                let coinbase = self.client.get_accounts().await?[0];
+                let coinbase = self
+                    .backend
+                    .get_accounts()
+                    .await?
+                    .into_iter()
+                    .next()
+                    .context("no accounts found")?;
+                // let coinbase = self.client.get_accounts().await?[0];
                 let address: H160 = address.address().parse()?;
                 let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
                 Ok(self
@@ -310,26 +314,34 @@ where
         options: &EthereumMetadataParams,
     ) -> Result<EthereumMetadata> {
         let from: H160 = public_key.to_address(self.config().address_format).address().parse()?;
-        let to: Option<NameOrAddress> = if options.destination.len() >= 20 {
-            Some(H160::from_slice(&options.destination).into())
+        let to: Option<H160> = if options.destination.len() >= 20 {
+            Some(H160::from_slice(&options.destination))
         } else {
             None
         };
-        let chain_id = self.client.get_chainid().await?;
-        let nonce = self.client.get_transaction_count(from, None).await?;
         let (max_fee_per_gas, max_priority_fee_per_gas) =
-            self.client.estimate_eip1559_fees(None).await?;
-        let tx = Eip1559TransactionRequest {
+            self.backend.estimate_eip1559_fees().await?;
+        let chain_id = self.backend.chain_id().await?;
+        let nonce = self.backend.get_transaction_count(from, AtBlock::Latest).await?;
+        let tx = CallRequest {
             from: Some(from),
             to,
+            gas_limit: None,
+            gas_price: None,
             value: Some(U256(options.amount)),
             data: Some(options.data.clone().into()),
-            ..Default::default()
+            nonce: Some(nonce),
+            chain_id: None, // Astar doesn't support this field
+            max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
+            access_list: AccessList::default(),
+            max_fee_per_gas: Some(max_fee_per_gas),
+            transaction_type: Some(2),
         };
-        let gas_limit = self.client.estimate_gas(&tx.into(), None).await?;
+        let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
+
         Ok(EthereumMetadata {
-            chain_id: chain_id.as_u64(),
-            nonce: nonce.as_u64(),
+            chain_id,
+            nonce,
             max_priority_fee_per_gas: max_priority_fee_per_gas.0,
             max_fee_per_gas: max_fee_per_gas.0,
             gas_limit: gas_limit.0,
@@ -338,87 +350,58 @@ where
 
     #[allow(clippy::missing_errors_doc)]
     pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
-        let tx = transaction.to_vec().into();
-        Ok(self
-            .client
-            .send_raw_transaction(Bytes(tx))
-            .await?
-            .confirmations(2)
-            .await?
-            .context("Failed to get transaction receipt")?
-            .transaction_hash
-            .0
-            .to_vec())
+        let tx = rosetta_ethereum_backend::ext::types::Bytes::from_iter(transaction);
+        let tx_hash = self.backend.send_raw_transaction(tx).await?;
+
+        // Wait for the transaction to be mined
+        let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
+
+        if !matches!(receipt.status_code, Some(1)) {
+            anyhow::bail!("Transaction reverted: {tx_hash}");
+        }
+        Ok(tx_hash.0.to_vec())
     }
 
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]
     pub async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
         let result = match req {
             EthQuery::GetBalance(GetBalance { address, block }) => {
-                let balance = self.client.get_balance(*address, Some(block.as_block_id())).await?;
+                let balance = self.backend.get_balance(*address, *block).await?;
                 EthQueryResult::GetBalance(balance)
             },
             EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
-                let value =
-                    self.client.get_storage_at(*address, *at, Some(block.as_block_id())).await?;
+                let value = self.backend.storage(*address, *at, *block).await?;
                 EthQueryResult::GetStorageAt(value)
             },
             EthQuery::GetTransactionReceipt(GetTransactionReceipt { tx_hash }) => {
-                let receipt = self.client.get_transaction_receipt(*tx_hash).await?.map(|receipt| {
-                    TransactionReceipt {
-                        transaction_hash: receipt.transaction_hash,
-                        transaction_index: receipt.transaction_index.as_u64(),
-                        block_hash: receipt.block_hash,
-                        block_number: receipt.block_number.map(|number| number.0[0]),
-                        from: Some(receipt.from),
-                        to: receipt.to,
-                        cumulative_gas_used: receipt.cumulative_gas_used,
-                        gas_used: receipt.gas_used,
-                        contract_address: receipt.contract_address,
-                        status_code: receipt.status.map(|number| number.0[0]),
-                        state_root: receipt.root,
-                        logs: receipt
-                            .logs
-                            .into_iter()
-                            .map(|log| Log {
-                                address: log.address,
-                                topics: log.topics,
-                                data: log.data.0.into(),
-                                block_hash: log.block_hash,
-                                block_number: log.block_number.map(|n| n.as_u64()),
-                                transaction_hash: log.transaction_hash,
-                                transaction_index: log.transaction_index.map(|n| n.as_u64()),
-                                log_index: log.log_index,
-                                transaction_log_index: log.transaction_log_index,
-                                log_type: log.log_type,
-                                removed: log.removed,
-                            })
-                            .collect(),
-                        logs_bloom: receipt.logs_bloom,
-                        effective_gas_price: receipt.effective_gas_price,
-                        transaction_type: receipt.transaction_type.map(|number| number.as_u64()),
-                    }
-                });
+                let receipt = self.backend.transaction_receipt(*tx_hash).await?;
                 EthQueryResult::GetTransactionReceipt(receipt)
             },
             EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
-                let block_id = block.as_block_id();
-                let tx = Eip1559TransactionRequest {
+                use rosetta_config_ethereum::ext::types::Bytes;
+                let call = CallRequest {
                     from: *from,
-                    to: Some((*to).into()),
-                    data: Some(data.clone().into()),
+                    to: Some(*to),
+                    data: Some(Bytes::from_iter(data)),
                     value: Some(*value),
-                    ..Default::default()
+                    gas_limit: None, // TODO: the default gas limit changes from client to client
+                    gas_price: None,
+                    nonce: None,
+                    chain_id: None,
+                    max_priority_fee_per_gas: None,
+                    access_list: AccessList::default(),
+                    max_fee_per_gas: None,
+                    transaction_type: None,
                 };
-                let tx = &tx.into();
-                let received_data = self.client.call(tx, Some(block_id)).await?;
-                EthQueryResult::CallContract(CallResult::Success(received_data.to_vec()))
+                let result = match self.backend.call(&call, *block).await? {
+                    ExitReason::Succeed(data) => CallResult::Success(data.to_vec()),
+                    ExitReason::Revert(data) => CallResult::Revert(data.to_vec()),
+                    ExitReason::Error(_) => CallResult::Error,
+                };
+                EthQueryResult::CallContract(result)
             },
             EthQuery::GetProof(GetProof { account, storage_keys, block }) => {
-                let proof_data = self
-                    .client
-                    .get_proof(*account, storage_keys.clone(), Some(block.as_block_id()))
-                    .await?;
+                let proof_data = self.backend.get_proof(*account, storage_keys, *block).await?;
 
                 //process verfiicatin of proof
                 let storage_hash = proof_data.storage_hash;
@@ -429,94 +412,39 @@ where
                 let encoded_val = storage_proof.value.rlp_bytes().freeze();
 
                 let _is_valid = verify_proof(
-                    &storage_proof.proof,
+                    storage_proof.proof.as_ref(),
                     storage_hash.as_bytes(),
                     key_hash.as_ref(),
                     encoded_val.as_ref(),
                 );
-                EthQueryResult::GetProof(EIP1186ProofResponse {
-                    address: proof_data.address,
-                    balance: proof_data.balance,
-                    code_hash: proof_data.code_hash,
-                    nonce: proof_data.nonce.as_u64(),
-                    storage_hash: proof_data.storage_hash,
-                    account_proof: proof_data
-                        .account_proof
-                        .into_iter()
-                        .map(|bytes| bytes.0.into())
-                        .collect(),
-                    storage_proof: proof_data
-                        .storage_proof
-                        .into_iter()
-                        .map(|storage_proof| StorageProof {
-                            key: storage_proof.key,
-                            proof: storage_proof
-                                .proof
-                                .into_iter()
-                                .map(|proof| proof.0.into())
-                                .collect(),
-                            value: storage_proof.value,
-                        })
-                        .collect(),
-                })
+                EthQueryResult::GetProof(proof_data)
             },
             EthQuery::GetBlockByHash(block_hash) => {
-                let Some(block) = self.client.get_block_with_txs(*block_hash).await? else {
+                use rosetta_config_ethereum::ext::types::{
+                    rpc::RpcTransaction, SealedBlock, SealedHeader, SignedTransaction,
+                    TypedTransaction,
+                };
+                let Some(block) = self
+                    .backend
+                    .block_full::<RpcTransaction, SealedHeader>(AtBlock::from(*block_hash))
+                    .await?
+                else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
-                let body = rosetta_config_ethereum::ext::types::BlockBody {
-                    total_difficulty: block.total_difficulty,
-                    seal_fields: Vec::new(),
-                    transactions: Vec::<
-                        rosetta_config_ethereum::ext::types::SignedTransaction<
-                            rosetta_config_ethereum::ext::types::TypedTransaction,
-                        >,
-                    >::new(),
-                    uncles: Vec::<rosetta_config_ethereum::ext::types::SealedHeader>::new(),
-                    size: block.size.map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                };
-                let header = rosetta_config_ethereum::ext::types::Header {
-                    parent_hash: block.parent_hash,
-                    ommers_hash: block.uncles_hash,
-                    beneficiary: block.author.unwrap_or_default(),
-                    state_root: block.state_root,
-                    transactions_root: block.transactions_root,
-                    receipts_root: block.receipts_root,
-                    logs_bloom: block.logs_bloom.unwrap_or_default(),
-                    difficulty: block.difficulty,
-                    number: block.number.map(|n| n.as_u64()).unwrap_or_default(),
-                    gas_limit: block.gas_limit.try_into().unwrap_or(u64::MAX),
-                    gas_used: block.gas_used.try_into().unwrap_or(u64::MAX),
-                    timestamp: block.timestamp.try_into().unwrap_or(u64::MAX),
-                    extra_data: block.extra_data.to_vec().into(),
-                    mix_hash: block.mix_hash.unwrap_or_default(),
-                    nonce: block
-                        .nonce
-                        .map(|n| u64::from_be_bytes(n.to_fixed_bytes()))
-                        .unwrap_or_default(),
-                    base_fee_per_gas: block
-                        .base_fee_per_gas
-                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                    withdrawals_root: block.withdrawals_root,
-                    blob_gas_used: block
-                        .blob_gas_used
-                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                    excess_blob_gas: block
-                        .excess_blob_gas
-                        .map(|n| u64::try_from(n).unwrap_or(u64::MAX)),
-                    parent_beacon_block_root: block.parent_beacon_block_root,
-                };
 
-                let header = if let Some(block_hash) = block.hash {
-                    header.seal(block_hash)
-                } else {
-                    header.seal_slow::<rosetta_config_ethereum::ext::types::crypto::DefaultCrypto>()
-                };
-                let block = rosetta_config_ethereum::ext::types::SealedBlock::new(header, body);
+                let (header, body) = block.unseal();
+                let transactions = body
+                    .transactions
+                    .iter()
+                    .map(|tx| SignedTransaction::<TypedTransaction>::try_from(tx.clone()))
+                    .collect::<Result<Vec<SignedTransaction<TypedTransaction>>, _>>()
+                    .map_err(|err| anyhow::format_err!(err))?;
+                let body = body.with_transactions(transactions);
+                let block = SealedBlock::new(header, body);
                 EthQueryResult::GetBlockByHash(Some(block.into()))
             },
             EthQuery::ChainId => {
-                let chain_id = self.client.get_chainid().await?.as_u64();
+                let chain_id = self.backend.chain_id().await?;
                 EthQueryResult::ChainId(chain_id)
             },
         };
