@@ -26,11 +26,11 @@ pub struct Header {
     /// block’s header, in its entirety; formally Hp.
     pub parent_hash: H256,
     /// The Keccak 256-bit hash of the ommers list portion of this block; formally Ho.
-    #[cfg_attr(feature = "serde", serde(rename = "sha3Uncles"))]
+    #[cfg_attr(feature = "serde", serde(default, rename = "sha3Uncles"))]
     pub ommers_hash: H256,
     /// The 160-bit address to which all fees collected from the successful mining of this block
     /// be transferred; formally Hc.
-    #[cfg_attr(feature = "serde", serde(rename = "miner", alias = "beneficiary"))]
+    #[cfg_attr(feature = "serde", serde(default, rename = "miner", alias = "beneficiary"))]
     pub beneficiary: Address,
     /// The Keccak 256-bit hash of the root node of the state trie, after all transactions are
     /// executed and finalisations applied; formally Hr.

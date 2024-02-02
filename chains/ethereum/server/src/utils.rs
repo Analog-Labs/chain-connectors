@@ -1,8 +1,7 @@
-use ethers::{prelude::*, providers::Middleware, types::H256};
+use ethers::{prelude::*, types::H256};
 use rosetta_config_ethereum::AtBlock;
 use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
 use rosetta_ethereum_backend::{ext::types::TransactionReceipt, EthereumRpc};
-use std::sync::Arc;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code
@@ -57,31 +56,6 @@ impl TryFrom<ethers::types::Block<H256>> for NonPendingBlock {
             block,
         })
     }
-}
-
-// Retrieve a non-pending block
-pub async fn get_non_pending_block<C, ID>(
-    client: Arc<Provider<C>>,
-    block_id: ID,
-) -> anyhow::Result<Option<NonPendingBlock>>
-where
-    C: JsonRpcClient + 'static,
-    ID: Into<BlockId> + Send + Sync,
-{
-    let block_id = block_id.into();
-    if matches!(block_id, BlockId::Number(BlockNumber::Pending)) {
-        anyhow::bail!("request a pending block is not allowed");
-    }
-    let Some(block) = client.get_block(block_id).await? else {
-        return Ok(None);
-    };
-    // The block is not pending, it MUST have a valid hash and number
-    let Ok(block) = NonPendingBlock::try_from(block) else {
-        anyhow::bail!(
-            "[RPC CLIENT BUG] the rpc client returned an invalid non-pending block at {block_id:?}"
-        );
-    };
-    Ok(Some(block))
 }
 
 /// The number of blocks from the past for which the fee rewards are fetched for fee estimation.

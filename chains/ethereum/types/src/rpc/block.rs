@@ -1,7 +1,7 @@
 use crate::{bytes::Bytes, eth_hash::H256, eth_uint::U256, header::Header, rstd::vec::Vec};
 
 #[cfg(feature = "serde")]
-use crate::serde_utils::uint_to_hex;
+use crate::serde_utils::{default_empty_vec, deserialize_null_default, uint_to_hex};
 
 /// The block type returned from RPC calls.
 ///
@@ -19,6 +19,7 @@ use crate::serde_utils::uint_to_hex;
 )]
 pub struct RpcBlock<TX, OMMERS = H256> {
     /// Hash of the block
+    #[cfg_attr(feature = "serde", serde(default))]
     pub hash: Option<H256>,
 
     /// Block header.
@@ -33,7 +34,7 @@ pub struct RpcBlock<TX, OMMERS = H256> {
     #[cfg_attr(
         feature = "serde",
         serde(
-            default,
+            default = "default_empty_vec",
             rename = "sealFields",
             deserialize_with = "deserialize_null_default",
             skip_serializing_if = "Vec::is_empty",
@@ -44,34 +45,32 @@ pub struct RpcBlock<TX, OMMERS = H256> {
     /// Transactions
     #[cfg_attr(
         feature = "serde",
-        serde(bound(
-            serialize = "TX: serde::Serialize",
-            deserialize = "TX: serde::de::DeserializeOwned"
-        ))
+        serde(
+            default = "default_empty_vec",
+            bound(
+                serialize = "TX: serde::Serialize",
+                deserialize = "TX: serde::de::DeserializeOwned"
+            ),
+            skip_serializing_if = "Vec::is_empty",
+        )
     )]
     pub transactions: Vec<TX>,
 
     /// Uncles' hashes
     #[cfg_attr(
         feature = "serde",
-        serde(bound(
-            serialize = "OMMERS: serde::Serialize",
-            deserialize = "OMMERS: serde::de::DeserializeOwned"
-        ))
+        serde(
+            default = "default_empty_vec",
+            bound(
+                serialize = "OMMERS: serde::Serialize",
+                deserialize = "OMMERS: serde::de::DeserializeOwned"
+            ),
+            skip_serializing_if = "Vec::is_empty",
+        )
     )]
     pub uncles: Vec<OMMERS>,
 
     /// Size in bytes
-    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub size: Option<u64>,
-}
-
-#[cfg(feature = "serde")]
-fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where
-    T: Default + serde::Deserialize<'de>,
-    D: serde::Deserializer<'de>,
-{
-    let opt = <Option<T> as serde::Deserialize<'de>>::deserialize(deserializer)?;
-    Ok(opt.unwrap_or_default())
 }

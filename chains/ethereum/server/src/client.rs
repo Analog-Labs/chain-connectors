@@ -1,34 +1,32 @@
 use crate::{
     event_stream::EthereumEventStream,
     proof::verify_proof,
-    utils::{get_non_pending_block, AtBlockExt, EthereumRpcExt, NonPendingBlock},
+    utils::{AtBlockExt, EthereumRpcExt},
 };
 use anyhow::{Context, Result};
 use ethers::{
     prelude::*,
-    providers::{JsonRpcClient, Middleware, Provider},
-    types::{transaction::eip2718::TypedTransaction, U64},
+    types::transaction::eip2718::TypedTransaction,
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    ext::types::{rpc::CallRequest, AccessList},
+    ext::types::{rpc::CallRequest, AccessList, AtBlock, SealedBlock},
     BlockFull, CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance,
     GetProof, GetStorageAt, GetTransactionReceipt, Query as EthQuery,
     QueryResult as EthQueryResult,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    traits::{Block, Header},
+    traits::Block,
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainConfig,
 };
 use rosetta_ethereum_backend::{
-    ext::types::AtBlock,
     jsonrpsee::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    EthereumRpc, ExitReason,
+    EthereumPubSub, EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -61,10 +59,9 @@ impl BlockFinalityStrategy {
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     backend: Adapter<P>,
-    client: Arc<Provider<P>>,
     genesis_block: BlockFull,
     block_finality_strategy: BlockFinalityStrategy,
-    nonce: Arc<std::sync::atomic::AtomicU32>,
+    nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
 }
 
@@ -76,7 +73,6 @@ where
         Self {
             config: self.config.clone(),
             backend: self.backend.clone(),
-            client: self.client.clone(),
             genesis_block: self.genesis_block.clone(),
             block_finality_strategy: self.block_finality_strategy,
             nonce: self.nonce.clone(),
@@ -87,7 +83,7 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: ClientT + JsonRpcClient + Clone + 'static,
+    P: ClientT + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
     pub async fn new(
@@ -107,21 +103,19 @@ where
         };
 
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
-        let client = Arc::new(Provider::new(rpc_client));
         let (private_key, nonce) = if let Some(private) = private_key {
             let wallet = LocalWallet::from_bytes(&private)?;
             let address = wallet.address();
-            let nonce = Arc::new(atomic::AtomicU32::from(
-                client.get_transaction_count(address, None).await?.as_u32(),
+            let nonce = Arc::new(atomic::AtomicU64::from(
+                backend.get_transaction_count(address, AtBlock::Latest).await?,
             ));
             (private_key, nonce)
         } else {
-            (None, Arc::new(atomic::AtomicU32::new(0)))
+            (None, Arc::new(atomic::AtomicU64::new(0)))
         };
         Ok(Self {
             config,
             backend,
-            client,
             genesis_block: genesis_block.into(),
             block_finality_strategy,
             nonce,
@@ -132,7 +126,7 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: ClientT + JsonRpcClient + 'static,
+    P: ClientT + Send + Sync + 'static,
 {
     pub const fn config(&self) -> &BlockchainConfig {
         &self.config
@@ -155,8 +149,8 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<NonPendingBlock> {
-        let number: BlockNumber = match self.block_finality_strategy {
+    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<SealedBlock<H256>> {
+        let number: AtBlock = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
                 let latest_block = match latest_block {
                     Some(number) => number,
@@ -169,64 +163,19 @@ where
                 let block_number = latest_block.saturating_sub(confirmations);
                 // If the number is zero, the latest finalized is the genesis block
                 if block_number == 0 {
-                    let genesis = &self.genesis_block;
-                    let header = genesis.header().0.header();
-                    let body = genesis.0.body();
-                    let block = NonPendingBlock {
-                        hash: genesis.hash().0,
-                        number: genesis.header().number(),
-                        identifier: BlockIdentifier {
-                            hash: genesis.hash().0 .0,
-                            index: genesis.header().number(),
-                        },
-                        block: ethers::types::Block {
-                            hash: Some(genesis.header().hash().0),
-                            parent_hash: header.parent_hash,
-                            uncles_hash: header.ommers_hash,
-                            author: Some(header.beneficiary),
-                            state_root: header.state_root,
-                            transactions_root: header.transactions_root,
-                            receipts_root: header.receipts_root,
-                            number: Some(header.number.into()),
-                            gas_used: header.gas_used.into(),
-                            gas_limit: header.gas_limit.into(),
-                            extra_data: header.extra_data.0.clone().into(),
-                            logs_bloom: Some(header.logs_bloom),
-                            timestamp: header.timestamp.into(),
-                            difficulty: header.difficulty,
-                            total_difficulty: body.total_difficulty,
-                            seal_fields: body
-                                .seal_fields
-                                .iter()
-                                .map(|b| b.0.clone().into())
-                                .collect(),
-                            uncles: body
-                                .uncles
-                                .iter()
-                                .map(rosetta_config_ethereum::ext::types::SealedHeader::hash)
-                                .collect(),
-                            transactions: Vec::new(), // Genesis doesn't contain transactions
-                            size: body.size.map(U256::from),
-                            mix_hash: Some(header.mix_hash),
-                            nonce: Some(H64::from_low_u64_ne(header.nonce)),
-                            base_fee_per_gas: header.base_fee_per_gas.map(U256::from),
-                            blob_gas_used: header.blob_gas_used.map(U256::from),
-                            excess_blob_gas: header.excess_blob_gas.map(U256::from),
-                            withdrawals_root: header.withdrawals_root,
-                            withdrawals: None,
-                            parent_beacon_block_root: header.parent_beacon_block_root,
-                            other: OtherFields::default(),
-                        },
-                    };
+                    let block = self.genesis_block.clone();
+                    let (header, body) = block.0.unseal();
+                    let body =
+                        body.map_transactions(|tx| tx.tx_hash).map_ommers(|header| header.hash());
+                    let block = rosetta_config_ethereum::ext::types::SealedBlock::new(header, body);
                     return Ok(block);
                 }
-                BlockNumber::Number(U64::from(block_number))
+                AtBlock::At(block_number.into())
             },
-            BlockFinalityStrategy::Finalized => BlockNumber::Finalized,
+            BlockFinalityStrategy::Finalized => AtBlock::Finalized,
         };
 
-        let Some(finalized_block) = get_non_pending_block(Arc::clone(&self.client), number).await?
-        else {
+        let Some(finalized_block) = self.backend.block(number).await? else {
             anyhow::bail!("Cannot find finalized block at {number}");
         };
         Ok(finalized_block)
@@ -292,17 +241,31 @@ where
                     .context("no accounts found")?;
                 // let coinbase = self.client.get_accounts().await?[0];
                 let address: H160 = address.address().parse()?;
-                let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
-                Ok(self
-                    .client
-                    .send_transaction(tx, None)
-                    .await?
-                    .confirmations(2)
-                    .await?
-                    .context("failed to retrieve tx receipt")?
-                    .transaction_hash
-                    .0
-                    .to_vec())
+                // let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
+
+                let (max_fee_per_gas, max_priority_fee_per_gas) =
+                    self.backend.estimate_eip1559_fees().await?;
+                let tx = CallRequest {
+                    from: Some(coinbase),
+                    to: Some(address),
+                    gas_limit: None,
+                    gas_price: None,
+                    value: Some(U256::from(param)),
+                    data: None,
+                    nonce: None,
+                    chain_id: None,
+                    max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
+                    access_list: AccessList::default(),
+                    max_fee_per_gas: Some(max_fee_per_gas),
+                    transaction_type: None,
+                };
+
+                let tx_hash = self.backend.send_transaction(&tx).await?;
+                let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
+                if !matches!(receipt.status_code, Some(1)) {
+                    anyhow::bail!("Transaction reverted: {tx_hash}");
+                }
+                Ok(tx_hash.0.to_vec())
             },
         }
     }
@@ -421,8 +384,7 @@ where
             },
             EthQuery::GetBlockByHash(block_hash) => {
                 use rosetta_config_ethereum::ext::types::{
-                    rpc::RpcTransaction, SealedBlock, SealedHeader, SignedTransaction,
-                    TypedTransaction,
+                    rpc::RpcTransaction, SealedHeader, SignedTransaction, TypedTransaction,
                 };
                 let Some(block) = self
                     .backend
@@ -454,11 +416,12 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: SubscriptionClientT + PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
-        let new_head_subscription = self.client.subscribe_blocks().await?;
-        Ok(EthereumEventStream::new(self, new_head_subscription))
+        let new_heads = EthereumPubSub::new_heads(&self.backend).await?;
+        // let new_head_subscription = self.backend.subscribe_blocks().await?;
+        Ok(EthereumEventStream::new(self, new_heads))
     }
 }

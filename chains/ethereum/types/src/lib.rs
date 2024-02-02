@@ -45,7 +45,7 @@ extern crate alloc;
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
     #[cfg(feature = "serde")]
-    pub use std::{format, mem, option, result};
+    pub use std::{default, format, mem, option, result};
 
     pub use std::{borrow, cmp, fmt, ops, str, string, vec};
 }
@@ -53,7 +53,7 @@ pub(crate) mod rstd {
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
     #[cfg(feature = "serde")]
-    pub use core::{mem, option, result};
+    pub use core::{default, mem, option, result};
 
     #[cfg(feature = "serde")]
     pub use alloc::format;

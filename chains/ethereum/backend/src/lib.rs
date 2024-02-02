@@ -9,7 +9,7 @@ extern crate alloc;
 use async_trait::async_trait;
 use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
-    rpc::{CallRequest, RpcTransaction},
+    rpc::{CallRequest, RpcBlock, RpcTransaction},
     AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, FeeHistory, Log,
     SealedBlock, TransactionReceipt, TxHash, H256, U256,
 };
@@ -134,6 +134,15 @@ pub trait EthereumRpc {
     /// Submits a pre-signed transaction for broadcast to the Ethereum network.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<TxHash, Self::Error>;
 
+    /// Submits an unsigned transaction which will be signed by the node
+    fn send_transaction<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+    ) -> BoxFuture<'async_trait, Result<TxHash, Self::Error>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait;
+
     /// Returns the receipt of a transaction by transaction hash.
     async fn transaction_receipt(
         &self,
@@ -206,7 +215,7 @@ pub trait EthereumRpc {
 #[async_trait]
 pub trait EthereumPubSub: EthereumRpc {
     type SubscriptionError: Display + Send + 'static;
-    type NewHeadsStream<'a>: Stream<Item = Result<SealedBlock<H256>, Self::SubscriptionError>>
+    type NewHeadsStream<'a>: Stream<Item = Result<RpcBlock<H256>, Self::SubscriptionError>>
         + Send
         + Unpin
         + 'a

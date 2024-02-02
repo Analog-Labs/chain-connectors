@@ -140,7 +140,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
             Self::Http(http_client) => http_client.finalized_block(None).await?,
             Self::Ws(ws_client) => ws_client.finalized_block(None).await?,
         };
-        Ok(BlockIdentifier { index: block.number, hash: block.hash.0 })
+        Ok(BlockIdentifier { index: block.header().number(), hash: block.header().hash().0 })
     }
 
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
@@ -357,6 +357,33 @@ mod tests {
                     .to_vec()
                 )
             );
+        })
+        .await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_subscription() -> Result<()> {
+        use futures_util::StreamExt;
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("ethereum-subscription", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        //here is run test function
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let mut stream = wallet.listen().await.unwrap().unwrap();
+
+            let mut count = 0;
+            loop {
+                let event = stream.next().await.unwrap();
+                println!("{event:?}");
+                count += 1;
+                if count == 10 {
+                    break;
+                }
+            }
         })
         .await;
         Ok(())

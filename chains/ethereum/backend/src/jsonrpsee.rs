@@ -19,8 +19,9 @@ use jsonrpsee_core::{
     rpc_params, ClientError as Error,
 };
 use rosetta_ethereum_types::{
-    rpc::RpcTransaction, Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log,
-    SealedBlock, TransactionReceipt, TxHash, H256, U256,
+    rpc::{RpcBlock, RpcTransaction},
+    Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log, SealedBlock,
+    TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -189,6 +190,19 @@ where
     /// Submits a pre-signed transaction for broadcast to the Ethereum network.
     async fn send_raw_transaction(&self, tx: Bytes) -> Result<TxHash, Self::Error> {
         <T as ClientT>::request(&self.0, "eth_sendRawTransaction", rpc_params![tx]).await
+    }
+
+    /// Submits an unsigned transaction which will be signed by the node
+    fn send_transaction<'life0, 'life1, 'async_trait>(
+        &'life0 self,
+        tx: &'life1 CallRequest,
+    ) -> BoxFuture<'async_trait, Result<TxHash, Self::Error>>
+    where
+        'life0: 'async_trait,
+        Self: 'async_trait,
+    {
+        let params = rpc_params![tx];
+        <T as ClientT>::request::<TxHash, _>(&self.0, "eth_sendTransaction", params)
     }
 
     /// Returns the receipt of a transaction by transaction hash.
@@ -360,7 +374,7 @@ where
     T: SubscriptionClientT + Send + Sync,
 {
     type SubscriptionError = <Self as EthereumRpc>::Error;
-    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<SealedBlock<H256>> where Self: 'a;
+    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<RpcBlock<H256>> where Self: 'a;
     type LogsStream<'a> = jsonrpsee_core::client::Subscription<Log> where Self: 'a;
 
     /// Fires a notification each time a new header is appended to the chain, including chain

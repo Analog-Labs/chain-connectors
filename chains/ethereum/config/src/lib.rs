@@ -222,7 +222,7 @@ fn evm_config(
         currency_decimals: 18,
         node_uri: {
             #[allow(clippy::expect_used)]
-            NodeUri::parse("ws://127.0.0.1:8545/ws").expect("uri is valid; qed")
+            NodeUri::parse("ws://127.0.0.1:8545").expect("uri is valid; qed")
         },
         node_image: "ethereum/client-go:v1.12.2",
         node_command: rstd::sync::Arc::new(|network, port| {
@@ -237,13 +237,13 @@ fn evm_config(
                 format!("--http.port={port}"),
                 "--http.vhosts=*".into(),
                 "--http.corsdomain=*".into(),
-                "--http.api=eth,debug,admin,txpool,web3".into(),
+                "--http.api=eth,debug,admin,txpool,web3,net".into(),
                 "--ws".into(),
                 "--ws.addr=0.0.0.0".into(),
                 format!("--ws.port={port}"),
                 "--ws.origins=*".into(),
-                "--ws.api=eth,debug,admin,txpool,web3".into(),
-                "--ws.rpcprefix=/ws".into(),
+                "--ws.api=eth,debug,admin,txpool,web3,net".into(),
+                "--ws.rpcprefix=/".into(),
             ]);
             params
         }),

@@ -1,7 +1,7 @@
 use crate::{
     eth_hash::{H128, H256, H32, H64},
     eth_uint::U256,
-    rstd::{format, mem, option::Option, result::Result, vec::Vec},
+    rstd::{default::Default, format, mem, option::Option, result::Result, vec::Vec},
 };
 use impl_serde_macro::serialize::{deserialize_check_len, serialize_uint, ExpectedLen};
 use num_rational::Rational64;
@@ -72,6 +72,16 @@ where
 {
     let opt = <Option<T> as Deserialize<'de>>::deserialize(deserializer)?;
     Ok(opt.unwrap_or_default())
+}
+
+/// Deserialize that always returns `Vec<T>` regardless if the field is present or not
+///
+/// # Errors
+/// returns an error if fails to deserialize T
+#[cfg(feature = "serde")]
+#[must_use]
+pub const fn default_empty_vec<T>() -> Vec<T> {
+    Vec::new()
 }
 
 /// Serialize a primitive uint as hexadecimal string, must be used with `#[serde(serialize_with =
