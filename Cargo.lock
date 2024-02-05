@@ -2651,6 +2651,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
+name = "fork-tree"
+version = "12.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e93d3f0315c2eccf23453609e0ab92fe7c6ad1ca8129bcaf80b9a08c8d7fc52b"
+dependencies = [
+ "parity-scale-codec",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5430,9 +5439,12 @@ dependencies = [
  "ethabi",
  "ethers",
  "ethers-solc",
+ "fork-tree",
  "futures-timer",
  "futures-util",
+ "hashbrown 0.14.3",
  "hex",
+ "hex-literal",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
@@ -5443,6 +5455,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
+ "thiserror",
  "tokio",
  "tracing",
  "url",

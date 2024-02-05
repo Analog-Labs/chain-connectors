@@ -137,6 +137,14 @@ macro_rules! impl_wrapper {
                 }
             }
         }
+
+        impl crate::rstd::ops::Deref for $name {
+            type Target = $original;
+
+            fn deref(&self) -> &$original {
+                &self.0
+            }
+        }
     };
 }
 

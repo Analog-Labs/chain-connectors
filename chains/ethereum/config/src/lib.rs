@@ -9,9 +9,9 @@ use rosetta_core::{
     BlockchainConfig, NodeUri,
 };
 pub use types::{
-    AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
+    Address, AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionReceipt, Header, Query, QueryResult, SealedHeader, SignedTransaction,
+    GetTransactionReceipt, Header, Log, Query, QueryResult, SealedHeader, SignedTransaction,
     StorageProof, TransactionReceipt, H256,
 };
 
@@ -21,13 +21,13 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
-    pub use std::{convert, fmt, option, result, slice, str, sync, vec};
+    pub use std::{convert, fmt, ops, option, result, slice, str, sync, vec};
 }
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
     pub use alloc::{sync, vec};
-    pub use core::{convert, fmt, option, result, slice, str};
+    pub use core::{convert, fmt, ops, option, result, slice, str};
 }
 
 /// Re-export external crates that are made use of in the client API.
@@ -44,9 +44,32 @@ pub mod ext {
     pub use serde;
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub enum Subscription {
+    Logs { address: Address, topics: Vec<H256> },
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub enum Event {
+    Logs(Vec<Log>),
+}
+
 impl rosetta_core::traits::Transaction for SignedTransaction {
     type Call = ();
-
     type SignaturePayload = ();
 }
 

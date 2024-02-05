@@ -207,3 +207,27 @@ where
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    #[test]
+    fn it_works() {
+        use rosetta_config_ethereum::ext::types::{Address, Bloom, BloomInput, H256};
+        use std::str::FromStr;
+
+        let expect = Bloom::from_str("40000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000400000000000000000040000000000").unwrap();
+        let address = Address::from(hex!("3c9eaef1ee4c91682a070b0acbcd7ab55abad44c"));
+        let topic = H256(hex!("93fe6d397c74fdf1402a8b72e47b68512f0510d7b98a4bc4cbdf6ac7108b3c59"));
+
+        assert!(expect.contains_input(BloomInput::Raw(address.as_bytes())));
+        assert!(expect.contains_input(BloomInput::Raw(topic.as_bytes())));
+
+        let mut actual = Bloom::default();
+        actual.accrue(BloomInput::Raw(address.as_bytes()));
+        actual.accrue(BloomInput::Raw(topic.as_bytes()));
+
+        assert_eq!(actual, expect);
+    }
+}

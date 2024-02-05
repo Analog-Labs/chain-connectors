@@ -1,7 +1,8 @@
 use anyhow::Result;
 pub use client::EthereumClient;
 pub use rosetta_config_ethereum::{
-    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
+    EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery,
+    QueryResult as EthQueryResult, Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -13,7 +14,9 @@ use url::Url;
 
 mod client;
 mod event_stream;
+mod log_filter;
 mod proof;
+// mod state;
 mod utils;
 
 use rosetta_ethereum_rpc_client::{EthClientAdapter, EthPubsubAdapter};
@@ -101,8 +104,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
 
     type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
-    type Subscription = ();
-    type Event = ();
+    type Subscription = Subscription;
+    type Event = Event;
 
     async fn query(
         &self,
@@ -192,8 +195,11 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
-        anyhow::bail!("not implemented");
+    fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        match self {
+            Self::Http(http_client) => http_client.subscribe(sub),
+            Self::Ws(ws_client) => ws_client.subscribe(sub),
+        }
     }
 }
 

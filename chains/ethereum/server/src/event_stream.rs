@@ -1,6 +1,7 @@
 use crate::client::EthereumClient;
 // use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
+use rosetta_config_ethereum::Event;
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use rosetta_ethereum_backend::{
     ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, SealedBlock, H256},
@@ -40,7 +41,7 @@ impl<P> Stream for EthereumEventStream<'_, P>
 where
     P: SubscriptionClientT + Send + Sync + 'static,
 {
-    type Item = ClientEvent<BlockIdentifier, ()>;
+    type Item = ClientEvent<BlockIdentifier, Event>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -55,6 +56,7 @@ where
         match finalized_stream.poll_next_unpin(cx) {
             Poll::Ready(Some(Ok(block))) => {
                 self.finalized_stream = Some(finalized_stream);
+
                 return Poll::Ready(Some(ClientEvent::NewFinalized(
                     BlockOrIdentifier::Identifier(BlockIdentifier::new(
                         block.header().header().number,

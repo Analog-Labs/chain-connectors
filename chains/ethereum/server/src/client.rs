@@ -1,5 +1,6 @@
 use crate::{
     event_stream::EthereumEventStream,
+    log_filter::LogFilter,
     proof::verify_proof,
     utils::{AtBlockExt, EthereumRpcExt},
 };
@@ -13,7 +14,7 @@ use rosetta_config_ethereum::{
     ext::types::{rpc::CallRequest, AccessList, AtBlock, SealedBlock},
     BlockFull, CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance,
     GetProof, GetStorageAt, GetTransactionReceipt, Query as EthQuery,
-    QueryResult as EthQueryResult,
+    QueryResult as EthQueryResult, Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -63,6 +64,7 @@ pub struct EthereumClient<P> {
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
+    log_filter: Arc<std::sync::Mutex<LogFilter>>,
 }
 
 impl<P> Clone for EthereumClient<P>
@@ -77,6 +79,7 @@ where
             block_finality_strategy: self.block_finality_strategy,
             nonce: self.nonce.clone(),
             private_key: self.private_key,
+            log_filter: self.log_filter.clone(),
         }
     }
 }
@@ -120,6 +123,7 @@ where
             block_finality_strategy,
             nonce,
             private_key,
+            log_filter: Arc::new(std::sync::Mutex::new(LogFilter::new())),
         })
     }
 }
@@ -239,9 +243,7 @@ where
                     .into_iter()
                     .next()
                     .context("no accounts found")?;
-                // let coinbase = self.client.get_accounts().await?[0];
                 let address: H160 = address.address().parse()?;
-                // let tx = TransactionRequest::new().to(address).value(param).from(coinbase);
 
                 let (max_fee_per_gas, max_priority_fee_per_gas) =
                     self.backend.estimate_eip1559_fees().await?;
@@ -412,6 +414,24 @@ where
         };
         Ok(result)
     }
+
+    /// # Errors
+    /// Will return an error if the subscription lock is poisoned
+    pub fn subscribe(&self, sub: &Subscription) -> Result<u32> {
+        match sub {
+            Subscription::Logs { address, topics } => {
+                let Ok(mut log_filter) = self.log_filter.lock() else {
+                    anyhow::bail!("Fatal error: subscription lock is poisoned");
+                };
+                log_filter.add(*address, topics.iter().copied());
+
+                // TODO: Implement a better subscription id manager
+                let mut id = [0u8; 4];
+                id.copy_from_slice(&address.0[0..4]);
+                Ok(u32::from_be_bytes(id))
+            },
+        }
+    }
 }
 
 impl<P> EthereumClient<P>
@@ -421,7 +441,6 @@ where
     #[allow(clippy::missing_errors_doc)]
     pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
         let new_heads = EthereumPubSub::new_heads(&self.backend).await?;
-        // let new_head_subscription = self.backend.subscribe_blocks().await?;
         Ok(EthereumEventStream::new(self, new_heads))
     }
 }

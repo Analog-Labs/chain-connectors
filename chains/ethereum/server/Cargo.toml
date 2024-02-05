@@ -11,9 +11,12 @@ anyhow = "1.0"
 async-trait = "0.1"
 ethabi = "18.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls"] }
+fork-tree = { version = "12.0" }
 futures-timer = "3.0"
 futures-util = "0.3"
+hashbrown = "0.14"
 hex = "0.4"
+hex-literal = "0.4"
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
 rosetta-ethereum-backend = { workspace = true, features = ["jsonrpsee"] }
@@ -21,6 +24,7 @@ rosetta-ethereum-rpc-client.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 serde.workspace = true
 serde_json.workspace = true
+thiserror = "1.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"
 url = "2.4"
