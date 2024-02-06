@@ -310,18 +310,18 @@ impl BlockchainClient for GenericClient {
         }
     }
 
-    fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
         match self {
             Self::Ethereum(client) => match sub {
-                GenericClientSubscription::Ethereum(sub) => client.subscribe(sub),
+                GenericClientSubscription::Ethereum(sub) => client.subscribe(sub).await,
                 _ => anyhow::bail!("invalid subscription"),
             },
             Self::Astar(client) => match sub {
-                GenericClientSubscription::Astar(sub) => client.subscribe(sub),
+                GenericClientSubscription::Astar(sub) => client.subscribe(sub).await,
                 _ => anyhow::bail!("invalid subscription"),
             },
             Self::Polkadot(client) => match sub {
-                GenericClientSubscription::Polkadot(sub) => client.subscribe(sub),
+                GenericClientSubscription::Polkadot(sub) => client.subscribe(sub).await,
                 _ => anyhow::bail!("invalid subscription"),
             },
         }

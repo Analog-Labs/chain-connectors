@@ -300,7 +300,7 @@ impl BlockchainClient for AstarClient {
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         self.client.listen().await
     }
-    fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+    async fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
         anyhow::bail!("not implemented");
     }
 }

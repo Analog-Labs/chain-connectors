@@ -197,4 +197,14 @@ impl<TX, OMMERS> SealedBlock<TX, OMMERS> {
     pub const fn body(&self) -> &BlockBody<TX, OMMERS> {
         &self.body
     }
+
+    #[must_use]
+    pub fn with_transactions<T>(self, transactions: Vec<T>) -> SealedBlock<T, OMMERS> {
+        SealedBlock { header: self.header, body: self.body.with_transactions(transactions) }
+    }
+
+    #[must_use]
+    pub fn with_ommers<O>(self, ommers: Vec<O>) -> SealedBlock<TX, O> {
+        SealedBlock { header: self.header, body: self.body.with_ommers(ommers) }
+    }
 }

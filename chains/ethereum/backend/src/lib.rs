@@ -11,7 +11,7 @@ use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcBlock, RpcTransaction},
     AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, FeeHistory, Log,
-    SealedBlock, TransactionReceipt, TxHash, H256, U256,
+    SealedBlock, SealedHeader, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -187,13 +187,21 @@ pub trait EthereumRpc {
     async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256, H256>>, Self::Error>;
 
     /// Returns information about a block.
-    async fn block_full<T: MaybeDeserializeOwned + Send, O: MaybeDeserializeOwned + Send>(
+    async fn block_full<T: MaybeDeserializeOwned + Send>(
         &self,
         at: AtBlock,
-    ) -> Result<Option<SealedBlock<T, O>>, Self::Error>;
+    ) -> Result<Option<RpcBlock<T, H256>>, Self::Error>;
 
     /// Returns the current latest block number.
     async fn block_number(&self) -> Result<u64, Self::Error>;
+
+    /// Returns information about a uncle of a block given the block hash and the uncle index
+    /// position.
+    async fn uncle_by_blockhash(
+        &self,
+        block_hash: H256,
+        index: u32,
+    ) -> Result<Option<SealedHeader>, Self::Error>;
 
     /// Returns the currently configured chain ID, a value used in replay-protected
     /// transaction signing as introduced by EIP-155.

@@ -96,14 +96,10 @@ where
     ) -> Result<Self> {
         let backend = Adapter(rpc_client.clone());
         let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
-        let Some(genesis_block) = backend
-            .block_full::<rosetta_config_ethereum::ext::types::SignedTransaction<
-                rosetta_config_ethereum::ext::types::TypedTransaction,
-            >, rosetta_config_ethereum::ext::types::SealedHeader>(at)
+        let genesis_block = backend
+            .block_with_uncles(at)
             .await?
-        else {
-            anyhow::bail!("FATAL: genesis block not found");
-        };
+            .ok_or_else(|| anyhow::format_err!("FATAL: genesis block not found"))?;
 
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let (private_key, nonce) = if let Some(private) = private_key {
@@ -385,26 +381,11 @@ where
                 EthQueryResult::GetProof(proof_data)
             },
             EthQuery::GetBlockByHash(block_hash) => {
-                use rosetta_config_ethereum::ext::types::{
-                    rpc::RpcTransaction, SealedHeader, SignedTransaction, TypedTransaction,
-                };
-                let Some(block) = self
-                    .backend
-                    .block_full::<RpcTransaction, SealedHeader>(AtBlock::from(*block_hash))
-                    .await?
+                let Some(block) =
+                    self.backend.block_with_uncles(AtBlock::from(*block_hash)).await?
                 else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
-
-                let (header, body) = block.unseal();
-                let transactions = body
-                    .transactions
-                    .iter()
-                    .map(|tx| SignedTransaction::<TypedTransaction>::try_from(tx.clone()))
-                    .collect::<Result<Vec<SignedTransaction<TypedTransaction>>, _>>()
-                    .map_err(|err| anyhow::format_err!(err))?;
-                let body = body.with_transactions(transactions);
-                let block = SealedBlock::new(header, body);
                 EthQueryResult::GetBlockByHash(Some(block.into()))
             },
             EthQuery::ChainId => {

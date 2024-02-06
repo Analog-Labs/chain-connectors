@@ -206,7 +206,7 @@ impl BlockchainClient for PolkadotClient {
         }
     }
 
-    fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+    async fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
         anyhow::bail!("not implemented");
     }
 }

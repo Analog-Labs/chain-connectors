@@ -17,6 +17,7 @@ mod event_stream;
 mod log_filter;
 mod proof;
 // mod state;
+// mod stream;
 mod utils;
 
 use rosetta_ethereum_rpc_client::{EthClientAdapter, EthPubsubAdapter};
@@ -195,7 +196,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
         match self {
             Self::Http(http_client) => http_client.subscribe(sub),
             Self::Ws(ws_client) => ws_client.subscribe(sub),

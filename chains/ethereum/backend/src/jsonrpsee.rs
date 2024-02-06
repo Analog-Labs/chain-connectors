@@ -21,7 +21,7 @@ use jsonrpsee_core::{
 use rosetta_ethereum_types::{
     rpc::{RpcBlock, RpcTransaction},
     Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log, SealedBlock,
-    TransactionReceipt, TxHash, H256, U256,
+    SealedHeader, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -280,52 +280,25 @@ where
     }
 
     /// Returns information about a block.
-    async fn block_full<TX, OMMERS>(
-        &self,
-        at: AtBlock,
-    ) -> Result<Option<SealedBlock<TX, OMMERS>>, Self::Error>
+    async fn block_full<TX>(&self, at: AtBlock) -> Result<Option<RpcBlock<TX, H256>>, Self::Error>
     where
         TX: MaybeDeserializeOwned + Send,
-        OMMERS: MaybeDeserializeOwned + Send,
     {
-        let maybe_block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<Option<SealedBlock<TX, H256>>, _>(
+        if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
+            <T as ClientT>::request::<Option<RpcBlock<TX, H256>>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, true],
             )
-            .await?
+            .await
         } else {
-            <T as ClientT>::request::<Option<SealedBlock<TX, H256>>, _>(
+            <T as ClientT>::request::<Option<RpcBlock<TX, H256>>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, true],
             )
-            .await?
-        };
-
-        // If the block is not found, return None
-        let Some(block) = maybe_block else {
-            return Ok(None);
-        };
-
-        // Unseal the block
-        let (header, body) = block.unseal();
-
-        // Fetch the ommers
-        let at = BlockIdentifier::Hash(header.hash());
-        let mut ommers = Vec::with_capacity(body.uncles.len());
-        for index in 0..body.uncles.len() {
-            let uncle = <T as ClientT>::request::<OMMERS, _>(
-                &self.0,
-                "eth_getUncleByBlockHashAndIndex",
-                rpc_params![at, U256::from(index)],
-            )
-            .await?;
-            ommers.push(uncle);
+            .await
         }
-        let body = body.with_ommers(ommers);
-        Ok(Some(SealedBlock::new(header, body)))
     }
 
     /// Returns the current latest block number.
@@ -334,6 +307,22 @@ where
             <T as ClientT>::request::<U256, _>(&self.0, "eth_blockNumber", rpc_params![]).await?;
         u64::try_from(res)
             .map_err(|_| Error::Custom("invalid block number, it exceeds 2^64-1".to_string()))
+    }
+
+    /// Returns information about a uncle of a block given the block hash and the uncle index
+    /// position.
+    async fn uncle_by_blockhash(
+        &self,
+        block_hash: H256,
+        index: u32,
+    ) -> Result<Option<SealedHeader>, Self::Error> {
+        let index = U256::from(index);
+        <T as ClientT>::request::<Option<SealedHeader>, _>(
+            &self.0,
+            "eth_getUncleByBlockHashAndIndex",
+            rpc_params![block_hash, index],
+        )
+        .await
     }
 
     /// Returns the currently configured chain ID, a value used in replay-protected

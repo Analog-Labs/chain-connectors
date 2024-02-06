@@ -151,7 +151,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     #[allow(clippy::missing_errors_doc)]
-    fn subscribe(&self, sub: &Self::Subscription) -> Result<u32>;
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
@@ -224,8 +224,8 @@ where
         BlockchainClient::listen(Self::as_ref(self)).await
     }
 
-    fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
-        BlockchainClient::subscribe(Self::as_ref(self), sub)
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        BlockchainClient::subscribe(Self::as_ref(self), sub).await
     }
 }
 

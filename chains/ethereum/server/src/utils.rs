@@ -1,7 +1,15 @@
 use ethers::{prelude::*, types::H256};
-use rosetta_config_ethereum::AtBlock;
+use rosetta_config_ethereum::{
+    ext::types::{
+        rpc::{RpcBlock, RpcTransaction},
+        SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TypedTransaction,
+    },
+    AtBlock,
+};
 use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
-use rosetta_ethereum_backend::{ext::types::TransactionReceipt, EthereumRpc};
+use rosetta_ethereum_backend::EthereumRpc;
+
+type BlockFull = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code
@@ -156,6 +164,8 @@ pub trait EthereumRpcExt {
     ) -> anyhow::Result<TransactionReceipt>;
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
+
+    async fn block_with_uncles(&self, at: AtBlock) -> anyhow::Result<Option<BlockFull>>;
 }
 
 #[async_trait::async_trait]
@@ -205,6 +215,83 @@ where
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             eip1559_default_estimator(base_fee_per_gas.into(), fee_history.reward.as_ref());
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
+    }
+
+    async fn block_with_uncles(&self, at: AtBlock) -> anyhow::Result<Option<BlockFull>> {
+        let Some(block) = self.block_full::<RpcTransaction>(at).await? else {
+            return Ok(None);
+        };
+
+        // Convert the `RpcBlock` to `SealedBlock`
+        let block = SealedBlock::try_from(block)
+            .map_err(|err| anyhow::format_err!("invalid block: {err}"))?;
+
+        // Convert the `RpcTransaction` to `SignedTransaction`
+        let block_hash = block.header().hash();
+        let block = {
+            let transactions = block
+                .body()
+                .transactions
+                .iter()
+                .enumerate()
+                .map(|(index, tx)| {
+                    SignedTransaction::<TypedTransaction>::try_from(tx.clone()).map_err(|err| {
+                        anyhow::format_err!(
+                            "Invalid tx in block {block_hash:?} at index {index}: {err}"
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            block.with_transactions(transactions)
+        };
+
+        // Fetch block uncles
+        let mut uncles = Vec::with_capacity(block.body().uncles.len());
+        for index in 0..block.body().uncles.len() {
+            let Some(uncle) = self.uncle_by_blockhash(block_hash, u32::try_from(index)?).await?
+            else {
+                anyhow::bail!("uncle not found for block {block_hash:?} at index {index}");
+            };
+            uncles.push(uncle);
+        }
+        let block = block.with_ommers(uncles);
+        Ok(Some(block))
+    }
+}
+
+pub trait RpcBlockExt {
+    fn try_into_sealed(
+        self,
+    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, H256>>;
+}
+
+impl RpcBlockExt for RpcBlock<RpcTransaction, H256> {
+    fn try_into_sealed(
+        self,
+    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, TxHash>> {
+        // Convert the `RpcBlock` to `SealedBlock`
+        let block = SealedBlock::try_from(self)
+            .map_err(|err| anyhow::format_err!("invalid block: {err}"))?;
+
+        // Convert the `RpcTransaction` to `SignedTransaction`
+        let block_hash = block.header().hash();
+        let block = {
+            let transactions = block
+                .body()
+                .transactions
+                .iter()
+                .enumerate()
+                .map(|(index, tx)| {
+                    SignedTransaction::try_from(tx.clone()).map_err(|err| {
+                        anyhow::format_err!(
+                            "Invalid tx in block {block_hash:?} at index {index}: {err}"
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            block.with_transactions(transactions)
+        };
+        Ok(block)
     }
 }
 

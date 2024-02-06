@@ -1,4 +1,12 @@
-use crate::{bytes::Bytes, eth_hash::H256, eth_uint::U256, header::Header, rstd::vec::Vec};
+use crate::{
+    block::{Block, BlockBody, SealedBlock},
+    bytes::Bytes,
+    crypto::Crypto,
+    eth_hash::H256,
+    eth_uint::U256,
+    header::Header,
+    rstd::vec::Vec,
+};
 
 #[cfg(feature = "serde")]
 use crate::serde_utils::{default_empty_vec, deserialize_null_default, uint_to_hex};
@@ -73,4 +81,52 @@ pub struct RpcBlock<TX, OMMERS = H256> {
     /// Size in bytes
     #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub size: Option<u64>,
+}
+
+impl<TX, OMMERS> RpcBlock<TX, OMMERS> {
+    /// Seal the header with the given hash.
+    pub fn seal_slow<C: Crypto>(self) -> SealedBlock<TX, OMMERS> {
+        let header = self.header.seal_slow::<C>();
+        let body = BlockBody {
+            transactions: self.transactions,
+            uncles: self.uncles,
+            total_difficulty: self.total_difficulty,
+            seal_fields: self.seal_fields,
+            size: self.size,
+        };
+        SealedBlock::new(header, body)
+    }
+}
+
+impl<TX, OMMERS> TryFrom<RpcBlock<TX, OMMERS>> for SealedBlock<TX, OMMERS> {
+    type Error = &'static str;
+
+    fn try_from(block: RpcBlock<TX, OMMERS>) -> Result<Self, Self::Error> {
+        let Some(hash) = block.hash else {
+            return Err("No hash in block");
+        };
+        let header = block.header.seal(hash);
+        let body = BlockBody {
+            transactions: block.transactions,
+            uncles: block.uncles,
+            total_difficulty: block.total_difficulty,
+            seal_fields: block.seal_fields,
+            size: block.size,
+        };
+        Ok(Self::new(header, body))
+    }
+}
+
+impl<TX, OMMERS> From<RpcBlock<TX, OMMERS>> for Block<TX, OMMERS> {
+    fn from(block: RpcBlock<TX, OMMERS>) -> Self {
+        let header = block.header;
+        let body = BlockBody {
+            transactions: block.transactions,
+            uncles: block.uncles,
+            total_difficulty: block.total_difficulty,
+            seal_fields: block.seal_fields,
+            size: block.size,
+        };
+        Self { header, body }
+    }
 }
