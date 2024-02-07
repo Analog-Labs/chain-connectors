@@ -1,10 +1,10 @@
-use crate::client::EthereumClient;
+use crate::{client::EthereumClient, utils::BlockFull};
 // use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use rosetta_config_ethereum::Event;
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use rosetta_ethereum_backend::{
-    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, SealedBlock, H256},
+    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, H256},
     jsonrpsee::core::client::{Subscription, SubscriptionClientT},
 };
 use std::{cmp::Ordering, pin::Pin, task::Poll};
@@ -146,10 +146,10 @@ where
     latest_block: Option<u64>,
     /// Ethereum client doesn't support subscribing for finalized blocks, as workaround
     /// everytime we receive a new head, we query the latest finalized block
-    future: Option<BoxFuture<'a, anyhow::Result<SealedBlock<H256>>>>,
+    future: Option<BoxFuture<'a, anyhow::Result<BlockFull>>>,
     /// Cache the best finalized block, we use this to avoid emitting two
     /// [`ClientEvent::NewFinalized`] for the same block
-    best_finalized_block: Option<SealedBlock<H256>>,
+    best_finalized_block: Option<BlockFull>,
     /// Count the number of failed attempts to retrieve the finalized block
     failures: u32,
     /// Waker used to wake up the stream when a new block is available
@@ -184,7 +184,7 @@ where
         }
     }
 
-    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<SealedBlock<H256>>> {
+    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<BlockFull>> {
         self.client.finalized_block(self.latest_block).boxed()
     }
 }
@@ -193,7 +193,7 @@ impl<P> Stream for FinalizedBlockStream<'_, P>
 where
     P: SubscriptionClientT + Send + Sync + 'static,
 {
-    type Item = Result<SealedBlock<H256>, String>;
+    type Item = Result<BlockFull, String>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,

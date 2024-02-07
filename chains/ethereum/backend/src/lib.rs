@@ -1,12 +1,19 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod block_range;
+
 #[cfg(feature = "jsonrpsee")]
 pub mod jsonrpsee;
 
+#[cfg(feature = "serde")]
+pub mod serde_util;
+
 #[cfg(not(feature = "std"))]
+#[macro_use]
 extern crate alloc;
 
 use async_trait::async_trait;
+pub use block_range::BlockRange;
 use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcBlock, RpcTransaction},
@@ -107,6 +114,9 @@ pub trait EthereumRpc {
 
     /// Returns code at a given account
     async fn get_code(&self, address: Address, at: AtBlock) -> Result<Bytes, Self::Error>;
+
+    /// Returns code at a given account
+    async fn get_logs(&self, range: BlockRange) -> Result<Vec<Log>, Self::Error>;
 
     /// Executes a new message call immediately without creating a transaction on the blockchain.
     fn call<'life0, 'life1, 'async_trait>(

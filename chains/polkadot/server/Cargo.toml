@@ -17,7 +17,7 @@ rosetta-server = { workspace = true, default-features = false, features = ["ws",
 scale-info.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sp-keyring = "29.0"
+sp-keyring.workspace = true
 subxt = { workspace = true, features = ["substrate-compat", "native"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"

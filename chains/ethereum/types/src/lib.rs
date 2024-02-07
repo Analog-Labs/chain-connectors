@@ -27,7 +27,10 @@ pub use fee_history::FeeHistory;
 pub use header::{Header, SealedHeader};
 pub use log::Log;
 pub use num_rational::Rational64;
-use rstd::fmt::{Display, Formatter, Result as FmtResult};
+use rstd::{
+    cmp::{Ordering, PartialOrd},
+    fmt::{Display, Formatter, Result as FmtResult},
+};
 pub use storage_proof::{EIP1186ProofResponse, StorageProof};
 pub use transactions::{
     access_list::{AccessList, AccessListItem, AccessListWithGasUsed},
@@ -167,6 +170,32 @@ impl From<u32> for AtBlock {
     }
 }
 
+impl From<BlockIdentifier> for AtBlock {
+    fn from(block: BlockIdentifier) -> Self {
+        Self::At(block)
+    }
+}
+
+impl PartialOrd for AtBlock {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // Convert AtBlock to a number
+        const fn as_number(at: &AtBlock) -> Option<u8> {
+            let n = match at {
+                AtBlock::Pending => 50,
+                AtBlock::Latest => 40,
+                AtBlock::Safe => 30,
+                AtBlock::Finalized => 20,
+                AtBlock::Earliest => 10,
+                AtBlock::At(_) => return None,
+            };
+            Some(n)
+        }
+        let this = as_number(self)?;
+        let other = as_number(other)?;
+        Some(<u8 as rstd::cmp::Ord>::cmp(&this, &other))
+    }
+}
+
 impl Display for AtBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
@@ -230,11 +259,5 @@ impl<'de> serde::Deserialize<'de> for AtBlock {
             let number = s.parse::<u64>().map_err(serde::de::Error::custom)?;
             Ok(Self::At(BlockIdentifier::Number(number)))
         }
-    }
-}
-
-impl From<BlockIdentifier> for AtBlock {
-    fn from(block: BlockIdentifier) -> Self {
-        Self::At(block)
     }
 }

@@ -7,7 +7,7 @@ use crate::{
         string::ToString,
         vec::Vec,
     },
-    MaybeDeserializeOwned,
+    BlockRange, MaybeDeserializeOwned,
 };
 use async_trait::async_trait;
 use futures_core::future::BoxFuture;
@@ -148,6 +148,11 @@ where
     /// Returns code at a given account
     async fn get_code(&self, account: Address, at: AtBlock) -> Result<Bytes, Self::Error> {
         <T as ClientT>::request(&self.0, "eth_getCode", rpc_params![account, at]).await
+    }
+
+    /// Returns an array of all the logs matching the given filter object
+    async fn get_logs(&self, range: BlockRange) -> Result<Vec<Log>, Self::Error> {
+        <T as ClientT>::request::<Vec<Log>, _>(&self.0, "eth_getLogs", rpc_params![range]).await
     }
 
     /// Executes a new message call immediately without creating a transaction on the blockchain.

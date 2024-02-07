@@ -22,8 +22,7 @@ rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-# sp-core = { version = "27.0", default-features = false, features = ["blake2", "std"] }
-sp-keyring = "29.0"
+sp-keyring.workspace = true
 subxt = { workspace = true, features = ["substrate-compat"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 

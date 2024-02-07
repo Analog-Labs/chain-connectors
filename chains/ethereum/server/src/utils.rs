@@ -9,7 +9,7 @@ use rosetta_config_ethereum::{
 use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
 use rosetta_ethereum_backend::EthereumRpc;
 
-type BlockFull = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
+pub type BlockFull = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code

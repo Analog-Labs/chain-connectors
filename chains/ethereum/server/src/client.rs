@@ -2,7 +2,7 @@ use crate::{
     event_stream::EthereumEventStream,
     log_filter::LogFilter,
     proof::verify_proof,
-    utils::{AtBlockExt, EthereumRpcExt},
+    utils::{AtBlockExt, BlockFull, EthereumRpcExt},
 };
 use anyhow::{Context, Result};
 use ethers::{
@@ -11,14 +11,13 @@ use ethers::{
     utils::{keccak256, rlp::Encodable},
 };
 use rosetta_config_ethereum::{
-    ext::types::{rpc::CallRequest, AccessList, AtBlock, SealedBlock},
-    BlockFull, CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance,
-    GetProof, GetStorageAt, GetTransactionReceipt, Query as EthQuery,
-    QueryResult as EthQueryResult, Subscription,
+    ext::types::{rpc::CallRequest, AccessList, AtBlock},
+    CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
+    GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
+    Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
-    traits::Block,
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainConfig,
 };
@@ -115,7 +114,7 @@ where
         Ok(Self {
             config,
             backend,
-            genesis_block: genesis_block.into(),
+            genesis_block,
             block_finality_strategy,
             nonce,
             private_key,
@@ -132,10 +131,10 @@ where
         &self.config
     }
 
-    pub fn genesis_block(&self) -> BlockIdentifier {
+    pub const fn genesis_block(&self) -> BlockIdentifier {
         BlockIdentifier {
-            index: self.genesis_block.header().0.header().number,
-            hash: self.genesis_block.0.header().hash().0,
+            index: self.genesis_block.header().header().number,
+            hash: self.genesis_block.header().hash().0,
         }
     }
 
@@ -149,7 +148,7 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<SealedBlock<H256>> {
+    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<BlockFull> {
         let number: AtBlock = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
                 let latest_block = match latest_block {
@@ -163,19 +162,14 @@ where
                 let block_number = latest_block.saturating_sub(confirmations);
                 // If the number is zero, the latest finalized is the genesis block
                 if block_number == 0 {
-                    let block = self.genesis_block.clone();
-                    let (header, body) = block.0.unseal();
-                    let body =
-                        body.map_transactions(|tx| tx.tx_hash).map_ommers(|header| header.hash());
-                    let block = rosetta_config_ethereum::ext::types::SealedBlock::new(header, body);
-                    return Ok(block);
+                    return Ok(self.genesis_block.clone());
                 }
                 AtBlock::At(block_number.into())
             },
             BlockFinalityStrategy::Finalized => AtBlock::Finalized,
         };
 
-        let Some(finalized_block) = self.backend.block(number).await? else {
+        let Some(finalized_block) = self.backend.block_with_uncles(number).await? else {
             anyhow::bail!("Cannot find finalized block at {number}");
         };
         Ok(finalized_block)
