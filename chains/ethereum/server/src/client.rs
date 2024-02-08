@@ -58,7 +58,7 @@ impl BlockFinalityStrategy {
 
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
-    backend: Adapter<P>,
+    pub(crate) backend: Adapter<P>,
     genesis_block: BlockFull,
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU64>,

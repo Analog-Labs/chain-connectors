@@ -3,7 +3,7 @@ use crate::{finalized_block_stream::FinalizedBlockStream, utils::LogErrorExt};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use rosetta_ethereum_backend::{
-    ext::types::{crypto::DefaultCrypto, Header, SealedBlock, SealedHeader, H256},
+    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, SealedBlock, H256},
     jsonrpsee::core::client::{Error as RpcError, Subscription},
     EthereumPubSub, EthereumRpc,
 };
@@ -19,8 +19,9 @@ const DEFAULT_POLLING_INTERVAL: Duration = Duration::from_secs(5);
 
 type BlockRef = SealedBlock<H256, H256>;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NewBlockEvent {
-    Pending(SealedHeader),
+    Pending(SealedBlock<H256>),
     Finalized(BlockRef),
 }
 
@@ -35,7 +36,7 @@ struct RetryNewHeadsSubscription<RPC> {
 
 impl<RPC> RetryNewHeadsSubscription<RPC>
 where
-    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<Header>>
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
         + Send
@@ -49,14 +50,14 @@ where
 
 impl<RPC> RetrySubscription for RetryNewHeadsSubscription<RPC>
 where
-    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<Header>>
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
 {
-    type Item = Header;
+    type Item = RpcBlock<H256>;
 
     fn retry_subscribe(&self) -> BoxFuture<'static, Result<Subscription<Self::Item>, RpcError>> {
         let client = self.backend.clone();
@@ -94,10 +95,11 @@ impl<T> AutoSubscribe<T>
 where
     T: RetrySubscription,
 {
-    pub const fn new(retry_subscription: T, retry_interval: Duration) -> Self {
+    pub fn new(retry_subscription: T, retry_interval: Duration) -> Self {
+        let fut = retry_subscription.retry_subscribe();
         Self {
             retry_subscription,
-            state: None,
+            state: Some(SubscriptionState::Subscribing(fut)),
             consecutive_subscription_errors: 0,
             total_subscriptions: 0,
             retry_interval,
@@ -279,7 +281,7 @@ pub struct Config {
 /// A stream which emits new blocks and logs matching a filter.
 pub struct BlockSubscription<RPC>
 where
-    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<Header>>
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
         + Send
@@ -306,7 +308,7 @@ where
 
 impl<RPC> BlockSubscription<RPC>
 where
-    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<Header>>
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
         + Clone
         + Unpin
@@ -331,7 +333,7 @@ where
 
 impl<RPC> Stream for BlockSubscription<RPC>
 where
-    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<Header>>
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
         + Clone
         + Unpin
@@ -362,7 +364,7 @@ where
             Some(SubscriptionStatus::Subscribed(mut new_heads_sub)) => {
                 match new_heads_sub.poll_next_unpin(cx) {
                     // New block header
-                    Poll::Ready(Some(Ok(header))) => {
+                    Poll::Ready(Some(Ok(block))) => {
                         // Reset error counter.
                         self.consecutive_errors = 0;
 
@@ -370,9 +372,9 @@ where
                         self.last_block_timestamp = Some(Instant::now());
 
                         // Calculate header hash and return it.
-                        let header = header.seal_slow::<DefaultCrypto>();
+                        let block = block.seal_slow::<DefaultCrypto>();
                         self.new_heads_sub = Some(SubscriptionStatus::Subscribed(new_heads_sub));
-                        return Poll::Ready(Some(NewBlockEvent::Pending(header)));
+                        return Poll::Ready(Some(NewBlockEvent::Pending(block)));
                     },
 
                     // Subscription returned an error
@@ -427,5 +429,82 @@ where
         };
 
         Poll::Pending
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MaybeWsEthereumClient;
+    use futures_util::StreamExt;
+    use rosetta_core::BlockchainConfig;
+    use rosetta_docker::{run_test, Env};
+
+    pub async fn client_from_config(
+        config: BlockchainConfig,
+    ) -> anyhow::Result<MaybeWsEthereumClient> {
+        let url = config.node_uri.to_string();
+        MaybeWsEthereumClient::from_config(config, url.as_str(), None).await
+    }
+
+    #[tokio::test]
+    async fn block_stream_works() -> anyhow::Result<()> {
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("block-stream", config.clone(), client_from_config).await.unwrap();
+
+        run_test(env, |env| async move {
+            let client = match env.node().as_ref() {
+                MaybeWsEthereumClient::Http(_) => panic!("the connections must be ws"),
+                MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
+            };
+            let config = Config {
+                polling_interval: Duration::from_secs(1),
+                stream_error_threshold: 5,
+                unfinalized_cache_capacity: 10,
+            };
+            let mut sub = BlockSubscription::new(client, config);
+
+            let mut best_finalized_block: Option<SealedBlock<H256>> = None;
+            let mut latest_block: Option<SealedBlock<H256>> = None;
+            for _ in 0..30 {
+                let Some(new_block) = sub.next().await else {
+                    panic!("stream ended");
+                };
+                match new_block {
+                    NewBlockEvent::Finalized(new_block) => {
+                        // println!("new finalized block: {:?}", new_block.header().number());
+                        if let Some(best_finalized_block) = best_finalized_block.as_ref() {
+                            let last_number = best_finalized_block.header().number();
+                            let new_number = new_block.header().number();
+                            assert!(new_number > last_number);
+                            if new_number == (last_number + 1) {
+                                assert_eq!(
+                                    best_finalized_block.header().hash(),
+                                    new_block.header().header().parent_hash
+                                );
+                            }
+                        }
+                        best_finalized_block = Some(new_block);
+                    },
+                    NewBlockEvent::Pending(new_block) => {
+                        // println!("new pending block: {:?}", new_block.header().number());
+                        if let Some(latest_block) = latest_block.as_ref() {
+                            let last_number = latest_block.header().number();
+                            let new_number = new_block.header().number();
+                            assert!(new_number > last_number);
+                            if new_number == (last_number + 1) {
+                                assert_eq!(
+                                    latest_block.header().hash(),
+                                    new_block.header().header().parent_hash
+                                );
+                            }
+                        }
+                        latest_block = Some(new_block);
+                    },
+                }
+            }
+        })
+        .await;
+        Ok(())
     }
 }

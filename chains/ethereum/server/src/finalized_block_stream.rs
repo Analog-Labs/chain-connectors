@@ -25,7 +25,7 @@ const MAX_POLLING_INTERVAL: Duration = Duration::from_secs(60);
 const ADJUST_FACTOR: Duration = Duration::from_millis(500);
 
 /// The threshold to adjust the polling interval.
-const ADJUST_THRESHOLD: i32 = 20;
+const ADJUST_THRESHOLD: i32 = 10;
 
 /// State machine that delays invoking future until delay is elapsed.
 enum StateMachine<'a, T> {
@@ -139,8 +139,11 @@ pub struct FinalizedBlockStream<B: EthereumRpc> {
     consecutive_errors: u32,
 }
 
-impl<B: EthereumRpc> FinalizedBlockStream<B> {
-    pub const fn new(backend: B) -> Self {
+impl<B> FinalizedBlockStream<B>
+where
+    B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
+{
+    pub fn new(backend: B) -> Self {
         Self {
             backend,
             statistics: Statistics {
@@ -153,7 +156,7 @@ impl<B: EthereumRpc> FinalizedBlockStream<B> {
                 polling_interval: DEFAULT_POLLING_INTERVAL,
             },
             best_finalized_block: None,
-            state: None,
+            state: Some(StateMachine::Wait(Delay::new(Duration::from_millis(1)))),
             consecutive_errors: 0,
         }
     }
@@ -201,6 +204,9 @@ where
                         // Update last finalized block.
                         if self.statistics.on_finalized_block(new_block.header().header()) {
                             self.best_finalized_block = Some((new_block.clone(), Instant::now()));
+                            self.state = Some(StateMachine::Wait(Delay::new(
+                                self.statistics.polling_interval,
+                            )));
                             return Poll::Ready(Some(new_block));
                         }
                         self.consecutive_errors = 0;
@@ -231,5 +237,57 @@ where
                 },
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MaybeWsEthereumClient;
+    use futures_util::StreamExt;
+    use rosetta_core::BlockchainConfig;
+    use rosetta_docker::{run_test, Env};
+
+    pub async fn client_from_config(
+        config: BlockchainConfig,
+    ) -> anyhow::Result<MaybeWsEthereumClient> {
+        let url = config.node_uri.to_string();
+        MaybeWsEthereumClient::from_config(config, url.as_str(), None).await
+    }
+
+    #[tokio::test]
+    async fn finalized_block_stream_works() -> anyhow::Result<()> {
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("finalized-block-stream", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        run_test(env, |env| async move {
+            let client = match env.node().as_ref() {
+                MaybeWsEthereumClient::Http(_) => panic!("the connections must be ws"),
+                MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
+            };
+            let mut sub = FinalizedBlockStream::new(client);
+            let mut last_block: Option<BlockRef> = None;
+            for _ in 0..30 {
+                let Some(new_block) = sub.next().await else {
+                    panic!("stream ended");
+                };
+                if let Some(last_block) = last_block.as_ref() {
+                    let last_number = last_block.header().number();
+                    let new_number = new_block.header().number();
+                    assert!(new_number > last_number);
+                    if new_number == (last_number + 1) {
+                        assert_eq!(
+                            last_block.header().hash(),
+                            new_block.header().header().parent_hash
+                        );
+                    }
+                }
+                last_block = Some(new_block);
+            }
+        })
+        .await;
+        Ok(())
     }
 }
