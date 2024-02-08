@@ -14,10 +14,11 @@ use url::Url;
 
 mod client;
 mod event_stream;
+mod finalized_block_stream;
 mod log_filter;
 mod proof;
 // mod state;
-// mod stream;
+mod stream;
 mod utils;
 
 use rosetta_ethereum_rpc_client::{EthClientAdapter, EthPubsubAdapter};

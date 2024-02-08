@@ -7,9 +7,11 @@ use rosetta_config_ethereum::{
     AtBlock,
 };
 use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
-use rosetta_ethereum_backend::EthereumRpc;
+use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc};
+use std::string::ToString;
 
 pub type BlockFull = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
+pub type BlockRef = SealedBlock<H256, H256>;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code
@@ -19,6 +21,39 @@ pub struct NonPendingBlock {
     pub number: u64,
     pub identifier: BlockIdentifier,
     pub block: ethers::types::Block<H256>,
+}
+
+/// Maximum length of error messages to log.
+const ERROR_MSG_MAX_LENGTH: usize = 100;
+
+/// Helper type that truncates the error message to `ERROR_MSG_MAX_LENGTH` before logging.
+pub struct SafeLogError<'a, T>(&'a T);
+
+impl<T> std::fmt::Display for SafeLogError<'_, T>
+where
+    T: ToString,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = <T as ToString>::to_string(self.0);
+        let msg_str = msg.trim();
+        if msg_str.chars().count() > ERROR_MSG_MAX_LENGTH {
+            let msg = msg_str.chars().take(ERROR_MSG_MAX_LENGTH).collect::<String>();
+            let msg_str = msg.trim_end();
+            write!(f, "{msg_str}...")
+        } else {
+            write!(f, "{msg_str}")
+        }
+    }
+}
+
+pub trait LogErrorExt: Sized {
+    fn truncate(&self) -> SafeLogError<'_, Self>;
+}
+
+impl LogErrorExt for rosetta_ethereum_backend::jsonrpsee::core::ClientError {
+    fn truncate(&self) -> SafeLogError<'_, Self> {
+        SafeLogError(self)
+    }
 }
 
 pub trait AtBlockExt {
@@ -165,14 +200,13 @@ pub trait EthereumRpcExt {
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
 
-    async fn block_with_uncles(&self, at: AtBlock) -> anyhow::Result<Option<BlockFull>>;
+    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<BlockFull>, ClientError>;
 }
 
 #[async_trait::async_trait]
 impl<T> EthereumRpcExt for T
 where
-    T: EthereumRpc + Send + Sync + 'static,
-    T::Error: std::error::Error + Send + Sync,
+    T: EthereumRpc<Error = ClientError> + Send + Sync + 'static,
 {
     // Wait for the transaction to be mined by polling the transaction receipt every 2 seconds
     async fn wait_for_transaction_receipt(
@@ -217,14 +251,14 @@ where
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 
-    async fn block_with_uncles(&self, at: AtBlock) -> anyhow::Result<Option<BlockFull>> {
+    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<BlockFull>, ClientError> {
         let Some(block) = self.block_full::<RpcTransaction>(at).await? else {
             return Ok(None);
         };
 
         // Convert the `RpcBlock` to `SealedBlock`
         let block = SealedBlock::try_from(block)
-            .map_err(|err| anyhow::format_err!("invalid block: {err}"))?;
+            .map_err(|err| ClientError::Custom(format!("invalid block: {err}")))?;
 
         // Convert the `RpcTransaction` to `SignedTransaction`
         let block_hash = block.header().hash();
@@ -236,9 +270,9 @@ where
                 .enumerate()
                 .map(|(index, tx)| {
                     SignedTransaction::<TypedTransaction>::try_from(tx.clone()).map_err(|err| {
-                        anyhow::format_err!(
+                        ClientError::Custom(format!(
                             "Invalid tx in block {block_hash:?} at index {index}: {err}"
-                        )
+                        ))
                     })
                 })
                 .collect::<Result<Vec<_>, _>>()?;
@@ -248,9 +282,11 @@ where
         // Fetch block uncles
         let mut uncles = Vec::with_capacity(block.body().uncles.len());
         for index in 0..block.body().uncles.len() {
-            let Some(uncle) = self.uncle_by_blockhash(block_hash, u32::try_from(index)?).await?
-            else {
-                anyhow::bail!("uncle not found for block {block_hash:?} at index {index}");
+            let index = u32::try_from(index).unwrap_or(u32::MAX);
+            let Some(uncle) = self.uncle_by_blockhash(block_hash, index).await? else {
+                return Err(ClientError::Custom(format!(
+                    "uncle not found for block {block_hash:?} at index {index}"
+                )));
             };
             uncles.push(uncle);
         }
