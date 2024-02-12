@@ -5528,6 +5528,7 @@ dependencies = [
  "rosetta-ethereum-backend",
  "rosetta-ethereum-rpc-client",
  "rosetta-server",
+ "rosetta-utils",
  "serde",
  "serde_json",
  "sha3",

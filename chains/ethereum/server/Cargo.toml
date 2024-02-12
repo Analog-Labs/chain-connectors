@@ -22,6 +22,7 @@ rosetta-core.workspace = true
 rosetta-ethereum-backend = { workspace = true, features = ["jsonrpsee"] }
 rosetta-ethereum-rpc-client.workspace = true
 rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
+rosetta-utils = { workspace = true, features = ["std", "jsonrpsee"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror = "1.0"

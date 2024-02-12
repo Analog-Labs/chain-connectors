@@ -30,28 +30,25 @@ where
 }
 
 /// Manages the subscription's state
-enum SubscriptionState<'a, T> {
+enum SubscriptionState<T> {
     /// Currently subscribing
-    Subscribing(BoxFuture<'a, Result<Subscription<T>, RpcError>>),
+    Subscribing(BoxFuture<'static, Result<Subscription<T>, RpcError>>),
     /// Subscription is active.
     Subscribed(Subscription<T>),
     /// Previous subscribe attempt failed, retry after delay.
     ResubscribeAfterDelay(Delay),
     /// Previous subscribe attempt failed, retry after delay.
-    Unsubscribing(BoxFuture<'a, Result<(), RpcError>>),
+    Unsubscribing(BoxFuture<'static, Result<(), RpcError>>),
     /// Previous subscribe attempt failed, retry after delay.
     Unsubscribed(Option<RpcError>),
 }
 
 /// A stream which auto resubscribe when closed
-pub struct AutoSubscribe<'a, T>
-where
-    T: RetrySubscription + 'a,
-{
+pub struct AutoSubscribe<T: RetrySubscription> {
     /// Subscription logic
     subscriber: T,
     /// Subscription state
-    state: Option<SubscriptionState<'a, T::Item>>,
+    state: Option<SubscriptionState<T::Item>>,
     /// Count of consecutive errors.
     pub consecutive_subscription_errors: u32,
     /// Total number of successful subscriptions.
@@ -63,7 +60,7 @@ where
     pub unsubscribe: bool,
 }
 
-impl<'a, T> AutoSubscribe<'a, T>
+impl<T> AutoSubscribe<T>
 where
     T: RetrySubscription,
 {
@@ -91,6 +88,11 @@ where
         matches!(self.state, Some(SubscriptionState::Subscribed(_)))
     }
 
+    #[must_use]
+    pub const fn terminated(&self) -> bool {
+        matches!(self.state, None | Some(SubscriptionState::Unsubscribed(_)))
+    }
+
     /// Unsubscribe and consume the subscription.
     ///
     /// # Errors
@@ -100,7 +102,7 @@ where
     }
 }
 
-impl<'a, T> Stream for AutoSubscribe<'a, T>
+impl<T> Stream for AutoSubscribe<T>
 where
     T: RetrySubscription,
 {
