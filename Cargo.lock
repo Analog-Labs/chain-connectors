@@ -5614,15 +5614,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "rosetta-utils-serde"
+name = "rosetta-utils"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "futures-timer",
+ "futures-util",
  "generic-array 1.0.0",
  "impl-serde",
+ "jsonrpsee-core 0.22.1",
  "serde",
  "serde_json",
  "sp-std 14.0.0",
+ "tracing",
 ]
 
 [[package]]

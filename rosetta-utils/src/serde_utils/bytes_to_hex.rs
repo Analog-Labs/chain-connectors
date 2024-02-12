@@ -1,4 +1,4 @@
-use crate::{HexDeserializable, HexSerializable};
+use super::{HexDeserializable, HexSerializable};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_std::result::Result;
 
