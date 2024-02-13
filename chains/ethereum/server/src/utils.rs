@@ -10,8 +10,8 @@ use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
 use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc};
 use std::string::ToString;
 
-pub type BlockFull = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
-pub type BlockRef = SealedBlock<H256, H256>;
+pub type FullBlock = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
+pub type PartialBlock = SealedBlock<H256, H256>;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code
@@ -200,7 +200,7 @@ pub trait EthereumRpcExt {
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
 
-    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<BlockFull>, ClientError>;
+    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<FullBlock>, ClientError>;
 }
 
 #[async_trait::async_trait]
@@ -251,7 +251,7 @@ where
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 
-    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<BlockFull>, ClientError> {
+    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<FullBlock>, ClientError> {
         let Some(block) = self.block_full::<RpcTransaction>(at).await? else {
             return Ok(None);
         };

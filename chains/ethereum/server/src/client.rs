@@ -2,7 +2,7 @@ use crate::{
     event_stream::EthereumEventStream,
     log_filter::LogFilter,
     proof::verify_proof,
-    utils::{AtBlockExt, BlockFull, EthereumRpcExt},
+    utils::{AtBlockExt, EthereumRpcExt, FullBlock},
 };
 use anyhow::{Context, Result};
 use ethers::{
@@ -59,7 +59,7 @@ impl BlockFinalityStrategy {
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     pub(crate) backend: Adapter<P>,
-    genesis_block: BlockFull,
+    genesis_block: FullBlock,
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
@@ -148,7 +148,7 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<BlockFull> {
+    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<FullBlock> {
         let number: AtBlock = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
                 let latest_block = match latest_block {

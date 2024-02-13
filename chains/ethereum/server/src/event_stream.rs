@@ -1,4 +1,4 @@
-use crate::{client::EthereumClient, utils::BlockFull};
+use crate::{client::EthereumClient, utils::FullBlock};
 // use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use rosetta_config_ethereum::Event;
@@ -146,10 +146,10 @@ where
     latest_block: Option<u64>,
     /// Ethereum client doesn't support subscribing for finalized blocks, as workaround
     /// everytime we receive a new head, we query the latest finalized block
-    future: Option<BoxFuture<'a, anyhow::Result<BlockFull>>>,
+    future: Option<BoxFuture<'a, anyhow::Result<FullBlock>>>,
     /// Cache the best finalized block, we use this to avoid emitting two
     /// [`ClientEvent::NewFinalized`] for the same block
-    best_finalized_block: Option<BlockFull>,
+    best_finalized_block: Option<FullBlock>,
     /// Count the number of failed attempts to retrieve the finalized block
     failures: u32,
     /// Waker used to wake up the stream when a new block is available
@@ -184,7 +184,7 @@ where
         }
     }
 
-    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<BlockFull>> {
+    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<FullBlock>> {
         self.client.finalized_block(self.latest_block).boxed()
     }
 }
@@ -193,7 +193,7 @@ impl<P> Stream for FinalizedBlockStream<'_, P>
 where
     P: SubscriptionClientT + Send + Sync + 'static,
 {
-    type Item = Result<BlockFull, String>;
+    type Item = Result<FullBlock, String>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,

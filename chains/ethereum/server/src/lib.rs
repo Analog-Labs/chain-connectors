@@ -12,12 +12,14 @@ use rosetta_core::{
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
+mod cached_block;
 mod client;
 mod event_stream;
 mod finalized_block_stream;
 mod log_filter;
+// mod logs_stream;
 mod proof;
-// mod state;
+mod state;
 mod stream;
 mod utils;
 

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::utils::{EthereumRpcExt, PartialBlock};
+use crate::utils::{BlockRef, EthereumRpcExt};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};
 use rosetta_ethereum_backend::{
@@ -130,10 +130,10 @@ pub struct FinalizedBlockStream<B: EthereumRpc> {
     statistics: Statistics,
 
     /// Latest known finalized block and the timestamp when it was received.
-    best_finalized_block: Option<(PartialBlock, Instant)>,
+    best_finalized_block: Option<(BlockRef, Instant)>,
 
     /// State machine that controls fetching the latest finalized block.
-    state: Option<StateMachine<'static, Result<Option<PartialBlock>, B::Error>>>,
+    state: Option<StateMachine<'static, Result<Option<BlockRef>, B::Error>>>,
 
     /// Count of consecutive errors.
     consecutive_errors: u32,
@@ -166,7 +166,7 @@ impl<B> Stream for FinalizedBlockStream<B>
 where
     B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
 {
-    type Item = PartialBlock;
+    type Item = BlockRef;
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -268,7 +268,7 @@ mod tests {
                 MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
             };
             let mut sub = FinalizedBlockStream::new(client);
-            let mut last_block: Option<PartialBlock> = None;
+            let mut last_block: Option<BlockRef> = None;
             for _ in 0..30 {
                 let Some(new_block) = sub.next().await else {
                     panic!("stream ended");
