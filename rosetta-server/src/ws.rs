@@ -59,10 +59,10 @@ async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, Jso
 #[derive(Debug)]
 pub struct DefaultReconnectConfig {
     /// Url to connect to.
-    url: Url,
+    pub url: Url,
 
     /// RPC Client configuration.
-    config: RpcClientConfig,
+    pub config: RpcClientConfig,
 }
 
 impl ReconnectConfig for DefaultReconnectConfig {

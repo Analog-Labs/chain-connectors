@@ -17,6 +17,7 @@ futures-util = "0.3"
 hashbrown = "0.14"
 hex = "0.4"
 hex-literal = "0.4"
+pin-project = { version = "1.1" }
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
 rosetta-ethereum-backend = { workspace = true, features = ["jsonrpsee"] }
@@ -37,3 +38,4 @@ ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }
 sha3 = "0.10"
+tracing-subscriber = "0.3"

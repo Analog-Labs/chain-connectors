@@ -18,12 +18,10 @@ mod event_stream;
 mod finalized_block_stream;
 mod log_filter;
 // mod logs_stream;
+mod new_heads;
 mod proof;
-mod state;
-mod stream;
+// mod state;
 mod utils;
-
-use rosetta_ethereum_rpc_client::{EthClientAdapter, EthPubsubAdapter};
 
 pub use event_stream::EthereumEventStream;
 
@@ -33,8 +31,8 @@ pub mod config {
 
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
-    Http(EthereumClient<EthClientAdapter<HttpClient>>),
-    Ws(EthereumClient<EthPubsubAdapter<DefaultClient>>),
+    Http(EthereumClient<HttpClient>),
+    Ws(EthereumClient<DefaultClient>),
 }
 
 impl MaybeWsEthereumClient {
@@ -72,7 +70,7 @@ impl MaybeWsEthereumClient {
             let client = default_client(uri.as_str(), None).await?;
             Self::from_jsonrpsee(config, client, private_key).await
         } else {
-            let http_connection = EthClientAdapter::new(default_http_client(uri.as_str())?);
+            let http_connection = default_http_client(uri.as_str())?;
             // let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection, private_key).await?;
             Ok(Self::Http(client))
@@ -89,8 +87,7 @@ impl MaybeWsEthereumClient {
         client: DefaultClient,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let ws_connection = EthPubsubAdapter::new(client);
-        let client = EthereumClient::new(config, ws_connection, private_key).await?;
+        let client = EthereumClient::new(config, client, private_key).await?;
         Ok(Self::Ws(client))
     }
 }
@@ -99,7 +96,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<DefaultClient>>;
+    type EventStream<'a> = EthereumEventStream<'a, DefaultClient>;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 

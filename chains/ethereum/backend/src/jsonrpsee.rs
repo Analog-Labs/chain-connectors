@@ -32,6 +32,15 @@ impl<T> Adapter<T>
 where
     T: ClientT + Send + Sync,
 {
+    #[must_use]
+    pub const fn inner(&self) -> &T {
+        &self.0
+    }
+
+    pub fn inner_mut(&mut self) -> &mut T {
+        &mut self.0
+    }
+
     pub fn into_inner(self) -> T {
         self.0
     }
@@ -376,14 +385,30 @@ where
     /// Users can use the bloom filter to determine if the block contains logs that are interested
     /// to them. Note that if geth receives multiple blocks simultaneously, e.g. catching up after
     /// being out of sync, only the last block is emitted.
-    async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error> {
-        <T as SubscriptionClientT>::subscribe(
+    // async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error> {
+    //     <T as SubscriptionClientT>::subscribe::<Header, _>(&client, "eth_subscribe",
+    // rpc_params!["newHeads"], "eth_unsubscribe")     <T as SubscriptionClientT>::subscribe(
+    //         &self.0,
+    //         "eth_subscribe",
+    //         rpc_params!["newHeads"],
+    //         "eth_unsubscribe",
+    //     )
+    //     .await
+    // }
+
+    fn new_heads<'a, 'async_trait>(
+        &'a self,
+    ) -> BoxFuture<'a, Result<Self::NewHeadsStream<'a>, Self::Error>>
+    where
+        'a: 'async_trait,
+        Self: 'async_trait,
+    {
+        <T as SubscriptionClientT>::subscribe::<RpcBlock<H256>, _>(
             &self.0,
             "eth_subscribe",
             rpc_params!["newHeads"],
             "eth_unsubscribe",
         )
-        .await
     }
 
     /// Returns logs that are included in new imported blocks and match the given filter criteria.

@@ -1,11 +1,11 @@
-#![allow(dead_code)]
-use crate::utils::{BlockRef, EthereumRpcExt};
-use futures_timer::Delay;
-use futures_util::{future::BoxFuture, FutureExt, Stream};
+use crate::{finalized_block_stream::FinalizedBlockStream, utils::LogErrorExt, state::State};
+use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use rosetta_ethereum_backend::{
-    ext::types::{AtBlock, Header},
-    EthereumRpc,
+    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, SealedBlock, H256},
+    jsonrpsee::core::client::{Error as RpcError, Subscription},
+    EthereumPubSub, EthereumRpc,
 };
+use rosetta_utils::jsonrpsee::{AutoSubscribe, RetrySubscription};
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -13,229 +13,168 @@ use std::{
 };
 
 /// Default polling interval for checking for new finalized blocks.
-const DEFAULT_POLLING_INTERVAL: Duration = Duration::from_secs(2);
+const DEFAULT_POLLING_INTERVAL: Duration = Duration::from_secs(5);
 
-/// Minimal polling interval (500ms)
-const MIN_POLLING_INTERVAL: Duration = Duration::from_millis(500);
+type BlockRef = SealedBlock<H256, H256>;
 
-/// Max polling interval (1 minute)
-const MAX_POLLING_INTERVAL: Duration = Duration::from_secs(60);
-
-/// Default adjust factor, used for tune the polling interval.
-const ADJUST_FACTOR: Duration = Duration::from_millis(500);
-
-/// The threshold to adjust the polling interval.
-const ADJUST_THRESHOLD: i32 = 10;
-
-/// State machine that delays invoking future until delay is elapsed.
-enum StateMachine<'a, T> {
-    /// Waiting for the polling interval to elapse.
-    Wait(Delay),
-    /// Fetching the latest finalized block.
-    Polling(BoxFuture<'a, T>),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NewBlockEvent {
+    Pending(SealedBlock<H256>),
+    Finalized(BlockRef),
 }
 
-/// Statistics to dynamically adjust the polling interval.
-struct Statistics {
-    /// Latest known finalized block.
-    best_finalized_block: Option<Header>,
-
-    /// required number of successful polls before starting to adjust the polling interval.
-    probation_period: u32,
-
-    /// Incremented the best finalized block is parent of the new block.
-    /// Ex: if the best known finalized block is 100, and the new block is 101.
-    new: u32,
-
-    /// Counts how many times the backend returned the same finalized block.
-    /// Ex: if the best known finalized block is 100, and the new block is 100.
-    duplicated: u32,
-
-    /// Incremented when the new finalized block is not parent of the last known finalized block.
-    /// Ex: if the best known finalized block is 100, and the new block is 105.
-    gaps: u32,
-
-    /// Controls when the polling interval should be updated.
-    adjust_threshold: i32,
-
-    /// polling interval for check for new finalized blocks. adjusted dynamically.
-    polling_interval: Duration,
+struct RetryNewHeadsSubscription<RPC> {
+    backend: RPC,
 }
 
-impl Statistics {
-    /// Updates the statistics with the new finalized block.
-    fn on_finalized_block(&mut self, new_block: &Header) -> bool {
-        let Some(best_finalized_block) = self.best_finalized_block.as_ref() else {
-            self.best_finalized_block = Some(new_block.clone());
-            return true;
-        };
-
-        if new_block.number < best_finalized_block.number {
-            tracing::warn!(
-                "Non monotonically increasing finalized number, best: {}, received: {}",
-                best_finalized_block.number,
-                new_block.number
-            );
-            return false;
-        }
-
-        // Update the adjust factor, this formula converges to equalize the ratio of duplicated and
-        // ratio of gaps.
-        let expected = best_finalized_block.number + 1;
-        let is_valid = if new_block.number == best_finalized_block.number {
-            self.duplicated += 1;
-            self.adjust_threshold -= 1;
-            false
-        } else if new_block.number == expected {
-            self.new += 1;
-            true
-        } else {
-            let gap_size = i32::try_from(new_block.number - expected).unwrap_or(1);
-            self.gaps += 1;
-            self.adjust_threshold -= gap_size;
-            true
-        };
-
-        // Adjust the polling interval
-        if self.adjust_threshold >= ADJUST_THRESHOLD {
-            // Increment the polling interval by `ADJUST_FACTOR`
-            self.adjust_threshold -= ADJUST_THRESHOLD;
-            self.polling_interval += ADJUST_FACTOR;
-            self.polling_interval = self.polling_interval.saturating_add(ADJUST_FACTOR);
-        } else if self.adjust_threshold <= -ADJUST_THRESHOLD {
-            // Decrement the polling interval by `ADJUST_FACTOR`
-            self.adjust_threshold += ADJUST_THRESHOLD;
-            self.polling_interval = self.polling_interval.saturating_sub(ADJUST_FACTOR);
-        }
-
-        // Clamp the polling interval to guarantee it's within the limits.
-        self.polling_interval =
-            self.polling_interval.clamp(MIN_POLLING_INTERVAL, MAX_POLLING_INTERVAL);
-
-        // Update the best finalized block.
-        if is_valid {
-            self.best_finalized_block = Some(new_block.clone());
-        }
-        is_valid
+impl<RPC> RetryNewHeadsSubscription<RPC>
+where
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
+{
+    pub const fn new(backend: RPC) -> Self {
+        Self { backend }
     }
 }
 
-/// A stream which emits new blocks finalized blocks, it also guarantees new finalized blocks are
-/// monotonically increasing.
-pub struct FinalizedBlockStream<B: EthereumRpc> {
-    /// Ethereum RPC backend.
-    backend: B,
+/// A stream which emits new blocks and logs matching a filter.
+pub struct LogStream<RPC>
+where
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
+{
+    /// Configuration for the stream.
+    state: State,
 
-    /// Controls the polling interval for checking for new finalized blocks.
-    statistics: Statistics,
+    /// Timestamp when the last block was received.
+    last_block_timestamp: Option<Instant>,
 
-    /// Latest known finalized block and the timestamp when it was received.
-    best_finalized_block: Option<(BlockRef, Instant)>,
+    /// Subscription to new block headers.
+    /// Obs: This only emits pending blocks headers, not latest or finalized ones.
+    new_heads_sub: Option<AutoSubscribe<RetryNewHeadsSubscription<RPC>>>,
 
-    /// State machine that controls fetching the latest finalized block.
-    state: Option<StateMachine<'static, Result<Option<BlockRef>, B::Error>>>,
+    /// Subscription to new finalized blocks, the stream guarantees that new finalized blocks are
+    /// monotonically increasing.
+    finalized_blocks_stream: FinalizedBlockStream<RPC>,
 
     /// Count of consecutive errors.
     consecutive_errors: u32,
 }
 
-impl<B> FinalizedBlockStream<B>
+impl<RPC> LogStream<RPC>
 where
-    B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + EthereumRpc
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
 {
-    pub fn new(backend: B) -> Self {
+    pub fn new(backend: RPC, config: Config) -> Self {
+        let subscriber = RetryNewHeadsSubscription::new(backend.clone());
         Self {
-            backend,
-            statistics: Statistics {
-                best_finalized_block: None,
-                probation_period: 0,
-                new: 0,
-                duplicated: 0,
-                gaps: 0,
-                adjust_threshold: 0,
-                polling_interval: DEFAULT_POLLING_INTERVAL,
-            },
-            best_finalized_block: None,
-            state: Some(StateMachine::Wait(Delay::new(Duration::from_millis(1)))),
+            config,
+            last_block_timestamp: None,
+            new_heads_sub: Some(AutoSubscribe::new(Duration::from_secs(5), subscriber)),
+            finalized_blocks_stream: FinalizedBlockStream::new(backend),
             consecutive_errors: 0,
         }
     }
 }
 
-impl<B> Stream for FinalizedBlockStream<B>
+impl<RPC> Stream for LogStream<RPC>
 where
-    B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + EthereumRpc
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
 {
-    type Item = BlockRef;
+    type Item = NewBlockEvent;
 
     #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Fetch latest finalized block
-        loop {
-            let Some(state) = self.state.take() else {
-                // Safety: the state is always Some, this is unreachable.
-                unreachable!(
-                    "[report this bug] the finalzed block stream state should never be None"
+        // 1 - Poll finalized blocks
+        // 2 - Poll new heads subscription.
+
+        // Poll latest finalized block
+        match self.finalized_blocks_stream.poll_next_unpin(cx) {
+            Poll::Ready(Some(finalized_block)) => {
+                return Poll::Ready(Some(NewBlockEvent::Finalized(finalized_block)));
+            },
+            Poll::Ready(None) => {
+                tracing::error!(
+                    "[report this bug] finalized block stream should never return none"
                 );
-            };
-            self.state = match state {
-                ////////////////////////////////////////////////
-                // Waiting for the polling interval to elapse //
-                ////////////////////////////////////////////////
-                StateMachine::Wait(mut delay) => match delay.poll_unpin(cx) {
-                    Poll::Ready(()) => {
-                        let client = self.backend.clone();
-                        let static_fut =
-                            async move { client.block(AtBlock::Finalized).await }.boxed();
-                        Some(StateMachine::Polling(static_fut))
-                    },
-                    Poll::Pending => {
-                        self.state = Some(StateMachine::Wait(delay));
-                        return Poll::Pending;
-                    },
-                },
+            },
+            Poll::Pending => {},
+        }
 
-                //////////////////////////////////////////
-                // Fetching the latest finalized block. //
-                //////////////////////////////////////////
-                StateMachine::Polling(mut fut) => match fut.poll_unpin(cx) {
-                    // Backend returned a new finalized block.
-                    Poll::Ready(Ok(Some(new_block))) => {
-                        // Update last finalized block.
-                        if self.statistics.on_finalized_block(new_block.header().header()) {
-                            self.best_finalized_block = Some((new_block.clone(), Instant::now()));
-                            self.state = Some(StateMachine::Wait(Delay::new(
-                                self.statistics.polling_interval,
-                            )));
-                            return Poll::Ready(Some(new_block));
-                        }
-                        self.consecutive_errors = 0;
-                        Some(StateMachine::Wait(Delay::new(self.statistics.polling_interval)))
-                    },
+        // Check if the new heads subscription has been terminated.
+        let terminated = self.new_heads_sub.as_ref().is_some_and(AutoSubscribe::terminated);
+        if terminated {
+            self.new_heads_sub = None;
+            return Poll::Pending;
+        }
 
-                    // Backend returned an empty finalized block, this should never happen.
-                    Poll::Ready(Ok(None)) => {
-                        self.consecutive_errors += 1;
-                        tracing::error!("[report this bug] api returned empty for finalized block");
-                        Some(StateMachine::Wait(Delay::new(self.statistics.polling_interval)))
-                    },
+        // Poll new heads subscription
+        let Some(Poll::Ready(result)) =
+            self.new_heads_sub.as_mut().map(|sub| sub.poll_next_unpin(cx))
+        else {
+            return Poll::Pending;
+        };
+        match result {
+            // New block header
+            Some(Ok(block)) => {
+                // Reset error counter.
+                self.consecutive_errors = 0;
 
-                    // Backend returned an error, retry after delay.
-                    Poll::Ready(Err(err)) => {
-                        let delay = self.statistics.polling_interval;
-                        tracing::warn!(
-                            "failed to retrieve finalized block, retrying in {delay:?}: {err}"
-                        );
-                        Some(StateMachine::Wait(Delay::new(delay)))
-                    },
+                // Update last block timestamp.
+                self.last_block_timestamp = Some(Instant::now());
 
-                    // Request is pending..
-                    Poll::Pending => {
-                        self.state = Some(StateMachine::Polling(fut));
-                        return Poll::Pending;
-                    },
-                },
-            }
+                // Calculate header hash and return it.
+                let block = block.seal_slow::<DefaultCrypto>();
+                Poll::Ready(Some(NewBlockEvent::Pending(block)))
+            },
+
+            // Subscription returned an error
+            Some(Err(err)) => {
+                self.consecutive_errors += 1;
+                if self.consecutive_errors >= self.config.stream_error_threshold {
+                    // Consecutive error threshold reached, unsubscribe and close
+                    // the stream.
+                    tracing::error!(
+                        "new heads stream returned too many consecutive errors: {}",
+                        err.truncate()
+                    );
+                    if let Some(sub) = self.new_heads_sub.as_mut() {
+                        sub.unsubscribe();
+                    };
+                } else {
+                    tracing::error!("new heads stream error: {}", err.truncate());
+                }
+                Poll::Pending
+            },
+
+            // Stream ended
+            None => {
+                tracing::warn!(
+                    "new heads subscription terminated, will poll new blocks every {:?}",
+                    self.config.polling_interval
+                );
+                Poll::Pending
+            },
         }
     }
 }
@@ -256,35 +195,60 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn finalized_block_stream_works() -> anyhow::Result<()> {
+    async fn block_stream_works() -> anyhow::Result<()> {
         let config = rosetta_config_ethereum::config("dev").unwrap();
-        let env = Env::new("finalized-block-stream", config.clone(), client_from_config)
-            .await
-            .unwrap();
+        let env = Env::new("block-stream", config.clone(), client_from_config).await.unwrap();
 
         run_test(env, |env| async move {
             let client = match env.node().as_ref() {
                 MaybeWsEthereumClient::Http(_) => panic!("the connections must be ws"),
                 MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
             };
-            let mut sub = FinalizedBlockStream::new(client);
-            let mut last_block: Option<BlockRef> = None;
+            let config = Config {
+                polling_interval: Duration::from_secs(1),
+                stream_error_threshold: 5,
+                unfinalized_cache_capacity: 10,
+            };
+            let mut sub = BlockSubscription::new(client, config);
+
+            let mut best_finalized_block: Option<SealedBlock<H256>> = None;
+            let mut latest_block: Option<SealedBlock<H256>> = None;
             for _ in 0..30 {
                 let Some(new_block) = sub.next().await else {
                     panic!("stream ended");
                 };
-                if let Some(last_block) = last_block.as_ref() {
-                    let last_number = last_block.header().number();
-                    let new_number = new_block.header().number();
-                    assert!(new_number > last_number);
-                    if new_number == (last_number + 1) {
-                        assert_eq!(
-                            last_block.header().hash(),
-                            new_block.header().header().parent_hash
-                        );
-                    }
+                match new_block {
+                    NewBlockEvent::Finalized(new_block) => {
+                        // println!("new finalized block: {:?}", new_block.header().number());
+                        if let Some(best_finalized_block) = best_finalized_block.as_ref() {
+                            let last_number = best_finalized_block.header().number();
+                            let new_number = new_block.header().number();
+                            assert!(new_number > last_number);
+                            if new_number == (last_number + 1) {
+                                assert_eq!(
+                                    best_finalized_block.header().hash(),
+                                    new_block.header().header().parent_hash
+                                );
+                            }
+                        }
+                        best_finalized_block = Some(new_block);
+                    },
+                    NewBlockEvent::Pending(new_block) => {
+                        // println!("new pending block: {:?}", new_block.header().number());
+                        if let Some(latest_block) = latest_block.as_ref() {
+                            let last_number = latest_block.header().number();
+                            let new_number = new_block.header().number();
+                            assert!(new_number > last_number);
+                            if new_number == (last_number + 1) {
+                                assert_eq!(
+                                    latest_block.header().hash(),
+                                    new_block.header().header().parent_hash
+                                );
+                            }
+                        }
+                        latest_block = Some(new_block);
+                    },
                 }
-                last_block = Some(new_block);
             }
         })
         .await;

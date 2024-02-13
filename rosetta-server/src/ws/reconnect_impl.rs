@@ -178,7 +178,7 @@ impl<T: Config> Clone for ConnectionStatus<T> {
 /// This state is shared between all the clients.
 #[derive(Debug)]
 pub struct SharedState<T: Config> {
-    config: T,
+    pub config: T,
     connection_status: RwLock<ConnectionStatus<T>>,
 }
 

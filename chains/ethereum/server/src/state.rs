@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::collections::{BTreeMap, VecDeque};
 
 use crate::cached_block::{BlockRef, CachedBlock};
@@ -426,7 +425,7 @@ mod tests {
 
     #[test]
     fn orphan_blocks_test() {
-        //     +---B-c-C---D---E---P
+        //     +---X---C---D---E---P
         //     |
         //     |   +---G
         //     |   |

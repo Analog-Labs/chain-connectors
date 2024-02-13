@@ -1,54 +1,45 @@
+use super::FutureFactory;
 use crate::error::LogErrorExt;
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use jsonrpsee_core::client::{Error as RpcError, Subscription};
 use serde::de::DeserializeOwned;
 use std::{
+    mem,
     pin::Pin,
     task::{Context, Poll},
     time::{Duration, Instant},
 };
 
-pub trait RetrySubscription: Unpin + Send + Sync + 'static {
-    type Item: DeserializeOwned + Send + Sync + 'static;
-    fn subscribe(&mut self) -> BoxFuture<'static, Result<Subscription<Self::Item>, RpcError>>;
-}
-
-impl<T, F> RetrySubscription for F
-where
-    T: DeserializeOwned + Send + Sync + 'static,
-    F: FnMut() -> BoxFuture<'static, Result<Subscription<T>, RpcError>>
-        + Unpin
-        + Send
-        + Sync
-        + 'static,
-{
-    type Item = T;
-    fn subscribe(&mut self) -> BoxFuture<'static, Result<Subscription<Self::Item>, RpcError>> {
-        (self)()
-    }
-}
-
 /// Manages the subscription's state
-enum SubscriptionState<T> {
+enum State<T, F>
+where
+    F: FutureFactory<Output = Result<Subscription<T>, RpcError>>,
+{
+    /// Idle
+    Idle(F),
     /// Currently subscribing
-    Subscribing(BoxFuture<'static, Result<Subscription<T>, RpcError>>),
+    Subscribing(BoxFuture<'static, (F, F::Output)>),
     /// Subscription is active.
-    Subscribed(Subscription<T>),
+    Subscribed { subscriber: F, subscription: Subscription<T> },
     /// Previous subscribe attempt failed, retry after delay.
-    ResubscribeAfterDelay(Delay),
-    /// Previous subscribe attempt failed, retry after delay.
-    Unsubscribing(BoxFuture<'static, Result<(), RpcError>>),
-    /// Previous subscribe attempt failed, retry after delay.
-    Unsubscribed(Option<RpcError>),
+    ResubscribeAfterDelay { subscriber: F, delay: Delay },
+    /// Unsubscribing from stream.
+    Unsubscribing { subscriber: F, fut: BoxFuture<'static, Result<(), RpcError>> },
+    /// Unsubscribed.
+    Unsubscribed { subscriber: F, result: Option<RpcError> },
+    /// Subscription is poisoned, happens when it panics.
+    Poisoned,
 }
 
 /// A stream which auto resubscribe when closed
-pub struct AutoSubscribe<T: RetrySubscription> {
-    /// Subscription logic
-    subscriber: T,
+#[pin_project::pin_project]
+pub struct AutoSubscribe<T, F>
+where
+    F: FutureFactory<Output = Result<Subscription<T>, RpcError>>,
+{
     /// Subscription state
-    state: Option<SubscriptionState<T::Item>>,
+    state: State<T, F>,
     /// Count of consecutive errors.
     pub consecutive_subscription_errors: u32,
     /// Total number of successful subscriptions.
@@ -60,15 +51,14 @@ pub struct AutoSubscribe<T: RetrySubscription> {
     pub unsubscribe: bool,
 }
 
-impl<T> AutoSubscribe<T>
+impl<T, F> AutoSubscribe<T, F>
 where
-    T: RetrySubscription,
+    T: DeserializeOwned + Send + Sync + 'static,
+    F: FutureFactory<Output = Result<Subscription<T>, RpcError>>,
 {
-    pub fn new(retry_interval: Duration, mut subscriber: T) -> Self {
-        let fut = subscriber.subscribe();
+    pub const fn new(retry_interval: Duration, subscriber: F) -> Self {
         Self {
-            subscriber,
-            state: Some(SubscriptionState::Subscribing(fut)),
+            state: State::Idle(subscriber),
             consecutive_subscription_errors: 0,
             total_subscriptions: 0,
             retry_interval,
@@ -79,18 +69,18 @@ where
 
     #[must_use]
     pub const fn is_initializing(&self) -> bool {
-        matches!(self.state, Some(SubscriptionState::Subscribing(_))) &&
+        matches!(self.state, State::Idle(_) | State::Subscribing(_)) &&
             self.total_subscriptions == 0
     }
 
     #[must_use]
     pub const fn is_subscribed(&self) -> bool {
-        matches!(self.state, Some(SubscriptionState::Subscribed(_)))
+        matches!(self.state, State::Subscribed { .. })
     }
 
     #[must_use]
     pub const fn terminated(&self) -> bool {
-        matches!(self.state, None | Some(SubscriptionState::Unsubscribed(_)))
+        matches!(self.state, State::Poisoned | State::Unsubscribed { .. })
     }
 
     /// Unsubscribe and consume the subscription.
@@ -100,173 +90,179 @@ where
     pub fn unsubscribe(&mut self) {
         self.unsubscribe = true;
     }
+
+    /// Consume the subscription and return the inner subscriber.
+    pub fn into_subscriber(self) -> Option<F> {
+        match self.state {
+            State::Idle(subscriber) |
+            State::Subscribed { subscriber, .. } |
+            State::ResubscribeAfterDelay { subscriber, .. } |
+            State::Unsubscribing { subscriber, .. } |
+            State::Unsubscribed { subscriber, .. } => Some(subscriber),
+            State::Subscribing(fut) => fut.now_or_never().map(|(subscriber, _)| subscriber),
+            State::Poisoned => None,
+        }
+    }
 }
 
-impl<T> Stream for AutoSubscribe<T>
+impl<T, F> Stream for AutoSubscribe<T, F>
 where
-    T: RetrySubscription,
+    T: DeserializeOwned + Send + Sync + 'static,
+    F: FutureFactory<Output = Result<Subscription<T>, RpcError>>,
 {
-    type Item = Result<T::Item, RpcError>;
+    type Item = Result<T, RpcError>;
 
-    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
         loop {
-            let Some(mut state) = self.state.take() else {
-                return Poll::Ready(None);
-            };
+            match mem::replace(this.state, State::Poisoned) {
+                State::Idle(mut subscriber) => {
+                    // Check if it was requested to unsubscribe.
+                    if *this.unsubscribe {
+                        *this.state = State::Unsubscribed { subscriber, result: None };
+                        continue;
+                    }
 
-            // Handle unsubscribe
-            if self.unsubscribe {
-                state = match state {
-                    // If the client is subscribing, wait for it to finish then unsubscribe.
-                    SubscriptionState::Subscribing(mut fut) => match fut.poll_unpin(cx) {
-                        Poll::Ready(Ok(subscription)) => {
-                            // If the subscription succeeded, start the unsubscribe process.
-                            SubscriptionState::Unsubscribing(subscription.unsubscribe().boxed())
-                        },
-                        Poll::Ready(Err(_)) => {
-                            // if the subscription failed we don't need to unsubscribe.
-                            SubscriptionState::Unsubscribed(None)
-                        },
-                        Poll::Pending => {
-                            // Wait for the subscription to finish, so we can unsubscribe.
-                            self.state = Some(SubscriptionState::Subscribing(fut));
-                            return Poll::Pending;
-                        },
-                    },
-                    // If the client is subscribed, start the unsubscribe process.
-                    SubscriptionState::Subscribed(subscription) => {
-                        SubscriptionState::Unsubscribing(subscription.unsubscribe().boxed())
-                    },
-                    // If the client is waiting to resubscribe, cancel the resubscribe and go to
-                    // unsubscribed state.
-                    SubscriptionState::ResubscribeAfterDelay(_delay) => {
-                        SubscriptionState::Unsubscribed(None)
-                    },
-                    s => s,
-                };
-            }
+                    // Subscribe
+                    let fut = async move {
+                        let result = subscriber.new_future().await;
+                        (subscriber, result)
+                    }
+                    .boxed();
+                    *this.state = State::Subscribing(fut);
+                    continue;
+                },
 
-            self.state = match state {
                 /////////////////////
                 // Subscribing ... //
                 /////////////////////
-                SubscriptionState::Subscribing(mut fut) => {
-                    match fut.poll_unpin(cx) {
-                        // Subscription succeeded
-                        Poll::Ready(Ok(sub)) => {
-                            let attempts = self.consecutive_subscription_errors;
-                            if let Some(timestamp) = self.last_subscription_timestamp.take() {
-                                let elapsed = timestamp.elapsed();
-                                tracing::info!("succesfully resubscribed after {elapsed:?}, attemps: {attempts}", elapsed = elapsed);
-                            } else if attempts > 0 {
-                                tracing::info!(
-                                    "succesfully subscribed after {attempts} attempt(s)"
-                                );
-                            }
-                            // Reset error counter and update last subscription timestamp.
-                            self.total_subscriptions += 1;
-                            self.consecutive_subscription_errors = 0;
-                            self.last_subscription_timestamp = Some(Instant::now());
-                            Some(SubscriptionState::Subscribed(sub))
-                        },
+                State::Subscribing(mut fut) => match fut.poll_unpin(cx) {
+                    // Subscription succeeded
+                    Poll::Ready((subscriber, Ok(subscription))) => {
+                        let attempts = *this.consecutive_subscription_errors;
+                        if let Some(timestamp) = this.last_subscription_timestamp.take() {
+                            let elapsed = timestamp.elapsed();
+                            tracing::info!(
+                                "succesfully resubscribed after {elapsed:?}, attemps: {attempts}",
+                                elapsed = elapsed
+                            );
+                        } else if attempts > 0 {
+                            tracing::info!("succesfully subscribed after {attempts} attempt(s)");
+                        }
+                        // Reset error counter and update last subscription timestamp.
+                        *this.total_subscriptions += 1;
+                        *this.consecutive_subscription_errors = 0;
+                        *this.last_subscription_timestamp = Some(Instant::now());
+                        *this.state = State::Subscribed { subscriber, subscription };
+                    },
 
-                        // Subscription failed
-                        Poll::Ready(Err(err)) => {
-                            if matches!(err, RpcError::HttpNotImplemented) {
-                                // Http doesn't support subscriptions, return error and close the
-                                // stream
-                                return Poll::Ready(Some(Err(RpcError::HttpNotImplemented)));
-                            }
-                            // increment error counter and retry after delay.
-                            let attempts = self.consecutive_subscription_errors + 1;
-                            let msg = err.truncate();
-                            tracing::error!("subscription attempt {attempts} failed: {msg}");
-                            self.consecutive_subscription_errors = attempts;
+                    // Subscription failed
+                    Poll::Ready((subscriber, Err(err))) => {
+                        // Check if it was requested to unsubscribe.
+                        if *this.unsubscribe {
+                            *this.state = State::Unsubscribed { subscriber, result: None };
+                            continue;
+                        }
+                        if matches!(err, RpcError::HttpNotImplemented) {
+                            // Http doesn't support subscriptions, return error and close the stream
+                            *this.state = State::Unsubscribed { subscriber, result: None };
+                            return Poll::Ready(Some(Err(RpcError::HttpNotImplemented)));
+                        }
+                        // increment error counter and retry after delay.
+                        let attempts = *this.consecutive_subscription_errors + 1;
+                        *this.consecutive_subscription_errors = attempts;
 
-                            // Schedule next subscription attempt.
-                            Some(SubscriptionState::ResubscribeAfterDelay(Delay::new(
-                                self.retry_interval,
-                            )))
-                        },
+                        // Schedule next subscription attempt.
+                        *this.state = State::ResubscribeAfterDelay {
+                            subscriber,
+                            delay: Delay::new(*this.retry_interval),
+                        };
+                    },
 
-                        // Subscription is pending
-                        Poll::Pending => {
-                            self.state = Some(SubscriptionState::Subscribing(fut));
-                            return Poll::Pending;
-                        },
-                    }
+                    // Subscription is pending
+                    Poll::Pending => {
+                        *this.state = State::Subscribing(fut);
+                        return Poll::Pending;
+                    },
                 },
 
                 ////////////////////////////
                 // Subscription is active //
                 ////////////////////////////
-                SubscriptionState::Subscribed(mut sub) => match sub.poll_next_unpin(cx) {
-                    // Got a new item
-                    Poll::Ready(Some(Ok(item))) => {
-                        let fut = self.subscriber.subscribe();
-                        self.state = Some(SubscriptionState::Subscribing(fut));
-                        return Poll::Ready(Some(Ok(item)));
-                    },
+                State::Subscribed { subscriber, mut subscription } => {
+                    // Check if it was requested to unsubscribe.
+                    if *this.unsubscribe {
+                        *this.state = State::Unsubscribing {
+                            subscriber,
+                            fut: subscription.unsubscribe().boxed(),
+                        };
+                        continue;
+                    }
+                    match subscription.poll_next_unpin(cx) {
+                        // Got a new item
+                        Poll::Ready(Some(Ok(item))) => {
+                            *this.state = State::Subscribed { subscriber, subscription };
+                            return Poll::Ready(Some(Ok(item)));
+                        },
 
-                    // Got an error
-                    Poll::Ready(Some(Err(err))) => {
-                        match err {
+                        // Got an error
+                        Poll::Ready(Some(Err(err))) => match err {
                             // Subscription terminated, resubscribe.
                             RpcError::RestartNeeded(msg) => {
                                 tracing::error!("subscription terminated: {}", msg.truncate());
-                                Some(SubscriptionState::Subscribing(self.subscriber.subscribe()))
-                            },
-                            // Http doesn't support subscriptions, return error and close the stream
-                            RpcError::HttpNotImplemented => {
-                                return Poll::Ready(Some(Err(RpcError::HttpNotImplemented)));
+                                *this.state = State::Unsubscribing {
+                                    subscriber,
+                                    fut: subscription.unsubscribe().boxed(),
+                                };
                             },
                             // Return error
                             err => {
-                                let fut = self.subscriber.subscribe();
-                                self.state = Some(SubscriptionState::Subscribing(fut));
+                                *this.state = State::Subscribed { subscriber, subscription };
                                 return Poll::Ready(Some(Err(err)));
                             },
-                        }
-                    },
+                        },
 
-                    // Stream was close, resubscribe.
-                    Poll::Ready(None) => {
-                        Some(SubscriptionState::Subscribing(self.subscriber.subscribe()))
-                    },
+                        // Stream was close, resubscribe.
+                        Poll::Ready(None) => {
+                            tracing::warn!("subscription websocket closed.. resubscribing.");
+                            *this.state = State::Idle(subscriber);
+                        },
 
-                    // Stream is pending
-                    Poll::Pending => {
-                        self.state = Some(SubscriptionState::Subscribed(sub));
-                        return Poll::Pending;
-                    },
+                        // Stream is pending
+                        Poll::Pending => {
+                            *this.state = State::Subscribed { subscriber, subscription };
+                            return Poll::Pending;
+                        },
+                    }
                 },
 
                 /////////////
                 // Waiting //
                 /////////////
-                SubscriptionState::ResubscribeAfterDelay(mut delay) => match delay.poll_unpin(cx) {
-                    Poll::Ready(()) => {
-                        // Timeout elapsed, retry subscription.
-                        Some(SubscriptionState::Subscribing(self.subscriber.subscribe()))
-                    },
-                    Poll::Pending => {
-                        self.state = Some(SubscriptionState::ResubscribeAfterDelay(delay));
-                        return Poll::Pending;
-                    },
+                State::ResubscribeAfterDelay { subscriber, mut delay } => {
+                    match delay.poll_unpin(cx) {
+                        Poll::Ready(()) => {
+                            // Timeout elapsed, retry subscription.
+                            *this.state = State::Idle(subscriber);
+                        },
+                        Poll::Pending => {
+                            *this.state = State::ResubscribeAfterDelay { subscriber, delay };
+                            return Poll::Pending;
+                        },
+                    }
                 },
 
                 /////////////////////
                 // Unsubscribing.. //
                 /////////////////////
-                SubscriptionState::Unsubscribing(mut fut) => match fut.poll_unpin(cx) {
+                State::Unsubscribing { subscriber, mut fut } => match fut.poll_unpin(cx) {
                     Poll::Ready(res) => {
                         // Timeout elapsed, retry subscription.
-                        self.state = Some(SubscriptionState::Unsubscribed(res.err()));
-                        return Poll::Ready(None);
+                        *this.state = State::Unsubscribed { subscriber, result: res.err() };
                     },
                     Poll::Pending => {
-                        self.state = Some(SubscriptionState::Unsubscribing(fut));
+                        *this.state = State::Unsubscribing { subscriber, fut };
                         return Poll::Pending;
                     },
                 },
@@ -274,12 +270,23 @@ where
                 //////////////////
                 // Unsubscribed //
                 //////////////////
-                SubscriptionState::Unsubscribed(maybe_err) => {
-                    if self.unsubscribe {
-                        self.state = Some(SubscriptionState::Unsubscribed(maybe_err));
-                        return Poll::Ready(None);
+                State::Unsubscribed { subscriber, mut result } => {
+                    // Only return error if it wasn't requested to unsubscribe.
+                    if !*this.unsubscribe {
+                        if let Some(err) = result.take() {
+                            *this.state = State::Unsubscribed { subscriber, result: None };
+                            return Poll::Ready(Some(Err(err)));
+                        }
                     }
-                    Some(SubscriptionState::Subscribing(self.subscriber.subscribe()))
+                    *this.state = State::Unsubscribed { subscriber, result };
+                    return Poll::Ready(None);
+                },
+
+                //////////////
+                // Poisoned //
+                //////////////
+                State::Poisoned => {
+                    panic!("Stream is poisoned");
                 },
             };
         }

@@ -67,6 +67,21 @@ pub struct AutoReconnectClient<T> {
     span: tracing::Span,
 }
 
+impl<T> AutoReconnectClient<T> {
+    #[must_use]
+    pub const fn client(&self) -> &T {
+        &self.client
+    }
+
+    pub fn client_mut(&mut self) -> &mut T {
+        &mut self.client
+    }
+
+    pub fn into_client(self) -> T {
+        self.client
+    }
+}
+
 impl<T> AutoReconnectClient<T>
 where
     T: Reconnect,

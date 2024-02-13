@@ -91,6 +91,10 @@ where
         Self { adapter: EthClientAdapter::new(client), eth_subscriptions: Arc::new(DashMap::new()) }
     }
 
+    pub fn into_inner(self) -> C {
+        self.adapter.client
+    }
+
     /// # Errors
     ///
     /// Will return `Err` when:

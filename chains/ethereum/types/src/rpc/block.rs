@@ -84,7 +84,20 @@ pub struct RpcBlock<TX, OMMERS = H256> {
 }
 
 impl<TX, OMMERS> RpcBlock<TX, OMMERS> {
-    /// Seal the header with the given hash.
+    /// Seal the block with the given hash.
+    pub fn seal(self, hash: H256) -> SealedBlock<TX, OMMERS> {
+        let header = self.header.seal(hash);
+        let body = BlockBody {
+            transactions: self.transactions,
+            uncles: self.uncles,
+            total_difficulty: self.total_difficulty,
+            seal_fields: self.seal_fields,
+            size: self.size,
+        };
+        SealedBlock::new(header, body)
+    }
+
+    /// Seal the block by calculating the block hash.
     pub fn seal_slow<C: Crypto>(self) -> SealedBlock<TX, OMMERS> {
         let header = self.header.seal_slow::<C>();
         let body = BlockBody {

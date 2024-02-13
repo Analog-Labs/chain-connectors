@@ -18,10 +18,12 @@ sp-std = { version = "14.0" }
 futures-timer = { version = "3.0", optional = true }
 futures-util = { version = "0.3", optional = true }
 jsonrpsee-core = { version = "0.22", default-features = false, features = ["client"], optional = true }
+pin-project = { version = "1.1", optional = true }
 tracing = { version = "0.1", optional = true }
 
 [dev-dependencies]
 serde_json = { version = "1.0" }
+tokio = { version = "1.36", features = ["full"] }
 
 [features]
 default = ["std", "bytes", "serde", "jsonrpsee"]
@@ -31,4 +33,12 @@ std = [
 ]
 serde = ["dep:serde", "dep:impl-serde-macro"]
 bytes = ["dep:bytes"]
-jsonrpsee = ["std", "serde", "dep:futures-util", "dep:futures-timer", "dep:jsonrpsee-core", "dep:tracing"]
+jsonrpsee = [
+  "std",
+  "serde",
+  "dep:futures-util",
+  "dep:futures-timer",
+  "dep:jsonrpsee-core",
+  "dep:pin-project",
+  "dep:tracing",
+]
