@@ -1,6 +1,9 @@
 use futures_util::{Stream, TryStream};
 use pin_project::pin_project;
-use std::{pin::Pin, task::{Context, Poll}};
+use std::{
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 pub enum Action {
     Ignore,
@@ -28,8 +31,7 @@ impl<E> ErrorHandler<E> for () {
     }
 }
 
-/// Polls a future at a fixed interval, adjusting the interval based on the actual time it took to
-/// complete the future.
+/// Automatically closes the stream after a certain number of consecutive errors.
 #[pin_project]
 pub struct CircuitBreaker<S: TryStream, H: ErrorHandler<S::Error>> {
     #[pin]
@@ -70,10 +72,7 @@ impl<S: TryStream, H: ErrorHandler<S::Error>> CircuitBreaker<S, H> {
 impl<S: TryStream, E: ErrorHandler<S::Error>> Stream for CircuitBreaker<S, E> {
     type Item = Result<S::Ok, S::Error>;
 
-    fn poll_next(
-        self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
         loop {
             // If the number of consecutive errors exceeds the threshold, return None

@@ -38,7 +38,7 @@ serde_json.workspace = true
 subxt = { workspace = true, features = ["native", "substrate-compat"], optional = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tokio-retry = "0.3"
-tokio-tungstenite = { version = "0.20", default-features = false, features = ["handshake", "connect"] }
+tokio-tungstenite = { version = "0.21", default-features = false, features = ["handshake", "connect"] }
 tracing = "0.1"
 url = "2.4"
 

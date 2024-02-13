@@ -28,7 +28,7 @@ where
     Unsubscribing { subscriber: F, fut: BoxFuture<'static, Result<(), RpcError>> },
     /// Unsubscribed.
     Unsubscribed { subscriber: F, result: Option<RpcError> },
-    /// Subscription is poisoned, happens when it panics.
+    /// Subscription is poisoned
     Poisoned,
 }
 
