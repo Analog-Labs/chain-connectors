@@ -103,7 +103,6 @@ where
 pub struct NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Unpin
         + Send
         + Sync
         + 'static,
@@ -122,7 +121,6 @@ impl<RPC> NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
-        + Unpin
         + Send
         + Sync
         + 'static,
@@ -137,7 +135,6 @@ impl<RPC> Stream for NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
-        + Unpin
         + Send
         + Sync
         + 'static,
@@ -178,26 +175,19 @@ where
                         },
                         Poll::Ready(None) => {
                             // Subscription terminated, switch to polling.
-                            if let Some(backend) =
-                                subscription.into_subscriber().map(NewHeadsSubscriber::into_inner)
-                            {
-                                *this.error_count = this.error_count.saturating_sub(2);
-                                *this.state = State::Polling(CircuitBreaker::new(
-                                    PollingInterval::new(
-                                        PollLatestBlock(backend),
-                                        DEFAULT_POLLING_INTERVAL,
-                                    ),
-                                    MAX_ERRORS,
-                                    (),
-                                ));
-                            } else {
-                                // This should never happen, once if the `AutoSubscribe` returns
-                                // None, we must be able to retrieve
-                                // the backend.
-                                tracing::error!("[report this bug] the subscription returned None and the backend is not available");
-                                *this.state = State::Terminated;
-                                return Poll::Ready(None);
-                            }
+                            *this.error_count = this.error_count.saturating_sub(2);
+
+                            // Safety: The subscriber always exists when the stream returns None.
+                            #[allow(clippy::unwrap_used)]
+                            let subscriber = subscription.into_subscriber().unwrap().into_inner();
+                            *this.state = State::Polling(CircuitBreaker::new(
+                                PollingInterval::new(
+                                    PollLatestBlock(subscriber),
+                                    DEFAULT_POLLING_INTERVAL,
+                                ),
+                                MAX_ERRORS,
+                                (),
+                            ));
                         },
                         Poll::Pending => {
                             *this.state = State::Subscription(subscription);
