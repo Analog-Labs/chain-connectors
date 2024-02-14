@@ -100,7 +100,7 @@ where
 
 /// A stream which emits new blocks and logs matching a filter.
 #[pin_project::pin_project]
-pub struct BlockSubscription<RPC>
+pub struct NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Unpin
@@ -118,7 +118,7 @@ where
     error_count: u32,
 }
 
-impl<RPC> BlockSubscription<RPC>
+impl<RPC> NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
@@ -133,7 +133,7 @@ where
     }
 }
 
-impl<RPC> Stream for BlockSubscription<RPC>
+impl<RPC> Stream for NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + EthereumRpc
@@ -300,7 +300,7 @@ mod tests {
                 MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
             };
             let client = Adapter(client.into_inner());
-            let mut sub = BlockSubscription::new(client);
+            let mut sub = NewHeadsStream::new(client);
             let mut latest_block: Option<SealedBlock<H256>> = None;
             for i in 0..10 {
                 let Some(new_block) = sub.next().await else {

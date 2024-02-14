@@ -1,6 +1,7 @@
+#![allow(dead_code)]
 use std::collections::{BTreeMap, VecDeque};
 
-use crate::cached_block::{BlockRef, CachedBlock};
+use crate::multi_block::{BlockRef, MultiBlock};
 use fork_tree::FinalizationResult;
 use hashbrown::{hash_map::Entry, HashMap};
 use rosetta_config_ethereum::ext::types::H256;
@@ -19,11 +20,11 @@ pub enum Error {
 /// Manages the client state
 pub struct State {
     /// Map of block hashes to their full block data
-    blocks: HashMap<BlockRef, CachedBlock>,
+    blocks: HashMap<BlockRef, MultiBlock>,
     /// Maps an orphan block to missing block
     orphans: HashMap<BlockRef, BlockRef>,
     /// Maps a missing block to a list of orphan blocks
-    missing: HashMap<BlockRef, BTreeMap<BlockRef, CachedBlock>>,
+    missing: HashMap<BlockRef, BTreeMap<BlockRef, MultiBlock>>,
     /// Tree-like ordered blocks, used to track and remove orphan blocks
     fork_tree: ForkTree,
     /// List of finalized finalized blocks
@@ -31,7 +32,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new<B: Into<CachedBlock>>(best_finalized_block: B) -> Self {
+    pub fn new<B: Into<MultiBlock>>(best_finalized_block: B) -> Self {
         let best_finalized_block = best_finalized_block.into();
         let best_finalized_block_ref = best_finalized_block.as_block_ref();
         let best_finalized_block_parent = best_finalized_block.parent_hash();
@@ -71,7 +72,7 @@ impl State {
         }
     }
 
-    fn insert_block(&mut self, block: CachedBlock) -> Result<(), fork_tree::Error<Error>> {
+    fn insert_block(&mut self, block: MultiBlock) -> Result<(), fork_tree::Error<Error>> {
         let block_ref = block.as_block_ref();
         let parent_hash = block.parent_hash();
         self.blocks.insert(block_ref, block);
@@ -86,8 +87,8 @@ impl State {
 
     fn insert_orphan_block(
         &mut self,
-        block: CachedBlock,
-        mut children: BTreeMap<BlockRef, CachedBlock>,
+        block: MultiBlock,
+        mut children: BTreeMap<BlockRef, MultiBlock>,
     ) {
         // Add block to the orphan list
         let missing_ref = if let Some(parent_ref) = self.orphans.get(&block.parent_ref()).copied() {
@@ -123,10 +124,7 @@ impl State {
     }
 
     #[allow(clippy::too_many_lines)]
-    pub fn import<B: Into<CachedBlock>>(
-        &mut self,
-        block: B,
-    ) -> Result<(), fork_tree::Error<Error>> {
+    pub fn import<B: Into<MultiBlock>>(&mut self, block: B) -> Result<(), fork_tree::Error<Error>> {
         let block = block.into();
 
         // Check if the block is already in the cache, if so, update it
@@ -239,7 +237,7 @@ impl State {
     pub fn finalize(
         &mut self,
         finalized_block_ref: BlockRef,
-    ) -> Result<Vec<CachedBlock>, fork_tree::Error<Error>> {
+    ) -> Result<Vec<MultiBlock>, fork_tree::Error<Error>> {
         // Check if the block was imported
         if !self.blocks.contains_key(&finalized_block_ref) {
             return Err(fork_tree::Error::Client(Error::BlockNotFound(finalized_block_ref.hash)));
@@ -307,7 +305,7 @@ impl State {
 }
 
 fn is_descendent_of(
-    blocks: &HashMap<BlockRef, CachedBlock>,
+    blocks: &HashMap<BlockRef, MultiBlock>,
     base: BlockRef,
     block: BlockRef,
 ) -> Result<bool, Error> {
@@ -347,7 +345,7 @@ mod tests {
         TypedTransaction, H256,
     };
 
-    fn create_block(parent_hash: H256, number: u64, nonce: u64) -> CachedBlock {
+    fn create_block(parent_hash: H256, number: u64, nonce: u64) -> MultiBlock {
         let body = BlockBody::<SignedTransaction<TypedTransaction>, SealedHeader> {
             transactions: Vec::new(),
             total_difficulty: None,

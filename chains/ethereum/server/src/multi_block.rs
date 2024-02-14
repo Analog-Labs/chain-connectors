@@ -9,8 +9,10 @@ use rosetta_ethereum_backend::ext::types::{
     crypto::DefaultCrypto, Header, SealedHeader, H256, U256,
 };
 
+/// A `MultiBlock` can be either a `FullBlock`, a `PartialBlock` or a Header
+/// The ethereum RPC API returns blocks in different formats, this enum is used to store them
 #[derive(Debug, Clone)]
-pub enum CachedBlock {
+pub enum MultiBlock {
     // Full block data, including transactions and ommers
     Full(FullBlock),
     // Partial block data, including the header and the transactions hashes
@@ -19,7 +21,7 @@ pub enum CachedBlock {
     Header(SealedHeader),
 }
 
-impl CachedBlock {
+impl MultiBlock {
     #[must_use]
     pub const fn header(&self) -> &SealedHeader {
         match self {
@@ -91,45 +93,45 @@ impl CachedBlock {
     }
 }
 
-impl PartialEq for CachedBlock {
+impl PartialEq for MultiBlock {
     fn eq(&self, other: &Self) -> bool {
         self.hash() == other.hash()
     }
 }
 
-impl Eq for CachedBlock {}
+impl Eq for MultiBlock {}
 
-impl PartialOrd for CachedBlock {
+impl PartialOrd for MultiBlock {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(Ord::cmp(self, other))
     }
 }
 
-impl Ord for CachedBlock {
+impl Ord for MultiBlock {
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_block_ref().cmp(&other.as_block_ref())
     }
 }
 
-impl From<FullBlock> for CachedBlock {
+impl From<FullBlock> for MultiBlock {
     fn from(block: FullBlock) -> Self {
         Self::Full(block)
     }
 }
 
-impl From<PartialBlock> for CachedBlock {
+impl From<PartialBlock> for MultiBlock {
     fn from(block: PartialBlock) -> Self {
         Self::Partial(block)
     }
 }
 
-impl From<SealedHeader> for CachedBlock {
+impl From<SealedHeader> for MultiBlock {
     fn from(header: SealedHeader) -> Self {
         Self::Header(header)
     }
 }
 
-impl From<Header> for CachedBlock {
+impl From<Header> for MultiBlock {
     fn from(header: Header) -> Self {
         let sealed_header = header.seal_slow::<DefaultCrypto>();
         Self::Header(sealed_header)

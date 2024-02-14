@@ -12,15 +12,16 @@ use rosetta_core::{
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
-mod cached_block;
+mod block_stream;
 mod client;
 mod event_stream;
 mod finalized_block_stream;
 mod log_filter;
 // mod logs_stream;
+mod multi_block;
 mod new_heads;
 mod proof;
-// mod state;
+mod state;
 mod utils;
 
 pub use event_stream::EthereumEventStream;
