@@ -57,6 +57,10 @@ impl GenericClient {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
             },
+            Blockchain::Humanode => {
+                let client = AstarClient::new(network, url).await?;
+                Self::Astar(client)
+            },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
@@ -79,6 +83,10 @@ impl GenericClient {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
             },
+            Blockchain::Humanode => {
+                let client = AstarClient::from_config(config, url).await?;
+                Self::Astar(client)
+            },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
@@ -93,6 +101,7 @@ pub enum GenericMetadataParams {
     Bitcoin(BitcoinMetadataParams),
     Ethereum(EthereumMetadataParams),
     Astar(AstarMetadataParams),
+    // Humanode(AstarMetadataParams),
     Polkadot(PolkadotMetadataParams),
 }
 
@@ -102,6 +111,7 @@ pub enum GenericMetadata {
     Bitcoin(BitcoinMetadata),
     Ethereum(EthereumMetadata),
     Astar(AstarMetadata),
+    // Humanode(AstarMetadata),
     Polkadot(PolkadotMetadata),
 }
 
@@ -125,6 +135,7 @@ macro_rules! dispatch {
             Self::Ethereum(client) => client$($method)*,
             Self::Astar(client) => client$($method)*,
             Self::Polkadot(client) => client$($method)*,
+            // Self::Humanode(client) => client$($method)*,
         }
     };
 }
