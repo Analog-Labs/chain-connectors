@@ -6,6 +6,7 @@ members = [
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
   "chains/ethereum/tx",
+  "chains/humanode/config",
   "chains/polkadot/config",
   "chains/polkadot/server",
   "chains/polkadot/tx",

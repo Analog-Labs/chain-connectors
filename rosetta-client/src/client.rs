@@ -51,6 +51,10 @@ impl GenericClient {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
             },
+            Blockchain::Humanode => {
+                let client = AstarClient::new(network, url).await?;
+                Self::Astar(client)
+            },
             Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
@@ -73,6 +77,10 @@ impl GenericClient {
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {
+                let client = AstarClient::from_config(config, url).await?;
+                Self::Astar(client)
+            },
+            Blockchain::Humanode => {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
             },
