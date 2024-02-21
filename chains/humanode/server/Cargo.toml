@@ -1,0 +1,20 @@
+[package]
+name = "rosetta-server-humanode"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+async-trait = "0.1"
+parity-scale-codec = { workspace = true, features = ["derive"] }
+rosetta-config-ethereum.workspace = true
+rosetta-config-humanode = { workspace = true, features = ["humanode-metadata"] }
+rosetta-core.workspace = true
+rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
+rosetta-server-ethereum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sp-keyring = "24.0"
+subxt = { workspace = true, features = ["substrate-compat"] }

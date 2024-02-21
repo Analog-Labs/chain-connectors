@@ -8,6 +8,8 @@ members = [
   "chains/ethereum/rpc-client",
   "chains/ethereum/server",
   "chains/ethereum/tx",
+  "chains/humanode/config",
+  "chains/humanode/server",
   "chains/polkadot/config",
   "chains/polkadot/server",
   "chains/polkadot/tx",
@@ -32,6 +34,8 @@ rosetta-config-ethereum = { path = "chains/ethereum/config" }
 rosetta-server-ethereum = { path = "chains/ethereum/server" }
 rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client" }
 rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
+rosetta-config-humanode = { path = "chains/humanode/config" }
+rosetta-server-humanode = { path = "chains/humanode/server" }
 rosetta-config-polkadot = { path = "chains/polkadot/config" }
 rosetta-server-polkadot = { path = "chains/polkadot/server" }
 rosetta-tx-polkadot = { path = "chains/polkadot/tx" }

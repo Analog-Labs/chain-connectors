@@ -273,6 +273,7 @@ impl Wallet {
         let result = match &self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
+            GenericClient::Humanode(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
             GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_view_call"),
         };
@@ -299,6 +300,9 @@ impl Wallet {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
             GenericClient::Astar(client) => {
+                client.call(&EthQuery::GetStorageAt(get_storage)).await?
+            },
+            GenericClient::Humanode(client) => {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
@@ -328,6 +332,7 @@ impl Wallet {
         let result = match &self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
+            GenericClient::Humanode(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
             GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
@@ -352,6 +357,9 @@ impl Wallet {
             GenericClient::Astar(client) => {
                 client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
             },
+            GenericClient::Humanode(client) => {
+                client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
+            },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
             GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
@@ -370,6 +378,7 @@ impl Wallet {
         let result = match &self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
+            GenericClient::Humanode(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),
             GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_chainId"),
         };

@@ -4985,6 +4985,7 @@ dependencies = [
  "rosetta-server-astar",
  "rosetta-server-bitcoin",
  "rosetta-server-ethereum",
+ "rosetta-server-humanode",
  "rosetta-server-polkadot",
  "rosetta-tx-ethereum",
  "rosetta-tx-polkadot",
@@ -5027,6 +5028,15 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "rosetta-config-humanode"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rosetta-core",
+ "subxt",
 ]
 
 [[package]]
@@ -5216,6 +5226,24 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "rosetta-server-humanode"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "parity-scale-codec",
+ "rosetta-config-ethereum",
+ "rosetta-config-humanode",
+ "rosetta-core",
+ "rosetta-server",
+ "rosetta-server-ethereum",
+ "serde",
+ "serde_json",
+ "sp-keyring",
+ "subxt",
 ]
 
 [[package]]

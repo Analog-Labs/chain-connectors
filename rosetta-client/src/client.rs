@@ -12,6 +12,7 @@ use derive_more::From;
 use futures::Stream;
 use rosetta_core::{BlockchainClient, ClientEvent};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
+use rosetta_server_humanode::{HumanodeClient, HumanodeMetadata, HumanodeMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
     config::{Query as EthQuery, QueryResult as EthQueryResult},
@@ -30,6 +31,7 @@ pub enum GenericClient {
     Bitcoin(BitcoinClient),
     Ethereum(EthereumClient),
     Astar(AstarClient),
+    Humanode(HumanodeClient),
     Polkadot(PolkadotClient),
 }
 
@@ -58,8 +60,8 @@ impl GenericClient {
                 Self::Astar(client)
             },
             Blockchain::Humanode => {
-                let client = AstarClient::new(network, url).await?;
-                Self::Astar(client)
+                let client = HumanodeClient::new(network, url).await?;
+                Self::Humanode(client)
             },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::new(network, url).await?;
@@ -84,8 +86,8 @@ impl GenericClient {
                 Self::Astar(client)
             },
             Blockchain::Humanode => {
-                let client = AstarClient::from_config(config, url).await?;
-                Self::Astar(client)
+                let client = HumanodeClient::from_config(config, url).await?;
+                Self::Humanode(client)
             },
             Blockchain::Polkadot => {
                 let client = PolkadotClient::from_config(config, url).await?;
@@ -101,7 +103,7 @@ pub enum GenericMetadataParams {
     Bitcoin(BitcoinMetadataParams),
     Ethereum(EthereumMetadataParams),
     Astar(AstarMetadataParams),
-    // Humanode(AstarMetadataParams),
+    Humanode(HumanodeMetadataParams),
     Polkadot(PolkadotMetadataParams),
 }
 
@@ -111,7 +113,7 @@ pub enum GenericMetadata {
     Bitcoin(BitcoinMetadata),
     Ethereum(EthereumMetadata),
     Astar(AstarMetadata),
-    // Humanode(AstarMetadata),
+    Humanode(HumanodeMetadata),
     Polkadot(PolkadotMetadata),
 }
 
@@ -135,7 +137,7 @@ macro_rules! dispatch {
             Self::Ethereum(client) => client$($method)*,
             Self::Astar(client) => client$($method)*,
             Self::Polkadot(client) => client$($method)*,
-            // Self::Humanode(client) => client$($method)*,
+            Self::Humanode(client) => client$($method)*,
         }
     };
 }
@@ -231,6 +233,12 @@ impl BlockchainClient for GenericClient {
                 _ => anyhow::bail!("invalid call"),
             },
             Self::Astar(client) => match req {
+                GenericCall::Ethereum(args) => {
+                    GenericCallResult::Ethereum(client.call(args).await?)
+                },
+                _ => anyhow::bail!("invalid call"),
+            },
+            Self::Humanode(client) => match req {
                 GenericCall::Ethereum(args) => {
                     GenericCallResult::Ethereum(client.call(args).await?)
                 },
