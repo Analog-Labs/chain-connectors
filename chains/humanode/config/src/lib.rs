@@ -24,6 +24,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
 
         _ => anyhow::bail!("unsupported network: {}", network),
     };
+    println!("{:?}",network);
 
     Ok(BlockchainConfig {
         blockchain: "humanode",
@@ -36,14 +37,16 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         currency_unit: "hmnd",
         currency_symbol: symbol,
         currency_decimals: 18,
-        node_uri: NodeUri::parse("ws://127.0.0.1:9945")?,
-        node_image: "christismith/humanode",
-        node_command: Arc::new(|network, _port| {
+        node_uri: NodeUri::parse("ws://127.0.0.1:9944")?,
+        node_image: "humanode",
+        node_command: Arc::new(|network, port| {
             let mut params = vec![
                 "humanode-peer".into(),
                 format!("--chain={network}"),
                 "--rpc-cors=all".into(),
-                "--rpc-external".into(),
+                format!("--rpc-port={port}"),
+                "--unsafe-rpc-external".into(),
+
             ];
             if network.ends_with("dev") {
                 params.extend_from_slice(&["--alice".into(), "--tmp".into()]);

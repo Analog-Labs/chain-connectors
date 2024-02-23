@@ -227,3 +227,146 @@ impl BlockchainClient for HumanodeClient {
         self.client.listen().await
     }
 }
+
+
+#[allow(clippy::ignored_unit_patterns)]
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alloy_sol_types::{sol, SolCall};
+    use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
+    use rosetta_config_ethereum::{AtBlock, CallResult};
+    use rosetta_docker::Env;
+    use sha3::Digest;
+    use std::{collections::BTreeMap, path::Path};
+
+    sol! {
+        interface TestContract {
+            event AnEvent();
+            function emitEvent() external;
+
+            function identity(bool a) external view returns (bool);
+        }
+    }
+
+    pub async fn client_from_config(config: BlockchainConfig) -> Result<HumanodeClient> {
+        let url = config.node_uri.to_string();
+        HumanodeClient::from_config(config, url.as_str()).await
+    }
+
+    #[tokio::test]
+    async fn test_network_status() -> Result<()> {
+        let config = rosetta_config_humanode::config("dev")?;
+        rosetta_docker::tests::network_status::<HumanodeClient, _, _>(client_from_config, config).await
+    }
+
+    #[tokio::test]
+    async fn test_account() -> Result<()> {
+        let config = rosetta_config_humanode::config("dev")?;
+        rosetta_docker::tests::account(client_from_config, config).await
+    }
+
+
+    // #[tokio::test]
+    // async fn test_construction() -> Result<()> {
+    //     let config = rosetta_config_astar::config("dev")?;
+    //     rosetta Solc::default();
+    //     let source = format!("contract Contract {{ {source} }}");
+    //     let mut sources = BTreeMap::new();
+    //     sources.insert(Path::new("contract.sol").into(), Source::new(source));
+    //     let input = CompilerInput::with_sources(sources)[0]
+    //         .clone()
+    //         .evm_version(EvmVersion::Homestead);
+    //     let output = solc.compile_exact(&input)?;
+    //     let file = output.contracts.get("contract.sol").unwrap();
+    //     let contract = file.get("Contract").unwrap();
+    //     let bytecode = contract
+    //         .evm
+    //         .as_ref()
+    //         .unwrap()
+    //         .bytecode
+    //         .as_ref()
+    //         .unwrap()
+    //         .object
+    //         .as_bytes()
+    //         .unwrap()
+    //         .to_vec();
+    //     Ok(bytecode)
+    // }
+
+    // #[tokio::test]
+    // async fn test_smart_contract() -> Result<()> {
+    //     let config = rosetta_config_astar::config("dev")?;
+
+    //     let env = Env::new("astar-smart-contract", config.clone(), client_from_config).await?;
+
+    //     let faucet = 100 * u128::pow(10, config.currency_decimals);
+    //     let wallet = env.ephemeral_wallet().await?;
+    //     wallet.faucet(faucet).await?;
+
+    //     let bytes = compile_snippet(
+    //         r"
+    //         event AnEvent();
+    //         function emitEvent() public {
+    //             emit AnEvent();
+    //         }
+    //         ",
+    //     )?;
+    //     let tx_hash = wallet.eth_deploy_contract(bytes).await?;
+    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+    //     let contract_address = receipt.contract_address.unwrap();
+    //     let tx_hash = {
+    //         let data = TestContract::emitEventCall::SELECTOR.to_vec();
+    //         wallet.eth_send_call(contract_address.0, data, 0).await?
+    //     };
+    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+    //     let logs = receipt.logs;
+    //     assert_eq!(logs.len(), 1);
+    //     let topic = logs[0].topics[0];
+    //     let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
+    //     assert_eq!(topic, expected);
+    //     env.shutdown().await?;
+    //     Ok(())
+    // }
+
+    // #[tokio::test]
+    // async fn test_smart_contract_view() -> Result<()> {
+    //     let config = rosetta_config_astar::config("dev")?;
+    //     let faucet = 100 * u128::pow(10, config.currency_decimals);
+
+    //     let env = Env::new("astar-smart-contract-view", config, client_from_config).await?;
+
+    //     let wallet = env.ephemeral_wallet().await?;
+    //     wallet.faucet(faucet).await?;
+
+    //     let bytes = compile_snippet(
+    //         r"
+    //         function identity(bool a) public view returns (bool) {
+    //             return a;
+    //         }
+    //     ",
+    //     )?;
+    //     let tx_hash = wallet.eth_deploy_contract(bytes).await?;
+    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
+    //     let contract_address = receipt.contract_address.unwrap();
+
+    //     let response = {
+    //         let call = TestContract::identityCall { a: true };
+    //         wallet
+    //             .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+    //             .await?
+    //     };
+    //     assert_eq!(
+    //         response,
+    //         CallResult::Success(
+    //             [
+    //                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    //                 0, 0, 0, 0, 0, 1
+    //             ]
+    //             .to_vec()
+    //         )
+    //     );
+    //     env.shutdown().await?;
+    //     Ok(())
+    // }
+}

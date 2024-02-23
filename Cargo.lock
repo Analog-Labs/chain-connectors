@@ -5232,18 +5232,25 @@ dependencies = [
 name = "rosetta-server-humanode"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "ethers-solc",
  "parity-scale-codec",
+ "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-config-humanode",
  "rosetta-core",
+ "rosetta-docker",
  "rosetta-server",
  "rosetta-server-ethereum",
  "serde",
  "serde_json",
+ "sha3",
  "sp-keyring",
  "subxt",
+ "tokio",
 ]
 
 [[package]]

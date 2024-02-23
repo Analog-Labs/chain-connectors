@@ -5,6 +5,7 @@ volumes:
   ethereum-volume:
   polkadot-volume:
   astar-volume:
+  humanode-volume:
 
 services:
   bitcoin:
@@ -73,6 +74,23 @@ services:
     volumes:
     - "astar-volume:/astar"
 
+  humanode:
+    image: "humanode"
+    command: "humanode-peer --chain dev --rpc-cors=all --ws-external --alice"
+    expose:
+      - "9944"
+    user: root
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
+    deploy:
+      resources:
+        reservations:
+          memory: 1g
+    volumes:
+    - "humanode-volume:/humanode"
+
 
   connector-bitcoin:
     image: "analoglabs/connector-bitcoin"
@@ -102,9 +120,18 @@ services:
 
   connector-astar:
     image: "analoglabs/connector-astar"
-    command: "--network dev --addr 0.0.0.0:8083 --node-addr ws://astar:9994"
+    command: "--network dev --addr 0.0.0.0:8083 --node-addr ws://astar:9944"
     ports:
     - "8083:8083"
     depends_on:
     - astar
+    restart: always
+
+  connector-humanode:
+    image: "humanode"
+    command: "--network dev --addr 0.0.0.0:8084 --node-addr ws://humanode:9944"
+    ports:
+      -"8084:8084"
+    depends_on:
+      - humanode
     restart: always
