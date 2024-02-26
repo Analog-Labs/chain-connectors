@@ -43,9 +43,10 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
             let mut params = vec![
                 "humanode-peer".into(),
                 format!("--chain={network}"),
+                "--force-authoring".into(),
                 "--rpc-cors=all".into(),
                 format!("--rpc-port={port}"),
-                "--unsafe-rpc-external".into(),
+                "--rpc-external".into(),
 
             ];
             if network.ends_with("dev") {

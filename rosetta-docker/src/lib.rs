@@ -219,14 +219,19 @@ impl<'a> EnvBuilder<'a> {
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
+    // println!("inside run_connector {:?}", config.node_command("dev", "8084"););
         const MAX_RETRIES: usize = 10;
 
         let client = {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
                 .max_delay(Duration::from_secs(5))
                 .take(MAX_RETRIES);
+    
+println!("inside run_connector 2");
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
+
+println!("inside run_connector 3");
                 match start_connector(config.clone()).await {
                     Ok(client) => {
                         if let Err(error) = client.finalized_block().await {
@@ -237,6 +242,8 @@ impl<'a> EnvBuilder<'a> {
                         break;
                     },
                     Err(error) => {
+
+    println!("inside run_connector 4");
                         result = Err(error);
                         tokio::time::sleep(delay).await;
                     },
