@@ -197,6 +197,9 @@ impl BlockchainClient for GenericClient {
             (Self::Astar(client), GenericMetadataParams::Astar(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
+            (Self::Humanode(client), GenericMetadataParams::Humanode(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
             (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
