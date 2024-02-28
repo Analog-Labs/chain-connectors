@@ -11,9 +11,16 @@ use rosetta_core::{
 pub use types::{
     Address, AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionReceipt, Header, Log, Query, QueryResult, SealedHeader, SignedTransaction,
-    StorageProof, TransactionReceipt, H256,
+    GetTransactionReceipt, Header, Log, Query, QueryItem, QueryResult, SealedHeader,
+    SignedTransaction, StorageProof, TransactionReceipt, H256,
 };
+
+pub mod query {
+    pub use crate::types::{
+        CallContract, GetBalance, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
+        GetTransactionReceipt, Query, QueryItem, QueryResult,
+    };
+}
 
 #[cfg(not(feature = "std"))]
 #[cfg_attr(test, macro_use)]

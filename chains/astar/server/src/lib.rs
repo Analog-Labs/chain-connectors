@@ -94,13 +94,14 @@ impl AstarClient {
                 // If a hash if provided, we don't know if it's a ethereum block hash or substrate
                 // block hash. We try to fetch the block using ethereum first, and
                 // if it fails, we try to fetch it using substrate.
-                let ethereum_block =
-                    self.client.call(&EthQuery::GetBlockByHash(H256(*block_hash))).await.map(
-                        |result| match result {
-                            EthQueryResult::GetBlockByHash(block) => block,
-                            _ => unreachable!(),
-                        },
-                    );
+                let ethereum_block = self
+                    .client
+                    .call(&EthQuery::GetBlockByHash(H256(*block_hash).into()))
+                    .await
+                    .map(|result| match result {
+                        EthQueryResult::GetBlockByHash(block) => block,
+                        _ => unreachable!(),
+                    });
 
                 if let Ok(Some(ethereum_block)) = ethereum_block {
                     // Convert ethereum block to substrate block by fetching the block by number.

@@ -1,7 +1,7 @@
 use anyhow::Result;
 pub use client::EthereumClient;
 pub use rosetta_config_ethereum::{
-    EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery,
+    EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
     QueryResult as EthQueryResult, Subscription,
 };
 use rosetta_core::{
@@ -212,7 +212,7 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
-    use rosetta_config_ethereum::{AtBlock, CallResult};
+    use rosetta_config_ethereum::{query::GetLogs, AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
@@ -317,6 +317,19 @@ mod tests {
             let topic = receipt.logs[0].topics[0];
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
+
+            let block_hash = receipt.block_hash.unwrap();
+            assert_eq!(topic, expected);
+
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_hash.into()),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
         })
         .await;
         Ok(())
@@ -326,7 +339,7 @@ mod tests {
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev").unwrap();
-        let env = Env::new("ethereum-smart-contract-view", config.clone(), client_from_config)
+        let env = Env::new("ethereum-smart-contract-logs-view", config.clone(), client_from_config)
             .await
             .unwrap();
 

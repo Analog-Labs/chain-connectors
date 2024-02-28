@@ -1,3 +1,4 @@
+#![allow(clippy::option_if_let_else)]
 use super::FutureFactory;
 use crate::error::LogErrorExt;
 use futures_timer::Delay;

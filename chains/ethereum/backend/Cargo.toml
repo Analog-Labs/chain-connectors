@@ -15,7 +15,10 @@ parity-scale-codec = { workspace = true, features = ["derive"], optional = true 
 rosetta-ethereum-types = { workspace = true, features = ["with-rlp", "with-crypto"] }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
-serde_json = { version = "1.0", default-features = false, optional = true }
+
+[dev-dependencies]
+hex-literal = "0.4"
+serde_json = { version = "1.0", default-features = false }
 
 [features]
 default = ["std", "jsonrpsee"]

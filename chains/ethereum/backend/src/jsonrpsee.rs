@@ -385,17 +385,6 @@ where
     /// Users can use the bloom filter to determine if the block contains logs that are interested
     /// to them. Note that if geth receives multiple blocks simultaneously, e.g. catching up after
     /// being out of sync, only the last block is emitted.
-    // async fn new_heads<'a>(&'a self) -> Result<Self::NewHeadsStream<'a>, Self::Error> {
-    //     <T as SubscriptionClientT>::subscribe::<Header, _>(&client, "eth_subscribe",
-    // rpc_params!["newHeads"], "eth_unsubscribe")     <T as SubscriptionClientT>::subscribe(
-    //         &self.0,
-    //         "eth_subscribe",
-    //         rpc_params!["newHeads"],
-    //         "eth_unsubscribe",
-    //     )
-    //     .await
-    // }
-
     fn new_heads<'a, 'async_trait>(
         &'a self,
     ) -> BoxFuture<'a, Result<Self::NewHeadsStream<'a>, Self::Error>>

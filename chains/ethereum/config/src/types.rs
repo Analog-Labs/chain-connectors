@@ -1,8 +1,9 @@
 pub use rosetta_ethereum_types::{
-    rpc::RpcTransaction, Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header,
+    rpc::RpcTransaction, Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header, Log,
     StorageProof, TransactionReceipt, H256, U256,
 };
 
+use rosetta_core::traits::Query as QueryT;
 #[cfg(feature = "serde")]
 use rosetta_ethereum_types::serde_utils::{bytes_to_hex, uint_to_hex};
 
@@ -43,6 +44,33 @@ impl_wrapper! {
 impl_wrapper! {
     #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct BlockRef(Block<H256, H256>);
+}
+
+pub trait QueryItem: QueryT {
+    /// Convert the query item into a query
+    fn into_query(self) -> Query;
+
+    /// # Errors
+    /// Returns an error if the result is not of the expected type
+    fn parse_result(result: QueryResult) -> anyhow::Result<<Self as QueryT>::Result>;
+}
+
+/// Impl query item for each query type
+macro_rules! impl_query_item {
+    ($name:ident) => {
+        impl QueryItem for $name {
+            fn into_query(self) -> Query {
+                Query::$name(self)
+            }
+
+            fn parse_result(result: QueryResult) -> anyhow::Result<<Self as QueryT>::Result> {
+                match result {
+                    QueryResult::$name(result) => Ok(result),
+                    _ => anyhow::bail!("Unexpected result type"),
+                }
+            }
+        }
+    };
 }
 
 #[derive(Clone, Debug)]
@@ -87,6 +115,11 @@ pub struct GetBalance {
     pub block: AtBlock,
 }
 
+impl QueryT for GetBalance {
+    type Result = U256;
+}
+impl_query_item!(GetBalance);
+
 /// Executes a new message call immediately without creating a transaction on the blockchain.
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -106,6 +139,11 @@ pub struct CallContract {
     pub block: AtBlock,
 }
 
+impl QueryT for CallContract {
+    type Result = CallResult;
+}
+impl_query_item!(CallContract);
+
 /// Returns the account and storage values of the specified account including the Merkle-proof.
 /// This call can be used to verify that the data you are pulling from is not tampered with.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -120,6 +158,11 @@ pub struct GetTransactionReceipt {
     pub tx_hash: H256,
 }
 
+impl QueryT for GetTransactionReceipt {
+    type Result = Option<TransactionReceipt>;
+}
+impl_query_item!(GetTransactionReceipt);
+
 /// Returns the value from a storage position at a given address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -133,6 +176,11 @@ pub struct GetStorageAt {
     /// Storage at the block
     pub block: AtBlock,
 }
+
+impl QueryT for GetStorageAt {
+    type Result = H256;
+}
+impl_query_item!(GetStorageAt);
 
 /// Returns the account and storage values, including the Merkle proof, of the specified
 /// account.
@@ -149,6 +197,60 @@ pub struct GetProof {
     pub storage_keys: Vec<H256>,
     pub block: AtBlock,
 }
+
+impl QueryT for GetProof {
+    type Result = EIP1186ProofResponse;
+}
+impl_query_item!(GetProof);
+
+/// Returns an array of all the logs matching the contract address and topics.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct GetBlockByHash(pub H256);
+
+impl From<H256> for GetBlockByHash {
+    fn from(hash: H256) -> Self {
+        Self(hash)
+    }
+}
+
+impl From<GetBlockByHash> for H256 {
+    fn from(query: GetBlockByHash) -> Self {
+        query.0
+    }
+}
+
+impl QueryT for GetBlockByHash {
+    type Result = Option<BlockFull>;
+}
+impl_query_item!(GetBlockByHash);
+
+/// Returns an array of all the logs matching the contract address and topics.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct GetLogs {
+    pub contracts: Vec<Address>,
+    pub topics: Vec<H256>,
+    pub block: AtBlock,
+}
+
+impl QueryT for GetLogs {
+    type Result = Vec<Log>;
+}
+impl_query_item!(GetLogs);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -180,15 +282,30 @@ pub enum Query {
     /// Returns information about a block whose hash is in the request, or null when no block was
     /// found.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
-    GetBlockByHash(H256),
+    GetBlockByHash(GetBlockByHash),
     /// Returns the currently configured chain ID, a value used in replay-protected transaction
     /// signing as introduced by EIP-155
     #[cfg_attr(feature = "serde", serde(rename = "eth_chainId"))]
     ChainId,
+    /// Returns an array of all the logs matching the given filter.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getLogs"))]
+    GetLogs(GetLogs),
 }
 
-impl rosetta_core::traits::Query for Query {
+impl QueryT for Query {
     type Result = QueryResult;
+}
+
+impl QueryItem for Query {
+    #[inline]
+    fn into_query(self) -> Self {
+        self
+    }
+
+    #[inline]
+    fn parse_result(result: QueryResult) -> anyhow::Result<<Self as QueryT>::Result> {
+        anyhow::Result::Ok(result)
+    }
 }
 
 /// The result of contract call execution
@@ -224,91 +341,34 @@ pub enum CallResult {
 pub enum QueryResult {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
-    GetBalance(U256),
+    GetBalance(<GetBalance as QueryT>::Result),
     /// Returns the value from a storage position at a given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
-    GetStorageAt(H256),
+    GetStorageAt(<GetStorageAt as QueryT>::Result),
     /// Returns the receipt of a transaction by transaction hash.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionReceipt"))]
-    GetTransactionReceipt(Option<TransactionReceipt>),
+    GetTransactionReceipt(<GetTransactionReceipt as QueryT>::Result),
     /// Executes a new message call immediately without creating a transaction on the block
     /// chain.
     #[cfg_attr(feature = "serde", serde(rename = "eth_call"))]
-    CallContract(CallResult),
+    CallContract(<CallContract as QueryT>::Result),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getProof"))]
-    GetProof(EIP1186ProofResponse),
+    GetProof(<GetProof as QueryT>::Result),
     /// Returns information about a block whose hash is in the request, or null when no block was
     /// found.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
-    GetBlockByHash(Option<BlockFull>),
+    GetBlockByHash(<GetBlockByHash as QueryT>::Result),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex", rename = "eth_chainId"))]
     ChainId(u64),
-}
-
-/// A log produced by a transaction.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
-#[cfg_attr(
-    feature = "serde",
-    derive(serde::Serialize, serde::Deserialize),
-    serde(rename_all = "camelCase")
-)]
-pub struct Log {
-    /// H160. the contract that emitted the log
-    pub address: Address,
-
-    /// topics: Array of 0 to 4 32 Bytes of indexed log arguments.
-    /// (In solidity: The first topic is the hash of the signature of the event
-    /// (e.g. `Deposit(address,bytes32,uint256)`), except you declared the event
-    /// with the anonymous specifier.)
-    pub topics: Vec<H256>,
-
-    /// Data
-    #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
-    pub data: Vec<u8>,
-
-    /// Block Hash
-    pub block_hash: Option<H256>,
-
-    /// Block Number
-    #[cfg_attr(
-        feature = "serde",
-        serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex")
-    )]
-    pub block_number: Option<u64>,
-
-    /// Transaction Hash
-    pub transaction_hash: Option<H256>,
-
-    /// Transaction Index
-    #[cfg_attr(
-        feature = "serde",
-        serde(skip_serializing_if = "Option::is_none", with = "uint_to_hex")
-    )]
-    pub transaction_index: Option<u64>,
-
-    /// Integer of the log index position in the block. None if it's a pending log.
-    #[allow(clippy::struct_field_names)]
-    pub log_index: Option<U256>,
-
-    /// Integer of the transactions index position log was created from.
-    /// None when it's a pending log.
-    pub transaction_log_index: Option<U256>,
-
-    /// Log Type
-    #[allow(clippy::struct_field_names)]
-    pub log_type: Option<String>,
-
-    /// True when the log was removed, due to a chain reorganization.
-    /// false if it's a valid log.
-    pub removed: Option<bool>,
+    /// Returns an array of all the logs matching the given filter.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getLogs"))]
+    GetLogs(<GetLogs as QueryT>::Result),
 }
 
 #[cfg(all(test, feature = "serde"))]

@@ -1,3 +1,4 @@
+#![allow(clippy::option_if_let_else)]
 use crate::{
     event_stream::EthereumEventStream,
     log_filter::LogFilter,
@@ -26,7 +27,7 @@ use rosetta_ethereum_backend::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    EthereumPubSub, EthereumRpc, ExitReason,
+    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -58,7 +59,7 @@ impl BlockFinalityStrategy {
 
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
-    pub(crate) backend: Adapter<P>,
+    pub backend: Adapter<P>,
     genesis_block: FullBlock,
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU64>,
@@ -376,7 +377,7 @@ where
             },
             EthQuery::GetBlockByHash(block_hash) => {
                 let Some(block) =
-                    self.backend.block_with_uncles(AtBlock::from(*block_hash)).await?
+                    self.backend.block_with_uncles(AtBlock::from(block_hash.0)).await?
                 else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
@@ -385,6 +386,17 @@ where
             EthQuery::ChainId => {
                 let chain_id = self.backend.chain_id().await?;
                 EthQueryResult::ChainId(chain_id)
+            },
+            EthQuery::GetLogs(logs) => {
+                let block_range = BlockRange {
+                    address: logs.contracts.clone(),
+                    topics: logs.topics.clone(),
+                    from: None,
+                    to: None,
+                    blockhash: Some(logs.block),
+                };
+                let logs = self.backend.get_logs(block_range).await?;
+                EthQueryResult::GetLogs(logs)
             },
         };
         Ok(result)
