@@ -3,7 +3,7 @@ use crate::{
     event_stream::EthereumEventStream,
     log_filter::LogFilter,
     proof::verify_proof,
-    utils::{AtBlockExt, EthereumRpcExt, FullBlock},
+    utils::{AtBlockExt, EthereumRpcExt, PartialBlock},
 };
 use anyhow::{Context, Result};
 use ethers::{
@@ -60,7 +60,7 @@ impl BlockFinalityStrategy {
 pub struct EthereumClient<P> {
     config: BlockchainConfig,
     pub backend: Adapter<P>,
-    genesis_block: FullBlock,
+    genesis_block: PartialBlock,
     block_finality_strategy: BlockFinalityStrategy,
     nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
@@ -97,9 +97,15 @@ where
         let backend = Adapter(rpc_client.clone());
         let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
         let genesis_block = backend
-            .block_with_uncles(at)
+            .block(at)
             .await?
-            .ok_or_else(|| anyhow::format_err!("FATAL: genesis block not found"))?;
+            .ok_or_else(|| anyhow::format_err!("FATAL: genesis block not found"))?
+            .try_seal()
+            .map_err(|_| {
+                anyhow::format_err!(
+                    "FATAL: api returned an invalid genesis block: block hash missing"
+                )
+            })?;
 
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let (private_key, nonce) = if let Some(private) = private_key {
@@ -141,15 +147,17 @@ where
 
     #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
-        let Some(header) = self.backend.block(AtBlock::Latest).await?.map(|block| block.unseal().0)
-        else {
+        let Some(block) = self.backend.block(AtBlock::Latest).await? else {
             anyhow::bail!("[report this bug] latest block not found");
         };
-        Ok(BlockIdentifier { index: header.number(), hash: header.hash().0 })
+        let Some(hash) = block.hash else {
+            anyhow::bail!("[report this bug] api returned latest block without hash");
+        };
+        Ok(BlockIdentifier { index: block.header.number, hash: hash.0 })
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<FullBlock> {
+    pub async fn finalized_block(&self, latest_block: Option<u64>) -> Result<PartialBlock> {
         let number: AtBlock = match self.block_finality_strategy {
             BlockFinalityStrategy::Confirmations(confirmations) => {
                 let latest_block = match latest_block {
@@ -170,9 +178,12 @@ where
             BlockFinalityStrategy::Finalized => AtBlock::Finalized,
         };
 
-        let Some(finalized_block) = self.backend.block_with_uncles(number).await? else {
+        let Some(finalized_block) = self.backend.block(number).await? else {
             anyhow::bail!("Cannot find finalized block at {number}");
         };
+        let finalized_block = finalized_block.try_seal().map_err(|_| {
+            anyhow::format_err!("api returned an invalid finalized block: block hash missing")
+        })?;
         Ok(finalized_block)
     }
 
@@ -381,7 +392,7 @@ where
                 else {
                     return Ok(EthQueryResult::GetBlockByHash(None));
                 };
-                EthQueryResult::GetBlockByHash(Some(block.into()))
+                EthQueryResult::GetBlockByHash(Some(block))
             },
             EthQuery::ChainId => {
                 let chain_id = self.backend.chain_id().await?;

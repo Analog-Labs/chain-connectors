@@ -12,6 +12,7 @@ use std::string::ToString;
 
 pub type FullBlock = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
 pub type PartialBlock = SealedBlock<H256, H256>;
+pub type PartialBlockWithUncles = SealedBlock<H256, SealedHeader>;
 
 /// A block that is not pending, so it must have a valid hash and number.
 /// This allow skipping duplicated checks in the code
@@ -200,7 +201,10 @@ pub trait EthereumRpcExt {
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
 
-    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<FullBlock>, ClientError>;
+    async fn block_with_uncles(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<PartialBlockWithUncles>, ClientError>;
 }
 
 #[async_trait::async_trait]
@@ -233,7 +237,7 @@ where
         let Some(block) = self.block(AtBlock::Latest).await? else {
             anyhow::bail!("latest block not found");
         };
-        let Some(base_fee_per_gas) = block.header().header().base_fee_per_gas else {
+        let Some(base_fee_per_gas) = block.header.base_fee_per_gas else {
             anyhow::bail!("EIP-1559 not activated");
         };
 
@@ -251,8 +255,11 @@ where
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 
-    async fn block_with_uncles(&self, at: AtBlock) -> Result<Option<FullBlock>, ClientError> {
-        let Some(block) = self.block_full::<RpcTransaction>(at).await? else {
+    async fn block_with_uncles(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<PartialBlockWithUncles>, ClientError> {
+        let Some(block) = self.block(at).await? else {
             return Ok(None);
         };
 
@@ -260,26 +267,8 @@ where
         let block = SealedBlock::try_from(block)
             .map_err(|err| ClientError::Custom(format!("invalid block: {err}")))?;
 
-        // Convert the `RpcTransaction` to `SignedTransaction`
-        let block_hash = block.header().hash();
-        let block = {
-            let transactions = block
-                .body()
-                .transactions
-                .iter()
-                .enumerate()
-                .map(|(index, tx)| {
-                    SignedTransaction::<TypedTransaction>::try_from(tx.clone()).map_err(|err| {
-                        ClientError::Custom(format!(
-                            "Invalid tx in block {block_hash:?} at index {index}: {err}"
-                        ))
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            block.with_transactions(transactions)
-        };
-
         // Fetch block uncles
+        let block_hash = block.header().hash();
         let mut uncles = Vec::with_capacity(block.body().uncles.len());
         for index in 0..block.body().uncles.len() {
             let index = u32::try_from(index).unwrap_or(u32::MAX);

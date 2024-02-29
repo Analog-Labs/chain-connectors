@@ -109,6 +109,25 @@ impl<TX, OMMERS> RpcBlock<TX, OMMERS> {
         };
         SealedBlock::new(header, body)
     }
+
+    /// Try to seal the block if the hash is present, otherwise returns `Block`.
+    /// # Errors
+    /// Returns a `SealedBlock` if the hash is present, otherwise returns `Block`.
+    pub fn try_seal(self) -> Result<SealedBlock<TX, OMMERS>, Block<TX, OMMERS>> {
+        let Some(hash) = self.hash else {
+            return Err(Block {
+                header: self.header,
+                body: BlockBody {
+                    transactions: self.transactions,
+                    uncles: self.uncles,
+                    total_difficulty: self.total_difficulty,
+                    seal_fields: self.seal_fields,
+                    size: self.size,
+                },
+            });
+        };
+        Ok(self.seal(hash))
+    }
 }
 
 impl<TX, OMMERS> TryFrom<RpcBlock<TX, OMMERS>> for SealedBlock<TX, OMMERS> {

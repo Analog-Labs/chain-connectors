@@ -26,7 +26,7 @@ pub struct RpcTransaction {
     /// Hash
     pub hash: TxHash,
     /// Nonce
-    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub nonce: u64,
     /// Block hash
     #[cfg_attr(feature = "serde", serde(default))]
@@ -38,6 +38,7 @@ pub struct RpcTransaction {
     #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub transaction_index: Option<u64>,
     /// Sender
+    #[cfg_attr(feature = "serde", serde(default = "crate::eth_hash::Address::zero"))]
     pub from: Address,
     /// Recipient
     #[cfg_attr(feature = "serde", serde(default))]

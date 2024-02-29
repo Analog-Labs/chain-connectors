@@ -20,8 +20,8 @@ use jsonrpsee_core::{
 };
 use rosetta_ethereum_types::{
     rpc::{RpcBlock, RpcTransaction},
-    Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log, SealedBlock,
-    SealedHeader, TransactionReceipt, TxHash, H256, U256,
+    Address, BlockIdentifier, Bytes, EIP1186ProofResponse, FeeHistory, Log, SealedHeader,
+    TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Adapter for [`ClientT`] to [`EthereumRpc`].
@@ -274,16 +274,16 @@ where
     }
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256, H256>>, Self::Error> {
+    async fn block(&self, at: AtBlock) -> Result<Option<RpcBlock<H256, H256>>, Self::Error> {
         let maybe_block = if let AtBlock::At(BlockIdentifier::Hash(block_hash)) = at {
-            <T as ClientT>::request::<Option<SealedBlock<H256, H256>>, _>(
+            <T as ClientT>::request::<Option<RpcBlock<H256, H256>>, _>(
                 &self.0,
                 "eth_getBlockByHash",
                 rpc_params![block_hash, false],
             )
             .await?
         } else {
-            <T as ClientT>::request::<Option<SealedBlock<H256, H256>>, _>(
+            <T as ClientT>::request::<Option<RpcBlock<H256, H256>>, _>(
                 &self.0,
                 "eth_getBlockByNumber",
                 rpc_params![at, false],

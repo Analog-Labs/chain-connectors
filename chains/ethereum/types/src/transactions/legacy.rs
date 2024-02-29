@@ -42,14 +42,14 @@ pub struct LegacyTransaction {
     pub gas_limit: u64,
 
     /// Recipient address (None for contract creation)
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub to: Option<Address>,
 
     /// Transferred value
     pub value: U256,
 
     /// The data of the transaction.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Bytes::is_empty"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Bytes::is_empty"))]
     pub data: Bytes,
 
     /// The chain ID of the transaction. If set to `None`, no checks are performed.

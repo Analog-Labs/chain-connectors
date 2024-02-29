@@ -106,7 +106,7 @@ impl AstarClient {
                 if let Ok(Some(ethereum_block)) = ethereum_block {
                     // Convert ethereum block to substrate block by fetching the block by number.
                     let substrate_block_number =
-                        BlockNumber::Number(ethereum_block.0.header().header().number);
+                        BlockNumber::Number(ethereum_block.header().number());
                     let substrate_block_hash = self
                         .rpc_methods
                         .chain_get_block_hash(Some(substrate_block_number))
@@ -134,12 +134,12 @@ impl AstarClient {
                     // Verify if the ethereum block hash matches the provided ethereum block hash.
                     // TODO: compute the block hash
                     if U256(actual_eth_block.header.number.0) !=
-                        U256::from(ethereum_block.0.header().header().number)
+                        U256::from(ethereum_block.header().number())
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
                     if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
-                        &ethereum_block.0.header().header().parent_hash.0
+                        &ethereum_block.header().header().parent_hash.0
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }

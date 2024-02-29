@@ -2,6 +2,7 @@
 use crate::utils::{EthereumRpcExt, PartialBlock};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};
+use rosetta_config_ethereum::ext::types::crypto::DefaultCrypto;
 use rosetta_ethereum_backend::{
     ext::types::{AtBlock, Header},
     EthereumRpc,
@@ -186,7 +187,18 @@ where
                     Poll::Ready(()) => {
                         let client = self.backend.clone();
                         let static_fut =
-                            async move { client.block(AtBlock::Finalized).await }.boxed();
+                            async move {
+                                let block = client.block(AtBlock::Finalized).await;
+                                block.map(|maybe_block| maybe_block.map(|block| {
+                                    if let Some(hash) = block.hash {
+                                        block.seal(hash)
+                                    } else {
+                                        // TODO: this should never happen, as a finalized block should always have a hash.
+                                        tracing::warn!("[report this bug] api returned a finalized block without hash, computing the hash locally...");
+                                        block.seal_slow::<DefaultCrypto>()
+                                    }
+                                }))
+                            }.boxed();
                         Some(StateMachine::Polling(static_fut))
                     },
                     Poll::Pending => {

@@ -43,7 +43,7 @@ impl_wrapper! {
 
 impl_wrapper! {
     #[derive(Debug, Default, Clone, PartialEq, Eq)]
-    pub struct BlockRef(Block<H256, H256>);
+    pub struct PartialBlock(Block<H256, H256>);
 }
 
 pub trait QueryItem: QueryT {
@@ -228,7 +228,7 @@ impl From<GetBlockByHash> for H256 {
 }
 
 impl QueryT for GetBlockByHash {
-    type Result = Option<BlockFull>;
+    type Result = Option<rosetta_ethereum_types::SealedBlock<H256, SealedHeaderInner>>;
 }
 impl_query_item!(GetBlockByHash);
 

@@ -18,7 +18,7 @@ use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcBlock, RpcTransaction},
     AccessListWithGasUsed, Address, AtBlock, Bytes, EIP1186ProofResponse, FeeHistory, Log,
-    SealedBlock, SealedHeader, TransactionReceipt, TxHash, H256, U256,
+    SealedHeader, TransactionReceipt, TxHash, H256, U256,
 };
 
 /// Re-exports for proc-macro library to not require any additional
@@ -194,7 +194,7 @@ pub trait EthereumRpc {
     ) -> Result<H256, Self::Error>;
 
     /// Returns information about a block.
-    async fn block(&self, at: AtBlock) -> Result<Option<SealedBlock<H256, H256>>, Self::Error>;
+    async fn block(&self, at: AtBlock) -> Result<Option<RpcBlock<H256, H256>>, Self::Error>;
 
     /// Returns information about a block.
     async fn block_full<T: MaybeDeserializeOwned + Send>(

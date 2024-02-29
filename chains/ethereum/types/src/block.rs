@@ -4,6 +4,7 @@ use crate::{
     eth_uint::U256,
     header::{Header, SealedHeader},
     rstd::vec::Vec,
+    transactions::SignedTransactionT,
 };
 
 #[cfg(feature = "serde")]
@@ -206,5 +207,16 @@ impl<TX, OMMERS> SealedBlock<TX, OMMERS> {
     #[must_use]
     pub fn with_ommers<O>(self, ommers: Vec<O>) -> SealedBlock<TX, O> {
         SealedBlock { header: self.header, body: self.body.with_ommers(ommers) }
+    }
+}
+
+impl<TX, OMMERS> SealedBlock<TX, OMMERS>
+where
+    TX: SignedTransactionT,
+{
+    pub fn into_partial_block(self) -> SealedBlock<H256, OMMERS> {
+        let (header, body) = self.unseal();
+        let body = body.map_transactions(|tx| SignedTransactionT::tx_hash(&tx));
+        SealedBlock::new(header, body)
     }
 }

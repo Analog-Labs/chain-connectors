@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use futures_util::{future::BoxFuture, Stream, StreamExt};
+use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use rosetta_ethereum_backend::{
     ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, AtBlock, SealedBlock, H256},
     jsonrpsee::core::client::{Error as RpcError, Subscription},
@@ -30,7 +30,18 @@ where
     type Output = Result<Option<PartialBlock>, RpcError>;
     type Future<'a> = BoxFuture<'a, Self::Output>;
     fn new_future(&mut self) -> Self::Future<'_> {
-        self.0.block(AtBlock::Latest)
+        async move {
+            let Some(block) = self.0.block(AtBlock::Latest).await? else {
+                return Ok(None);
+            };
+            let Some(hash) = block.hash else {
+                return Err(RpcError::Custom(
+                    "[report this bug] the api returned the latest block without hash".to_string(),
+                ));
+            };
+            Ok(Some(block.seal(hash)))
+        }
+        .boxed()
     }
 }
 

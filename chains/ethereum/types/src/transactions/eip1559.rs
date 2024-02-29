@@ -90,7 +90,7 @@ pub struct Eip1559Transaction {
     pub value: U256,
 
     /// The data of the transaction.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Bytes::is_empty"))]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Bytes::is_empty"))]
     pub data: Bytes,
 
     /// Optional access list introduced in EIP-2930.

@@ -9,9 +9,9 @@ use rosetta_core::{
     BlockchainConfig, NodeUri,
 };
 pub use types::{
-    Address, AtBlock, BlockFull, BlockRef, Bloom, CallContract, CallResult, EIP1186ProofResponse,
+    Address, AtBlock, BlockFull, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionReceipt, Header, Log, Query, QueryItem, QueryResult, SealedHeader,
+    GetTransactionReceipt, Header, Log, PartialBlock, Query, QueryItem, QueryResult, SealedHeader,
     SignedTransaction, StorageProof, TransactionReceipt, H256,
 };
 
