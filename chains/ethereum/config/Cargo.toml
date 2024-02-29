@@ -9,14 +9,13 @@ description = "Ethereum configuration."
 [dependencies]
 anyhow = "1.0"
 derivative = { version = "2.2", default-features = false, features = ["use_core"] }
-ethbloom = { version = "0.13", default-features = false }
-ethereum-types = { version = "0.14", default-features = false, features = ["rlp", "ethbloom", "num-traits"] }
 hex-literal = { version = "0.4" }
 rosetta-config-astar = { workspace = true }
 rosetta-core.workspace = true
+rosetta-ethereum-types = { workspace = true, features = ["with-rlp"] }
+static_assertions = "1.1.0"
 
 # optional dependencies
-impl-serde = { version = "0.4", default-features = false }
 parity-scale-codec = { workspace = true, features = ["derive", "bytes"], optional = true }
 scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
@@ -27,22 +26,27 @@ hex-literal = { version = "0.4" }
 serde_json = { version = "1.0" }
 
 [features]
-default = ["std", "serde", "scale-info", "scale-codec"]
+default = ["std", "serde", "scale-info", "scale-codec", "rosetta-ethereum-types/with-crypto"]
 std = [
   "dep:thiserror",
-  "ethereum-types/std",
   "serde?/std",
   "parity-scale-codec?/std",
+  "rosetta-ethereum-types/std",
 ]
 serde = [
   "dep:serde",
-  "ethereum-types/serialize",
+  "rosetta-ethereum-types/serde",
 ]
 scale-info = [
   "dep:scale-info",
-  "ethereum-types/scale-info",
+  "rosetta-ethereum-types/with-codec",
 ]
 scale-codec = [
   "dep:parity-scale-codec",
-  "ethereum-types/codec",
+  "rosetta-ethereum-types/with-codec",
+]
+# Include a default implementation for keccak256 and ecrecover functions
+# You may want to disable this feature if you want to use a custom implementation
+default-crypto = [
+  "rosetta-ethereum-types/with-crypto",
 ]

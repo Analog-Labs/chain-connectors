@@ -1,12 +1,11 @@
-use ethereum_types::{H520, U256};
-
 #[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
+use crate::{eth_hash::H520, eth_uint::U256};
 
 /// An ECDSA signature
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -42,8 +41,8 @@ impl From<Signature> for H520 {
 /// The ECDSA recovery id, encodes the parity of the y-coordinate and for EIP-155 compatible
 /// transactions also encodes the chain id
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -127,5 +126,21 @@ impl From<RecoveryId> for u64 {
 impl From<u64> for RecoveryId {
     fn from(v: u64) -> Self {
         Self::new(v)
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Encodable for RecoveryId {
+    fn rlp_append(&self, s: &mut rlp::RlpStream) {
+        let v = self.as_u64();
+        <u64 as rlp::Encodable>::rlp_append(&v, s);
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl rlp::Decodable for RecoveryId {
+    fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        let v = <u64 as rlp::Decodable>::decode(rlp)?;
+        Ok(Self::new(v))
     }
 }

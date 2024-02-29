@@ -1,18 +1,26 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "serde")]
-mod serde_utils;
 mod types;
+mod util;
 
-pub use ethereum_types;
-
-use ethereum_types::H256;
 use rosetta_config_astar::config as astar_config;
 use rosetta_core::{
     crypto::{address::AddressFormat, Algorithm},
     BlockchainConfig, NodeUri,
 };
-pub use types::*;
+pub use types::{
+    Address, AtBlock, BlockFull, Bloom, CallContract, CallResult, EIP1186ProofResponse,
+    EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
+    GetTransactionReceipt, Header, Log, PartialBlock, Query, QueryItem, QueryResult, SealedHeader,
+    SignedTransaction, StorageProof, TransactionReceipt, H256,
+};
+
+pub mod query {
+    pub use crate::types::{
+        CallContract, GetBalance, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
+        GetTransactionReceipt, Query, QueryItem, QueryResult,
+    };
+}
 
 #[cfg(not(feature = "std"))]
 #[cfg_attr(test, macro_use)]
@@ -20,35 +28,55 @@ extern crate alloc;
 
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
-    #[cfg(feature = "serde")]
-    pub use std::option;
-
-    // borrow, boxed, cmp, default, hash, iter, marker, mem, ops, rc, result,
-    // time,
-    pub use std::{convert, fmt, result, str, sync, vec};
-    // pub mod error {
-    //     pub use std::error::Error;
-    // }
+    pub use std::{convert, fmt, ops, option, result, slice, str, sync, vec};
 }
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
-    #[cfg(feature = "serde")]
-    pub use core::option;
-
     pub use alloc::{sync, vec};
-    pub use core::{convert, fmt, result, str};
-    // pub use alloc::{borrow, boxed, rc, vec};
-    // pub use core::{cmp, convert, default, fmt, hash, iter, marker, mem, ops, result, time};
-    // pub mod error {
-    //     pub trait Error {}
-    //     impl<T> Error for T {}
-    // }
+    pub use core::{convert, fmt, ops, option, result, slice, str};
 }
 
-impl rosetta_core::traits::Transaction for types::SignedTransaction {
-    type Call = ();
+/// Re-export external crates that are made use of in the client API.
+pub mod ext {
+    pub use rosetta_ethereum_types as types;
 
+    #[cfg(feature = "scale-info")]
+    pub use scale_info;
+
+    #[cfg(feature = "scale-codec")]
+    pub use parity_scale_codec;
+
+    #[cfg(feature = "serde")]
+    pub use serde;
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub enum Subscription {
+    Logs { address: Address, topics: Vec<H256> },
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub enum Event {
+    Logs(Vec<Log>),
+}
+
+impl rosetta_core::traits::Transaction for SignedTransaction {
+    type Call = ();
     type SignaturePayload = ();
 }
 
@@ -60,7 +88,7 @@ impl rosetta_core::traits::Transaction for types::SignedTransaction {
     derive(serde::Serialize, serde::Deserialize),
     serde(rename_all = "camelCase")
 )]
-pub struct BlockHash(pub ethereum_types::H256);
+pub struct BlockHash(pub H256);
 
 impl From<H256> for BlockHash {
     fn from(hash: H256) -> Self {
@@ -103,34 +131,45 @@ impl rstd::fmt::Display for BlockHash {
 
 impl rosetta_core::traits::HashOutput for BlockHash {}
 
-impl rosetta_core::traits::Header for types::header::Header {
+impl rosetta_core::traits::Header for SealedHeader {
     type Hash = BlockHash;
 
     fn number(&self) -> rosetta_core::traits::BlockNumber {
-        self.number
+        self.0.header().number
     }
 
     fn hash(&self) -> Self::Hash {
-        // TODO: compute header hash
-        BlockHash(H256::zero())
+        BlockHash(self.0.hash())
     }
 }
 
-impl rosetta_core::traits::Block for types::BlockFull {
-    type Transaction = types::SignedTransaction;
-    type Header = types::header::Header;
+// Make sure that `Transaction` has the same memory layout as `SignedTransactionInner`
+static_assertions::assert_eq_size!(
+    <BlockFull as rosetta_core::traits::Block>::Transaction,
+    types::SignedTransactionInner
+);
+static_assertions::assert_eq_align!(
+    <BlockFull as rosetta_core::traits::Block>::Transaction,
+    types::SignedTransactionInner
+);
+
+impl rosetta_core::traits::Block for BlockFull {
+    type Transaction = SignedTransaction;
+    type Header = SealedHeader;
     type Hash = BlockHash;
 
     fn header(&self) -> &Self::Header {
-        &self.header
+        (self.0.header()).into()
     }
 
     fn transactions(&self) -> &[Self::Transaction] {
-        self.transactions.as_slice()
+        // Safety: `Self::Transaction` and  block transactions have the same memory layout
+        let transactions: &[types::SignedTransactionInner] = self.0.body().transactions.as_ref();
+        unsafe { rstd::slice::from_raw_parts(transactions.as_ptr().cast(), transactions.len()) }
     }
 
     fn hash(&self) -> Self::Hash {
-        BlockHash(self.hash)
+        BlockHash(self.0.header().hash())
     }
 }
 
@@ -213,7 +252,7 @@ fn evm_config(
         currency_decimals: 18,
         node_uri: {
             #[allow(clippy::expect_used)]
-            NodeUri::parse("ws://127.0.0.1:8545/ws").expect("uri is valid; qed")
+            NodeUri::parse("ws://127.0.0.1:8545").expect("uri is valid; qed")
         },
         node_image: "ethereum/client-go:v1.12.2",
         node_command: rstd::sync::Arc::new(|network, port| {
@@ -228,13 +267,13 @@ fn evm_config(
                 format!("--http.port={port}"),
                 "--http.vhosts=*".into(),
                 "--http.corsdomain=*".into(),
-                "--http.api=eth,debug,admin,txpool,web3".into(),
+                "--http.api=eth,debug,admin,txpool,web3,net".into(),
                 "--ws".into(),
                 "--ws.addr=0.0.0.0".into(),
                 format!("--ws.port={port}"),
                 "--ws.origins=*".into(),
-                "--ws.api=eth,debug,admin,txpool,web3".into(),
-                "--ws.rpcprefix=/ws".into(),
+                "--ws.api=eth,debug,admin,txpool,web3,net".into(),
+                "--ws.rpcprefix=/".into(),
             ]);
             params
         }),

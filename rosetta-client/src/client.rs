@@ -7,6 +7,7 @@ use crate::{
 use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
+use futures_util::StreamExt;
 use rosetta_core::{BlockchainClient, ClientEvent};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_ethereum::{
@@ -16,7 +17,7 @@ use rosetta_server_ethereum::{
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{pin::Pin, str::FromStr};
+use std::{pin::Pin, str::FromStr, task::Poll};
 
 /// Generic Client
 #[allow(clippy::large_enum_variant)]
@@ -155,7 +156,7 @@ macro_rules! dispatch {
 impl BlockchainClient for GenericClient {
     type MetadataParams = GenericMetadataParams;
     type Metadata = GenericMetadata;
-    type EventStream<'a> = Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>;
+    type EventStream<'a> = GenericClientStream<'a>;
     type Call = GenericCall;
     type CallResult = GenericCallResult;
 
@@ -164,6 +165,8 @@ impl BlockchainClient for GenericClient {
 
     type Query = ();
     type Transaction = GenericTransaction;
+    type Subscription = GenericClientSubscription;
+    type Event = GenericClientEvent;
 
     async fn query(
         &self,
@@ -285,9 +288,96 @@ impl BlockchainClient for GenericClient {
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-        Ok(dispatch!(self
-            .listen()
-            .await?
-            .map(|s| Pin::new(Box::new(s) as Box<dyn Stream<Item = ClientEvent> + Send + Unpin>))))
+        match self {
+            Self::Ethereum(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Ethereum(stream)))
+            },
+            Self::Astar(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Astar(stream)))
+            },
+            Self::Polkadot(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Polkadot(stream)))
+            },
+        }
+    }
+
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        match self {
+            Self::Ethereum(client) => match sub {
+                GenericClientSubscription::Ethereum(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+            Self::Astar(client) => match sub {
+                GenericClientSubscription::Astar(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+            Self::Polkadot(client) => match sub {
+                GenericClientSubscription::Polkadot(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GenericClientSubscription {
+    Ethereum(<EthereumClient as BlockchainClient>::Subscription),
+    Astar(<AstarClient as BlockchainClient>::Subscription),
+    Polkadot(<PolkadotClient as BlockchainClient>::Subscription),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GenericClientEvent {
+    Ethereum(<EthereumClient as BlockchainClient>::Event),
+    Astar(<AstarClient as BlockchainClient>::Event),
+    Polkadot(<PolkadotClient as BlockchainClient>::Event),
+}
+
+pub enum GenericClientStream<'a> {
+    Ethereum(<EthereumClient as BlockchainClient>::EventStream<'a>),
+    Astar(<AstarClient as BlockchainClient>::EventStream<'a>),
+    Polkadot(<PolkadotClient as BlockchainClient>::EventStream<'a>),
+}
+
+impl<'a> Stream for GenericClientStream<'a> {
+    type Item = ClientEvent<GenericBlockIdentifier, GenericClientEvent>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = &mut *self;
+        match this {
+            Self::Ethereum(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
+                        .map_event(GenericClientEvent::Ethereum)
+                })
+            }),
+            Self::Astar(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
+                        .map_event(GenericClientEvent::Astar)
+                })
+            }),
+            Self::Polkadot(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Polkadot)
+                        .map_event(GenericClientEvent::Polkadot)
+                })
+            }),
+        }
     }
 }

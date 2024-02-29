@@ -94,17 +94,19 @@ impl AstarClient {
                 // If a hash if provided, we don't know if it's a ethereum block hash or substrate
                 // block hash. We try to fetch the block using ethereum first, and
                 // if it fails, we try to fetch it using substrate.
-                let ethereum_block =
-                    self.client.call(&EthQuery::GetBlockByHash(H256(*block_hash))).await.map(
-                        |result| match result {
-                            EthQueryResult::GetBlockByHash(block) => block,
-                            _ => unreachable!(),
-                        },
-                    );
+                let ethereum_block = self
+                    .client
+                    .call(&EthQuery::GetBlockByHash(H256(*block_hash).into()))
+                    .await
+                    .map(|result| match result {
+                        EthQueryResult::GetBlockByHash(block) => block,
+                        _ => unreachable!(),
+                    });
 
                 if let Ok(Some(ethereum_block)) = ethereum_block {
                     // Convert ethereum block to substrate block by fetching the block by number.
-                    let substrate_block_number = BlockNumber::Number(ethereum_block.header.number);
+                    let substrate_block_number =
+                        BlockNumber::Number(ethereum_block.header().number());
                     let substrate_block_hash = self
                         .rpc_methods
                         .chain_get_block_hash(Some(substrate_block_number))
@@ -132,12 +134,12 @@ impl AstarClient {
                     // Verify if the ethereum block hash matches the provided ethereum block hash.
                     // TODO: compute the block hash
                     if U256(actual_eth_block.header.number.0) !=
-                        U256::from(ethereum_block.header.number)
+                        U256::from(ethereum_block.header().number())
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
                     if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
-                        &ethereum_block.header.parent_hash.0
+                        &ethereum_block.header().header().parent_hash.0
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
@@ -206,6 +208,8 @@ impl BlockchainClient for AstarClient {
 
     type Query = rosetta_config_ethereum::Query;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
+    type Subscription = <MaybeWsEthereumClient as BlockchainClient>::Subscription;
+    type Event = <MaybeWsEthereumClient as BlockchainClient>::Event;
 
     async fn query(
         &self,
@@ -296,6 +300,9 @@ impl BlockchainClient for AstarClient {
 
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         self.client.listen().await
+    }
+    async fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+        anyhow::bail!("not implemented");
     }
 }
 
@@ -446,6 +453,51 @@ mod tests {
                     .to_vec()
                 )
             );
+        })
+        .await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_subscription() -> Result<()> {
+        use futures_util::StreamExt;
+        use rosetta_client::client::GenericBlockIdentifier;
+        use rosetta_core::{BlockOrIdentifier, ClientEvent};
+        let config = rosetta_config_astar::config("dev").unwrap();
+        let env = Env::new("astar-subscription", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let mut stream = wallet.listen().await.unwrap().unwrap();
+
+            let mut last_head: Option<u64> = None;
+            let mut last_finalized: Option<u64> = None;
+            for _ in 0..10 {
+                let event = stream.next().await.unwrap();
+                match event {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(head),
+                    )) => {
+                        if let Some(block_number) = last_head {
+                            assert!(head.index > block_number);
+                        }
+                        last_head = Some(head.index);
+                    },
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(finalized),
+                    )) => {
+                        if let Some(block_number) = last_finalized {
+                            assert!(finalized.index > block_number);
+                        }
+                        last_finalized = Some(finalized.index);
+                    },
+                    event => panic!("unexpected event: {event:?}"),
+                }
+            }
+            assert!(last_head.is_some());
+            assert!(last_finalized.is_some());
         })
         .await;
         Ok(())

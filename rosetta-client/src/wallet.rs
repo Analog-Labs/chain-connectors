@@ -10,7 +10,7 @@ use crate::{
 use anyhow::Result;
 use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
 use rosetta_server_ethereum::config::{
-    ethereum_types::{self, Address as EthAddress, H256, U256},
+    ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
     AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
     GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt,
 };
@@ -275,6 +275,24 @@ impl Wallet {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(exit_reason)
+    }
+
+    /// Peforms an arbitrary query to EVM compatible blockchain.
+    ///
+    /// # Errors
+    /// Returns `Err` if the blockchain doesn't support EVM calls, or the due another client issue
+    pub async fn query<Q: rosetta_server_ethereum::QueryItem>(
+        &self,
+        query: Q,
+    ) -> Result<<Q as rosetta_core::traits::Query>::Result> {
+        let query = <Q as rosetta_server_ethereum::QueryItem>::into_query(query);
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => client.call(&query).await?,
+            GenericClient::Astar(client) => client.call(&query).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
+        };
+        let result = <Q as rosetta_server_ethereum::QueryItem>::parse_result(result)?;
+        Ok(result)
     }
 
     /// gets storage from ethereum contract

@@ -7,7 +7,7 @@ use crate::{
         address::{Address, AddressFormat},
         Algorithm, PublicKey, SecretKey,
     },
-    types::{Block, BlockIdentifier, CurveType, SignatureType},
+    types::{Block, CurveType, SignatureType},
 };
 use anyhow::Result;
 use async_trait::async_trait;
@@ -16,7 +16,6 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::sync::Arc;
 
 use futures_util::stream::Empty;
-
 pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
 // pub use rosetta_types as types;
@@ -44,18 +43,32 @@ pub struct BlockchainConfig {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum BlockOrIdentifier {
-    Identifier(BlockIdentifier),
+pub enum BlockOrIdentifier<ID> {
+    Identifier(ID),
     Block(Block),
 }
 
-impl From<BlockIdentifier> for BlockOrIdentifier {
-    fn from(identifier: BlockIdentifier) -> Self {
+impl<ID> BlockOrIdentifier<ID> {
+    pub const fn from_identifier(identifier: ID) -> Self {
+        Self::Identifier(identifier)
+    }
+
+    #[must_use]
+    pub fn map_identifier<T, FN: FnOnce(ID) -> T>(self, map: FN) -> BlockOrIdentifier<T> {
+        match self {
+            Self::Identifier(id) => BlockOrIdentifier::<T>::Identifier(map(id)),
+            Self::Block(block) => BlockOrIdentifier::<T>::Block(block),
+        }
+    }
+}
+
+impl<ID> From<ID> for BlockOrIdentifier<ID> {
+    fn from(identifier: ID) -> Self {
         Self::Identifier(identifier)
     }
 }
 
-impl From<Block> for BlockOrIdentifier {
+impl<T: BlockchainClient> From<Block> for BlockOrIdentifier<T> {
     fn from(block: Block) -> Self {
         Self::Block(block)
     }
@@ -63,25 +76,53 @@ impl From<Block> for BlockOrIdentifier {
 
 /// Event produced by a handler.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ClientEvent {
+pub enum ClientEvent<BID, EV> {
     /// New header was appended to the chain, or a chain reorganization occur.
-    NewHead(BlockOrIdentifier),
+    NewHead(BlockOrIdentifier<BID>),
 
     /// A new block was finalized.
-    NewFinalized(BlockOrIdentifier),
+    NewFinalized(BlockOrIdentifier<BID>),
+
+    /// Blockchain specific event.
+    Event(EV),
 
     /// Close the connection for the given reason.
     Close(String),
 }
 
+impl<BID, EV> ClientEvent<BID, EV> {
+    #[must_use]
+    pub fn map_block_identifier<T, FN: FnOnce(BID) -> T>(self, map: FN) -> ClientEvent<T, EV> {
+        match self {
+            Self::NewHead(block) => ClientEvent::NewHead(block.map_identifier(map)),
+            Self::NewFinalized(block) => ClientEvent::NewFinalized(block.map_identifier(map)),
+            Self::Event(event) => ClientEvent::Event(event),
+            Self::Close(reason) => ClientEvent::Close(reason),
+        }
+    }
+
+    #[must_use]
+    pub fn map_event<T, FN: FnOnce(EV) -> T>(self, map: FN) -> ClientEvent<BID, T> {
+        match self {
+            Self::NewHead(block) => ClientEvent::NewHead(block),
+            Self::NewFinalized(block) => ClientEvent::NewFinalized(block),
+            Self::Event(event) => ClientEvent::Event(map(event)),
+            Self::Close(reason) => ClientEvent::Close(reason),
+        }
+    }
+}
+
 /// An empty event stream. Use this if the blockchain doesn't support events.
-pub type EmptyEventStream = Empty<ClientEvent>;
+pub type EmptyEventStream<BID, EV> = Empty<ClientEvent<BID, EV>>;
 
 #[async_trait]
 pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type MetadataParams: DeserializeOwned + Serialize + Send + Sync + 'static;
     type Metadata: DeserializeOwned + Serialize + Send + Sync + 'static;
-    type EventStream<'a>: stream::Stream<Item = ClientEvent> + Send + Unpin + 'a;
+    type EventStream<'a>: stream::Stream<Item = ClientEvent<Self::BlockIdentifier, Self::Event>>
+        + Send
+        + Unpin
+        + 'a;
     type Call: Send + Sync + Sized + 'static;
     type CallResult: Send + Sync + Sized + 'static;
 
@@ -90,6 +131,8 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
 
     type Query: traits::Query;
     type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
+    type Subscription: Clone + Send + Sync + Sized + Eq + 'static;
+    type Event: Clone + Send + Sync + Sized + Eq + 'static;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result>;
 
@@ -106,6 +149,9 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     ) -> Result<Self::Metadata>;
     async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
+
+    #[allow(clippy::missing_errors_doc)]
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32>;
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
@@ -129,6 +175,8 @@ where
 
     type Query = <T as BlockchainClient>::Query;
     type Transaction = <T as BlockchainClient>::Transaction;
+    type Subscription = <T as BlockchainClient>::Subscription;
+    type Event = <T as BlockchainClient>::Event;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result> {
         BlockchainClient::query(Self::as_ref(self), query).await
@@ -137,21 +185,27 @@ where
     fn config(&self) -> &BlockchainConfig {
         BlockchainClient::config(Self::as_ref(self))
     }
+
     fn genesis_block(&self) -> Self::BlockIdentifier {
         BlockchainClient::genesis_block(Self::as_ref(self))
     }
+
     async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         BlockchainClient::current_block(Self::as_ref(self)).await
     }
+
     async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
         BlockchainClient::finalized_block(Self::as_ref(self)).await
     }
+
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         BlockchainClient::balance(Self::as_ref(self), address, block).await
     }
+
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         BlockchainClient::faucet(Self::as_ref(self), address, param).await
     }
+
     async fn metadata(
         &self,
         public_key: &PublicKey,
@@ -168,6 +222,10 @@ where
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         BlockchainClient::listen(Self::as_ref(self)).await
+    }
+
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        BlockchainClient::subscribe(Self::as_ref(self), sub).await
     }
 }
 

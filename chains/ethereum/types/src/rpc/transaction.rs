@@ -1,20 +1,22 @@
+#[cfg(feature = "serde")]
+use crate::serde_utils::{deserialize_null_default, uint_to_hex};
 use crate::{
-    rstd::vec::Vec,
-    transaction::{
+    bytes::Bytes,
+    eth_hash::{Address, TxHash, H256, H512},
+    eth_uint::U256,
+    transactions::{
         access_list::AccessList, eip1559::Eip1559Transaction, eip2930::Eip2930Transaction,
         legacy::LegacyTransaction, signature::Signature, signed_transaction::SignedTransaction,
         typed_transaction::TypedTransaction,
     },
 };
-use ethereum_types::{H160, H256, H512, U256};
-
-#[cfg(feature = "serde")]
-use crate::serde_utils::{bytes_to_hex, deserialize_null_default, uint_to_hex};
 
 /// Transaction
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -22,87 +24,70 @@ use crate::serde_utils::{bytes_to_hex, deserialize_null_default, uint_to_hex};
 )]
 pub struct RpcTransaction {
     /// Hash
-    pub hash: H256,
-
+    pub hash: TxHash,
     /// Nonce
-    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub nonce: u64,
-
     /// Block hash
     #[cfg_attr(feature = "serde", serde(default))]
     pub block_hash: Option<H256>,
-
     /// Block number
     #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub block_number: Option<u64>,
-
     /// Transaction Index
     #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub transaction_index: Option<u64>,
-
     /// Sender
-    pub from: H160,
-
+    #[cfg_attr(feature = "serde", serde(default = "crate::eth_hash::Address::zero"))]
+    pub from: Address,
     /// Recipient
     #[cfg_attr(feature = "serde", serde(default))]
-    pub to: Option<H160>,
-
+    pub to: Option<Address>,
     /// Transfered value
     pub value: U256,
-
     /// Gas Price
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub gas_price: Option<U256>,
-
     /// Max BaseFeePerGas the user is willing to pay.
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
-
     /// The miner's tip.
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_priority_fee_per_gas: Option<U256>,
-
     /// Gas limit
     #[cfg_attr(feature = "serde", serde(default, rename = "gas"))]
     pub gas_limit: U256,
-
     /// Data
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, with = "bytes_to_hex", skip_serializing_if = "Vec::is_empty")
-    )]
-    pub input: Vec<u8>,
-
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub input: Bytes,
     /// Creates contract
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
-    pub creates: Option<H160>,
-
+    pub creates: Option<Address>,
     /// Raw transaction data
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, with = "bytes_to_hex", skip_serializing_if = "Vec::is_empty")
-    )]
-    pub raw: Vec<u8>,
-
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub raw: Option<Bytes>,
     /// Public key of the signer.
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub public_key: Option<H512>,
-
     /// The network id of the transaction, if any.
     #[cfg_attr(
         feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
     )]
     pub chain_id: Option<u64>,
-
     /// The V field of the signature.
     #[cfg_attr(feature = "serde", serde(default, flatten))]
     pub signature: Signature,
-
     /// Pre-pay to warm storage access.
-    #[cfg_attr(feature = "serde", serde(default, deserialize_with = "deserialize_null_default"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            default,
+            skip_serializing_if = "AccessList::is_empty",
+            deserialize_with = "deserialize_null_default"
+        )
+    )]
     pub access_list: AccessList,
-
     /// EIP-2718 type
     #[cfg_attr(
         feature = "serde",
@@ -110,7 +95,7 @@ pub struct RpcTransaction {
             default,
             rename = "type",
             skip_serializing_if = "Option::is_none",
-            with = "uint_to_hex"
+            with = "uint_to_hex",
         )
     )]
     pub transaction_type: Option<u64>,
@@ -273,11 +258,14 @@ impl TryFrom<RpcTransaction> for SignedTransaction<TypedTransaction> {
     }
 }
 
-#[cfg(all(test, feature = "serde"))]
+#[cfg(all(test, feature = "serde", feature = "with-rlp", feature = "with-crypto"))]
 mod tests {
     use super::RpcTransaction;
-    use crate::transaction::{access_list::AccessList, signature::Signature};
-    use ethereum_types::{H160, H256, U256};
+    use crate::{
+        bytes::Bytes,
+        eth_hash::Address,
+        transactions::{access_list::AccessList, signature::Signature},
+    };
     use hex_literal::hex;
 
     #[test]
@@ -301,33 +289,29 @@ mod tests {
             "type": "0x0"
         }"#;
         let expected = RpcTransaction {
-            hash: H256(hex!("831a62a594cb62b250a606a63d3a762300815c8d3765c6192d46d6bca440faa6")),
+            hash: hex!("831a62a594cb62b250a606a63d3a762300815c8d3765c6192d46d6bca440faa6").into(),
             nonce: 810,
-            block_hash: Some(H256(hex!(
-                "dbdb6ab6ef116b498ceab7141a8ab1646960e2550bafbe3e8e22f1daffacc7cf"
-            ))),
+            block_hash: Some(
+                hex!("dbdb6ab6ef116b498ceab7141a8ab1646960e2550bafbe3e8e22f1daffacc7cf").into(),
+            ),
             block_number: Some(87936),
             transaction_index: Some(0),
             gas_price: Some(59_619_389_029u128.into()),
             gas_limit: 21000.into(),
-            from: H160(hex!("32be343b94f860124dc4fee278fdcbd38c102d88")),
-            to: Some(H160(hex!("78293691c74717191d1d417b531f398350d54e89"))),
+            from: Address::from(hex!("32be343b94f860124dc4fee278fdcbd38c102d88")),
+            to: Some(Address::from(hex!("78293691c74717191d1d417b531f398350d54e89"))),
             value: 6_900_000_000_000_000_000u128.into(),
-            input: Vec::new(),
+            input: Bytes::default(),
             chain_id: None,
             max_fee_per_gas: None,
             max_priority_fee_per_gas: None,
             creates: None,
-            raw: Vec::new(),
+            raw: None,
             public_key: None,
             signature: Signature {
                 v: 0x1c.into(),
-                r: U256::from_big_endian(&hex!(
-                    "c8fc04e29b0859a7f265b67af7d4c5c6bc9e3d5a8de4950f89fa71a12a3cf8ae"
-                )),
-                s: U256::from_big_endian(&hex!(
-                    "7dd15a10f9f2c8d1519a6044d880d04756798fc23923ff94f4823df8dc5b987a"
-                )),
+                r: hex!("c8fc04e29b0859a7f265b67af7d4c5c6bc9e3d5a8de4950f89fa71a12a3cf8ae").into(),
+                s: hex!("7dd15a10f9f2c8d1519a6044d880d04756798fc23923ff94f4823df8dc5b987a").into(),
             },
             access_list: AccessList::default(),
             transaction_type: Some(0),
@@ -369,15 +353,15 @@ mod tests {
             transaction_index: Some(95),
             gas_price: Some(49_869_264_832_u64.into()),
             gas_limit: 0x2335e.into(),
-            from: H160(hex!("1e8c05fa1e52adcb0b66808fa7b843d106f506d5")),
-            to: Some(H160(hex!("00005ea00ac477b1030ce78506496e8c2de24bf5"))),
+            from: Address::from(hex!("1e8c05fa1e52adcb0b66808fa7b843d106f506d5")),
+            to: Some(Address::from(hex!("00005ea00ac477b1030ce78506496e8c2de24bf5"))),
             value: 16_000_000_000_000_000u128.into(),
             input: hex!("161ac21f0000000000000000000000001fe1ffffef6b4dca417d321ccd37e081f604d1c70000000000000000000000000000a26b00c1f0df003000390027140000faa71900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002360c6ebe").into(),
             chain_id: Some(1),
             max_priority_fee_per_gas: Some(100_000_000.into()),
             max_fee_per_gas: Some(50_984_458_450_u64.into()),
             creates: None,
-            raw: Vec::new(),
+            raw: None,
             public_key: None,
             signature: Signature {
                 v: 0x0.into(),
@@ -426,15 +410,15 @@ mod tests {
             transaction_index: Some(0x0),
             gas_price: Some(0x0003_b9ac_a000_u64.into()),
             gas_limit: 0x61a80.into(),
-            from: H160::from(hex!("530de54355b619bd9b3b46ab5054933b72ca8cc0")),
-            to: Some(H160::from(hex!("a55d9ef16af921b70fed1421c1d298ca5a3a18f1"))),
+            from: Address::from(hex!("530de54355b619bd9b3b46ab5054933b72ca8cc0")),
+            to: Some(Address::from(hex!("a55d9ef16af921b70fed1421c1d298ca5a3a18f1"))),
             value: 0.into(),
             input: hex!("3798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f480").into(),
             chain_id: Some(0x250),
             max_priority_fee_per_gas: None,
             max_fee_per_gas: None,
             creates: None,
-            raw: hex!("f9022f8271f18503b9aca00083061a8094a55d9ef16af921b70fed1421c1d298ca5a3a18f180b901c43798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f4808204c4a04c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1a062fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c").to_vec(),
+            raw: Some(hex!("f9022f8271f18503b9aca00083061a8094a55d9ef16af921b70fed1421c1d298ca5a3a18f180b901c43798c7f200000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000160000000000000000000000000000000000000000000000000000000006551475800000000000000000000000000000000000000000000000000000000014a139f0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004415641580000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000054d415449430000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000045ff8a5800000000000000000000000000000000000000000000000000000000036e5f4808204c4a04c58b0730a3487da33a44b7b501387fa48d6a6339d32ff520bcefc1da16945c1a062fb6b5c6c631b8d5205d59c0716c973995b47eb1eb329100e790a0957bff72c").into()),
             public_key: Some(hex!("75159f240a12daf62cd20487a6dca0093a6e8a139dacf8f8888fe582a1d08ae423f742a04b82579083e86c1b78104c7137e211be1d396a1c3c14fa840d9e094a").into()),
             signature: Signature {
                 v: 0x4c4.into(),

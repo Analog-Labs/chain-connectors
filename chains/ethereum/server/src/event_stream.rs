@@ -1,15 +1,20 @@
-use crate::{client::EthereumClient, utils::NonPendingBlock};
-use ethers::{prelude::*, providers::PubsubClient};
-use futures_util::{future::BoxFuture, FutureExt};
-use rosetta_core::{stream::Stream, BlockOrIdentifier, ClientEvent};
+use crate::{client::EthereumClient, utils::PartialBlock};
+// use ethers::{prelude::*, providers::PubsubClient};
+use futures_util::{future::BoxFuture, FutureExt, StreamExt};
+use rosetta_config_ethereum::Event;
+use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
+use rosetta_ethereum_backend::{
+    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, H256},
+    jsonrpsee::core::client::{Subscription, SubscriptionClientT},
+};
 use std::{cmp::Ordering, pin::Pin, task::Poll};
 
 // Maximum number of failures in sequence before closing the stream
 const FAILURE_THRESHOLD: u32 = 10;
 
-pub struct EthereumEventStream<'a, P: PubsubClient + 'static> {
+pub struct EthereumEventStream<'a, P: SubscriptionClientT + Send + Sync + 'static> {
     /// Ethereum subscription for new heads
-    new_head_stream: Option<SubscriptionStream<'a, P, Block<H256>>>,
+    new_head_stream: Option<Subscription<RpcBlock<H256>>>,
     /// Finalized blocks stream
     finalized_stream: Option<FinalizedBlockStream<'a, P>>,
     /// Count the number of failed attempts to retrieve the latest block
@@ -18,12 +23,12 @@ pub struct EthereumEventStream<'a, P: PubsubClient + 'static> {
 
 impl<P> EthereumEventStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
-    pub fn new<'a>(
-        client: &'a EthereumClient<P>,
-        subscription: SubscriptionStream<'a, P, Block<H256>>,
-    ) -> EthereumEventStream<'a, P> {
+    pub fn new(
+        client: &EthereumClient<P>,
+        subscription: Subscription<RpcBlock<H256>>,
+    ) -> EthereumEventStream<'_, P> {
         EthereumEventStream {
             new_head_stream: Some(subscription),
             finalized_stream: Some(FinalizedBlockStream::new(client)),
@@ -34,9 +39,9 @@ where
 
 impl<P> Stream for EthereumEventStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
-    type Item = ClientEvent;
+    type Item = ClientEvent<BlockIdentifier, Event>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -51,7 +56,13 @@ where
         match finalized_stream.poll_next_unpin(cx) {
             Poll::Ready(Some(Ok(block))) => {
                 self.finalized_stream = Some(finalized_stream);
-                return Poll::Ready(Some(ClientEvent::NewFinalized(block.identifier.into())));
+
+                return Poll::Ready(Some(ClientEvent::NewFinalized(
+                    BlockOrIdentifier::Identifier(BlockIdentifier::new(
+                        block.header().header().number,
+                        block.header().hash().0,
+                    )),
+                )));
             },
             Poll::Ready(Some(Err(error))) => {
                 self.new_head_stream = None;
@@ -84,10 +95,18 @@ where
             match new_head_stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(block)) => {
                     // Convert raw block to block identifier
-                    let block = match NonPendingBlock::try_from(block) {
-                        Ok(block) => block,
+                    let block = match block {
+                        Ok(block) => {
+                            let header = if let Some(hash) = block.hash {
+                                block.header.seal(hash)
+                            } else {
+                                block.header.seal_slow::<DefaultCrypto>()
+                            };
+                            BlockIdentifier::new(header.number(), header.hash().0)
+                        },
                         Err(error) => {
                             self.failures += 1;
+                            println!("[RPC BUG] invalid latest block: {error}");
                             tracing::error!("[RPC BUG] invalid latest block: {error}");
                             continue;
                         },
@@ -98,12 +117,12 @@ where
 
                     // Store the new latest block
                     if let Some(finalized_stream) = self.finalized_stream.as_mut() {
-                        finalized_stream.update_latest_block(block.number);
+                        finalized_stream.update_latest_block(block.index);
                     }
 
                     self.new_head_stream = Some(new_head_stream);
                     return Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(
-                        block.identifier,
+                        block,
                     ))));
                 },
                 Poll::Ready(None) => return Poll::Ready(None),
@@ -118,7 +137,7 @@ where
 
 struct FinalizedBlockStream<'a, P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
     /// Ethereum client used to retrieve the finalized block
     client: &'a EthereumClient<P>,
@@ -127,10 +146,10 @@ where
     latest_block: Option<u64>,
     /// Ethereum client doesn't support subscribing for finalized blocks, as workaround
     /// everytime we receive a new head, we query the latest finalized block
-    future: Option<BoxFuture<'a, anyhow::Result<NonPendingBlock>>>,
+    future: Option<BoxFuture<'a, anyhow::Result<PartialBlock>>>,
     /// Cache the best finalized block, we use this to avoid emitting two
     /// [`ClientEvent::NewFinalized`] for the same block
-    best_finalized_block: Option<NonPendingBlock>,
+    best_finalized_block: Option<PartialBlock>,
     /// Count the number of failed attempts to retrieve the finalized block
     failures: u32,
     /// Waker used to wake up the stream when a new block is available
@@ -139,7 +158,7 @@ where
 
 impl<'a, P> FinalizedBlockStream<'a, P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
     pub fn new(client: &EthereumClient<P>) -> FinalizedBlockStream<'_, P> {
         FinalizedBlockStream {
@@ -165,16 +184,16 @@ where
         }
     }
 
-    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<NonPendingBlock>> {
+    fn finalized_block<'c>(&'c self) -> BoxFuture<'a, anyhow::Result<PartialBlock>> {
         self.client.finalized_block(self.latest_block).boxed()
     }
 }
 
 impl<P> Stream for FinalizedBlockStream<'_, P>
 where
-    P: PubsubClient + 'static,
+    P: SubscriptionClientT + Send + Sync + 'static,
 {
-    type Item = Result<NonPendingBlock, String>;
+    type Item = Result<PartialBlock, String>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -207,7 +226,7 @@ where
 
                     // Skip if the finalized block is equal to the best finalized block
                     if let Some(best_finalized_block) = self.best_finalized_block.take() {
-                        if block.hash == best_finalized_block.hash {
+                        if block.header().hash() == best_finalized_block.header().hash() {
                             tracing::debug!("finalized block unchanged");
                             self.best_finalized_block = Some(best_finalized_block);
                             break Poll::Pending;

@@ -1,9 +1,19 @@
-use crate::rstd::{vec, vec::Vec};
-use ethereum_types::{H160, H256, U256};
+#![allow(clippy::missing_errors_doc)]
+use crate::{
+    eth_hash::{Address, H256},
+    eth_uint::U256,
+    rstd::vec::{IntoIter, Vec},
+};
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(
+    feature = "with-rlp",
+    derive(rlp_derive::RlpEncodableWrapper, rlp_derive::RlpDecodableWrapper)
+)]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -12,11 +22,6 @@ use ethereum_types::{H160, H256, U256};
 pub struct AccessList(pub Vec<AccessListItem>);
 
 impl AccessList {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self(Vec::new())
-    }
-
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -27,7 +32,7 @@ impl AccessList {
     }
 
     #[must_use]
-    pub fn into_raw(self) -> Vec<(H160, Vec<H256>)> {
+    pub fn into_raw(self) -> Vec<(Address, Vec<H256>)> {
         self.0
             .into_iter()
             .map(|item| (item.address, item.storage_keys))
@@ -35,8 +40,8 @@ impl AccessList {
     }
 }
 
-impl From<Vec<(H160, Vec<H256>)>> for AccessList {
-    fn from(src: Vec<(H160, Vec<H256>)>) -> Self {
+impl From<Vec<(Address, Vec<H256>)>> for AccessList {
+    fn from(src: Vec<(Address, Vec<H256>)>) -> Self {
         Self(
             src.into_iter()
                 .map(|(address, storage_keys)| AccessListItem { address, storage_keys })
@@ -47,7 +52,7 @@ impl From<Vec<(H160, Vec<H256>)>> for AccessList {
 
 impl IntoIterator for AccessList {
     type Item = AccessListItem;
-    type IntoIter = vec::IntoIter<Self::Item>;
+    type IntoIter = IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -55,8 +60,11 @@ impl IntoIterator for AccessList {
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(feature = "with-rlp", derive(rlp_derive::RlpEncodable, rlp_derive::RlpDecodable))]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -75,8 +83,11 @@ impl From<Vec<AccessListItem>> for AccessList {
 
 /// Access list item
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
-#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
-#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "with-codec",
+    derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
+)]
+#[cfg_attr(feature = "with-rlp", derive(rlp_derive::RlpEncodable, rlp_derive::RlpDecodable))]
 #[cfg_attr(
     feature = "serde",
     derive(serde::Serialize, serde::Deserialize),
@@ -84,19 +95,19 @@ impl From<Vec<AccessListItem>> for AccessList {
 )]
 pub struct AccessListItem {
     /// Accessed address
-    pub address: H160,
+    pub address: Address,
     /// Accessed storage keys
     pub storage_keys: Vec<H256>,
 }
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
-    use super::{AccessList, AccessListItem, H160, H256};
+    use super::{AccessList, AccessListItem, Address, H256};
 
     #[test]
     fn serde_encode_works() {
         let access_list = AccessList(vec![AccessListItem {
-            address: H160::from(hex_literal::hex!("8e5660b4ab70168b5a6feea0e0315cb49c8cd539")),
+            address: Address::from(hex_literal::hex!("8e5660b4ab70168b5a6feea0e0315cb49c8cd539")),
             storage_keys: vec![
                 H256::zero(),
                 H256::from(hex_literal::hex!(

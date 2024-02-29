@@ -1,4 +1,4 @@
-use ethereum_types::H256;
+use crate::eth_hash::H256;
 use hex_literal::hex;
 
 /// Keccak256 over empty array.

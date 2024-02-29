@@ -1,23 +1,28 @@
 use anyhow::Result;
 pub use client::EthereumClient;
-use ethers::providers::Http;
 pub use rosetta_config_ethereum::{
-    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
+    EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
+    QueryResult as EthQueryResult, Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
-use rosetta_server::ws::{default_client, DefaultClient};
+use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
+mod block_stream;
 mod client;
 mod event_stream;
+mod finalized_block_stream;
+mod log_filter;
+// mod logs_stream;
+mod multi_block;
+mod new_heads;
 mod proof;
+mod state;
 mod utils;
-
-use rosetta_ethereum_rpc_client::EthPubsubAdapter;
 
 pub use event_stream::EthereumEventStream;
 
@@ -27,8 +32,8 @@ pub mod config {
 
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
-    Http(EthereumClient<Http>),
-    Ws(EthereumClient<EthPubsubAdapter<DefaultClient>>),
+    Http(EthereumClient<HttpClient>),
+    Ws(EthereumClient<DefaultClient>),
 }
 
 impl MaybeWsEthereumClient {
@@ -66,7 +71,8 @@ impl MaybeWsEthereumClient {
             let client = default_client(uri.as_str(), None).await?;
             Self::from_jsonrpsee(config, client, private_key).await
         } else {
-            let http_connection = Http::new(uri);
+            let http_connection = default_http_client(uri.as_str())?;
+            // let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection, private_key).await?;
             Ok(Self::Http(client))
         }
@@ -82,8 +88,7 @@ impl MaybeWsEthereumClient {
         client: DefaultClient,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let ws_connection = EthPubsubAdapter::new(client);
-        let client = EthereumClient::new(config, ws_connection, private_key).await?;
+        let client = EthereumClient::new(config, client, private_key).await?;
         Ok(Self::Ws(client))
     }
 }
@@ -92,7 +97,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, EthPubsubAdapter<DefaultClient>>;
+    type EventStream<'a> = EthereumEventStream<'a, DefaultClient>;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
@@ -101,6 +106,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
 
     type Query = EthQuery;
     type Transaction = rosetta_config_ethereum::SignedTransaction;
+    type Subscription = Subscription;
+    type Event = Event;
 
     async fn query(
         &self,
@@ -138,7 +145,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
             Self::Http(http_client) => http_client.finalized_block(None).await?,
             Self::Ws(ws_client) => ws_client.finalized_block(None).await?,
         };
-        Ok(BlockIdentifier { index: block.number, hash: block.hash.0 })
+        Ok(BlockIdentifier { index: block.header().number(), hash: block.header().hash().0 })
     }
 
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
@@ -189,6 +196,13 @@ impl BlockchainClient for MaybeWsEthereumClient {
             },
         }
     }
+
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        match self {
+            Self::Http(http_client) => http_client.subscribe(sub),
+            Self::Ws(ws_client) => ws_client.subscribe(sub),
+        }
+    }
 }
 
 #[allow(clippy::ignored_unit_patterns)]
@@ -198,7 +212,7 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
-    use rosetta_config_ethereum::{AtBlock, CallResult};
+    use rosetta_config_ethereum::{query::GetLogs, AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
@@ -303,6 +317,19 @@ mod tests {
             let topic = receipt.logs[0].topics[0];
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
+
+            let block_hash = receipt.block_hash.unwrap();
+            assert_eq!(topic, expected);
+
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_hash.into()),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
         })
         .await;
         Ok(())
@@ -312,11 +339,10 @@ mod tests {
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
         let config = rosetta_config_ethereum::config("dev").unwrap();
-        let env = Env::new("ethereum-smart-contract-view", config.clone(), client_from_config)
+        let env = Env::new("ethereum-smart-contract-logs-view", config.clone(), client_from_config)
             .await
             .unwrap();
 
-        //here is run test function
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
             let faucet = 100 * u128::pow(10, config.currency_decimals);
@@ -351,6 +377,51 @@ mod tests {
                     .to_vec()
                 )
             );
+        })
+        .await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_subscription() -> Result<()> {
+        use futures_util::StreamExt;
+        use rosetta_client::client::GenericBlockIdentifier;
+        use rosetta_core::{BlockOrIdentifier, ClientEvent};
+        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let env = Env::new("ethereum-subscription", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let mut stream = wallet.listen().await.unwrap().unwrap();
+
+            let mut last_head: Option<u64> = None;
+            let mut last_finalized: Option<u64> = None;
+            for _ in 0..10 {
+                let event = stream.next().await.unwrap();
+                match event {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(head),
+                    )) => {
+                        if let Some(block_number) = last_head {
+                            assert!(head.index > block_number);
+                        }
+                        last_head = Some(head.index);
+                    },
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
+                        GenericBlockIdentifier::Ethereum(finalized),
+                    )) => {
+                        if let Some(block_number) = last_finalized {
+                            assert!(finalized.index > block_number);
+                        }
+                        last_finalized = Some(finalized.index);
+                    },
+                    event => panic!("unexpected event: {event:?}"),
+                }
+            }
+            assert!(last_head.is_some());
+            assert!(last_finalized.is_some());
         })
         .await;
         Ok(())

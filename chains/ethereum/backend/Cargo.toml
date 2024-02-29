@@ -1,0 +1,34 @@
+[package]
+name = "rosetta-ethereum-backend"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Ethereum RPC method."
+
+[dependencies]
+async-trait = "0.1"
+auto_impl = "1.1"
+futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
+jsonrpsee-core = { version = "0.22", default-features = false, features = ["client"], optional = true }
+parity-scale-codec = { workspace = true, features = ["derive"], optional = true }
+rosetta-ethereum-types = { workspace = true, features = ["with-rlp", "with-crypto"] }
+scale-info = { version = "2.9", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+
+[dev-dependencies]
+hex-literal = "0.4"
+serde_json = { version = "1.0", default-features = false }
+
+[features]
+default = ["std", "jsonrpsee"]
+with-codec = ["dep:parity-scale-codec", "dep:scale-info", "rosetta-ethereum-types/with-codec"]
+serde = ["dep:serde", "rosetta-ethereum-types/serde"]
+std = [
+  "futures-core/std",
+  "rosetta-ethereum-types/std",
+  "parity-scale-codec?/std",
+  "scale-info?/std",
+  "serde?/std",
+]
+jsonrpsee = ["dep:jsonrpsee-core", "serde"]

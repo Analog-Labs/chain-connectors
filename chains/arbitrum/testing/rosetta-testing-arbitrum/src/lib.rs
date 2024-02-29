@@ -1,3 +1,5 @@
+#![allow(clippy::large_futures)]
+
 //! # Arbitrum Nitro Testnet Rosetta Server
 //!
 //! This module contains the production test for an Arbitrum Rosetta server implementation
