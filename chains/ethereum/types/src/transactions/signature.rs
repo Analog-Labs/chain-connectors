@@ -3,7 +3,7 @@ use crate::serde_utils::uint_to_hex;
 use crate::{eth_hash::H520, eth_uint::U256};
 
 /// An ECDSA signature
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
@@ -38,8 +38,31 @@ impl From<Signature> for H520 {
     }
 }
 
+impl core::fmt::Display for Signature {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        let mut bytes = [0u8; 65];
+        self.to_raw_signature(&mut bytes);
+        write!(f, "{}", const_hex::encode_prefixed(bytes))
+    }
+}
+
+impl core::fmt::Debug for Signature {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        let mut r = [0u8; 32];
+        let mut s = [0u8; 32];
+        self.r.to_big_endian(&mut r);
+        self.s.to_big_endian(&mut s);
+        f.debug_struct("Signature")
+            .field("v", &self.v)
+            .field("r", &const_hex::encode_prefixed(r))
+            .field("s", &const_hex::encode_prefixed(s))
+            .finish()
+    }
+}
+
 /// The ECDSA recovery id, encodes the parity of the y-coordinate and for EIP-155 compatible
 /// transactions also encodes the chain id
+#[repr(transparent)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "with-codec", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "with-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]

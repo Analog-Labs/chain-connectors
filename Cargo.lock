@@ -5458,6 +5458,7 @@ dependencies = [
  "rlp",
  "rlp-derive",
  "scale-info",
+ "secp256k1 0.28.2",
  "serde",
  "serde_json",
  "sha3",
