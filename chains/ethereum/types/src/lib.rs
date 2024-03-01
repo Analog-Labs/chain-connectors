@@ -8,6 +8,7 @@ mod eth_hash;
 mod eth_uint;
 mod fee_history;
 pub mod header;
+mod i256;
 mod log;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
@@ -25,6 +26,7 @@ pub use eth_uint::{U128, U256, U512};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use fee_history::FeeHistory;
 pub use header::{Header, SealedHeader};
+pub use i256::I256;
 pub use log::Log;
 pub use num_rational::Rational64;
 use rstd::{

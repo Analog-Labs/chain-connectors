@@ -1,5 +1,4 @@
 use crate::{client::EthereumClient, utils::PartialBlock};
-// use ethers::{prelude::*, providers::PubsubClient};
 use futures_util::{future::BoxFuture, FutureExt, StreamExt};
 use rosetta_config_ethereum::Event;
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};

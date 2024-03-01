@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use ethers::prelude::*;
 use parity_scale_codec::Decode;
 use rosetta_config_astar::metadata::{
     dev as astar_metadata,
     dev::runtime_types::{frame_system::AccountInfo, pallet_balances::types::AccountData},
 };
 use rosetta_config_ethereum::{
+    ext::types::{H160, H256},
     EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
 };
 use rosetta_core::{

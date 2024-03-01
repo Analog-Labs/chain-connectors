@@ -6,10 +6,10 @@ use crate::{
     utils::{AtBlockExt, EthereumRpcExt, PartialBlock},
 };
 use anyhow::{Context, Result};
-use ethers::utils::{keccak256, rlp::Encodable};
 use rosetta_config_ethereum::{
     ext::types::{
-        crypto::{Keypair, Signer},
+        crypto::{Crypto, DefaultCrypto, Keypair, Signer},
+        ext::rlp::Encodable,
         rpc::CallRequest,
         transactions::LegacyTransaction,
         AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
@@ -59,6 +59,7 @@ impl BlockFinalityStrategy {
 }
 
 pub struct EthereumClient<P> {
+    chain_id: u64,
     config: BlockchainConfig,
     pub backend: Adapter<P>,
     genesis_block: PartialBlock,
@@ -74,6 +75,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
+            chain_id: self.chain_id,
             config: self.config.clone(),
             backend: self.backend.clone(),
             genesis_block: self.genesis_block.clone(),
@@ -96,6 +98,11 @@ where
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let backend = Adapter(rpc_client.clone());
+
+        // Get the chain id
+        let chain_id = backend.chain_id().await?;
+
+        // Get the genesis block
         let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
         let genesis_block = backend
             .block(at)
@@ -108,7 +115,10 @@ where
                 )
             })?;
 
+        // Get the block finality strategy
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
+
+        // Load the funding wallet, if any
         let (private_key, nonce) = if let Some(private) = private_key {
             let wallet = Keypair::from_slice(&private)?;
             let address = wallet.address();
@@ -120,6 +130,7 @@ where
             (None, Arc::new(atomic::AtomicU64::new(0)))
         };
         Ok(Self {
+            chain_id,
             config,
             backend,
             genesis_block,
@@ -207,7 +218,7 @@ where
     pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self.private_key {
             Some(private_key) => {
-                let chain_id = self.backend.chain_id().await?;
+                let chain_id = self.chain_id;
                 let wallet = Keypair::from_bytes(private_key)?;
                 let address: H160 = address.address().parse()?;
                 let nonce = self.nonce.load(Ordering::Relaxed);
@@ -256,7 +267,7 @@ where
                     value: Some(U256::from(param)),
                     data: None,
                     nonce: None,
-                    chain_id: None,
+                    chain_id: None, // Astar doesn't support this field for eth_call
                     max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
                     access_list: AccessList::default(),
                     max_fee_per_gas: Some(max_fee_per_gas),
@@ -298,7 +309,7 @@ where
             value: Some(U256(options.amount)),
             data: Some(options.data.clone().into()),
             nonce: Some(nonce),
-            chain_id: None, // Astar doesn't support this field
+            chain_id: None, // Astar doesn't support this field for eth_call
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             access_list: AccessList::default(),
             max_fee_per_gas: Some(max_fee_per_gas),
@@ -379,7 +390,7 @@ where
                 let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
 
                 let key = &storage_proof.key;
-                let key_hash = keccak256(key);
+                let key_hash = DefaultCrypto::keccak256(key);
                 let encoded_val = storage_proof.value.rlp_bytes().freeze();
 
                 let _is_valid = verify_proof(

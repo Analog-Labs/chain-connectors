@@ -3,7 +3,7 @@ use rosetta_config_ethereum::{
     ext::types::{
         crypto::{Keypair, Signer},
         transactions::Eip1559Transaction,
-        AccessList, TransactionT, H160,
+        AccessList, TransactionT, H160, U256,
     },
     EthereumMetadata, EthereumMetadataParams,
 };
@@ -11,8 +11,6 @@ use rosetta_core::{
     crypto::{address::Address, SecretKey},
     BlockchainConfig, TransactionBuilder,
 };
-
-pub use ethers_core::types::U256;
 
 #[derive(Default)]
 pub struct EthereumTransactionBuilder;

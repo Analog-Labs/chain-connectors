@@ -104,6 +104,7 @@ pub struct EthereumMetadata {
     pub nonce: u64,
     pub max_priority_fee_per_gas: [u64; 4],
     pub max_fee_per_gas: [u64; 4],
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub gas_limit: u64,
 }
 

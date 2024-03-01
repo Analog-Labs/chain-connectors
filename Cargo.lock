@@ -3587,10 +3587,8 @@ dependencies = [
  "jsonrpsee-client-transport 0.22.1",
  "jsonrpsee-core 0.22.1",
  "jsonrpsee-http-client 0.22.1",
- "jsonrpsee-proc-macros",
  "jsonrpsee-types 0.22.1",
  "jsonrpsee-ws-client",
- "tracing",
 ]
 
 [[package]]
@@ -3722,19 +3720,6 @@ dependencies = [
  "tower",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "jsonrpsee-proc-macros"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68e79a7109506831bf0cbeaad08729cdf0e592300c00f626bccd6d479974221e"
-dependencies = [
- "heck",
- "proc-macro-crate 3.1.0",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -5364,7 +5349,6 @@ dependencies = [
  "bs58 0.5.0",
  "ecdsa",
  "ed25519-dalek 1.0.1",
- "ethers",
  "hex",
  "hmac 0.12.1",
  "k256",
@@ -5416,22 +5400,6 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "rosetta-ethereum-rpc-client"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "dashmap",
- "ethers",
- "futures-util",
- "jsonrpsee 0.22.1",
- "pin-project",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
 ]
 
 [[package]]
@@ -5502,7 +5470,6 @@ dependencies = [
  "alloy-sol-types 0.6.3",
  "anyhow",
  "async-trait",
- "ethers",
  "ethers-solc",
  "futures",
  "futures-util",
@@ -5532,8 +5499,6 @@ dependencies = [
  "alloy-sol-types 0.5.4",
  "anyhow",
  "async-trait",
- "ethabi",
- "ethers",
  "ethers-solc",
  "fork-tree",
  "futures-timer",
@@ -5547,7 +5512,6 @@ dependencies = [
  "rosetta-core",
  "rosetta-docker",
  "rosetta-ethereum-backend",
- "rosetta-ethereum-rpc-client",
  "rosetta-server",
  "rosetta-utils",
  "serde",
@@ -5607,12 +5571,9 @@ name = "rosetta-tx-ethereum"
 version = "0.5.0"
 dependencies = [
  "anyhow",
- "ethabi",
- "ethers-core",
  "rosetta-config-ethereum",
  "rosetta-core",
  "serde_json",
- "sha3",
 ]
 
 [[package]]

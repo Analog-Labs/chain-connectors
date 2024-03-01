@@ -1,5 +1,3 @@
-use primitive_types::U256;
-
 #[cfg(feature = "with-crypto")]
 use crate::rstd::vec::Vec;
 pub use crate::{
@@ -320,6 +318,7 @@ impl Signer for Keypair {
 
     /// Sign a pre-hashed message
     fn sign_prehash(&self, prehash: H256, chain_id: Option<u64>) -> Result<Signature, Self::Error> {
+        use crate::U256;
         use secp256k1::Message;
 
         #[cfg(feature = "std")]
