@@ -208,7 +208,7 @@ where
         match self.private_key {
             Some(private_key) => {
                 let chain_id = self.backend.chain_id().await?;
-                let wallet = Keypair::from_slice(&private_key)?;
+                let wallet = Keypair::from_bytes(private_key)?;
                 let address: H160 = address.address().parse()?;
                 let nonce = self.nonce.load(Ordering::Relaxed);
                 // Create a transaction request
@@ -280,15 +280,16 @@ where
         options: &EthereumMetadataParams,
     ) -> Result<EthereumMetadata> {
         let from: H160 = public_key.to_address(self.config().address_format).address().parse()?;
-        let to: Option<H160> = if options.destination.len() >= 20 {
-            Some(H160::from_slice(&options.destination))
-        } else {
-            None
-        };
+        let to = options.destination.map(H160);
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             self.backend.estimate_eip1559_fees().await?;
         let chain_id = self.backend.chain_id().await?;
-        let nonce = self.backend.get_transaction_count(from, AtBlock::Latest).await?;
+
+        let nonce = if let Some(nonce) = options.nonce {
+            nonce
+        } else {
+            self.backend.get_transaction_count(from, AtBlock::Latest).await?
+        };
         let tx = CallRequest {
             from: Some(from),
             to,
@@ -303,14 +304,19 @@ where
             max_fee_per_gas: Some(max_fee_per_gas),
             transaction_type: Some(2),
         };
-        let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
+        let gas_limit = if let Some(gas_limit) = options.gas_limit {
+            gas_limit
+        } else {
+            let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
+            u64::try_from(gas_limit).unwrap_or(u64::MAX)
+        };
 
         Ok(EthereumMetadata {
             chain_id,
             nonce,
             max_priority_fee_per_gas: max_priority_fee_per_gas.0,
             max_fee_per_gas: max_fee_per_gas.0,
-            gas_limit: gas_limit.0,
+            gas_limit,
         })
     }
 

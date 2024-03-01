@@ -82,14 +82,8 @@ pub struct EthereumMetadataParams {
     pub nonce: Option<u64>,
     #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub gas_limit: Option<u64>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub gas_price: Option<U256>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_priority_fee_per_gas: Option<U256>,
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub max_fee_per_gas: Option<U256>,
     #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
-    pub destination: Vec<u8>,
+    pub destination: Option<[u8; 20]>,
     pub amount: [u64; 4],
     #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub data: Vec<u8>,
@@ -110,7 +104,7 @@ pub struct EthereumMetadata {
     pub nonce: u64,
     pub max_priority_fee_per_gas: [u64; 4],
     pub max_fee_per_gas: [u64; 4],
-    pub gas_limit: [u64; 4],
+    pub gas_limit: u64,
 }
 
 ///·Returns·the·balance·of·the·account·of·given·address.

@@ -460,7 +460,7 @@ pub mod tests {
             assert_eq!(balance, faucet);
 
             // Alice transfers to bob
-            alice.transfer(bob.account(), value).await.unwrap();
+            alice.transfer(bob.account(), value, None, None).await.unwrap();
             let amount = bob.balance().await.unwrap();
             assert_eq!(amount, value);
         })

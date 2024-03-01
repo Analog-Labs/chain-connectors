@@ -212,7 +212,8 @@ impl<T> EthereumRpcExt for T
 where
     T: EthereumRpc<Error = ClientError> + Send + Sync + 'static,
 {
-    // Wait for the transaction to be mined by polling the transaction receipt every 2 seconds
+    // Wait for the transaction to be included in a block by polling the transaction receipt every 2
+    // seconds
     async fn wait_for_transaction_receipt(
         &self,
         tx_hash: H256,
@@ -223,7 +224,10 @@ where
             let Some(receipt) = <T as EthereumRpc>::transaction_receipt(self, tx_hash).await?
             else {
                 if now.elapsed() > timeout {
-                    anyhow::bail!("Transaction not mined after {} seconds", timeout.as_secs());
+                    anyhow::bail!(
+                        "Transaction not included in a block after {} seconds",
+                        timeout.as_secs()
+                    );
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 continue;

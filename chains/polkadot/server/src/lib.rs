@@ -141,8 +141,13 @@ impl BlockchainClient for PolkadotClient {
             .map_err(|err| anyhow::anyhow!("{err}"))
             .context("invalid address")?;
 
-        let account_info =
-            self.client.account_info(&account, types::BlockIdentifier::<_>::Latest).await?;
+        let nonce = if let Some(nonce) = params.nonce {
+            nonce
+        } else {
+            let account_info =
+                self.client.account_info(&account, types::BlockIdentifier::<_>::Latest).await?;
+            account_info.nonce
+        };
         let runtime = self.client.runtime_version();
         let metadata = self.client.metadata();
         let pallet = metadata
@@ -158,7 +163,7 @@ impl BlockchainClient for PolkadotClient {
             .ok_or_else(|| anyhow::anyhow!("call hash not found"))?;
         let genesis_hash = self.client.genesis_hash().0;
         Ok(PolkadotMetadata {
-            nonce: account_info.nonce,
+            nonce,
             spec_version: runtime.spec_version,
             transaction_version: runtime.transaction_version,
             genesis_hash,

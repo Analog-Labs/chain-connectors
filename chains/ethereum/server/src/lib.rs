@@ -310,7 +310,10 @@ mod tests {
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let call = TestContract::emitEventCall {};
-                wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
+                wallet
+                    .eth_send_call(contract_address.0, call.abi_encode(), 0, None, None)
+                    .await
+                    .unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             assert_eq!(receipt.logs.len(), 1);

@@ -270,6 +270,14 @@ impl Keypair {
     ///
     /// # Errors
     /// Returns `Err` if the slice is greater than secp256k1 curve order.
+    pub fn from_bytes<I: AsRef<[u8]>>(bytes: I) -> Result<Self, secp256k1::Error> {
+        Self::from_slice(bytes.as_ref())
+    }
+
+    /// Create a new private key from a slice of bytes.
+    ///
+    /// # Errors
+    /// Returns `Err` if the slice is greater than secp256k1 curve order.
     pub fn from_slice(slice: &[u8]) -> Result<Self, secp256k1::Error> {
         let secret = secp256k1::SecretKey::from_slice(slice)?;
         #[cfg(feature = "std")]
@@ -455,7 +463,7 @@ mod tests {
 
         for (secret_key, expected_addr, msg, expected_sig) in test_cases {
             let prehash = DefaultCrypto::keccak256(msg);
-            let wallet = Keypair::from_slice(&secret_key).unwrap();
+            let wallet = Keypair::from_bytes(secret_key).unwrap();
             let signature = wallet.sign(msg, expected_sig.v.chain_id()).unwrap();
             assert_eq!(signature, expected_sig);
             assert_eq!(signature, wallet.sign_prehash(prehash, expected_sig.v.chain_id()).unwrap());

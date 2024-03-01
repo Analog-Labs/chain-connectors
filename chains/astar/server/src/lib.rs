@@ -399,7 +399,7 @@ mod tests {
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let data = TestContract::emitEventCall::SELECTOR.to_vec();
-                wallet.eth_send_call(contract_address.0, data, 0).await.unwrap()
+                wallet.eth_send_call(contract_address.0, data, 0, None, None).await.unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let logs = receipt.logs;
