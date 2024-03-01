@@ -29,8 +29,8 @@ tracing = "0.1"
 url = "2.4"
 
 [dev-dependencies]
-alloy-primitives = { version = "0.5" }
-alloy-sol-types = { version = "0.5" }
+alloy-primitives = { version = "0.6" }
+alloy-sol-types = { version = "0.6" }
 ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }
