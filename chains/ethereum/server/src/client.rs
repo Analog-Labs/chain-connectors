@@ -12,7 +12,7 @@ use rosetta_config_ethereum::{
         crypto::{Keypair, Signer},
         rpc::CallRequest,
         transactions::LegacyTransaction,
-        AccessList, AtBlock, TransactionT, H160, U256,
+        AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
     },
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
@@ -218,11 +218,10 @@ where
                     gas_limit: 210_000,
                     gas_price: U256::from(500_000_000),
                     nonce,
-                    data: rosetta_config_ethereum::ext::types::Bytes::default(),
+                    data: Bytes::default(),
                     chain_id: Some(chain_id),
                 };
-                let tx: rosetta_config_ethereum::ext::types::TypedTransaction =
-                    transaction_request.into();
+                let tx: TypedTransaction = transaction_request.into();
                 let signature = wallet.sign_prehash(tx.sighash(), Some(chain_id))?;
                 let raw_tx = tx.encode(Some(&signature));
                 let tx_hash = self.backend.send_raw_transaction(raw_tx).await?;
@@ -345,7 +344,6 @@ where
                 EthQueryResult::GetTransactionReceipt(receipt)
             },
             EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
-                use rosetta_config_ethereum::ext::types::Bytes;
                 let call = CallRequest {
                     from: *from,
                     to: Some(*to),
