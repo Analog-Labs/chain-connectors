@@ -1,29 +1,36 @@
 #![allow(clippy::inline_always)]
-use crate::U256;
-use core::{
-    cmp,
-    fmt::{self, Write},
-    iter, ops,
-    str::FromStr,
+use crate::{
+    rstd::{
+        cmp,
+        fmt::{self, Write},
+        iter, ops,
+        str::FromStr,
+        string::String,
+    },
+    U256,
 };
-use thiserror::Error;
 use uint::FromDecStrErr;
 
 /// The error type that is returned when conversion to or from a 256-bit integer fails.
-#[derive(Clone, Copy, Debug, Error)]
-#[error("output of range integer conversion attempted")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "std",
+    derive(thiserror::Error),
+    error("output of range integer conversion attempted")
+)]
 pub struct TryFromBigIntError;
 
 /// The error type that is returned when parsing a 256-bit signed integer.
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum ParseI256Error {
     /// Error that occurs when an invalid digit is encountered while parsing.
-    #[error("invalid digit found in string")]
+    #[cfg_attr(feature = "std", error("invalid digit found in string"))]
     InvalidDigit,
 
     /// Error that occurs when the number is too large or too small (negative)
     /// and does not fit in a 256-bit signed integer.
-    #[error("number does not fit in 256-bit integer")]
+    #[cfg_attr(feature = "std", error("number does not fit in 256-bit integer"))]
     IntegerOverflow,
 }
 
@@ -1351,11 +1358,7 @@ impl fmt::UpperHex for I256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (sign, abs) = self.into_sign_and_abs();
         fmt::Display::fmt(&sign, f)?;
-
-        // NOTE: Work around `U256: !UpperHex`.
-        let mut buffer = format!("{abs:x}");
-        buffer.make_ascii_uppercase();
-        f.write_str(&buffer)
+        fmt::UpperHex::fmt(&abs, f)
     }
 }
 

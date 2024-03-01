@@ -1,7 +1,9 @@
 use crate::{
     eth_hash::{H128, H256, H32, H64},
     eth_uint::U256,
-    rstd::{default::Default, format, mem, option::Option, result::Result, vec::Vec},
+    rstd::{
+        default::Default, format, mem, option::Option, result::Result, string::String, vec::Vec,
+    },
 };
 use impl_serde_macro::serialize::{deserialize_check_len, serialize_uint, ExpectedLen};
 use num_rational::Rational64;

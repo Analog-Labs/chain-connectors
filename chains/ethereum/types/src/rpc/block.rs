@@ -1,12 +1,14 @@
 use crate::{
     block::{Block, BlockBody, SealedBlock},
     bytes::Bytes,
-    crypto::Crypto,
     eth_hash::H256,
     eth_uint::U256,
     header::Header,
     rstd::vec::Vec,
 };
+
+#[cfg(feature = "with-rlp")]
+use crate::crypto::Crypto;
 
 #[cfg(feature = "serde")]
 use crate::serde_utils::{default_empty_vec, deserialize_null_default, uint_to_hex};
@@ -98,6 +100,7 @@ impl<TX, OMMERS> RpcBlock<TX, OMMERS> {
     }
 
     /// Seal the block by calculating the block hash.
+    #[cfg(feature = "with-rlp")]
     pub fn seal_slow<C: Crypto>(self) -> SealedBlock<TX, OMMERS> {
         let header = self.header.seal_slow::<C>();
         let body = BlockBody {

@@ -52,7 +52,7 @@ pub(crate) mod rstd {
     #[cfg(feature = "serde")]
     pub use std::{default, format, mem, option, result};
 
-    pub use std::{borrow, cmp, fmt, ops, str, string, vec};
+    pub use std::{borrow, cmp, fmt, iter, ops, str, string, vec};
 }
 
 #[cfg(not(feature = "std"))]
@@ -64,7 +64,7 @@ pub(crate) mod rstd {
     pub use alloc::format;
 
     pub use alloc::{borrow, fmt, string, vec};
-    pub use core::{cmp, ops, str};
+    pub use core::{cmp, iter, ops, str};
 }
 
 /// Re-exports for proc-macro library to not require any additional

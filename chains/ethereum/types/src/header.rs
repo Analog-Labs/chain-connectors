@@ -3,11 +3,13 @@ use crate::serde_utils::{bytes_to_hex, uint_to_hex};
 use crate::{
     bytes::Bytes,
     constants::{EMPTY_OMMER_ROOT_HASH, EMPTY_ROOT_HASH},
+    crypto::Crypto,
     eth_hash::{Address, H256},
     eth_uint::U256,
+    transactions::SignedTransactionT,
 };
 #[cfg(feature = "with-rlp")]
-use crate::{crypto::Crypto, eth_hash::H64, rlp_utils::RlpExt, transactions::SignedTransactionT};
+use crate::{eth_hash::H64, rlp_utils::RlpExt};
 pub use ethbloom;
 use ethbloom::Bloom;
 
@@ -122,7 +124,6 @@ pub struct Header {
     pub parent_beacon_block_root: Option<H256>,
 }
 
-#[cfg(feature = "with-rlp")]
 impl Header {
     /// Seal the block with a known hash.
     ///
@@ -132,6 +133,19 @@ impl Header {
         SealedHeader::new(self, hash)
     }
 
+    /// Calculate transaction root.
+    pub fn compute_transaction_root<'a, C, T, I>(transactions: I) -> H256
+    where
+        C: Crypto,
+        T: SignedTransactionT + 'a,
+        I: Iterator<Item = &'a T> + 'a,
+    {
+        C::trie_root(transactions.map(SignedTransactionT::encode_signed))
+    }
+}
+
+#[cfg(feature = "with-rlp")]
+impl Header {
     /// Compute the block hash and seal the header.
     #[must_use]
     pub fn seal_slow<C: Crypto>(self) -> SealedHeader {
@@ -158,16 +172,6 @@ impl Header {
     pub fn encode(&self) -> Bytes {
         let bytes = rlp::Encodable::rlp_bytes(self).freeze();
         Bytes(bytes)
-    }
-
-    /// Calculate transaction root.
-    pub fn compute_transaction_root<'a, C, T, I>(transactions: I) -> H256
-    where
-        C: Crypto,
-        T: SignedTransactionT + 'a,
-        I: Iterator<Item = &'a T> + 'a,
-    {
-        C::trie_root(transactions.map(SignedTransactionT::encode_signed))
     }
 }
 
