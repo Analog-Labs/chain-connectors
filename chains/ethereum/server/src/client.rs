@@ -6,13 +6,14 @@ use crate::{
     utils::{AtBlockExt, EthereumRpcExt, PartialBlock},
 };
 use anyhow::{Context, Result};
-use ethers::{
-    prelude::*,
-    types::transaction::eip2718::TypedTransaction,
-    utils::{keccak256, rlp::Encodable},
-};
+use ethers::utils::{keccak256, rlp::Encodable};
 use rosetta_config_ethereum::{
-    ext::types::{rpc::CallRequest, AccessList, AtBlock},
+    ext::types::{
+        crypto::{Keypair, Signer},
+        rpc::CallRequest,
+        transactions::LegacyTransaction,
+        AccessList, AtBlock, TransactionT, H160, U256,
+    },
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
     Subscription,
@@ -109,7 +110,7 @@ where
 
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
         let (private_key, nonce) = if let Some(private) = private_key {
-            let wallet = LocalWallet::from_bytes(&private)?;
+            let wallet = Keypair::from_slice(&private)?;
             let address = wallet.address();
             let nonce = Arc::new(atomic::AtomicU64::from(
                 backend.get_transaction_count(address, AtBlock::Latest).await?,
@@ -207,25 +208,24 @@ where
         match self.private_key {
             Some(private_key) => {
                 let chain_id = self.backend.chain_id().await?;
+                let wallet = Keypair::from_slice(&private_key)?;
                 let address: H160 = address.address().parse()?;
-                let wallet = LocalWallet::from_bytes(&private_key)?;
-                let nonce_u32 = U256::from(self.nonce.load(Ordering::Relaxed));
+                let nonce = self.nonce.load(Ordering::Relaxed);
                 // Create a transaction request
-                let transaction_request = TransactionRequest {
-                    from: None,
-                    to: Some(ethers::types::NameOrAddress::Address(address)),
-                    value: Some(U256::from(param)),
-                    gas: Some(U256::from(210_000)),
-                    gas_price: Some(U256::from(500_000_000)),
-                    nonce: Some(nonce_u32),
-                    data: None,
-                    chain_id: Some(chain_id.into()),
+                let transaction_request = LegacyTransaction {
+                    to: Some(address),
+                    value: U256::from(param),
+                    gas_limit: 210_000,
+                    gas_price: U256::from(500_000_000),
+                    nonce,
+                    data: rosetta_config_ethereum::ext::types::Bytes::default(),
+                    chain_id: Some(chain_id),
                 };
-
-                let tx: TypedTransaction = transaction_request.into();
-                let signature = wallet.sign_transaction(&tx).await?;
-                let tx = tx.rlp_signed(&signature);
-                let tx_hash = self.backend.send_raw_transaction(tx.0.into()).await?;
+                let tx: rosetta_config_ethereum::ext::types::TypedTransaction =
+                    transaction_request.into();
+                let signature = wallet.sign_prehash(tx.sighash(), Some(chain_id))?;
+                let raw_tx = tx.encode(Some(&signature));
+                let tx_hash = self.backend.send_raw_transaction(raw_tx).await?;
 
                 // Wait for the transaction to be mined
                 let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
