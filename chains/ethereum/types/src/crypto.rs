@@ -307,9 +307,6 @@ impl Signer for Keypair {
         msg: I,
         chain_id: Option<u64>,
     ) -> Result<Signature, Self::Error> {
-        // use sha2::Digest;
-        // let hash: [u8; 32] = sha2::Sha256::digest(msg.as_ref()).into();
-        // self.sign_prehash(H256(hash))
         self.sign_prehash(DefaultCrypto::keccak256(msg.as_ref()), chain_id)
     }
 

@@ -24,7 +24,12 @@ impl TransactionBuilder for EthereumTransactionBuilder {
         Ok(EthereumMetadataParams {
             destination: destination.0.to_vec(),
             amount: amount.0,
-            data: vec![],
+            data: Vec::new(),
+            nonce: None,
+            gas_limit: None,
+            gas_price: None,
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
         })
     }
 
@@ -40,6 +45,11 @@ impl TransactionBuilder for EthereumTransactionBuilder {
             destination: destination.0.to_vec(),
             amount: amount.0,
             data: data.to_vec(),
+            nonce: None,
+            gas_limit: None,
+            gas_price: None,
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
         })
     }
 
@@ -48,6 +58,11 @@ impl TransactionBuilder for EthereumTransactionBuilder {
             destination: vec![],
             amount: [0, 0, 0, 0],
             data: contract_binary,
+            nonce: None,
+            gas_limit: None,
+            gas_price: None,
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
         })
     }
 

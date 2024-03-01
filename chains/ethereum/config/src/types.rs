@@ -78,6 +78,16 @@ macro_rules! impl_query_item {
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EthereumMetadataParams {
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
+    pub nonce: Option<u64>,
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
+    pub gas_limit: Option<u64>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub gas_price: Option<U256>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_priority_fee_per_gas: Option<U256>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_fee_per_gas: Option<U256>,
     #[cfg_attr(feature = "serde", serde(with = "bytes_to_hex"))]
     pub destination: Vec<u8>,
     pub amount: [u64; 4],
@@ -96,7 +106,7 @@ pub struct EthereumMetadataParams {
 pub struct EthereumMetadata {
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub chain_id: u64,
-    #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
+    #[cfg_attr(feature = "serde", serde(default, with = "uint_to_hex"))]
     pub nonce: u64,
     pub max_priority_fee_per_gas: [u64; 4],
     pub max_fee_per_gas: [u64; 4],
