@@ -1358,7 +1358,7 @@ impl fmt::UpperHex for I256 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (sign, abs) = self.into_sign_and_abs();
         fmt::Display::fmt(&sign, f)?;
-        fmt::UpperHex::fmt(&abs, f)
+        write!(f, "{abs:X}")
     }
 }
 
