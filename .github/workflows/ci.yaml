@@ -147,7 +147,7 @@ jobs:
           -Aclippy::module_name_repetitions
 
     - name: ethereum-types no-std
-      run: cargo build --locked -p rosetta-ethereum-types --tests --no-default-features --target wasm32-unknown-unknown
+      run: cargo build --locked -p rosetta-ethereum-types --no-default-features --target wasm32-unknown-unknown
 
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
