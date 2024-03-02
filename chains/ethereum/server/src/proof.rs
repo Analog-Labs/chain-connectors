@@ -1,15 +1,15 @@
-use ethers::utils::{
-    keccak256,
-    rlp::{decode_list, RlpStream},
+use rosetta_config_ethereum::ext::types::{
+    crypto::{Crypto, DefaultCrypto},
+    ext::rlp::{decode_list, RlpStream},
+    Bytes, EIP1186ProofResponse,
 };
-use rosetta_config_ethereum::ext::types::{Bytes, EIP1186ProofResponse};
 
 pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> bool {
     let mut expected_hash = root.to_vec();
     let mut path_offset = 0;
 
     for (i, node) in proof.iter().enumerate() {
-        if expected_hash != keccak256(node).to_vec() {
+        if expected_hash != DefaultCrypto::keccak256(node).0.to_vec() {
             return false;
         }
 

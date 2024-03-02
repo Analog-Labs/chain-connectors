@@ -1,28 +1,18 @@
-use ethers::{prelude::*, types::H256};
 use rosetta_config_ethereum::{
     ext::types::{
         rpc::{RpcBlock, RpcTransaction},
-        SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TypedTransaction,
+        SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TxHash, TypedTransaction,
+        H256, I256, U256,
     },
     AtBlock,
 };
-use rosetta_core::types::{BlockIdentifier, PartialBlockIdentifier};
+use rosetta_core::types::PartialBlockIdentifier;
 use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc};
 use std::string::ToString;
 
 pub type FullBlock = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
 pub type PartialBlock = SealedBlock<H256, H256>;
 pub type PartialBlockWithUncles = SealedBlock<H256, SealedHeader>;
-
-/// A block that is not pending, so it must have a valid hash and number.
-/// This allow skipping duplicated checks in the code
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NonPendingBlock {
-    pub hash: H256,
-    pub number: u64,
-    pub identifier: BlockIdentifier,
-    pub block: ethers::types::Block<H256>,
-}
 
 /// Maximum length of error messages to log.
 const ERROR_MSG_MAX_LENGTH: usize = 100;
@@ -58,47 +48,16 @@ impl LogErrorExt for rosetta_ethereum_backend::jsonrpsee::core::ClientError {
 }
 
 pub trait AtBlockExt {
-    fn as_block_id(&self) -> ethers::types::BlockId;
     fn from_partial_identifier(block_identifier: &PartialBlockIdentifier) -> Self;
 }
 
 impl AtBlockExt for AtBlock {
-    fn as_block_id(&self) -> ethers::types::BlockId {
-        use rosetta_config_ethereum::ext::types::BlockIdentifier;
-        match self {
-            Self::Latest => BlockId::Number(BlockNumber::Latest),
-            Self::Earliest => BlockId::Number(BlockNumber::Earliest),
-            Self::Finalized => BlockId::Number(BlockNumber::Finalized),
-            Self::Pending => BlockId::Number(BlockNumber::Pending),
-            Self::Safe => BlockId::Number(BlockNumber::Safe),
-            Self::At(BlockIdentifier::Hash(hash)) => BlockId::Hash(*hash),
-            Self::At(BlockIdentifier::Number(number)) => {
-                BlockId::Number(BlockNumber::Number((*number).into()))
-            },
-        }
-    }
-
     fn from_partial_identifier(block_identifier: &PartialBlockIdentifier) -> Self {
         match (block_identifier.index, block_identifier.hash) {
             (_, Some(hash)) => Self::from(hash),
             (Some(index), None) => Self::from(index),
             (None, None) => Self::Latest,
         }
-    }
-}
-
-impl TryFrom<ethers::types::Block<H256>> for NonPendingBlock {
-    type Error = anyhow::Error;
-
-    fn try_from(block: ethers::types::Block<H256>) -> std::result::Result<Self, Self::Error> {
-        let Some(number) = block.number else { anyhow::bail!("block number is missing") };
-        let Some(hash) = block.hash else { anyhow::bail!("block hash is missing") };
-        Ok(Self {
-            hash,
-            number: number.as_u64(),
-            identifier: BlockIdentifier::new(number.as_u64(), hash.0),
-            block,
-        })
     }
 }
 
@@ -212,7 +171,8 @@ impl<T> EthereumRpcExt for T
 where
     T: EthereumRpc<Error = ClientError> + Send + Sync + 'static,
 {
-    // Wait for the transaction to be mined by polling the transaction receipt every 2 seconds
+    // Wait for the transaction to be included in a block by polling the transaction receipt every 2
+    // seconds
     async fn wait_for_transaction_receipt(
         &self,
         tx_hash: H256,
@@ -223,7 +183,10 @@ where
             let Some(receipt) = <T as EthereumRpc>::transaction_receipt(self, tx_hash).await?
             else {
                 if now.elapsed() > timeout {
-                    anyhow::bail!("Transaction not mined after {} seconds", timeout.as_secs());
+                    anyhow::bail!(
+                        "Transaction not included in a block after {} seconds",
+                        timeout.as_secs()
+                    );
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                 continue;

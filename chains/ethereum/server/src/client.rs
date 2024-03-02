@@ -6,13 +6,14 @@ use crate::{
     utils::{AtBlockExt, EthereumRpcExt, PartialBlock},
 };
 use anyhow::{Context, Result};
-use ethers::{
-    prelude::*,
-    types::transaction::eip2718::TypedTransaction,
-    utils::{keccak256, rlp::Encodable},
-};
 use rosetta_config_ethereum::{
-    ext::types::{rpc::CallRequest, AccessList, AtBlock},
+    ext::types::{
+        crypto::{Crypto, DefaultCrypto, Keypair, Signer},
+        ext::rlp::Encodable,
+        rpc::CallRequest,
+        transactions::LegacyTransaction,
+        AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
+    },
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
     Subscription,
@@ -58,6 +59,7 @@ impl BlockFinalityStrategy {
 }
 
 pub struct EthereumClient<P> {
+    chain_id: u64,
     config: BlockchainConfig,
     pub backend: Adapter<P>,
     genesis_block: PartialBlock,
@@ -73,6 +75,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
+            chain_id: self.chain_id,
             config: self.config.clone(),
             backend: self.backend.clone(),
             genesis_block: self.genesis_block.clone(),
@@ -95,6 +98,11 @@ where
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let backend = Adapter(rpc_client.clone());
+
+        // Get the chain id
+        let chain_id = backend.chain_id().await?;
+
+        // Get the genesis block
         let at = AtBlock::At(rosetta_config_ethereum::ext::types::BlockIdentifier::Number(0));
         let genesis_block = backend
             .block(at)
@@ -107,9 +115,12 @@ where
                 )
             })?;
 
+        // Get the block finality strategy
         let block_finality_strategy = BlockFinalityStrategy::from_config(&config);
+
+        // Load the funding wallet, if any
         let (private_key, nonce) = if let Some(private) = private_key {
-            let wallet = LocalWallet::from_bytes(&private)?;
+            let wallet = Keypair::from_slice(&private)?;
             let address = wallet.address();
             let nonce = Arc::new(atomic::AtomicU64::from(
                 backend.get_transaction_count(address, AtBlock::Latest).await?,
@@ -119,6 +130,7 @@ where
             (None, Arc::new(atomic::AtomicU64::new(0)))
         };
         Ok(Self {
+            chain_id,
             config,
             backend,
             genesis_block,
@@ -206,26 +218,24 @@ where
     pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self.private_key {
             Some(private_key) => {
-                let chain_id = self.backend.chain_id().await?;
+                let chain_id = self.chain_id;
+                let wallet = Keypair::from_bytes(private_key)?;
                 let address: H160 = address.address().parse()?;
-                let wallet = LocalWallet::from_bytes(&private_key)?;
-                let nonce_u32 = U256::from(self.nonce.load(Ordering::Relaxed));
+                let nonce = self.nonce.load(Ordering::Relaxed);
                 // Create a transaction request
-                let transaction_request = TransactionRequest {
-                    from: None,
-                    to: Some(ethers::types::NameOrAddress::Address(address)),
-                    value: Some(U256::from(param)),
-                    gas: Some(U256::from(210_000)),
-                    gas_price: Some(U256::from(500_000_000)),
-                    nonce: Some(nonce_u32),
-                    data: None,
-                    chain_id: Some(chain_id.into()),
+                let transaction_request = LegacyTransaction {
+                    to: Some(address),
+                    value: U256::from(param),
+                    gas_limit: 210_000,
+                    gas_price: U256::from(500_000_000),
+                    nonce,
+                    data: Bytes::default(),
+                    chain_id: Some(chain_id),
                 };
-
                 let tx: TypedTransaction = transaction_request.into();
-                let signature = wallet.sign_transaction(&tx).await?;
-                let tx = tx.rlp_signed(&signature);
-                let tx_hash = self.backend.send_raw_transaction(tx.0.into()).await?;
+                let signature = wallet.sign_prehash(tx.sighash(), Some(chain_id))?;
+                let raw_tx = tx.encode(Some(&signature));
+                let tx_hash = self.backend.send_raw_transaction(raw_tx).await?;
 
                 // Wait for the transaction to be mined
                 let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
@@ -257,7 +267,7 @@ where
                     value: Some(U256::from(param)),
                     data: None,
                     nonce: None,
-                    chain_id: None,
+                    chain_id: None, // Astar doesn't support this field for eth_call
                     max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
                     access_list: AccessList::default(),
                     max_fee_per_gas: Some(max_fee_per_gas),
@@ -281,15 +291,16 @@ where
         options: &EthereumMetadataParams,
     ) -> Result<EthereumMetadata> {
         let from: H160 = public_key.to_address(self.config().address_format).address().parse()?;
-        let to: Option<H160> = if options.destination.len() >= 20 {
-            Some(H160::from_slice(&options.destination))
-        } else {
-            None
-        };
+        let to = options.destination.map(H160);
         let (max_fee_per_gas, max_priority_fee_per_gas) =
             self.backend.estimate_eip1559_fees().await?;
         let chain_id = self.backend.chain_id().await?;
-        let nonce = self.backend.get_transaction_count(from, AtBlock::Latest).await?;
+
+        let nonce = if let Some(nonce) = options.nonce {
+            nonce
+        } else {
+            self.backend.get_transaction_count(from, AtBlock::Latest).await?
+        };
         let tx = CallRequest {
             from: Some(from),
             to,
@@ -298,20 +309,25 @@ where
             value: Some(U256(options.amount)),
             data: Some(options.data.clone().into()),
             nonce: Some(nonce),
-            chain_id: None, // Astar doesn't support this field
+            chain_id: None, // Astar doesn't support this field for eth_call
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             access_list: AccessList::default(),
             max_fee_per_gas: Some(max_fee_per_gas),
             transaction_type: Some(2),
         };
-        let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
+        let gas_limit = if let Some(gas_limit) = options.gas_limit {
+            gas_limit
+        } else {
+            let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
+            u64::try_from(gas_limit).unwrap_or(u64::MAX)
+        };
 
         Ok(EthereumMetadata {
             chain_id,
             nonce,
             max_priority_fee_per_gas: max_priority_fee_per_gas.0,
             max_fee_per_gas: max_fee_per_gas.0,
-            gas_limit: gas_limit.0,
+            gas_limit,
         })
     }
 
@@ -345,7 +361,6 @@ where
                 EthQueryResult::GetTransactionReceipt(receipt)
             },
             EthQuery::CallContract(CallContract { from, to, data, value, block }) => {
-                use rosetta_config_ethereum::ext::types::Bytes;
                 let call = CallRequest {
                     from: *from,
                     to: Some(*to),
@@ -375,7 +390,7 @@ where
                 let storage_proof = proof_data.storage_proof.first().context("No proof found")?;
 
                 let key = &storage_proof.key;
-                let key_hash = keccak256(key);
+                let key_hash = DefaultCrypto::keccak256(key);
                 let encoded_val = storage_proof.value.rlp_bytes().freeze();
 
                 let _is_valid = verify_proof(

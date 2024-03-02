@@ -210,9 +210,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
 mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
-    use ethabi::ethereum_types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
-    use rosetta_config_ethereum::{query::GetLogs, AtBlock, CallResult};
+    use rosetta_config_ethereum::{ext::types::H256, query::GetLogs, AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
@@ -310,7 +309,10 @@ mod tests {
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let call = TestContract::emitEventCall {};
-                wallet.eth_send_call(contract_address.0, call.abi_encode(), 0).await.unwrap()
+                wallet
+                    .eth_send_call(contract_address.0, call.abi_encode(), 0, None, None)
+                    .await
+                    .unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             assert_eq!(receipt.logs.len(), 1);

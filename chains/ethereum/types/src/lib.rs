@@ -8,6 +8,7 @@ mod eth_hash;
 mod eth_uint;
 mod fee_history;
 pub mod header;
+mod i256;
 mod log;
 #[cfg(feature = "with-rlp")]
 pub mod rlp_utils;
@@ -20,11 +21,12 @@ mod tx_receipt;
 
 pub use block::{Block, BlockBody, SealedBlock};
 pub use bytes::Bytes;
-pub use eth_hash::{Address, Public, Secret, TxHash, H128, H256, H384, H512, H520};
+pub use eth_hash::{Address, Public, Secret, TxHash, H128, H160, H256, H384, H512, H520};
 pub use eth_uint::{U128, U256, U512};
 pub use ethbloom::{Bloom, BloomRef, Input as BloomInput};
 pub use fee_history::FeeHistory;
 pub use header::{Header, SealedHeader};
+pub use i256::I256;
 pub use log::Log;
 pub use num_rational::Rational64;
 use rstd::{
@@ -50,7 +52,7 @@ pub(crate) mod rstd {
     #[cfg(feature = "serde")]
     pub use std::{default, format, mem, option, result};
 
-    pub use std::{borrow, cmp, fmt, ops, str, string, vec};
+    pub use std::{borrow, cmp, fmt, iter, ops, str, string, vec};
 }
 
 #[cfg(not(feature = "std"))]
@@ -62,7 +64,7 @@ pub(crate) mod rstd {
     pub use alloc::format;
 
     pub use alloc::{borrow, fmt, string, vec};
-    pub use core::{cmp, ops, str};
+    pub use core::{cmp, iter, ops, str};
 }
 
 /// Re-exports for proc-macro library to not require any additional

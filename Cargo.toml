@@ -4,7 +4,6 @@ members = [
   "chains/astar/server",
   "chains/ethereum/backend",
   "chains/ethereum/config",
-  "chains/ethereum/rpc-client",
   "chains/ethereum/server",
   "chains/ethereum/tx",
   "chains/ethereum/types",
@@ -31,7 +30,6 @@ rosetta-server-astar = { path = "chains/astar/server" }
 rosetta-ethereum-backend = { path = "chains/ethereum/backend" }
 rosetta-config-ethereum = { path = "chains/ethereum/config" }
 rosetta-server-ethereum = { path = "chains/ethereum/server" }
-rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client" }
 rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
 rosetta-ethereum-types = { path = "chains/ethereum/types", default-features = false }
 rosetta-config-polkadot = { path = "chains/polkadot/config" }

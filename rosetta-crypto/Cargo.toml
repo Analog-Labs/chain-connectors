@@ -13,7 +13,6 @@ blake2-rfc = "0.2.18"
 bs58 = "0.5"
 ecdsa = { version = "0.16.0", features = ["arithmetic"] }
 ed25519-dalek = "1.0.1"
-ethers = "2.0.7"
 hex = "0.4.3"
 hmac = "0.12.1"
 k256 = "0.13.0"

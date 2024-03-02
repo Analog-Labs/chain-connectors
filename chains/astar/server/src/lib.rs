@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
-use ethers::prelude::*;
 use parity_scale_codec::Decode;
 use rosetta_config_astar::metadata::{
     dev as astar_metadata,
     dev::runtime_types::{frame_system::AccountInfo, pallet_balances::types::AccountData},
 };
 use rosetta_config_ethereum::{
+    ext::types::{H160, H256},
     EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
 };
 use rosetta_core::{
@@ -399,7 +399,7 @@ mod tests {
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let data = TestContract::emitEventCall::SELECTOR.to_vec();
-                wallet.eth_send_call(contract_address.0, data, 0).await.unwrap()
+                wallet.eth_send_call(contract_address.0, data, 0, None, None).await.unwrap()
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let logs = receipt.logs;

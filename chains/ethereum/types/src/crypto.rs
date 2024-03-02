@@ -2,7 +2,7 @@
 use crate::rstd::vec::Vec;
 pub use crate::{
     eth_hash::{Address, H256},
-    transactions::signature::Signature,
+    transactions::signature::{RecoveryId, Signature},
 };
 #[cfg(feature = "with-crypto")]
 use core::iter::Iterator;
@@ -36,6 +36,27 @@ pub trait Crypto {
     where
         I: IntoIterator<Item = V>,
         V: AsRef<[u8]>;
+}
+
+pub trait Signer {
+    type Error;
+
+    /// Sign a message an arbitrary message.
+    ///
+    /// # Errors
+    /// Returns `Err` if the message can't be signed.
+    fn sign<I: AsRef<[u8]>>(
+        &self,
+        message: I,
+        chain_id: Option<u64>,
+    ) -> Result<Signature, Self::Error>;
+
+    /// Attempt to sign the given message digest, returning a digital signature
+    /// on success, or an error if something went wrong.
+    ///
+    /// # Errors
+    /// Returns `Err` if the message can't be signed.
+    fn sign_prehash(&self, prehash: H256, chain_id: Option<u64>) -> Result<Signature, Self::Error>;
 }
 
 #[cfg(feature = "with-crypto")]
@@ -236,10 +257,109 @@ impl trie_root::Hasher for KeccakHasher {
     }
 }
 
+#[cfg(feature = "with-crypto")]
+pub struct Keypair {
+    keypair: secp256k1::Keypair,
+}
+
+#[cfg(feature = "with-crypto")]
+impl Keypair {
+    /// Create a new private key from a slice of bytes.
+    ///
+    /// # Errors
+    /// Returns `Err` if the slice is greater than secp256k1 curve order.
+    pub fn from_bytes<I: AsRef<[u8]>>(bytes: I) -> Result<Self, secp256k1::Error> {
+        Self::from_slice(bytes.as_ref())
+    }
+
+    /// Create a new private key from a slice of bytes.
+    ///
+    /// # Errors
+    /// Returns `Err` if the slice is greater than secp256k1 curve order.
+    pub fn from_slice(slice: &[u8]) -> Result<Self, secp256k1::Error> {
+        let secret = secp256k1::SecretKey::from_slice(slice)?;
+        #[cfg(feature = "std")]
+        let keypair = secret.keypair(secp256k1::SECP256K1);
+        #[cfg(not(feature = "std"))]
+        let keypair = secret.keypair(&secp256k1::Secp256k1::new());
+        Ok(Self { keypair })
+    }
+
+    #[must_use]
+    pub fn pubkey(&self) -> [u8; 33] {
+        self.keypair.public_key().serialize()
+    }
+
+    #[must_use]
+    pub fn pubkey_uncompressed(&self) -> [u8; 65] {
+        self.keypair.public_key().serialize_uncompressed()
+    }
+
+    #[must_use]
+    pub fn address(&self) -> Address {
+        // uncompress the key
+        let uncompressed = self.keypair.public_key().serialize_uncompressed();
+        let hash = DefaultCrypto::keccak256(&uncompressed[1..]);
+        Address::from(hash)
+    }
+}
+
+#[cfg(feature = "with-crypto")]
+impl Signer for Keypair {
+    type Error = secp256k1::Error;
+
+    fn sign<I: AsRef<[u8]>>(
+        &self,
+        msg: I,
+        chain_id: Option<u64>,
+    ) -> Result<Signature, Self::Error> {
+        self.sign_prehash(DefaultCrypto::keccak256(msg.as_ref()), chain_id)
+    }
+
+    /// Sign a pre-hashed message
+    fn sign_prehash(&self, prehash: H256, chain_id: Option<u64>) -> Result<Signature, Self::Error> {
+        use crate::U256;
+        use secp256k1::Message;
+
+        #[cfg(feature = "std")]
+        let context = secp256k1::SECP256K1;
+        #[cfg(not(feature = "std"))]
+        let context = secp256k1::Secp256k1::signing_only();
+
+        let msg = Message::from_digest(prehash.0);
+        let (v, r, s) = unsafe {
+            // The recovery id is a byte that is either 0, 1, 2 or 3 where the first bit indicates
+            // if the y is even or odd, and the second bit indicates if an overflow occured or not.
+            // reference: https://github.com/bitcoin-core/secp256k1/blob/v0.4.1/src/ecdsa_impl.h#L280-L285
+            let sig = context.sign_ecdsa_recoverable(&msg, &self.keypair.secret_key());
+            let (recovery_id, _) = sig.serialize_compact();
+            let mut sig = sig.to_standard();
+            sig.normalize_s();
+            let [r, s] = core::mem::transmute::<[u8; 64], [[u8; 32]; 2]>(sig.serialize_compact());
+            (recovery_id.to_i32(), U256::from_big_endian(&r), U256::from_big_endian(&s))
+        };
+        let v = u8::try_from(v)
+            .map_err(|_| secp256k1::Error::InvalidRecoveryId)
+            .map(u64::from)? &
+            1;
+
+        // All transaction signatures whose s-value is greater than secp256k1n/2 are invalid.
+        // - https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
+        // - https://github.com/ethereum/go-ethereum/blob/v1.13.14/crypto/crypto.go#L260-L273
+        let secp256k1_half_n = U256::from_big_endian(&secp256k1::constants::CURVE_ORDER) >> 1;
+        if s >= secp256k1_half_n {
+            return Err(secp256k1::Error::IncorrectSignature);
+        }
+        let v = chain_id.map_or_else(|| v, |chain_id| RecoveryId::new(v).as_eip155(chain_id));
+        Ok(Signature { v: RecoveryId::new(v), r, s })
+    }
+}
+
 #[cfg(all(test, feature = "with-crypto", feature = "with-rlp"))]
 mod tests {
     use super::DefaultCrypto;
     use crate::{
+        crypto::{Keypair, Signer},
         eth_hash::{Address, H256},
         transactions::signature::Signature,
     };
@@ -307,6 +427,46 @@ mod tests {
 
         for (signature, msg_hash, expected_addr) in test_cases {
             let actual_addr = DefaultCrypto::secp256k1_ecdsa_recover(&signature, msg_hash).unwrap();
+            assert_eq!(expected_addr, actual_addr);
+        }
+    }
+
+    #[test]
+    fn sign_ecdsa_works() {
+        let test_cases: [([u8; 32], Address, &[u8], Signature); 2] = [
+            (
+                hex!("fad9c8855b740a0b7ed4c221dbad0f33a83a49cad6b3fe8d5817ac83d38b6a19"),
+                hex!("96216849c49358b10257cb55b28ea603c874b05e").into(),
+                hex!("e9808501ec5b05eb8301f6d194645d7d9f679a3b8aa4e7eedad709db14f6d3f44182dead808205398080").as_ref(),
+                Signature {
+                    r: hex!("e138cf75eb34e837cf7cec412a89f48792e49f5a9c8693df722c7705584d813f")
+                        .into(),
+                    s: hex!("2a1ff44833e17fd7439b2aff374c6fbe9fb1d4353c84188f6467891dfce409c5")
+                        .into(),
+                    v: 0xa96.into(),
+                },
+            ),
+            (
+                hex!("349593acb529f4bd0cda7ac620fab960130e248fd18e55a08df70d87263cf5af"),
+                hex!("2729b52d0214282beb1f37eb147f3ec32ad1da91").into(),
+                hex!("e5198256788212349496216849c49358b10257cb55b28ea603c874b05e84deadbeef80018080").as_ref(),
+                Signature {
+                    r: hex!("70611b6d9c5437004c9b7448c982a5f9e88cf32f949141f57ebd188d763123c0")
+                        .into(),
+                    s: hex!("017d8c488413794b0b0f0b918f8947e13e4faab39e04ba6901b2db436d92ff41")
+                        .into(),
+                    v: 37.into(),
+                },
+            ),
+        ];
+
+        for (secret_key, expected_addr, msg, expected_sig) in test_cases {
+            let prehash = DefaultCrypto::keccak256(msg);
+            let wallet = Keypair::from_bytes(secret_key).unwrap();
+            let signature = wallet.sign(msg, expected_sig.v.chain_id()).unwrap();
+            assert_eq!(signature, expected_sig);
+            assert_eq!(signature, wallet.sign_prehash(prehash, expected_sig.v.chain_id()).unwrap());
+            let actual_addr = DefaultCrypto::secp256k1_ecdsa_recover(&signature, prehash).unwrap();
             assert_eq!(expected_addr, actual_addr);
         }
     }

@@ -9,7 +9,6 @@ description = "Astar rosetta server."
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-ethers = "2.0"
 futures = { version = "0.3", default-features = false, features = ["std"] }
 futures-util = "0.3"
 hex = "0.4"

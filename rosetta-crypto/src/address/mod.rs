@@ -1,9 +1,9 @@
 //! Support for various blockchain address formats.
 use crate::{bip32::DerivedPublicKey, error::AddressError, PublicKey};
-use ethers::types::H160;
 use sp_core::{
     crypto::{AccountId32, Ss58Codec},
     hashing::blake2_256,
+    H160,
 };
 
 mod bech32;

@@ -187,6 +187,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct PolkadotMetadataParams {
+    pub nonce: Option<u32>,
     pub pallet_name: String,
     pub call_name: String,
     pub call_args: Vec<u8>,

@@ -191,9 +191,16 @@ impl Wallet {
     /// - account: the account to transfer to
     /// - amount: the amount to transfer
     #[allow(clippy::missing_errors_doc)]
-    pub async fn transfer(&self, account: &AccountIdentifier, amount: u128) -> Result<Vec<u8>> {
+    pub async fn transfer(
+        &self,
+        account: &AccountIdentifier,
+        amount: u128,
+        nonce: Option<u64>,
+        gas_limit: Option<u64>,
+    ) -> Result<Vec<u8>> {
         let address = Address::new(self.client.config().address_format, account.address.clone());
-        let metadata_params = self.tx.transfer(&address, amount)?;
+        let mut metadata_params = self.tx.transfer(&address, amount)?;
+        update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
         self.construct(&metadata_params).await
     }
 
@@ -224,8 +231,11 @@ impl Wallet {
         contract_address: [u8; 20],
         data: Vec<u8>,
         amount: u128,
+        nonce: Option<u64>,
+        gas_limit: Option<u64>,
     ) -> Result<[u8; 32]> {
-        let metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let mut metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
         let bytes = self.construct(&metadata_params).await?;
         let mut tx_hash = [0u8; 32];
         tx_hash.copy_from_slice(&bytes[0..32]);
@@ -247,7 +257,7 @@ impl Wallet {
                 GenericMetadata::Astar(metadata) => metadata.0,
                 GenericMetadata::Polkadot(_) => anyhow::bail!("unsupported op"),
             };
-        Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
+        Ok(u128::from(metadata.gas_limit))
     }
 
     /// calls a contract view call function
@@ -387,4 +397,32 @@ impl Wallet {
         };
         Ok(value)
     }
+}
+
+/// Updates the metadata parameters with the given nonce and gas limit.
+fn update_metadata_params(
+    params: &mut GenericMetadataParams,
+    nonce: Option<u64>,
+    gas_limit: Option<u64>,
+) -> Result<()> {
+    match params {
+        GenericMetadataParams::Ethereum(params) => {
+            params.nonce = nonce;
+            params.gas_limit = gas_limit;
+        },
+        GenericMetadataParams::Astar(params) => {
+            params.0.nonce = nonce;
+            params.0.gas_limit = gas_limit;
+        },
+        GenericMetadataParams::Polkadot(params) => {
+            if let Some(nonce) = nonce {
+                if let Ok(nonce) = u32::try_from(nonce) {
+                    params.nonce = Some(nonce);
+                } else {
+                    anyhow::bail!("invalid nonce");
+                }
+            }
+        },
+    }
+    Ok(())
 }
