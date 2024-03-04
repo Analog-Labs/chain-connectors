@@ -1,11 +1,10 @@
-#![allow(dead_code)]
-use super::{error::CloneableError, reconnect::Reconnect};
+use super::reconnect::Reconnect;
 use futures_timer::Delay;
 use futures_util::{
     future::{Either, Select, Shared},
     FutureExt,
 };
-use jsonrpsee::core::{client::SubscriptionClientT, error::Error};
+use jsonrpsee::core::{client::SubscriptionClientT, ClientError as Error};
 use pin_project::pin_project;
 use std::{
     fmt::{Debug, Formatter},
@@ -179,7 +178,7 @@ impl<T: Config> Clone for ConnectionStatus<T> {
 /// This state is shared between all the clients.
 #[derive(Debug)]
 pub struct SharedState<T: Config> {
-    config: T,
+    pub config: T,
     connection_status: RwLock<ConnectionStatus<T>>,
 }
 
@@ -213,23 +212,23 @@ impl<T: Config> From<Error> for ReadyOrWaitFuture<T> {
 }
 
 impl<T: Config> Future for ReadyOrWaitFuture<T> {
-    type Output = Result<Arc<T::Client>, Error>;
+    type Output = Result<Arc<T::Client>, Arc<Error>>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         match this.state.take() {
-            Some(ReadyOrWaitState::Ready(result)) => Poll::Ready(result),
+            Some(ReadyOrWaitState::Ready(result)) => Poll::Ready(result.map_err(Arc::new)),
             Some(ReadyOrWaitState::Waiting(mut future)) => {
                 match future.poll_unpin(cx) {
                     // The request delay timeout
-                    Poll::Ready(Either::Left(_)) => Poll::Ready(Err(Error::Custom(
+                    Poll::Ready(Either::Left(_)) => Poll::Ready(Err(Arc::new(Error::Custom(
                         "Timeout: cannot process request, client reconnecting...".to_string(),
-                    ))),
+                    )))),
                     // The client was reconnected!
                     Poll::Ready(Either::Right((Ok(client), _))) => Poll::Ready(Ok(client)),
                     // Failed to reconnect
                     Poll::Ready(Either::Right((Err(result), _))) => {
-                        Poll::Ready(Err(result.into_inner()))
+                        Poll::Ready(Err(Arc::clone(&result)))
                     },
                     Poll::Pending => {
                         *this.state = Some(ReadyOrWaitState::Waiting(future));
@@ -361,9 +360,9 @@ impl<T: Config> ReconnectFuture<T> {
 }
 
 impl<T: Config> Future for ReconnectFuture<T> {
-    type Output = Result<Arc<T::Client>, CloneableError>;
+    type Output = Result<Arc<T::Client>, Arc<Error>>;
 
-    #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let _enter = this.span.enter();
@@ -481,7 +480,7 @@ impl<T: Config> Future for ReconnectFuture<T> {
                         Ok(guard) => guard,
                         Err(error) => {
                             tracing::error!("FATAL ERROR: client lock was poisoned: {error}");
-                            return Poll::Ready(Err(CloneableError::from(Error::Custom(format!(
+                            return Poll::Ready(Err(Arc::new(Error::Custom(format!(
                                 "FATAL ERROR: client lock was poisoned: {error}"
                             )))));
                         },

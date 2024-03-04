@@ -2,12 +2,11 @@
 members = [
   "chains/astar/config",
   "chains/astar/server",
-  "chains/bitcoin/config",
-  "chains/bitcoin/server",
+  "chains/ethereum/backend",
   "chains/ethereum/config",
-  "chains/ethereum/rpc-client",
   "chains/ethereum/server",
   "chains/ethereum/tx",
+  "chains/ethereum/types",
   "chains/humanode/config",
   "chains/humanode/server",
   "chains/polkadot/config",
@@ -19,6 +18,8 @@ members = [
   "rosetta-docker",
   "rosetta-server",
   "rosetta-types",
+  "chains/arbitrum/testing/rosetta-testing-arbitrum",
+  "rosetta-utils",
 ]
 resolver = "2"
 
@@ -28,12 +29,11 @@ resolver = "2"
 [workspace.dependencies]
 rosetta-config-astar = { path = "chains/astar/config", default-features = false }
 rosetta-server-astar = { path = "chains/astar/server" }
-rosetta-config-bitcoin = { path = "chains/bitcoin/config" }
-rosetta-server-bitcoin = { path = "chains/bitcoin/server" }
+rosetta-ethereum-backend = { path = "chains/ethereum/backend" }
 rosetta-config-ethereum = { path = "chains/ethereum/config" }
 rosetta-server-ethereum = { path = "chains/ethereum/server" }
-rosetta-ethereum-rpc-client = { path = "chains/ethereum/rpc-client" }
 rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
+rosetta-ethereum-types = { path = "chains/ethereum/types", default-features = false }
 rosetta-config-humanode = { path = "chains/humanode/config" }
 rosetta-server-humanode = { path = "chains/humanode/server" }
 rosetta-config-polkadot = { path = "chains/polkadot/config" }
@@ -45,12 +45,17 @@ rosetta-crypto = { path = "rosetta-crypto" }
 rosetta-docker = { path = "rosetta-docker" }
 rosetta-server = { path = "rosetta-server", default-features = false }
 rosetta-types = { path = "rosetta-types" }
+rosetta-utils = { path = "rosetta-utils", default-features = false }
 
 ## Crates we want all members to use the same version
-jsonrpsee = { version = "0.20", default-features = false }
+jsonrpsee = { version = "0.22", default-features = false }
 parity-scale-codec = { version = "3.6" }
 tokio = { version = "1.32" }
-subxt = { version = "0.32", default-features = false }
+subxt = { version = "0.34", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 scale-info = { version = "2.3" }
+
+# Used to sign substrate transactions, must be the same version used by subxt
+# https://github.com/paritytech/subxt/blob/v0.34.0/Cargo.toml#L125
+sp-keyring = { version = "31.0" }

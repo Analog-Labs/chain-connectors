@@ -14,8 +14,6 @@
 /// associated with the `AccountIdentifiers` returned in `ConstructionPreprocessResponse`.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionPayloadsRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "operations")]
     pub operations: Vec<crate::Operation>,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
@@ -30,10 +28,7 @@ impl ConstructionPayloadsRequest {
     /// `/construction/metadata`.  Optionally, the request can also include an array of `PublicKeys`
     /// associated with the `AccountIdentifiers` returned in `ConstructionPreprocessResponse`.
     #[must_use]
-    pub const fn new(
-        network_identifier: crate::NetworkIdentifier,
-        operations: Vec<crate::Operation>,
-    ) -> Self {
-        Self { network_identifier, operations, metadata: None, public_keys: None }
+    pub const fn new(operations: Vec<crate::Operation>) -> Self {
+        Self { operations, metadata: None, public_keys: None }
     }
 }

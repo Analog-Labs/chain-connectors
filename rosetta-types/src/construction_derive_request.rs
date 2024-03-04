@@ -15,8 +15,6 @@
 /// vs normal accounts).
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionDeriveRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "public_key")]
     pub public_key: crate::PublicKey,
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
@@ -29,10 +27,7 @@ impl ConstructionDeriveRequest {
     /// different networks. Metadata is provided in the request because some blockchains allow for
     /// multiple address types (i.e. different address for validators vs normal accounts).
     #[must_use]
-    pub const fn new(
-        network_identifier: crate::NetworkIdentifier,
-        public_key: crate::PublicKey,
-    ) -> Self {
-        Self { network_identifier, public_key, metadata: None }
+    pub const fn new(public_key: crate::PublicKey) -> Self {
+        Self { public_key, metadata: None }
     }
 }

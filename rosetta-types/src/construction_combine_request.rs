@@ -13,8 +13,6 @@
 /// `/construction/payloads` and all required signatures to create a network transaction.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ConstructionCombineRequest {
-    #[serde(rename = "network_identifier")]
-    pub network_identifier: crate::NetworkIdentifier,
     #[serde(rename = "unsigned_transaction")]
     pub unsigned_transaction: String,
     #[serde(rename = "signatures")]
@@ -26,11 +24,7 @@ impl ConstructionCombineRequest {
     /// contains the unsigned transaction blob returned by `/construction/payloads` and all required
     /// signatures to create a network transaction.
     #[must_use]
-    pub const fn new(
-        network_identifier: crate::NetworkIdentifier,
-        unsigned_transaction: String,
-        signatures: Vec<crate::Signature>,
-    ) -> Self {
-        Self { network_identifier, unsigned_transaction, signatures }
+    pub const fn new(unsigned_transaction: String, signatures: Vec<crate::Signature>) -> Self {
+        Self { unsigned_transaction, signatures }
     }
 }

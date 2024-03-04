@@ -9,7 +9,7 @@ description = "Provides traits and definitions shared by the server and client c
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
-fluent-uri = "0.1.4"
+fluent-uri = "0.1"
 futures-util = "0.3"
 rosetta-crypto.workspace = true
 rosetta-types.workspace = true

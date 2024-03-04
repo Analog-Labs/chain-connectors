@@ -16,14 +16,14 @@ pub struct BlockIdentifier {
     pub index: u64,
     /// This should be normalized according to the case specified in the block_hash_case network
     /// options.
-    #[serde(rename = "hash")]
-    pub hash: String,
+    #[serde(skip_serializing)]
+    pub hash: [u8; 32],
 }
 
 impl BlockIdentifier {
     /// The `block_identifier` uniquely identifies a block in a particular network.
     #[must_use]
-    pub const fn new(index: u64, hash: String) -> Self {
+    pub const fn new(index: u64, hash: [u8; 32]) -> Self {
         Self { index, hash }
     }
 }

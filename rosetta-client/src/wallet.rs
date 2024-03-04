@@ -1,19 +1,16 @@
 use crate::{
-    client::{GenericClient, GenericMetadata, GenericMetadataParams},
+    client::{GenericBlockIdentifier, GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
-    types::{AccountIdentifier, Amount, BlockIdentifier, Coin, PublicKey, TransactionIdentifier},
+    types::{AccountIdentifier, BlockIdentifier, PublicKey},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
-use rosetta_core::{
-    types::{Block, PartialBlockIdentifier, Transaction},
-    BlockchainClient, RosettaAlgorithm,
-};
+use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
 use rosetta_server_ethereum::config::{
-    ethereum_types::{self, Address as EthAddress, H256, U256},
+    ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
     AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
     GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt,
 };
@@ -37,8 +34,9 @@ impl Wallet {
         network: &str,
         url: &str,
         keyfile: Option<&Path>,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let client = GenericClient::new(blockchain, network, url).await?;
+        let client = GenericClient::new(blockchain, network, url, private_key).await?;
         Self::from_client(client, keyfile)
     }
 
@@ -48,8 +46,9 @@ impl Wallet {
         config: BlockchainConfig,
         url: &str,
         keyfile: Option<&Path>,
+        private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
-        let client = GenericClient::from_config(config, url).await?;
+        let client = GenericClient::from_config(config, url, private_key).await?;
         Self::from_client(client, keyfile)
     }
 
@@ -99,21 +98,47 @@ impl Wallet {
     /// Returns the latest finalized block identifier.
     #[allow(clippy::missing_errors_doc)]
     pub async fn status(&self) -> Result<BlockIdentifier> {
-        self.client.finalized_block().await
+        // self.client.finalized_block().await
+        match &self.client {
+            GenericClient::Astar(client) => client.finalized_block().await,
+            GenericClient::Ethereum(client) => client.finalized_block().await,
+            GenericClient::Polkadot(client) => client.finalized_block().await,
+        }
     }
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn balance(&self) -> Result<Amount> {
+    pub async fn balance(&self) -> Result<u128> {
         let block = self.client.current_block().await?;
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
-        let balance = self.client.balance(&address, &block).await?;
-        Ok(Amount {
-            value: format!("{balance}"),
-            currency: self.client.config().currency(),
-            metadata: None,
-        })
+        let balance = match &self.client {
+            GenericClient::Astar(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Ethereum(client) => match block {
+                GenericBlockIdentifier::Ethereum(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Polkadot(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+            GenericClient::Polkadot(client) => match block {
+                GenericBlockIdentifier::Polkadot(block) => {
+                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+                },
+                GenericBlockIdentifier::Ethereum(_) => {
+                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
+                },
+            },
+        };
+        Ok(balance)
     }
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
@@ -122,35 +147,6 @@ impl Wallet {
         &self,
     ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
         self.client.listen().await
-    }
-
-    /// Returns block data
-    /// Takes `PartialBlockIdentifier`
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block(&self, data: PartialBlockIdentifier) -> Result<Block> {
-        self.client.block(&data).await
-    }
-
-    /// Returns transactions included in a block
-    /// Parameters:
-    /// 1. `block_identifier`: `BlockIdentifier` containing block number and hash
-    /// 2. `tx_identifier`: `TransactionIdentifier` containing hash of transaction
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn block_transaction(
-        &self,
-        block_identifer: BlockIdentifier,
-        tx_identifier: TransactionIdentifier,
-    ) -> Result<Transaction> {
-        self.client.block_transaction(&block_identifer, &tx_identifier).await
-    }
-
-    /// Returns the coins of the wallet.
-    #[allow(clippy::missing_errors_doc)]
-    pub async fn coins(&self) -> Result<Vec<Coin>> {
-        let block = self.client.current_block().await?;
-        let address =
-            Address::new(self.client.config().address_format, self.account.address.clone());
-        self.client.coins(&address, &block).await
     }
 
     /// Returns the on chain metadata.
@@ -195,9 +191,16 @@ impl Wallet {
     /// - account: the account to transfer to
     /// - amount: the amount to transfer
     #[allow(clippy::missing_errors_doc)]
-    pub async fn transfer(&self, account: &AccountIdentifier, amount: u128) -> Result<Vec<u8>> {
+    pub async fn transfer(
+        &self,
+        account: &AccountIdentifier,
+        amount: u128,
+        nonce: Option<u64>,
+        gas_limit: Option<u64>,
+    ) -> Result<Vec<u8>> {
         let address = Address::new(self.client.config().address_format, account.address.clone());
-        let metadata_params = self.tx.transfer(&address, amount)?;
+        let mut metadata_params = self.tx.transfer(&address, amount)?;
+        update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
         self.construct(&metadata_params).await
     }
 
@@ -228,8 +231,11 @@ impl Wallet {
         contract_address: [u8; 20],
         data: Vec<u8>,
         amount: u128,
+        nonce: Option<u64>,
+        gas_limit: Option<u64>,
     ) -> Result<[u8; 32]> {
-        let metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let mut metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
         let bytes = self.construct(&metadata_params).await?;
         let mut tx_hash = [0u8; 32];
         tx_hash.copy_from_slice(&bytes[0..32]);
@@ -249,9 +255,9 @@ impl Wallet {
             match self.metadata(&metadata_params).await? {
                 GenericMetadata::Ethereum(metadata) => metadata,
                 GenericMetadata::Astar(metadata) => metadata.0,
-                _ => anyhow::bail!("unsupported op"),
+                GenericMetadata::Polkadot(_) => anyhow::bail!("unsupported op"),
             };
-        Ok(rosetta_tx_ethereum::U256(metadata.gas_limit).as_u128())
+        Ok(u128::from(metadata.gas_limit))
     }
 
     /// calls a contract view call function
@@ -275,12 +281,29 @@ impl Wallet {
             GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Humanode(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_view_call"),
         };
         let EthQueryResult::CallContract(exit_reason) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(exit_reason)
+    }
+
+    /// Peforms an arbitrary query to EVM compatible blockchain.
+    ///
+    /// # Errors
+    /// Returns `Err` if the blockchain doesn't support EVM calls, or the due another client issue
+    pub async fn query<Q: rosetta_server_ethereum::QueryItem>(
+        &self,
+        query: Q,
+    ) -> Result<<Q as rosetta_core::traits::Query>::Result> {
+        let query = <Q as rosetta_server_ethereum::QueryItem>::into_query(query);
+        let result = match &self.client {
+            GenericClient::Ethereum(client) => client.call(&query).await?,
+            GenericClient::Astar(client) => client.call(&query).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
+        };
+        let result = <Q as rosetta_server_ethereum::QueryItem>::parse_result(result)?;
+        Ok(result)
     }
 
     /// gets storage from ethereum contract
@@ -306,7 +329,6 @@ impl Wallet {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetStorageAt(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -334,7 +356,6 @@ impl Wallet {
             GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Humanode(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetProof(proof) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -361,7 +382,6 @@ impl Wallet {
                 client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
             },
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_storage"),
         };
         let EthQueryResult::GetTransactionReceipt(maybe_receipt) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
@@ -380,11 +400,38 @@ impl Wallet {
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Humanode(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),
-            GenericClient::Bitcoin(_) => anyhow::bail!("bitcoin doesn't support eth_chainId"),
         };
         let EthQueryResult::ChainId(value) = result else {
             anyhow::bail!("[this is a bug] invalid result type");
         };
         Ok(value)
     }
+}
+
+/// Updates the metadata parameters with the given nonce and gas limit.
+fn update_metadata_params(
+    params: &mut GenericMetadataParams,
+    nonce: Option<u64>,
+    gas_limit: Option<u64>,
+) -> Result<()> {
+    match params {
+        GenericMetadataParams::Ethereum(params) => {
+            params.nonce = nonce;
+            params.gas_limit = gas_limit;
+        },
+        GenericMetadataParams::Astar(params) => {
+            params.0.nonce = nonce;
+            params.0.gas_limit = gas_limit;
+        },
+        GenericMetadataParams::Polkadot(params) => {
+            if let Some(nonce) = nonce {
+                if let Ok(nonce) = u32::try_from(nonce) {
+                    params.nonce = Some(nonce);
+                } else {
+                    anyhow::bail!("invalid nonce");
+                }
+            }
+        },
+    }
+    Ok(())
 }

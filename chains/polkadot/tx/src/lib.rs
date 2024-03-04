@@ -92,8 +92,9 @@ impl TransactionBuilder for PolkadotTransactionBuilder {
         let address: AccountId32 = parse_address(address)?;
         let dest = MultiAddress::Id(address);
         Ok(PolkadotMetadataParams {
+            nonce: None,
             pallet_name: "Balances".into(),
-            call_name: "transfer".into(),
+            call_name: "transfer_keep_alive".into(),
             call_args: Transfer { dest, amount }.encode(),
         })
     }

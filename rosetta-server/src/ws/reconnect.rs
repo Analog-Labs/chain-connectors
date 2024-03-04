@@ -1,17 +1,20 @@
-use super::jsonrpsee_client::Params as RpcParams;
+use super::{error::CloneableJsonRpseeError, jsonrpsee_client::Params as RpcParams};
 use async_trait::async_trait;
 use jsonrpsee::core::{
     client::{BatchResponse, ClientT, Subscription, SubscriptionClientT},
     params::BatchRequestBuilder,
     traits::ToRpcParams,
-    Error,
+    ClientError as Error,
 };
 use serde::de::DeserializeOwned;
 use std::{
     fmt::{Debug, Display, Formatter},
     future::Future,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 /// Reconnect trait.
@@ -21,18 +24,21 @@ pub trait Reconnect: 'static + Sized + Send + Sync {
     type Client: SubscriptionClientT + 'static + Send + Sync;
     type ClientRef: AsRef<Self::Client> + Send + Sync;
 
-    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send + Unpin
+    type ReadyFuture<'a>: Future<Output = Result<Self::ClientRef, Arc<Error>>> + 'a + Send + Unpin
     where
         Self: 'a;
 
-    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Error>>
+    type RestartNeededFuture<'a>: Future<Output = Result<Self::ClientRef, Arc<Error>>>
         + 'a
         + Send
         + Unpin
     where
         Self: 'a;
 
-    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Error>> + 'a + Send + Unpin
+    type ReconnectFuture<'a>: Future<Output = Result<Self::ClientRef, Arc<Error>>>
+        + 'a
+        + Send
+        + Unpin
     where
         Self: 'a;
 
@@ -61,6 +67,21 @@ pub struct AutoReconnectClient<T> {
     span: tracing::Span,
 }
 
+impl<T> AutoReconnectClient<T> {
+    #[must_use]
+    pub const fn client(&self) -> &T {
+        &self.client
+    }
+
+    pub fn client_mut(&mut self) -> &mut T {
+        &mut self.client
+    }
+
+    pub fn into_client(self) -> T {
+        self.client
+    }
+}
+
 impl<T> AutoReconnectClient<T>
 where
     T: Reconnect,
@@ -74,7 +95,7 @@ where
         }
     }
 
-    async fn ready(&self) -> Result<T::ClientRef, Error> {
+    async fn ready(&self) -> Result<T::ClientRef, Arc<Error>> {
         Reconnect::ready(&self.client).await.map_err(|error| {
             tracing::error!("rpc client is unavailable: {error:?}");
             error
@@ -83,9 +104,9 @@ where
 
     async fn restart_needed(
         &self,
-        reason: String,
+        reason: Arc<Error>,
         client: T::ClientRef,
-    ) -> Result<T::ClientRef, Error> {
+    ) -> Result<T::ClientRef, Arc<Error>> {
         let reconnect_count = self.reconnect_count.fetch_add(1, Ordering::SeqCst) + 1;
         self.span.record("reconnects", reconnect_count);
         tracing::error!("Reconneting RPC client due error: {reason}");
@@ -155,12 +176,15 @@ where
         Params: ToRpcParams + Send,
     {
         let _enter = self.span.enter();
-        let client = self.ready().await?;
+        let client = self.ready().await.map_err(CloneableJsonRpseeError::as_error)?;
         let params = RpcParams::new(params)?;
         match ClientT::notification(client.as_ref(), method, params.clone()).await {
             Ok(r) => Ok(r),
             Err(Error::RestartNeeded(message)) => {
-                let client = self.restart_needed(message, client).await?;
+                let client = self
+                    .restart_needed(message, client)
+                    .await
+                    .map_err(CloneableJsonRpseeError::as_error)?;
                 ClientT::notification(client.as_ref(), method, params).await
             },
             Err(error) => {
@@ -176,7 +200,7 @@ where
         Params: ToRpcParams + Send,
     {
         let _enter = self.span.enter();
-        let client = self.ready().await?;
+        let client = self.ready().await.map_err(CloneableJsonRpseeError::as_error)?;
         let params = RpcParams::new(params)?;
         let error = match ClientT::request::<R, _>(client.as_ref(), method, params.clone()).await {
             Ok(r) => return Ok(r),
@@ -185,7 +209,10 @@ where
 
         match error {
             Error::RestartNeeded(message) => {
-                let client = self.restart_needed(message, client).await?;
+                let client = self
+                    .restart_needed(message, client)
+                    .await
+                    .map_err(CloneableJsonRpseeError::as_error)?;
                 ClientT::request::<R, _>(client.as_ref(), method, params).await
             },
             error => {
@@ -203,7 +230,7 @@ where
         R: DeserializeOwned + Debug + 'a,
     {
         let _enter = self.span.enter();
-        let client = self.ready().await?;
+        let client = self.ready().await.map_err(CloneableJsonRpseeError::as_error)?;
         let error = match ClientT::batch_request(client.as_ref(), batch.clone()).await {
             Ok(r) => return Ok(r),
             Err(error) => error,
@@ -211,7 +238,10 @@ where
 
         match error {
             Error::RestartNeeded(message) => {
-                let client = self.restart_needed(message, client).await?;
+                let client = self
+                    .restart_needed(message, client)
+                    .await
+                    .map_err(CloneableJsonRpseeError::as_error)?;
                 ClientT::batch_request(client.as_ref(), batch).await
             },
             error => {
@@ -239,7 +269,7 @@ where
         Notif: DeserializeOwned,
     {
         let _enter = self.span.enter();
-        let client = self.ready().await?;
+        let client = self.ready().await.map_err(CloneableJsonRpseeError::as_error)?;
         let params = RpcParams::new(params)?;
         let error = match SubscriptionClientT::subscribe::<Notif, _>(
             client.as_ref(),
@@ -255,7 +285,10 @@ where
 
         match error {
             Error::RestartNeeded(message) => {
-                let client = self.restart_needed(message, client).await?;
+                let client = self
+                    .restart_needed(message, client)
+                    .await
+                    .map_err(CloneableJsonRpseeError::as_error)?;
                 SubscriptionClientT::subscribe::<Notif, _>(
                     client.as_ref(),
                     subscribe_method,
@@ -279,7 +312,7 @@ where
         Notif: DeserializeOwned,
     {
         let _enter = self.span.enter();
-        let client = self.ready().await?;
+        let client = self.ready().await.map_err(CloneableJsonRpseeError::as_error)?;
         let error = match SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await {
             Ok(subscription) => return Ok(subscription),
             Err(error) => error,
@@ -287,7 +320,10 @@ where
 
         match error {
             Error::RestartNeeded(message) => {
-                let client = self.restart_needed(message, client).await?;
+                let client = self
+                    .restart_needed(message, client)
+                    .await
+                    .map_err(CloneableJsonRpseeError::as_error)?;
                 SubscriptionClientT::subscribe_to_method(client.as_ref(), method).await
             },
             error => {

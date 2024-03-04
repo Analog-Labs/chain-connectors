@@ -18,7 +18,7 @@ use jsonrpsee::{
     client_transport::ws::WsTransportClientBuilder,
     core::{
         client::{Client, ClientBuilder},
-        Error as JsonRpseeError,
+        ClientError as JsonRpseeError,
     },
 };
 use std::time::Duration;
@@ -26,6 +26,7 @@ pub use tungstenite_jsonrpsee::{TungsteniteClient, WsError};
 use url::Url;
 
 pub type DefaultClient = AutoReconnectClient<DefaultStrategy<DefaultReconnectConfig>>;
+pub type HttpClient = jsonrpsee::http_client::HttpClient;
 
 async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, JsonRpseeError> {
     let builder = ClientBuilder::from(&config);
@@ -58,10 +59,10 @@ async fn connect_client(url: Url, config: RpcClientConfig) -> Result<Client, Jso
 #[derive(Debug)]
 pub struct DefaultReconnectConfig {
     /// Url to connect to.
-    url: Url,
+    pub url: Url,
 
     /// RPC Client configuration.
-    config: RpcClientConfig,
+    pub config: RpcClientConfig,
 }
 
 impl ReconnectConfig for DefaultReconnectConfig {
@@ -106,6 +107,18 @@ pub async fn default_client(
     let reconnect_config = DefaultReconnectConfig { url, config };
 
     DefaultStrategy::connect(reconnect_config).await.map(Reconnect::into_client)
+}
+
+/// Creates an Json-RPC HTTP client with default settings
+///
+/// # Errors
+/// Returns `Err` if the url is not valid
+pub fn default_http_client(url: &str) -> Result<HttpClient, JsonRpseeError> {
+    let url = url
+        .parse::<Url>()
+        .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
+    let client = jsonrpsee::http_client::HttpClientBuilder::new().build(url)?;
+    Ok(client)
 }
 
 /// Creates a default jsonrpsee client using socketto.

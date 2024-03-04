@@ -1,485 +1,308 @@
-use crate::eth_types::{
-    FlattenTrace, Trace, BYZANTIUM_BLOCK_REWARD, CALL_OP_TYPE, CONSTANTINOPLE_BLOCK_REWARD,
-    CREATE2_OP_TYPE, CREATE_OP_TYPE, DESTRUCT_OP_TYPE, FAILURE_STATUS, FEE_OP_TYPE,
-    FRONTIER_BLOCK_REWARD, MAX_UNCLE_DEPTH, MINING_REWARD_OP_TYPE, SELF_DESTRUCT_OP_TYPE,
-    SUCCESS_STATUS, TESTNET_CHAIN_CONFIG, UNCLE_REWARD_MULTIPLIER, UNCLE_REWARD_OP_TYPE,
-};
-use anyhow::{bail, Context, Result};
-use ethers::{
-    prelude::*,
-    providers::Middleware,
-    types::{Block, Transaction, TransactionReceipt, H160, H256, U256, U64},
-    utils::to_checksum,
-};
-use rosetta_core::{
-    types::{
-        self as rosetta_types, AccountIdentifier, Amount, BlockIdentifier, Currency, Operation,
-        OperationIdentifier, TransactionIdentifier,
+use rosetta_config_ethereum::{
+    ext::types::{
+        rpc::{RpcBlock, RpcTransaction},
+        SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TxHash, TypedTransaction,
+        H256, I256, U256,
     },
-    BlockchainConfig,
+    AtBlock,
 };
-use serde_json::json;
-use std::{
-    collections::{HashMap, VecDeque},
-    str::FromStr,
-    sync::Arc,
-};
+use rosetta_core::types::PartialBlockIdentifier;
+use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc};
+use std::string::ToString;
 
-/// A block that is not pending, so it must have a valid hash and number.
-/// This allow skipping duplicated checks in the code
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NonPendingBlock {
-    pub hash: H256,
-    pub number: u64,
-    pub identifier: BlockIdentifier,
-    pub block: ethers::types::Block<H256>,
-}
+pub type FullBlock = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
+pub type PartialBlock = SealedBlock<H256, H256>;
+pub type PartialBlockWithUncles = SealedBlock<H256, SealedHeader>;
 
-impl TryFrom<ethers::types::Block<H256>> for NonPendingBlock {
-    type Error = anyhow::Error;
+/// Maximum length of error messages to log.
+const ERROR_MSG_MAX_LENGTH: usize = 100;
 
-    fn try_from(block: ethers::types::Block<H256>) -> std::result::Result<Self, Self::Error> {
-        let Some(number) = block.number else { anyhow::bail!("block number is missing") };
-        let Some(hash) = block.hash else { anyhow::bail!("block hash is missing") };
-        Ok(Self {
-            hash,
-            number: number.as_u64(),
-            identifier: BlockIdentifier::new(number.as_u64(), hex::encode(hash)),
-            block,
-        })
-    }
-}
+/// Helper type that truncates the error message to `ERROR_MSG_MAX_LENGTH` before logging.
+pub struct SafeLogError<'a, T>(&'a T);
 
-// Retrieve a non-pending block
-pub async fn get_non_pending_block<C, ID>(
-    client: Arc<Provider<C>>,
-    block_id: ID,
-) -> Result<Option<NonPendingBlock>>
+impl<T> std::fmt::Display for SafeLogError<'_, T>
 where
-    C: JsonRpcClient + 'static,
-    ID: Into<BlockId> + Send + Sync,
+    T: ToString,
 {
-    let block_id = block_id.into();
-    if matches!(block_id, BlockId::Number(BlockNumber::Pending)) {
-        anyhow::bail!("request a pending block is not allowed");
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let msg = <T as ToString>::to_string(self.0);
+        let msg_str = msg.trim();
+        if msg_str.chars().count() > ERROR_MSG_MAX_LENGTH {
+            let msg = msg_str.chars().take(ERROR_MSG_MAX_LENGTH).collect::<String>();
+            let msg_str = msg.trim_end();
+            write!(f, "{msg_str}...")
+        } else {
+            write!(f, "{msg_str}")
+        }
     }
-    let Some(block) = client.get_block(block_id).await? else {
-        return Ok(None);
-    };
-    // The block is not pending, it MUST have a valid hash and number
-    let Ok(block) = NonPendingBlock::try_from(block) else {
-        anyhow::bail!(
-            "[RPC CLIENT BUG] the rpc client returned an invalid non-pending block at {block_id:?}"
-        );
-    };
-    Ok(Some(block))
 }
 
-pub async fn get_transaction<P: JsonRpcClient, T: Send>(
-    client: &Provider<P>,
-    config: &BlockchainConfig,
-    block: Block<T>,
-    tx: &Transaction,
-) -> Result<rosetta_types::Transaction> {
-    let Some(block_hash) = block.hash else {
-        anyhow::bail!("Block must have a hash");
-    };
-    let Some(block_number) = block.number else {
-        anyhow::bail!("Block must have a number");
-    };
+pub trait LogErrorExt: Sized {
+    fn truncate(&self) -> SafeLogError<'_, Self>;
+}
 
-    let tx_receipt = client
-        .get_transaction_receipt(tx.hash)
-        .await?
-        .context("Transaction receipt not found")?;
-
-    if tx_receipt.block_hash.context("Block hash not found in tx receipt")? != block_hash {
-        bail!("Transaction receipt block hash does not match block hash");
+impl LogErrorExt for rosetta_ethereum_backend::jsonrpsee::core::ClientError {
+    fn truncate(&self) -> SafeLogError<'_, Self> {
+        SafeLogError(self)
     }
+}
 
-    let currency = config.currency();
+pub trait AtBlockExt {
+    fn from_partial_identifier(block_identifier: &PartialBlockIdentifier) -> Self;
+}
 
-    let mut operations = vec![];
-    let fee_ops = get_fee_operations(&block, tx, &tx_receipt, &currency)?;
-    operations.extend(fee_ops);
+impl AtBlockExt for AtBlock {
+    fn from_partial_identifier(block_identifier: &PartialBlockIdentifier) -> Self {
+        match (block_identifier.index, block_identifier.hash) {
+            (_, Some(hash)) => Self::from(hash),
+            (Some(index), None) => Self::from(index),
+            (None, None) => Self::Latest,
+        }
+    }
+}
 
-    let tx_trace = if block_number.is_zero() {
-        None
+/// The number of blocks from the past for which the fee rewards are fetched for fee estimation.
+const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
+/// The default percentile of gas premiums that are fetched for fee estimation.
+const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
+/// The default max priority fee per gas, used in case the base fee is within a threshold.
+const EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE: u64 = 3_000_000_000;
+/// The threshold for base fee below which we use the default priority fee, and beyond which we
+/// estimate an appropriate value for priority fee.
+const EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER: u64 = 100_000_000_000;
+/// The threshold max change/difference (in %) at which we will ignore the fee history values
+/// under it.
+const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64 = 200;
+
+fn estimate_priority_fee(rewards: &[Vec<U256>]) -> U256 {
+    let mut rewards: Vec<U256> =
+        rewards.iter().map(|r| r[0]).filter(|r| *r > U256::zero()).collect();
+    if rewards.is_empty() {
+        return U256::zero();
+    }
+    if rewards.len() == 1 {
+        return rewards[0];
+    }
+    // Sort the rewards as we will eventually take the median.
+    rewards.sort();
+
+    // A copy of the same vector is created for convenience to calculate percentage change
+    // between subsequent fee values.
+    let mut rewards_copy = rewards.clone();
+    rewards_copy.rotate_left(1);
+
+    let mut percentage_change: Vec<I256> = rewards
+        .iter()
+        .zip(rewards_copy.iter())
+        .map(|(a, b)| {
+            let a = I256::try_from(*a).unwrap_or(I256::MAX);
+            let b = I256::try_from(*b).unwrap_or(I256::MAX);
+            ((b - a) * 100) / a
+        })
+        .collect();
+    percentage_change.pop();
+
+    // Fetch the max of the percentage change, and that element's index.
+    let max_change = percentage_change.iter().max().copied().unwrap_or(I256::zero());
+    let max_change_index = percentage_change.iter().position(|&c| c == max_change).unwrap_or(0);
+
+    // If we encountered a big change in fees at a certain position, then consider only
+    // the values >= it.
+    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
+        (max_change_index >= (rewards.len() / 2))
+    {
+        rewards[max_change_index..].to_vec()
     } else {
-        let trace = get_transaction_trace(&tx.hash, client).await?;
-        let trace_ops = get_trace_operations(
-            trace.clone(),
-            i64::try_from(operations.len()).context("operations overflow")?,
-            &currency,
-        )?;
-        operations.extend(trace_ops);
-        Some(trace)
+        rewards
     };
 
-    Ok(rosetta_types::Transaction {
-        transaction_identifier: TransactionIdentifier { hash: hex::encode(tx.hash) },
-        operations,
-        related_transactions: None,
-        metadata: Some(json!({
-            "gas_limit" : tx.gas,
-            "gas_price": tx.gas_price,
-            "receipt": tx_receipt,
-            "trace": tx_trace,
-        })),
-    })
+    // Return the median.
+    values[values.len() / 2]
 }
 
-fn get_fee_operations<T>(
-    block: &Block<T>,
-    tx: &Transaction,
-    receipt: &TransactionReceipt,
-    currency: &Currency,
-) -> Result<Vec<Operation>> {
-    let miner = block.author.context("block has no author")?;
-    let base_fee = block.base_fee_per_gas.context("block has no base fee")?;
-    let tx_type = tx.transaction_type.context("transaction type unavailable")?;
-    let tx_gas_price = tx.gas_price.context("gas price is not available")?;
-    let tx_max_priority_fee_per_gas = tx.max_priority_fee_per_gas.unwrap_or_default();
-    let gas_used = receipt.gas_used.context("gas used is not available")?;
-    let gas_price =
-        if tx_type.as_u64() == 2 { base_fee + tx_max_priority_fee_per_gas } else { tx_gas_price };
-    let fee_amount = gas_used * gas_price;
-    let fee_burned = gas_used * base_fee;
-    let miner_earned_reward = fee_amount - fee_burned;
+fn base_fee_surged(base_fee_per_gas: U256) -> U256 {
+    if base_fee_per_gas <= U256::from(40_000_000_000u64) {
+        base_fee_per_gas * 2
+    } else if base_fee_per_gas <= U256::from(100_000_000_000u64) {
+        base_fee_per_gas * 16 / 10
+    } else if base_fee_per_gas <= U256::from(200_000_000_000u64) {
+        base_fee_per_gas * 14 / 10
+    } else {
+        base_fee_per_gas * 12 / 10
+    }
+}
 
-    let mut operations = vec![];
-
-    let first_op = Operation {
-        operation_identifier: OperationIdentifier { index: 0, network_index: None },
-        related_operations: None,
-        r#type: FEE_OP_TYPE.into(),
-        status: Some(SUCCESS_STATUS.into()),
-        account: Some(AccountIdentifier {
-            address: to_checksum(&tx.from, None),
-            sub_account: None,
-            metadata: None,
-        }),
-        amount: Some(Amount {
-            value: format!("-{miner_earned_reward}"),
-            currency: currency.clone(),
-            metadata: None,
-        }),
-        coin_change: None,
-        metadata: None,
+pub fn eip1559_default_estimator(base_fee_per_gas: U256, rewards: &[Vec<U256>]) -> (U256, U256) {
+    let max_priority_fee_per_gas =
+        if base_fee_per_gas < U256::from(EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER) {
+            U256::from(EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE)
+        } else {
+            std::cmp::max(
+                estimate_priority_fee(rewards),
+                U256::from(EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE),
+            )
+        };
+    let potential_max_fee = base_fee_surged(base_fee_per_gas);
+    let max_fee_per_gas = if max_priority_fee_per_gas > potential_max_fee {
+        max_priority_fee_per_gas + potential_max_fee
+    } else {
+        potential_max_fee
     };
+    (max_fee_per_gas, max_priority_fee_per_gas)
+}
 
-    let second_op = Operation {
-        operation_identifier: OperationIdentifier { index: 1, network_index: None },
-        related_operations: Some(vec![OperationIdentifier { index: 0, network_index: None }]),
-        r#type: FEE_OP_TYPE.into(),
-        status: Some(SUCCESS_STATUS.into()),
-        account: Some(AccountIdentifier {
-            address: to_checksum(&miner, None),
-            sub_account: None,
-            metadata: None,
-        }),
-        amount: Some(Amount {
-            value: format!("{miner_earned_reward}"),
-            currency: currency.clone(),
-            metadata: None,
-        }),
-        coin_change: None,
-        metadata: None,
-    };
+#[async_trait::async_trait]
+pub trait EthereumRpcExt {
+    async fn wait_for_transaction_receipt(
+        &self,
+        tx_hash: H256,
+    ) -> anyhow::Result<TransactionReceipt>;
 
-    operations.push(first_op);
-    operations.push(second_op);
+    async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
 
-    if fee_burned != U256::from(0) {
-        let burned_operation = Operation {
-            operation_identifier: OperationIdentifier { index: 2, network_index: None },
-            related_operations: None,
-            r#type: FEE_OP_TYPE.into(),
-            status: Some(SUCCESS_STATUS.into()),
-            account: Some(AccountIdentifier {
-                address: to_checksum(&tx.from, None),
-                sub_account: None,
-                metadata: None,
-            }),
-            amount: Some(Amount {
-                value: format!("-{fee_burned}"),
-                currency: currency.clone(),
-                metadata: None,
-            }),
-            coin_change: None,
-            metadata: None,
+    async fn block_with_uncles(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<PartialBlockWithUncles>, ClientError>;
+}
+
+#[async_trait::async_trait]
+impl<T> EthereumRpcExt for T
+where
+    T: EthereumRpc<Error = ClientError> + Send + Sync + 'static,
+{
+    // Wait for the transaction to be included in a block by polling the transaction receipt every 2
+    // seconds
+    async fn wait_for_transaction_receipt(
+        &self,
+        tx_hash: H256,
+    ) -> anyhow::Result<TransactionReceipt> {
+        let now = std::time::Instant::now();
+        let timeout = std::time::Duration::from_secs(30);
+        let receipt = loop {
+            let Some(receipt) = <T as EthereumRpc>::transaction_receipt(self, tx_hash).await?
+            else {
+                if now.elapsed() > timeout {
+                    anyhow::bail!(
+                        "Transaction not included in a block after {} seconds",
+                        timeout.as_secs()
+                    );
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                continue;
+            };
+            break receipt;
+        };
+        Ok(receipt)
+    }
+
+    async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)> {
+        let Some(block) = self.block(AtBlock::Latest).await? else {
+            anyhow::bail!("latest block not found");
+        };
+        let Some(base_fee_per_gas) = block.header.base_fee_per_gas else {
+            anyhow::bail!("EIP-1559 not activated");
         };
 
-        operations.push(burned_operation);
-    }
-    Ok(operations)
-}
+        let fee_history = self
+            .fee_history(
+                EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
+                AtBlock::Latest,
+                &[EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
+            )
+            .await?;
 
-async fn get_transaction_trace<P: JsonRpcClient>(
-    hash: &H256,
-    client: &Provider<P>,
-) -> Result<Trace> {
-    let params = json!([
-        hash,
-        {
-            "tracer": "callTracer"
-        }
-    ]);
-    Ok(client.request("debug_traceTransaction", params).await?)
-}
-
-#[allow(clippy::too_many_lines)]
-fn get_trace_operations(trace: Trace, op_len: i64, currency: &Currency) -> Result<Vec<Operation>> {
-    let mut traces = VecDeque::new();
-    traces.push_back(trace);
-    let mut flatten_traces = vec![];
-    while let Some(mut trace) = traces.pop_front() {
-        for mut child in std::mem::take(&mut trace.calls) {
-            if trace.revert {
-                child.revert = true;
-                if child.error_message.is_empty() {
-                    child.error_message = trace.error_message.clone();
-                }
-            }
-            traces.push_back(child);
-        }
-        flatten_traces.push(FlattenTrace::from(trace));
-    }
-    let traces = flatten_traces;
-
-    let mut operations: Vec<Operation> = vec![];
-    let mut destroyed_accs: HashMap<String, u64> = HashMap::new();
-
-    if traces.is_empty() {
-        return Ok(operations);
+        // Estimate fees
+        let (max_fee_per_gas, max_priority_fee_per_gas) =
+            eip1559_default_estimator(base_fee_per_gas.into(), fee_history.reward.as_ref());
+        Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 
-    for trace in traces {
-        let operation_status = if trace.revert { FAILURE_STATUS } else { SUCCESS_STATUS };
-
-        let zero_value = trace.value.is_zero();
-
-        let should_add = !(zero_value && trace.trace_type == CALL_OP_TYPE);
-
-        let from = to_checksum(&trace.from, None);
-        let to = to_checksum(&trace.to, None);
-
-        if should_add {
-            let mut from_operation = Operation {
-                operation_identifier: OperationIdentifier {
-                    index: op_len +
-                        i64::try_from(operations.len()).context("operation.index overflow")?,
-                    network_index: None,
-                },
-                related_operations: None,
-                r#type: trace.trace_type.clone(),
-                status: Some(operation_status.into()),
-                account: Some(AccountIdentifier {
-                    address: from.clone(),
-                    sub_account: None,
-                    metadata: None,
-                }),
-                amount: Some(Amount {
-                    value: format!("-{}", trace.value),
-                    currency: currency.clone(),
-                    metadata: None,
-                }),
-                coin_change: None,
-                metadata: None,
-            };
-
-            if zero_value {
-                from_operation.amount = None;
-            } else if let Some(d_from) = destroyed_accs.get(&from) {
-                if operation_status == SUCCESS_STATUS {
-                    let amount = d_from - trace.value.as_u64();
-                    destroyed_accs.insert(from.clone(), amount);
-                }
-            }
-
-            operations.push(from_operation);
-        }
-
-        if trace.trace_type == SELF_DESTRUCT_OP_TYPE {
-            //assigning destroyed from to an empty number
-            if from == to {
-                continue;
-            }
-        }
-
-        if to.is_empty() {
-            continue;
-        }
-
-        // If the account is resurrected, we remove it from
-        // the destroyed accounts map.
-        if trace.trace_type == CREATE_OP_TYPE || trace.trace_type == CREATE2_OP_TYPE {
-            destroyed_accs.remove(&to);
-        }
-
-        if should_add {
-            let last_op_index = operations[operations.len() - 1].operation_identifier.index;
-            let mut to_op = Operation {
-                operation_identifier: OperationIdentifier {
-                    index: last_op_index + 1,
-                    network_index: None,
-                },
-                related_operations: Some(vec![OperationIdentifier {
-                    index: last_op_index,
-                    network_index: None,
-                }]),
-                r#type: trace.trace_type,
-                status: Some(operation_status.into()),
-                account: Some(AccountIdentifier {
-                    address: to.clone(),
-                    sub_account: None,
-                    metadata: None,
-                }),
-                amount: Some(Amount {
-                    value: format!("{}", trace.value),
-                    currency: currency.clone(),
-                    metadata: None,
-                }),
-                coin_change: None,
-                metadata: None,
-            };
-
-            if zero_value {
-                to_op.amount = None;
-            } else if let Some(d_to) = destroyed_accs.get(&to) {
-                if operation_status == SUCCESS_STATUS {
-                    let amount = d_to + trace.value.as_u64();
-                    destroyed_accs.insert(to.clone(), amount);
-                }
-            }
-
-            operations.push(to_op);
-        }
-
-        for (k, v) in &destroyed_accs {
-            if v == &0 {
-                continue;
-            }
-
-            if v < &0 {
-                //throw some error
-            }
-
-            let operation = Operation {
-                operation_identifier: OperationIdentifier {
-                    index: operations[operations.len() - 1].operation_identifier.index + 1,
-                    network_index: None,
-                },
-                related_operations: None,
-                r#type: DESTRUCT_OP_TYPE.into(),
-                status: Some(SUCCESS_STATUS.into()),
-                account: Some(AccountIdentifier {
-                    address: to_checksum(&H160::from_str(k)?, None),
-                    sub_account: None,
-                    metadata: None,
-                }),
-                amount: Some(Amount {
-                    value: format!("-{v}"),
-                    currency: currency.clone(),
-                    metadata: None,
-                }),
-                coin_change: None,
-                metadata: None,
-            };
-
-            operations.push(operation);
-        }
-    }
-
-    Ok(operations)
-}
-
-pub async fn block_reward_transaction<P: JsonRpcClient>(
-    client: &Provider<P>,
-    config: &BlockchainConfig,
-    block: &Block<Transaction>,
-) -> Result<rosetta_types::Transaction> {
-    let block_number = block.number.context("missing block number")?.as_u64();
-    let block_hash = block.hash.context("missing block hash")?;
-    let block_id = BlockId::Hash(block_hash);
-    let miner = block.author.context("missing block author")?;
-
-    let mut uncles = vec![];
-    for (i, _) in block.uncles.iter().enumerate() {
-        let uncle = client
-            .get_uncle(block_id, U64::from(i))
-            .await?
-            .context("Uncle block now found")?;
-        uncles.push(uncle);
-    }
-
-    let chain_config = TESTNET_CHAIN_CONFIG;
-    let mut mining_reward = if chain_config.constantinople_block <= block_number {
-        CONSTANTINOPLE_BLOCK_REWARD
-    } else if chain_config.byzantium_block <= block_number {
-        BYZANTIUM_BLOCK_REWARD
-    } else {
-        FRONTIER_BLOCK_REWARD
-    };
-    if !uncles.is_empty() {
-        mining_reward += (mining_reward / UNCLE_REWARD_MULTIPLIER) * mining_reward;
-    }
-
-    let mut operations = vec![];
-    let mining_reward_operation = Operation {
-        operation_identifier: OperationIdentifier { index: 0, network_index: None },
-        related_operations: None,
-        r#type: MINING_REWARD_OP_TYPE.into(),
-        status: Some(SUCCESS_STATUS.into()),
-        account: Some(AccountIdentifier {
-            address: to_checksum(&miner, None),
-            sub_account: None,
-            metadata: None,
-        }),
-        amount: Some(Amount {
-            value: mining_reward.to_string(),
-            currency: config.currency(),
-            metadata: None,
-        }),
-        coin_change: None,
-        metadata: None,
-    };
-    operations.push(mining_reward_operation);
-
-    for block in uncles {
-        let uncle_miner = block.author.context("Uncle block has no author")?;
-        let uncle_number = block.number.context("Uncle block has no number")?;
-        let uncle_block_reward =
-            (uncle_number + MAX_UNCLE_DEPTH - block_number) * (mining_reward / MAX_UNCLE_DEPTH);
-
-        let operation = Operation {
-            operation_identifier: OperationIdentifier {
-                index: i64::try_from(operations.len()).context("operation.index overflow")?,
-                network_index: None,
-            },
-            related_operations: None,
-            r#type: UNCLE_REWARD_OP_TYPE.into(),
-            status: Some(SUCCESS_STATUS.into()),
-            account: Some(AccountIdentifier {
-                address: to_checksum(&uncle_miner, None),
-                sub_account: None,
-                metadata: None,
-            }),
-            amount: Some(Amount {
-                value: uncle_block_reward.to_string(),
-                currency: config.currency(),
-                metadata: None,
-            }),
-            coin_change: None,
-            metadata: None,
+    async fn block_with_uncles(
+        &self,
+        at: AtBlock,
+    ) -> Result<Option<PartialBlockWithUncles>, ClientError> {
+        let Some(block) = self.block(at).await? else {
+            return Ok(None);
         };
-        operations.push(operation);
-    }
 
-    Ok(rosetta_types::Transaction {
-        transaction_identifier: TransactionIdentifier { hash: hex::encode(block_hash) },
-        related_transactions: None,
-        operations,
-        metadata: None,
-    })
+        // Convert the `RpcBlock` to `SealedBlock`
+        let block = SealedBlock::try_from(block)
+            .map_err(|err| ClientError::Custom(format!("invalid block: {err}")))?;
+
+        // Fetch block uncles
+        let block_hash = block.header().hash();
+        let mut uncles = Vec::with_capacity(block.body().uncles.len());
+        for index in 0..block.body().uncles.len() {
+            let index = u32::try_from(index).unwrap_or(u32::MAX);
+            let Some(uncle) = self.uncle_by_blockhash(block_hash, index).await? else {
+                return Err(ClientError::Custom(format!(
+                    "uncle not found for block {block_hash:?} at index {index}"
+                )));
+            };
+            uncles.push(uncle);
+        }
+        let block = block.with_ommers(uncles);
+        Ok(Some(block))
+    }
+}
+
+pub trait RpcBlockExt {
+    fn try_into_sealed(
+        self,
+    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, H256>>;
+}
+
+impl RpcBlockExt for RpcBlock<RpcTransaction, H256> {
+    fn try_into_sealed(
+        self,
+    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, TxHash>> {
+        // Convert the `RpcBlock` to `SealedBlock`
+        let block = SealedBlock::try_from(self)
+            .map_err(|err| anyhow::format_err!("invalid block: {err}"))?;
+
+        // Convert the `RpcTransaction` to `SignedTransaction`
+        let block_hash = block.header().hash();
+        let block = {
+            let transactions = block
+                .body()
+                .transactions
+                .iter()
+                .enumerate()
+                .map(|(index, tx)| {
+                    SignedTransaction::try_from(tx.clone()).map_err(|err| {
+                        anyhow::format_err!(
+                            "Invalid tx in block {block_hash:?} at index {index}: {err}"
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            block.with_transactions(transactions)
+        };
+        Ok(block)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    #[test]
+    fn it_works() {
+        use rosetta_config_ethereum::ext::types::{Address, Bloom, BloomInput, H256};
+        use std::str::FromStr;
+
+        let expect = Bloom::from_str("40000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000400000000000000000040000000000").unwrap();
+        let address = Address::from(hex!("3c9eaef1ee4c91682a070b0acbcd7ab55abad44c"));
+        let topic = H256(hex!("93fe6d397c74fdf1402a8b72e47b68512f0510d7b98a4bc4cbdf6ac7108b3c59"));
+
+        assert!(expect.contains_input(BloomInput::Raw(address.as_bytes())));
+        assert!(expect.contains_input(BloomInput::Raw(topic.as_bytes())));
+
+        let mut actual = Bloom::default();
+        actual.accrue(BloomInput::Raw(address.as_bytes()));
+        actual.accrue(BloomInput::Raw(topic.as_bytes()));
+
+        assert_eq!(actual, expect);
+    }
 }

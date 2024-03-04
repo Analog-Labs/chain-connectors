@@ -1,15 +1,13 @@
 #![allow(missing_docs)]
 use crate::{
     crypto::{address::Address, PublicKey},
-    types::{
-        Block, BlockIdentifier, CallRequest, Coin, PartialBlockIdentifier, Transaction,
-        TransactionIdentifier,
-    },
+    types::CallRequest,
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
+use futures_util::StreamExt;
 use rosetta_core::{BlockchainClient, ClientEvent};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_humanode::{HumanodeClient, HumanodeMetadata, HumanodeMetadataParams};
@@ -21,14 +19,11 @@ use rosetta_server_ethereum::{
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{pin::Pin, str::FromStr};
-use void::Void;
+use std::{pin::Pin, str::FromStr, task::Poll};
 
-// TODO: Use
-#[allow(clippy::large_enum_variant)]
 /// Generic Client
+#[allow(clippy::large_enum_variant)]
 pub enum GenericClient {
-    Bitcoin(BitcoinClient),
     Ethereum(EthereumClient),
     Astar(AstarClient),
     Humanode(HumanodeClient),
@@ -37,22 +32,23 @@ pub enum GenericClient {
 
 #[allow(clippy::missing_errors_doc)]
 impl GenericClient {
-    pub async fn new(blockchain: Blockchain, network: &str, url: &str) -> Result<Self> {
+    pub async fn new(
+        blockchain: Blockchain,
+        network: &str,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         Ok(match blockchain {
-            Blockchain::Bitcoin => {
-                let client = BitcoinClient::new(network, url).await?;
-                Self::Bitcoin(client)
-            },
             Blockchain::Ethereum => {
-                let client = EthereumClient::new("ethereum", network, url).await?;
+                let client = EthereumClient::new("ethereum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Polygon => {
-                let client = EthereumClient::new("polygon", network, url).await?;
+                let client = EthereumClient::new("polygon", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Arbitrum => {
-                let client = EthereumClient::new("arbitrum", network, url).await?;
+                let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {
@@ -63,22 +59,25 @@ impl GenericClient {
                 let client = HumanodeClient::new(network, url).await?;
                 Self::Humanode(client)
             },
-            Blockchain::Polkadot => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
+            },
+            Blockchain::Kusama | Blockchain::Wococo => {
+                anyhow::bail!("unsupported blockchain: {blockchain:?}")
             },
         })
     }
 
-    pub async fn from_config(config: BlockchainConfig, url: &str) -> Result<Self> {
+    pub async fn from_config(
+        config: BlockchainConfig,
+        url: &str,
+        private_key: Option<[u8; 32]>,
+    ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
-            Blockchain::Bitcoin => {
-                let client = BitcoinClient::from_config(config, url).await?;
-                Self::Bitcoin(client)
-            },
             Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
-                let client = EthereumClient::from_config(config, url).await?;
+                let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
             Blockchain::Astar => {
@@ -89,9 +88,12 @@ impl GenericClient {
                 let client = HumanodeClient::from_config(config, url).await?;
                 Self::Humanode(client)
             },
-            Blockchain::Polkadot => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
+            },
+            Blockchain::Kusama | Blockchain::Wococo => {
+                anyhow::bail!("unsupported blockchain: {blockchain:?}")
             },
         })
     }
@@ -100,7 +102,6 @@ impl GenericClient {
 /// Generic Blockchain Params
 #[derive(Deserialize, Serialize, From)]
 pub enum GenericMetadataParams {
-    Bitcoin(BitcoinMetadataParams),
     Ethereum(EthereumMetadataParams),
     Astar(AstarMetadataParams),
     Humanode(HumanodeMetadataParams),
@@ -110,7 +111,6 @@ pub enum GenericMetadataParams {
 /// Generic Blockchain Metadata
 #[derive(Deserialize, Serialize, From)]
 pub enum GenericMetadata {
-    Bitcoin(BitcoinMetadata),
     Ethereum(EthereumMetadata),
     Astar(AstarMetadata),
     Humanode(HumanodeMetadata),
@@ -118,22 +118,46 @@ pub enum GenericMetadata {
 }
 
 pub enum GenericCall {
-    Bitcoin(Void),
     Ethereum(EthQuery),
     Polkadot(CallRequest),
 }
 
 #[allow(clippy::large_enum_variant)]
 pub enum GenericCallResult {
-    Bitcoin(()),
     Ethereum(EthQueryResult),
     Polkadot(Value),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericAtBlock {
+    Ethereum(<EthereumClient as BlockchainClient>::AtBlock),
+    Polkadot(<PolkadotClient as BlockchainClient>::AtBlock),
+}
+
+impl From<GenericBlockIdentifier> for GenericAtBlock {
+    fn from(block: GenericBlockIdentifier) -> Self {
+        match block {
+            GenericBlockIdentifier::Ethereum(block) => Self::Ethereum(block.into()),
+            GenericBlockIdentifier::Polkadot(block) => Self::Polkadot(block.into()),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericBlockIdentifier {
+    Ethereum(<EthereumClient as BlockchainClient>::BlockIdentifier),
+    Polkadot(<PolkadotClient as BlockchainClient>::BlockIdentifier),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GenericTransaction {
+    Ethereum(<EthereumClient as BlockchainClient>::Transaction),
+    Polkadot(<PolkadotClient as BlockchainClient>::Transaction),
 }
 
 macro_rules! dispatch {
     ($self:tt$($method:tt)+) => {
         match $self {
-            Self::Bitcoin(client) => client$($method)*,
             Self::Ethereum(client) => client$($method)*,
             Self::Astar(client) => client$($method)*,
             Self::Polkadot(client) => client$($method)*,
@@ -146,36 +170,83 @@ macro_rules! dispatch {
 impl BlockchainClient for GenericClient {
     type MetadataParams = GenericMetadataParams;
     type Metadata = GenericMetadata;
-    type EventStream<'a> = Pin<Box<dyn Stream<Item = ClientEvent> + Send + Unpin + 'a>>;
+    type EventStream<'a> = GenericClientStream<'a>;
     type Call = GenericCall;
     type CallResult = GenericCallResult;
+
+    type AtBlock = GenericAtBlock;
+    type BlockIdentifier = GenericBlockIdentifier;
+
+    type Query = ();
+    type Transaction = GenericTransaction;
+    type Subscription = GenericClientSubscription;
+    type Event = GenericClientEvent;
+
+    async fn query(
+        &self,
+        _query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+        anyhow::bail!("unsupported query");
+    }
 
     fn config(&self) -> &BlockchainConfig {
         dispatch!(self.config())
     }
 
-    fn genesis_block(&self) -> &BlockIdentifier {
-        dispatch!(self.genesis_block())
+    fn genesis_block(&self) -> Self::BlockIdentifier {
+        // dispatch!(self.genesis_block())
+        match self {
+            Self::Ethereum(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
+            Self::Astar(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
+            Self::Polkadot(client) => GenericBlockIdentifier::Polkadot(client.genesis_block()),
+        }
     }
 
-    async fn node_version(&self) -> Result<String> {
-        dispatch!(self.node_version().await)
+    async fn current_block(&self) -> Result<Self::BlockIdentifier> {
+        // dispatch!(self.current_block().await)
+        match self {
+            Self::Ethereum(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Astar(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Polkadot(client) => {
+                client.current_block().await.map(GenericBlockIdentifier::Polkadot)
+            },
+        }
     }
 
-    async fn current_block(&self) -> Result<BlockIdentifier> {
-        dispatch!(self.current_block().await)
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
+        // dispatch!(self.finalized_block().await)
+        match self {
+            Self::Ethereum(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Astar(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
+            },
+            Self::Polkadot(client) => {
+                client.finalized_block().await.map(GenericBlockIdentifier::Polkadot)
+            },
+        }
     }
 
-    async fn finalized_block(&self) -> Result<BlockIdentifier> {
-        dispatch!(self.finalized_block().await)
-    }
-
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
-        dispatch!(self.balance(address, block).await)
-    }
-
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        dispatch!(self.coins(address, block).await)
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
+        match self {
+            Self::Ethereum(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Astar(client) => match block {
+                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
+            },
+            Self::Polkadot(client) => match block {
+                GenericAtBlock::Polkadot(at_block) => client.balance(address, at_block).await,
+                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
+            },
+        }
     }
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
@@ -188,9 +259,6 @@ impl BlockchainClient for GenericClient {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
         Ok(match (self, params) {
-            (Self::Bitcoin(client), GenericMetadataParams::Bitcoin(params)) => {
-                client.metadata(public_key, params).await?.into()
-            },
             (Self::Ethereum(client), GenericMetadataParams::Ethereum(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
@@ -211,35 +279,25 @@ impl BlockchainClient for GenericClient {
         dispatch!(self.submit(transaction).await)
     }
 
-    async fn block(&self, block: &PartialBlockIdentifier) -> Result<Block> {
-        dispatch!(self.block(block).await)
-    }
-
-    async fn block_transaction(
-        &self,
-        block: &BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        dispatch!(self.block_transaction(block, tx).await)
-    }
-
     async fn call(&self, req: &GenericCall) -> Result<GenericCallResult> {
         let result = match self {
-            Self::Bitcoin(client) => match req {
-                GenericCall::Bitcoin(args) => GenericCallResult::Bitcoin(client.call(args).await?),
-                _ => anyhow::bail!("invalid call"),
-            },
             Self::Ethereum(client) => match req {
                 GenericCall::Ethereum(args) => {
                     GenericCallResult::Ethereum(client.call(args).await?)
                 },
-                _ => anyhow::bail!("invalid call"),
+                GenericCall::Polkadot(_) => anyhow::bail!("invalid call"),
             },
             Self::Astar(client) => match req {
                 GenericCall::Ethereum(args) => {
                     GenericCallResult::Ethereum(client.call(args).await?)
                 },
-                _ => anyhow::bail!("invalid call"),
+                GenericCall::Polkadot(_) => anyhow::bail!("invalid call"),
+            },
+            Self::Humanode(client) => match req {
+                GenericCall::Ethereum(args) => {
+                    GenericCallResult::Ethereum(client.call(args).await?)
+                },
+                GenericCall::Polkadot(_) => anyhow::bail!("invalid call"),
             },
             Self::Humanode(client) => match req {
                 GenericCall::Ethereum(args) => {
@@ -251,7 +309,7 @@ impl BlockchainClient for GenericClient {
                 GenericCall::Polkadot(args) => {
                     GenericCallResult::Polkadot(client.call(args).await?)
                 },
-                _ => anyhow::bail!("invalid call"),
+                GenericCall::Ethereum(_) => anyhow::bail!("invalid call"),
             },
         };
         Ok(result)
@@ -259,9 +317,96 @@ impl BlockchainClient for GenericClient {
 
     /// Return a stream of events, return None if the blockchain doesn't support events.
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
-        Ok(dispatch!(self
-            .listen()
-            .await?
-            .map(|s| Pin::new(Box::new(s) as Box<dyn Stream<Item = ClientEvent> + Send + Unpin>))))
+        match self {
+            Self::Ethereum(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Ethereum(stream)))
+            },
+            Self::Astar(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Astar(stream)))
+            },
+            Self::Polkadot(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Polkadot(stream)))
+            },
+        }
+    }
+
+    async fn subscribe(&self, sub: &Self::Subscription) -> Result<u32> {
+        match self {
+            Self::Ethereum(client) => match sub {
+                GenericClientSubscription::Ethereum(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+            Self::Astar(client) => match sub {
+                GenericClientSubscription::Astar(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+            Self::Polkadot(client) => match sub {
+                GenericClientSubscription::Polkadot(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GenericClientSubscription {
+    Ethereum(<EthereumClient as BlockchainClient>::Subscription),
+    Astar(<AstarClient as BlockchainClient>::Subscription),
+    Polkadot(<PolkadotClient as BlockchainClient>::Subscription),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GenericClientEvent {
+    Ethereum(<EthereumClient as BlockchainClient>::Event),
+    Astar(<AstarClient as BlockchainClient>::Event),
+    Polkadot(<PolkadotClient as BlockchainClient>::Event),
+}
+
+pub enum GenericClientStream<'a> {
+    Ethereum(<EthereumClient as BlockchainClient>::EventStream<'a>),
+    Astar(<AstarClient as BlockchainClient>::EventStream<'a>),
+    Polkadot(<PolkadotClient as BlockchainClient>::EventStream<'a>),
+}
+
+impl<'a> Stream for GenericClientStream<'a> {
+    type Item = ClientEvent<GenericBlockIdentifier, GenericClientEvent>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = &mut *self;
+        match this {
+            Self::Ethereum(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
+                        .map_event(GenericClientEvent::Ethereum)
+                })
+            }),
+            Self::Astar(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
+                        .map_event(GenericClientEvent::Astar)
+                })
+            }),
+            Self::Polkadot(stream) => stream.poll_next_unpin(cx).map(|opt| {
+                opt.map(|event| {
+                    event
+                        .map_block_identifier(GenericBlockIdentifier::Polkadot)
+                        .map_event(GenericClientEvent::Polkadot)
+                })
+            }),
+        }
     }
 }

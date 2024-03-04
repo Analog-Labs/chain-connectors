@@ -11,13 +11,13 @@ anyhow = "1.0"
 async-trait = "0.1"
 hex = "0.4"
 parity-scale-codec = { workspace = true, features = ["derive"] }
-rosetta-config-polkadot.workspace = true
+rosetta-config-polkadot = { workspace = true, features = ["polkadot-metadata", "westend-metadata"] }
 rosetta-core.workspace = true
 rosetta-server = { workspace = true, default-features = false, features = ["ws", "webpki-tls"] }
 scale-info.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sp-keyring = "24.0"
+sp-keyring.workspace = true
 subxt = { workspace = true, features = ["substrate-compat", "native"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1"
