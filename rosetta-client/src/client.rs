@@ -8,7 +8,10 @@ use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
 use futures_util::StreamExt;
-use rosetta_core::{types::BlockIdentifier, BlockchainClient, ClientEvent};
+use rosetta_core::{
+    types::{BlockIdentifier, PartialBlockIdentifier},
+    BlockchainClient, ClientEvent,
+};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_ethereum::{
     config::{Query as EthQuery, QueryResult as EthQueryResult},
@@ -116,18 +119,6 @@ pub enum GenericCallResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum GenericAtBlock {
-    Ethereum(<EthereumClient as BlockchainClient>::AtBlock),
-    Polkadot(<PolkadotClient as BlockchainClient>::AtBlock),
-}
-
-impl From<BlockIdentifier> for GenericAtBlock {
-    fn from(block: BlockIdentifier) -> Self {
-        Self::Ethereum(block.into())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericTransaction {
     Ethereum(<EthereumClient as BlockchainClient>::Transaction),
     Polkadot(<PolkadotClient as BlockchainClient>::Transaction),
@@ -151,7 +142,7 @@ impl BlockchainClient for GenericClient {
     type Call = GenericCall;
     type CallResult = GenericCallResult;
 
-    type AtBlock = GenericAtBlock;
+    type AtBlock = PartialBlockIdentifier;
     type BlockIdentifier = BlockIdentifier;
 
     type Query = ();
@@ -199,18 +190,9 @@ impl BlockchainClient for GenericClient {
 
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         match self {
-            Self::Ethereum(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Astar(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Polkadot(client) => match block {
-                GenericAtBlock::Polkadot(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
-            },
+            Self::Ethereum(client) => client.balance(address, block).await,
+            Self::Astar(client) => client.balance(address, block).await,
+            Self::Polkadot(client) => client.balance(address, block).await,
         }
     }
 
