@@ -1,5 +1,5 @@
 use crate::{
-    client::{GenericBlockIdentifier, GenericClient, GenericMetadata, GenericMetadataParams},
+    client::{GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
@@ -113,29 +113,14 @@ impl Wallet {
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = match &self.client {
-            GenericClient::Astar(client) => match block {
-                GenericBlockIdentifier::Ethereum(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Polkadot(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Astar(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
-            GenericClient::Ethereum(client) => match block {
-                GenericBlockIdentifier::Ethereum(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Polkadot(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Ethereum(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
-            GenericClient::Polkadot(client) => match block {
-                GenericBlockIdentifier::Polkadot(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Ethereum(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Polkadot(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
         };
         Ok(balance)
