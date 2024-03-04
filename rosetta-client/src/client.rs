@@ -8,7 +8,10 @@ use anyhow::Result;
 use derive_more::From;
 use futures::Stream;
 use futures_util::StreamExt;
-use rosetta_core::{BlockchainClient, ClientEvent};
+use rosetta_core::{
+    types::{BlockIdentifier, PartialBlockIdentifier},
+    BlockchainClient, ClientEvent,
+};
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_ethereum::{
     config::{Query as EthQuery, QueryResult as EthQueryResult},
@@ -116,27 +119,6 @@ pub enum GenericCallResult {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum GenericAtBlock {
-    Ethereum(<EthereumClient as BlockchainClient>::AtBlock),
-    Polkadot(<PolkadotClient as BlockchainClient>::AtBlock),
-}
-
-impl From<GenericBlockIdentifier> for GenericAtBlock {
-    fn from(block: GenericBlockIdentifier) -> Self {
-        match block {
-            GenericBlockIdentifier::Ethereum(block) => Self::Ethereum(block.into()),
-            GenericBlockIdentifier::Polkadot(block) => Self::Polkadot(block.into()),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum GenericBlockIdentifier {
-    Ethereum(<EthereumClient as BlockchainClient>::BlockIdentifier),
-    Polkadot(<PolkadotClient as BlockchainClient>::BlockIdentifier),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericTransaction {
     Ethereum(<EthereumClient as BlockchainClient>::Transaction),
     Polkadot(<PolkadotClient as BlockchainClient>::Transaction),
@@ -160,8 +142,8 @@ impl BlockchainClient for GenericClient {
     type Call = GenericCall;
     type CallResult = GenericCallResult;
 
-    type AtBlock = GenericAtBlock;
-    type BlockIdentifier = GenericBlockIdentifier;
+    type AtBlock = PartialBlockIdentifier;
+    type BlockIdentifier = BlockIdentifier;
 
     type Query = ();
     type Transaction = GenericTransaction;
@@ -182,56 +164,35 @@ impl BlockchainClient for GenericClient {
     fn genesis_block(&self) -> Self::BlockIdentifier {
         // dispatch!(self.genesis_block())
         match self {
-            Self::Ethereum(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
-            Self::Astar(client) => GenericBlockIdentifier::Ethereum(client.genesis_block()),
-            Self::Polkadot(client) => GenericBlockIdentifier::Polkadot(client.genesis_block()),
+            Self::Ethereum(client) => client.genesis_block(),
+            Self::Astar(client) => client.genesis_block(),
+            Self::Polkadot(client) => client.genesis_block(),
         }
     }
 
     async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         // dispatch!(self.current_block().await)
         match self {
-            Self::Ethereum(client) => {
-                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
-            },
-            Self::Astar(client) => {
-                client.current_block().await.map(GenericBlockIdentifier::Ethereum)
-            },
-            Self::Polkadot(client) => {
-                client.current_block().await.map(GenericBlockIdentifier::Polkadot)
-            },
+            Self::Ethereum(client) => client.current_block().await,
+            Self::Astar(client) => client.current_block().await,
+            Self::Polkadot(client) => client.current_block().await,
         }
     }
 
     async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
         // dispatch!(self.finalized_block().await)
         match self {
-            Self::Ethereum(client) => {
-                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
-            },
-            Self::Astar(client) => {
-                client.finalized_block().await.map(GenericBlockIdentifier::Ethereum)
-            },
-            Self::Polkadot(client) => {
-                client.finalized_block().await.map(GenericBlockIdentifier::Polkadot)
-            },
+            Self::Ethereum(client) => client.finalized_block().await,
+            Self::Astar(client) => client.finalized_block().await,
+            Self::Polkadot(client) => client.finalized_block().await,
         }
     }
 
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         match self {
-            Self::Ethereum(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Astar(client) => match block {
-                GenericAtBlock::Ethereum(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Polkadot(_) => anyhow::bail!("invalid block identifier"),
-            },
-            Self::Polkadot(client) => match block {
-                GenericAtBlock::Polkadot(at_block) => client.balance(address, at_block).await,
-                GenericAtBlock::Ethereum(_) => anyhow::bail!("invalid block identifier"),
-            },
+            Self::Ethereum(client) => client.balance(address, block).await,
+            Self::Astar(client) => client.balance(address, block).await,
+            Self::Polkadot(client) => client.balance(address, block).await,
         }
     }
 
@@ -349,7 +310,7 @@ pub enum GenericClientStream<'a> {
 }
 
 impl<'a> Stream for GenericClientStream<'a> {
-    type Item = ClientEvent<GenericBlockIdentifier, GenericClientEvent>;
+    type Item = ClientEvent<BlockIdentifier, GenericClientEvent>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -357,27 +318,15 @@ impl<'a> Stream for GenericClientStream<'a> {
     ) -> Poll<Option<Self::Item>> {
         let this = &mut *self;
         match this {
-            Self::Ethereum(stream) => stream.poll_next_unpin(cx).map(|opt| {
-                opt.map(|event| {
-                    event
-                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
-                        .map_event(GenericClientEvent::Ethereum)
-                })
-            }),
-            Self::Astar(stream) => stream.poll_next_unpin(cx).map(|opt| {
-                opt.map(|event| {
-                    event
-                        .map_block_identifier(GenericBlockIdentifier::Ethereum)
-                        .map_event(GenericClientEvent::Astar)
-                })
-            }),
-            Self::Polkadot(stream) => stream.poll_next_unpin(cx).map(|opt| {
-                opt.map(|event| {
-                    event
-                        .map_block_identifier(GenericBlockIdentifier::Polkadot)
-                        .map_event(GenericClientEvent::Polkadot)
-                })
-            }),
+            Self::Ethereum(stream) => stream
+                .poll_next_unpin(cx)
+                .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Ethereum))),
+            Self::Astar(stream) => stream
+                .poll_next_unpin(cx)
+                .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Astar))),
+            Self::Polkadot(stream) => stream
+                .poll_next_unpin(cx)
+                .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Polkadot))),
         }
     }
 }

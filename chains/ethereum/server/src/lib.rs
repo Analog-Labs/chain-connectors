@@ -387,7 +387,6 @@ mod tests {
     #[tokio::test]
     async fn test_subscription() -> Result<()> {
         use futures_util::StreamExt;
-        use rosetta_client::client::GenericBlockIdentifier;
         use rosetta_core::{BlockOrIdentifier, ClientEvent};
         let config = rosetta_config_ethereum::config("dev").unwrap();
         let env = Env::new("ethereum-subscription", config.clone(), client_from_config)
@@ -403,17 +402,13 @@ mod tests {
             for _ in 0..10 {
                 let event = stream.next().await.unwrap();
                 match event {
-                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
-                        GenericBlockIdentifier::Ethereum(head),
-                    )) => {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(head)) => {
                         if let Some(block_number) = last_head {
                             assert!(head.index > block_number);
                         }
                         last_head = Some(head.index);
                     },
-                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
-                        GenericBlockIdentifier::Ethereum(finalized),
-                    )) => {
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(finalized)) => {
                         if let Some(block_number) = last_finalized {
                             assert!(finalized.index > block_number);
                         }

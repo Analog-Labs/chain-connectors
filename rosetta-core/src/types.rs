@@ -65,6 +65,24 @@ pub struct PartialBlockIdentifier {
     pub hash: Option<[u8; 32]>,
 }
 
+impl From<u64> for PartialBlockIdentifier {
+    fn from(block_number: u64) -> Self {
+        Self { index: Some(block_number), hash: None }
+    }
+}
+
+impl From<[u8; 32]> for PartialBlockIdentifier {
+    fn from(block_hash: [u8; 32]) -> Self {
+        Self { index: None, hash: Some(block_hash) }
+    }
+}
+
+impl From<&[u8; 32]> for PartialBlockIdentifier {
+    fn from(block_hash: &[u8; 32]) -> Self {
+        Self { index: None, hash: Some(*block_hash) }
+    }
+}
+
 impl From<BlockIdentifier> for PartialBlockIdentifier {
     fn from(block_identifier: BlockIdentifier) -> Self {
         Self { index: Some(block_identifier.index), hash: Some(block_identifier.hash) }
