@@ -24,14 +24,12 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
 
         _ => anyhow::bail!("unsupported network: {}", network),
     };
-    println!("{:?}",network);
-
     Ok(BlockchainConfig {
         blockchain: "humanode",
         network,
         algorithm: Algorithm::EcdsaRecoverableSecp256k1,
         address_format: AddressFormat::Eip55,
-        coin: if network == "humanode" { 810 } else { 1 },
+        coin: 1,
         bip44: true,
         utxo: false,
         currency_unit: "hmnd",

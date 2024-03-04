@@ -30,15 +30,12 @@ impl<T: BlockchainClient> Env<T> {
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
-       println!("inside env 1");
         let builder = EnvBuilder::new(prefix)?;
         let node_port = random_port();
         config.node_uri.port = node_port;
         log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
-        println!("inside env 2 {:?}",node_port);
         let node = builder.run_node(&config).await?;
-    println!("inside env 3");
         let client = match builder.run_connector::<T, Fut, F>(start_connector, config).await {
             Ok(connector) => connector,
             Err(e) => {
@@ -162,7 +159,6 @@ impl<'a> EnvBuilder<'a> {
     }
 
     async fn run_node(&self, config: &BlockchainConfig) -> Result<Container> {
-    println!("inside run_node");
         let name = self.node_name(config);
         let mut opts = ContainerCreateOpts::builder()
             .name(&name)
@@ -181,7 +177,6 @@ impl<'a> EnvBuilder<'a> {
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build()).await?;
-    println!("inside run_node 2");
         // TODO: replace this by a proper healthcheck
         let maybe_error = if matches!(config.node_uri.scheme, "http" | "https" | "ws" | "wss") {
             wait_for_http(
@@ -195,7 +190,7 @@ impl<'a> EnvBuilder<'a> {
             .await
             .err()
         } else {
-            println!("here we are in run node error");
+        
             // Wait 15 seconds to guarantee the node didn't crash
             tokio::time::sleep(Duration::from_secs(15)).await;
             health(&container).await.err()
@@ -219,19 +214,14 @@ impl<'a> EnvBuilder<'a> {
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
-    // println!("inside run_connector {:?}", config.node_command("dev", "8084"););
         const MAX_RETRIES: usize = 10;
-
         let client = {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
                 .max_delay(Duration::from_secs(5))
                 .take(MAX_RETRIES);
     
-println!("inside run_connector 2");
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
-
-println!("inside run_connector 3");
                 match start_connector(config.clone()).await {
                     Ok(client) => {
                         if let Err(error) = client.finalized_block().await {
@@ -242,9 +232,8 @@ println!("inside run_connector 3");
                         break;
                     },
                     Err(error) => {
-
-    println!("inside run_connector 4");
                         result = Err(error);
+
                         tokio::time::sleep(delay).await;
                     },
                 }
@@ -292,17 +281,14 @@ enum RetryError {
 
 async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> Result<()> {
     let url = url.as_ref();
-println!("wait_for_http");
     let retry_strategy = ExponentialBackoff::from_millis(2)
         .factor(100)
         .max_delay(Duration::from_secs(2))
         .take(20); // limit to 20 retries
-println!("wait_for_http2 {:?}",retry_strategy);
  
     RetryIf::spawn(
         retry_strategy,
         || async move {
-            println!("url : {:?}",url);
             match surf::get(url).await {
                 Ok(_) => Ok(()),
                 Err(err) => {
@@ -349,12 +335,10 @@ pub mod tests {
         Fut: Future<Output = Result<T>> + Send,
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
-    println!("inside network status 1");
         let env_id = env_id();
         let env =
             Env::new(&format!("{env_id}-network-status"), config.clone(), start_connector).await?;
 
-    println!("inside network status 2");
         let client = env.node();
 
         // Check if the genesis is consistent
@@ -365,7 +349,6 @@ pub mod tests {
             .block_identifier;
         assert_eq!(expected_genesis, actual_genesis);
 
-    println!("inside network status 3");
         // Check if the current block is consistent
         let expected_current = client.current_block().await?;
         let actual_current = client
@@ -376,7 +359,6 @@ pub mod tests {
             .await?
             .block_identifier;
         assert_eq!(expected_current, actual_current);
-    println!("inside network status 4");
     
         // Check if the finalized block is consistent
         let expected_finalized = client.finalized_block().await?;
@@ -388,7 +370,6 @@ pub mod tests {
             .await?
             .block_identifier;
         assert_eq!(expected_finalized, actual_finalized);
-    println!("inside network status 5");
         env.shutdown().await?;
         Ok(())
     }

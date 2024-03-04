@@ -88,6 +88,8 @@ services:
       resources:
         reservations:
           memory: 1g
+    ports:
+      - "9946:9946"
     volumes:
     - "humanode-volume:/humanode"
 

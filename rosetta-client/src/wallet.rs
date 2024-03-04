@@ -375,7 +375,6 @@ impl Wallet {
     /// Returns `Err` if the blockchain doesn't support `eth_chainId` or the client connection
     /// failed.
     pub async fn eth_chain_id(&self) -> Result<u64> {
-        print!("\n\n here is chain id :: {:?}",EthQuery::ChainId);
         let result = match &self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
