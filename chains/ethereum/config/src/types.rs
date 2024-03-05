@@ -577,4 +577,11 @@ mod tests {
         let encoded = serde_json::to_value(&actual).unwrap();
         assert_eq!(encoded, json);
     }
+
+    #[test]
+    fn test_call_result_revert_msg() {
+        let revert = CallResult::Revert(hex!("08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000012736f6d657468696e672069732077726f6e670000000000000000000000000000").into());
+        assert_eq!(revert.revert_msg(), Some("something is wrong"));
+        assert_eq!(format!("{revert:?}"), "Revert(\"something is wrong\")");
+    }
 }
