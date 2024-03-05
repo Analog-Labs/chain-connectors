@@ -36,7 +36,7 @@ pub mod ext {
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
     #[cfg(feature = "jsonrpsee")]
-    pub use std::{ops, string, vec, str};
+    pub use std::{ops, str, string, vec};
 
     pub mod sync {
         pub use std::sync::Arc;
@@ -59,7 +59,14 @@ pub(crate) mod rstd {
     pub use core::{marker, str};
 }
 
-use rstd::{borrow::Cow, boxed::Box, fmt::{Display, Debug, Formatter, Result as FmtResult}, marker::Sized, sync::Arc, str};
+use rstd::{
+    borrow::Cow,
+    boxed::Box,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    marker::Sized,
+    str,
+    sync::Arc,
+};
 
 /// Exit reason
 #[derive(Clone, PartialEq, Eq)]
