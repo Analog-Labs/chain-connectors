@@ -8,6 +8,7 @@ use rosetta_core::{
     crypto::{address::AddressFormat, Algorithm},
     BlockchainConfig, NodeUri,
 };
+use rosetta_ethereum_types::TxHash;
 pub use types::{
     Address, AtBlock, BlockFull, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
@@ -49,6 +50,34 @@ pub mod ext {
 
     #[cfg(feature = "serde")]
     pub use serde;
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SubmitResult {
+    /// The transaction was submitted and included in the block
+    Executed { tx_hash: TxHash, result: CallResult, receipt: TransactionReceipt },
+    /// The transaction was submitted but not included in the block within the timeout
+    Timeout { tx_hash: TxHash },
+}
+
+impl SubmitResult {
+    #[must_use]
+    pub const fn tx_hash(&self) -> TxHash {
+        match self {
+            Self::Executed { tx_hash, .. } | Self::Timeout { tx_hash } => *tx_hash,
+        }
+    }
+
+    #[must_use]
+    pub const fn receipt(&self) -> Option<&TransactionReceipt> {
+        match self {
+            Self::Executed { receipt, .. } => Some(receipt),
+            Self::Timeout { .. } => None,
+        }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]

@@ -1,13 +1,13 @@
 use rosetta_config_ethereum::{
     ext::types::{
-        rpc::{RpcBlock, RpcTransaction},
+        rpc::{CallRequest, RpcBlock, RpcTransaction},
         SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TxHash, TypedTransaction,
         H256, I256, U256,
     },
-    AtBlock,
+    AtBlock, CallResult, SubmitResult,
 };
 use rosetta_core::types::PartialBlockIdentifier;
-use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc};
+use rosetta_ethereum_backend::{jsonrpsee::core::ClientError, EthereumRpc, ExitReason};
 use std::string::ToString;
 
 pub type FullBlock = SealedBlock<SignedTransaction<TypedTransaction>, SealedHeader>;
@@ -158,6 +158,12 @@ pub trait EthereumRpcExt {
         tx_hash: H256,
     ) -> anyhow::Result<TransactionReceipt>;
 
+    async fn get_call_result(
+        &self,
+        receipt: TransactionReceipt,
+        call_request: CallRequest,
+    ) -> SubmitResult;
+
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
 
     async fn block_with_uncles(
@@ -194,6 +200,35 @@ where
             break receipt;
         };
         Ok(receipt)
+    }
+
+    async fn get_call_result(
+        &self,
+        receipt: TransactionReceipt,
+        call_request: CallRequest,
+    ) -> SubmitResult {
+        let tx_hash = receipt.transaction_hash;
+        let exit_reason =
+            match self.call(&call_request, AtBlock::At(receipt.block_hash.into())).await {
+                Ok(exit_reason) => exit_reason,
+                Err(error) => {
+                    tracing::error!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
+                    if receipt.status_code == Some(1) {
+                        return SubmitResult::Executed {
+                            tx_hash,
+                            result: CallResult::Success(Vec::new()),
+                            receipt,
+                        };
+                    }
+                    return SubmitResult::Executed { tx_hash, result: CallResult::Error, receipt };
+                },
+            };
+        let result = match exit_reason {
+            ExitReason::Succeed(bytes) => CallResult::Success(bytes.to_vec()),
+            ExitReason::Revert(bytes) => CallResult::Revert(bytes.to_vec()),
+            ExitReason::Error(_) => CallResult::Error,
+        };
+        return SubmitResult::Executed { tx_hash, result, receipt };
     }
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)> {

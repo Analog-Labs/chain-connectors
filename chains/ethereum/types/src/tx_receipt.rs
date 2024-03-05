@@ -29,7 +29,7 @@ pub struct TransactionReceipt {
     pub transaction_index: u64,
 
     /// Hash of the block this transaction was included within.
-    pub block_hash: Option<H256>,
+    pub block_hash: H256,
 
     /// Number of the block this transaction was included within.
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]

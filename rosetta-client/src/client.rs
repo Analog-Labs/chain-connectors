@@ -14,8 +14,11 @@ use rosetta_core::{
 };
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
 use rosetta_server_ethereum::{
-    config::{Query as EthQuery, QueryResult as EthQueryResult},
+    config::{
+        CallResult, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt, H256,
+    },
     EthereumMetadata, EthereumMetadataParams, MaybeWsEthereumClient as EthereumClient,
+    SubmitResult,
 };
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
@@ -149,6 +152,7 @@ impl BlockchainClient for GenericClient {
     type Transaction = GenericTransaction;
     type Subscription = GenericClientSubscription;
     type Event = GenericClientEvent;
+    type SubmitResult = rosetta_server_ethereum::SubmitResult;
 
     async fn query(
         &self,
@@ -219,8 +223,24 @@ impl BlockchainClient for GenericClient {
         })
     }
 
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
-        dispatch!(self.submit(transaction).await)
+    async fn submit(&self, transaction: &[u8]) -> Result<SubmitResult> {
+        match self {
+            Self::Ethereum(client) => client.submit(transaction).await,
+            Self::Astar(client) => client.submit(transaction).await,
+            Self::Polkadot(client) => {
+                // TODO: implement a custom receipt for Polkadot
+                let result = client.submit(transaction).await?;
+                let tx_hash = H256::from_slice(result.as_slice());
+                Ok(SubmitResult::Executed {
+                    tx_hash,
+                    result: CallResult::Success(Vec::new()),
+                    // TODO: Refactor this to use a custom receipt for Polkadot
+                    // Did this to avoid wrapping the result into another enum, currently we only
+                    // care about ethereum chains.
+                    receipt: TransactionReceipt::default(),
+                })
+            },
+        }
     }
 
     async fn call(&self, req: &GenericCall) -> Result<GenericCallResult> {

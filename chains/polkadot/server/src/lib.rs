@@ -65,6 +65,7 @@ impl BlockchainClient for PolkadotClient {
     type Transaction = Vec<u8>;
     type Subscription = ();
     type Event = ();
+    type SubmitResult = Vec<u8>;
 
     async fn query(
         &self,
