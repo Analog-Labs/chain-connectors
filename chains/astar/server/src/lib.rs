@@ -210,6 +210,7 @@ impl BlockchainClient for AstarClient {
     type Transaction = rosetta_config_ethereum::SignedTransaction;
     type Subscription = <MaybeWsEthereumClient as BlockchainClient>::Subscription;
     type Event = <MaybeWsEthereumClient as BlockchainClient>::Event;
+    type SubmitResult = <MaybeWsEthereumClient as BlockchainClient>::SubmitResult;
 
     async fn query(
         &self,
@@ -290,7 +291,7 @@ impl BlockchainClient for AstarClient {
         Ok(AstarMetadata(self.client.metadata(public_key, &options.0).await?))
     }
 
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult> {
         self.client.submit(transaction).await
     }
 
@@ -394,12 +395,17 @@ mod tests {
                 ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let data = TestContract::emitEventCall::SELECTOR.to_vec();
-                wallet.eth_send_call(contract_address.0, data, 0, None, None).await.unwrap()
+                wallet
+                    .eth_send_call(contract_address.0, data, 0, None, None)
+                    .await
+                    .unwrap()
+                    .tx_hash()
+                    .0
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let logs = receipt.logs;
@@ -432,7 +438,7 @@ mod tests {
             ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
 

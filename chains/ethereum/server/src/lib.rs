@@ -2,7 +2,7 @@ use anyhow::Result;
 pub use client::EthereumClient;
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
-    QueryResult as EthQueryResult, Subscription,
+    QueryResult as EthQueryResult, SubmitResult, Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -108,6 +108,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
     type Transaction = rosetta_config_ethereum::SignedTransaction;
     type Subscription = Subscription;
     type Event = Event;
+    type SubmitResult = SubmitResult;
 
     async fn query(
         &self,
@@ -173,7 +174,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult> {
         match self {
             Self::Http(http_client) => http_client.submit(transaction).await,
             Self::Ws(ws_client) => ws_client.submit(transaction).await,
@@ -304,7 +305,7 @@ mod tests {
                 ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
@@ -313,6 +314,8 @@ mod tests {
                     .eth_send_call(contract_address.0, call.abi_encode(), 0, None, None)
                     .await
                     .unwrap()
+                    .tx_hash()
+                    .0
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             assert_eq!(receipt.logs.len(), 1);
@@ -320,7 +323,7 @@ mod tests {
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
 
-            let block_hash = receipt.block_hash.unwrap();
+            let block_hash = receipt.block_hash;
             assert_eq!(topic, expected);
 
             let logs = wallet
@@ -358,7 +361,7 @@ mod tests {
             ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
 

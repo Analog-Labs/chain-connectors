@@ -8,6 +8,7 @@ description = "Ethereum configuration."
 
 [dependencies]
 anyhow = "1.0"
+const-hex = { version = "1.9", default-features = false, features = ["alloc"] }
 derivative = { version = "2.2", default-features = false, features = ["use_core"] }
 hex-literal = { version = "0.4" }
 rosetta-config-astar = { workspace = true }
@@ -29,12 +30,14 @@ serde_json = { version = "1.0" }
 default = ["std", "serde", "scale-info", "scale-codec", "rosetta-ethereum-types/with-crypto"]
 std = [
   "dep:thiserror",
+  "const-hex/std",
   "serde?/std",
   "parity-scale-codec?/std",
   "rosetta-ethereum-types/std",
 ]
 serde = [
   "dep:serde",
+  "const-hex/serde",
   "rosetta-ethereum-types/serde",
 ]
 scale-info = [

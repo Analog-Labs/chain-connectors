@@ -14,7 +14,12 @@ pub type BlockFullInner =
     rosetta_ethereum_types::SealedBlock<SignedTransactionInner, SealedHeaderInner>;
 
 use crate::{
-    rstd::{option::Option, vec::Vec},
+    rstd::{
+        fmt::{Debug, Formatter, Result as FmtResult},
+        option::Option,
+        str,
+        vec::Vec,
+    },
     util::impl_wrapper,
 };
 
@@ -314,7 +319,7 @@ impl QueryItem for Query {
 }
 
 /// The result of contract call execution
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
 #[cfg_attr(
@@ -332,6 +337,48 @@ pub enum CallResult {
     /// normal EVM error.
     #[cfg_attr(feature = "serde", serde(rename = "error"))]
     Error,
+}
+
+impl CallResult {
+    /// Returns the revert message if the revert data is encoded as Error(string)
+    #[must_use]
+    pub fn revert_msg(&self) -> Option<&str> {
+        let Self::Revert(bytes) = self else {
+            return None;
+        };
+        let bytes = bytes.as_slice();
+        // Check if the revert message starts with the selector for `Error(string)`
+        if bytes.len() <= 68 || !bytes.starts_with(&[0x08, 0xc3, 0x79, 0xa0]) {
+            return None;
+        }
+        // Check if the length of the string is valid
+        let offset = usize::try_from(U256::from_big_endian(&bytes[4..36])).ok()? + 36;
+        let len = usize::try_from(U256::from_big_endian(&bytes[36..68])).ok()?;
+        if bytes.len() < (offset + len) {
+            return None;
+        }
+        // Try to convert the bytes to a string
+        str::from_utf8(&bytes[offset..offset + len]).ok()
+    }
+}
+
+impl Debug for CallResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if let Some(revert_msg) = self.revert_msg() {
+            return f.debug_tuple("Revert").field(&revert_msg).finish();
+        }
+        match self {
+            Self::Success(bytes) => {
+                let hex_value = const_hex::encode(bytes.as_slice());
+                f.debug_tuple("Succeed").field(&hex_value.as_str()).finish()
+            },
+            Self::Revert(bytes) => {
+                let hex_value = const_hex::encode(bytes.as_slice());
+                f.debug_tuple("Revert").field(&hex_value.as_str()).finish()
+            },
+            Self::Error => f.debug_tuple("Error").finish(),
+        }
+    }
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -529,5 +576,12 @@ mod tests {
         // Can encode as json
         let encoded = serde_json::to_value(&actual).unwrap();
         assert_eq!(encoded, json);
+    }
+
+    #[test]
+    fn test_call_result_revert_msg() {
+        let revert = CallResult::Revert(hex!("08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000012736f6d657468696e672069732077726f6e670000000000000000000000000000").into());
+        assert_eq!(revert.revert_msg(), Some("something is wrong"));
+        assert_eq!(format!("{revert:?}"), "Revert(\"something is wrong\")");
     }
 }

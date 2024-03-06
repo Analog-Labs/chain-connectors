@@ -36,7 +36,7 @@ pub mod ext {
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
     #[cfg(feature = "jsonrpsee")]
-    pub use std::{ops, string, vec};
+    pub use std::{ops, str, string, vec};
 
     pub mod sync {
         pub use std::sync::Arc;
@@ -56,13 +56,20 @@ pub(crate) mod rstd {
         pub use alloc::sync::Arc;
     }
     pub use alloc::{borrow, boxed, fmt};
-    pub use core::marker;
+    pub use core::{marker, str};
 }
 
-use rstd::{borrow::Cow, boxed::Box, fmt::Display, marker::Sized, sync::Arc};
+use rstd::{
+    borrow::Cow,
+    boxed::Box,
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    marker::Sized,
+    str,
+    sync::Arc,
+};
 
 /// Exit reason
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "with-codec",
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
@@ -82,6 +89,39 @@ impl ExitReason {
         match self {
             Self::Succeed(bytes) | Self::Revert(bytes) => Some(bytes),
             Self::Error(_) => None,
+        }
+    }
+
+    /// Returns the revert message if the revert data is encoded as Error(string)
+    pub fn revert_msg(&self) -> Option<&str> {
+        let Self::Revert(bytes) = self else {
+            return None;
+        };
+        let bytes = bytes.as_ref();
+        // Check if the revert message starts with the selector for `Error(string)`
+        if bytes.len() <= 68 || !bytes.starts_with(&[0x08, 0xc3, 0x79, 0xa0]) {
+            return None;
+        }
+        // Check if the length of the string is valid
+        let offset = usize::try_from(U256::from_big_endian(&bytes[4..36])).ok()? + 36;
+        let len = usize::try_from(U256::from_big_endian(&bytes[36..68])).ok()?;
+        if bytes.len() < (offset + len) {
+            return None;
+        }
+        // Try to convert the bytes to a string
+        str::from_utf8(&bytes[offset..offset + len]).ok()
+    }
+}
+
+impl Debug for ExitReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        if let Some(revert_msg) = self.revert_msg() {
+            return f.debug_tuple("Revert").field(&revert_msg).finish();
+        }
+        match self {
+            Self::Succeed(arg0) => f.debug_tuple("Succeed").field(arg0).finish(),
+            Self::Revert(arg0) => f.debug_tuple("Revert").field(arg0).finish(),
+            Self::Error(arg0) => f.debug_tuple("Error").field(arg0).finish(),
         }
     }
 }
@@ -345,5 +385,18 @@ impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Box<T> {
         Self: 'async_trait,
     {
         T::logs(self, contract, topics)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use hex_literal::hex;
+
+    #[test]
+    fn test_exit_reason_revert_msg() {
+        use super::ExitReason;
+        let revert = ExitReason::Revert(hex!("08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000012736f6d657468696e672069732077726f6e670000000000000000000000000000").into());
+        assert_eq!(revert.revert_msg(), Some("something is wrong"));
+        assert_eq!(format!("{revert:?}"), "Revert(\"something is wrong\")");
     }
 }
