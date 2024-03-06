@@ -10,13 +10,14 @@ use rosetta_config_ethereum::{
     ext::types::{
         crypto::{Crypto, DefaultCrypto, Keypair, Signer},
         ext::rlp::Encodable,
+        rlp_utils::RlpDecodableTransaction,
         rpc::CallRequest,
         transactions::LegacyTransaction,
         AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
     },
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
-    Subscription,
+    SubmitResult, Subscription,
 };
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
@@ -332,17 +333,51 @@ where
     }
 
     #[allow(clippy::missing_errors_doc)]
-    pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
-        let tx = rosetta_ethereum_backend::ext::types::Bytes::from_iter(transaction);
-        let tx_hash = self.backend.send_raw_transaction(tx).await?;
+    pub async fn submit(&self, transaction: &[u8]) -> Result<SubmitResult> {
+        // Check if the transaction is valid and signed
+        let rlp = rosetta_config_ethereum::ext::types::ext::rlp::Rlp::new(transaction);
+        let (tx_hash, call_request) = match TypedTransaction::rlp_decode(&rlp, true) {
+            Ok((tx, Some(signature))) => {
+                let tx_hash = tx.compute_tx_hash(&signature);
+                let sender = DefaultCrypto::secp256k1_ecdsa_recover(&signature, tx.sighash())?;
+                let call_request = CallRequest {
+                    from: Some(sender),
+                    to: tx.to(),
+                    gas_limit: Some(tx.gas_limit()),
+                    gas_price: None,
+                    value: Some(tx.value()),
+                    data: Some(Bytes::from_iter(tx.data())),
+                    nonce: None,
+                    chain_id: None,
+                    max_priority_fee_per_gas: None,
+                    access_list: tx.access_list().cloned().unwrap_or_default(),
+                    max_fee_per_gas: None,
+                    transaction_type: None,
+                };
+                (tx_hash, call_request)
+            },
+            Ok((_, None)) => {
+                anyhow::bail!("Invalid Transaction: not signed");
+            },
+            Err(_) => anyhow::bail!("Invalid Transaction: failed to parse, must be a valid EIP1159, EIP-Eip2930 or Legacy"),
+        };
+
+        // Check if the transaction was already submitted
+        if let Some(receipt) = self.backend.transaction_receipt(tx_hash).await? {
+            return Ok(self.backend.get_call_result(receipt, call_request).await);
+        }
+
+        // Send the transaction
+        let actual_hash = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
+        if tx_hash != actual_hash {
+            anyhow::bail!("Transaction hash mismatch: expect {tx_hash}, got {actual_hash}");
+        }
 
         // Wait for the transaction to be mined
-        let receipt = self.backend.wait_for_transaction_receipt(tx_hash).await?;
-
-        if !matches!(receipt.status_code, Some(1)) {
-            anyhow::bail!("Transaction reverted: {tx_hash}");
-        }
-        Ok(tx_hash.0.to_vec())
+        let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
+            return Ok(SubmitResult::Timeout { tx_hash });
+        };
+        Ok(self.backend.get_call_result(receipt, call_request).await)
     }
 
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]

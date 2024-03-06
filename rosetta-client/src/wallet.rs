@@ -1,5 +1,5 @@
 use crate::{
-    client::{GenericBlockIdentifier, GenericClient, GenericMetadata, GenericMetadataParams},
+    client::{GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
     mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
@@ -9,10 +9,14 @@ use crate::{
 };
 use anyhow::Result;
 use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
-use rosetta_server_ethereum::config::{
-    ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
-    AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
-    GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult, TransactionReceipt,
+use rosetta_server_ethereum::{
+    config::{
+        ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
+        AtBlock, CallContract, CallResult, EIP1186ProofResponse, GetProof, GetStorageAt,
+        GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
+        TransactionReceipt,
+    },
+    SubmitResult,
 };
 use std::path::Path;
 
@@ -113,29 +117,14 @@ impl Wallet {
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = match &self.client {
-            GenericClient::Astar(client) => match block {
-                GenericBlockIdentifier::Ethereum(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Polkadot(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Astar(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
-            GenericClient::Ethereum(client) => match block {
-                GenericBlockIdentifier::Ethereum(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Polkadot(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Ethereum(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
-            GenericClient::Polkadot(client) => match block {
-                GenericBlockIdentifier::Polkadot(block) => {
-                    client.balance(&address, &PartialBlockIdentifier::from(block)).await?
-                },
-                GenericBlockIdentifier::Ethereum(_) => {
-                    anyhow::bail!("[this is bug] client returned an invalid block identifier")
-                },
+            GenericClient::Polkadot(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
         };
         Ok(balance)
@@ -169,13 +158,13 @@ impl Wallet {
     /// Parameters:
     /// - transaction: the transaction bytes to submit
     #[allow(clippy::missing_errors_doc)]
-    pub async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    pub async fn submit(&self, transaction: &[u8]) -> Result<SubmitResult> {
         self.client.submit(transaction).await
     }
 
     /// Creates, signs and submits a transaction.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn construct(&self, params: &GenericMetadataParams) -> Result<Vec<u8>> {
+    pub async fn construct(&self, params: &GenericMetadataParams) -> Result<SubmitResult> {
         let metadata = self.metadata(params).await?;
         let transaction = self.tx.create_and_sign(
             self.client.config(),
@@ -197,7 +186,7 @@ impl Wallet {
         amount: u128,
         nonce: Option<u64>,
         gas_limit: Option<u64>,
-    ) -> Result<Vec<u8>> {
+    ) -> Result<SubmitResult> {
         let address = Address::new(self.client.config().address_format, account.address.clone());
         let mut metadata_params = self.tx.transfer(&address, amount)?;
         update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
@@ -216,12 +205,9 @@ impl Wallet {
 
     /// deploys contract to chain
     #[allow(clippy::missing_errors_doc)]
-    pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<[u8; 32]> {
+    pub async fn eth_deploy_contract(&self, bytecode: Vec<u8>) -> Result<SubmitResult> {
         let metadata_params = self.tx.deploy_contract(bytecode)?;
-        let bytes = self.construct(&metadata_params).await?;
-        let mut tx_hash = [0u8; 32];
-        tx_hash.copy_from_slice(&bytes[0..32]);
-        Ok(tx_hash)
+        self.construct(&metadata_params).await
     }
 
     /// calls contract send call function
@@ -233,13 +219,10 @@ impl Wallet {
         amount: u128,
         nonce: Option<u64>,
         gas_limit: Option<u64>,
-    ) -> Result<[u8; 32]> {
+    ) -> Result<SubmitResult> {
         let mut metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
         update_metadata_params(&mut metadata_params, nonce, gas_limit)?;
-        let bytes = self.construct(&metadata_params).await?;
-        let mut tx_hash = [0u8; 32];
-        tx_hash.copy_from_slice(&bytes[0..32]);
-        Ok(tx_hash)
+        self.construct(&metadata_params).await
     }
 
     /// estimates gas of send call

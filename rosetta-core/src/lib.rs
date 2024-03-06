@@ -133,6 +133,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     type Transaction: Clone + Send + Sync + Sized + Eq + 'static;
     type Subscription: Clone + Send + Sync + Sized + Eq + 'static;
     type Event: Clone + Send + Sync + Sized + Eq + 'static;
+    type SubmitResult: Clone + Send + Sync + Sized + 'static;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result>;
 
@@ -147,7 +148,7 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
         public_key: &PublicKey,
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata>;
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>>;
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult>;
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult>;
 
     #[allow(clippy::missing_errors_doc)]
@@ -177,6 +178,7 @@ where
     type Transaction = <T as BlockchainClient>::Transaction;
     type Subscription = <T as BlockchainClient>::Subscription;
     type Event = <T as BlockchainClient>::Event;
+    type SubmitResult = <T as BlockchainClient>::SubmitResult;
 
     async fn query(&self, query: Self::Query) -> Result<<Self::Query as traits::Query>::Result> {
         BlockchainClient::query(Self::as_ref(self), query).await
@@ -213,7 +215,7 @@ where
     ) -> Result<Self::Metadata> {
         BlockchainClient::metadata(Self::as_ref(self), public_key, params).await
     }
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult> {
         BlockchainClient::submit(Self::as_ref(self), transaction).await
     }
     async fn call(&self, req: &Self::Call) -> Result<Self::CallResult> {

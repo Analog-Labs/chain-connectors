@@ -210,6 +210,7 @@ impl BlockchainClient for AstarClient {
     type Transaction = rosetta_config_ethereum::SignedTransaction;
     type Subscription = <MaybeWsEthereumClient as BlockchainClient>::Subscription;
     type Event = <MaybeWsEthereumClient as BlockchainClient>::Event;
+    type SubmitResult = <MaybeWsEthereumClient as BlockchainClient>::SubmitResult;
 
     async fn query(
         &self,
@@ -290,7 +291,7 @@ impl BlockchainClient for AstarClient {
         Ok(AstarMetadata(self.client.metadata(public_key, &options.0).await?))
     }
 
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult> {
         self.client.submit(transaction).await
     }
 
@@ -394,12 +395,17 @@ mod tests {
                 ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
             let tx_hash = {
                 let data = TestContract::emitEventCall::SELECTOR.to_vec();
-                wallet.eth_send_call(contract_address.0, data, 0, None, None).await.unwrap()
+                wallet
+                    .eth_send_call(contract_address.0, data, 0, None, None)
+                    .await
+                    .unwrap()
+                    .tx_hash()
+                    .0
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let logs = receipt.logs;
@@ -432,7 +438,7 @@ mod tests {
             ",
             )
             .unwrap();
-            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
             let contract_address = receipt.contract_address.unwrap();
 
@@ -461,7 +467,6 @@ mod tests {
     #[tokio::test]
     async fn test_subscription() -> Result<()> {
         use futures_util::StreamExt;
-        use rosetta_client::client::GenericBlockIdentifier;
         use rosetta_core::{BlockOrIdentifier, ClientEvent};
         let config = rosetta_config_astar::config("dev").unwrap();
         let env = Env::new("astar-subscription", config.clone(), client_from_config)
@@ -477,17 +482,13 @@ mod tests {
             for _ in 0..10 {
                 let event = stream.next().await.unwrap();
                 match event {
-                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(
-                        GenericBlockIdentifier::Ethereum(head),
-                    )) => {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(head)) => {
                         if let Some(block_number) = last_head {
                             assert!(head.index > block_number);
                         }
                         last_head = Some(head.index);
                     },
-                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(
-                        GenericBlockIdentifier::Ethereum(finalized),
-                    )) => {
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(finalized)) => {
                         if let Some(block_number) = last_finalized {
                             assert!(finalized.index > block_number);
                         }

@@ -176,9 +176,29 @@ where
     {
         let params = rpc_params![tx, at];
         Box::pin(async move {
-            <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", params)
-                .await
-                .map(ExitReason::Succeed)
+            match <T as ClientT>::request::<Bytes, _>(&self.0, "eth_call", params).await {
+                Ok(data) => Ok(ExitReason::Succeed(data)),
+                Err(Error::Call(msg)) => {
+                    if let Some(raw_value) = msg.data() {
+                        if let Ok(revert_data) = serde_json::from_str::<Bytes>(raw_value.get()) {
+                            // If the error is `Error(string)` or the message contains "revert", we
+                            // assume it's a revert.
+                            let revert = ExitReason::Revert(revert_data);
+                            if revert.revert_msg().is_some() || msg.message().contains("revert") {
+                                return Ok(revert);
+                            }
+                        }
+                    } else if msg.message().contains("overflow") ||
+                        msg.message().contains("underflow")
+                    {
+                        // we assume it's an stack overflow or underflow error.
+                        return Ok(ExitReason::Error(msg.message().to_string().into()));
+                    }
+                    // otherwise we assume it's an RPC error (rate limit, invalid credentials, etc).
+                    Err(Error::Call(msg))
+                },
+                Err(err) => Err(err),
+            }
         })
     }
 
