@@ -190,7 +190,6 @@ impl<'a> EnvBuilder<'a> {
             .await
             .err()
         } else {
-        
             // Wait 15 seconds to guarantee the node didn't crash
             tokio::time::sleep(Duration::from_secs(15)).await;
             health(&container).await.err()
@@ -219,7 +218,7 @@ impl<'a> EnvBuilder<'a> {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
                 .max_delay(Duration::from_secs(5))
                 .take(MAX_RETRIES);
-    
+
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
                 match start_connector(config.clone()).await {
@@ -285,7 +284,7 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
         .factor(100)
         .max_delay(Duration::from_secs(2))
         .take(20); // limit to 20 retries
- 
+
     RetryIf::spawn(
         retry_strategy,
         || async move {

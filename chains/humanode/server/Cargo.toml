@@ -16,14 +16,14 @@ rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-sp-keyring = "24.0"
+sp-keyring.workspace = true
 subxt = { workspace = true, features = ["substrate-compat"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 
 [dev-dependencies]
-alloy-primitives = { version = "0.5" }
-alloy-sol-types = { version = "0.5" }
+alloy-primitives = { version = "0.6" }
+alloy-sol-types = { version = "0.6" }
 ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }

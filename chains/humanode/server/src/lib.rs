@@ -1,33 +1,38 @@
 use anyhow::{Context, Result};
 use parity_scale_codec::Decode;
-use rosetta_core::{
-    crypto::{
-        address::{Address, AddressFormat, Ss58AddressFormat},
-        PublicKey,
-    },
-    types::{
-        Block, BlockIdentifier, Coin, PartialBlockIdentifier, Transaction, TransactionIdentifier,
-    },
-    BlockchainClient, BlockchainConfig,
+use rosetta_config_ethereum::{
+    ext::types::{H160, H256},
+    EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult,
 };
 use rosetta_config_humanode::metadata::{
     dev as humanode_metadata,
     dev::runtime_types::{frame_system::AccountInfo, pallet_balances::AccountData},
 };
-use rosetta_config_ethereum::{
-    ethereum_types::H160, EthereumMetadata, EthereumMetadataParams, Query as EthQuery, QueryResult as EthQueryResult
+use rosetta_core::{
+    crypto::{
+        address::{Address, AddressFormat},
+        PublicKey,
+    },
+    types::{BlockIdentifier, PartialBlockIdentifier},
+    BlockchainClient, BlockchainConfig,
 };
-use rosetta_server_ethereum::MaybeWsEthereumClient;
 use rosetta_server::ws::default_client;
+use rosetta_server_ethereum::MaybeWsEthereumClient;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use subxt::{
     backend::{
         legacy::{rpc_methods::BlockNumber, LegacyBackend, LegacyRpcMethods},
         rpc::RpcClient,
-    }, dynamic::Value as SubtxValue, ext::sp_core, tx::PairSigner, utils::AccountId32, OnlineClient, PolkadotConfig
+        BlockRef,
+    },
+    config::substrate::U256,
+    dynamic::Value as SubtxValue,
+    ext::sp_core::{self, crypto::Ss58AddressFormat},
+    tx::PairSigner,
+    utils::AccountId32,
+    OnlineClient, PolkadotConfig,
 };
-
 
 #[derive(Deserialize, Serialize)]
 pub struct HumanodeMetadataParams(pub EthereumMetadataParams);
@@ -62,14 +67,15 @@ impl HumanodeClient {
         let backend = LegacyBackend::new(rpc_client);
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
-        let ethereum_client = MaybeWsEthereumClient::from_jsonrpsee(config, ws_client).await?;
+        let ethereum_client =
+            MaybeWsEthereumClient::from_jsonrpsee(config, ws_client, None).await?;
         Ok(Self { client: ethereum_client, ws_client: substrate_client, rpc_methods })
     }
 
     async fn account_info(
         &self,
         address: &Address,
-        maybe_block: Option<&BlockIdentifier>,
+        maybe_block: Option<&PartialBlockIdentifier>,
     ) -> Result<AccountInfo<u32, AccountData<u128>>> {
         let account: AccountId32 = address
             .address()
@@ -81,16 +87,91 @@ impl HumanodeClient {
         let storage_query =
             subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
 
-        let block_hash = {
-            let block_number = maybe_block.map(|block| BlockNumber::from(block.index));
-            self.rpc_methods
-                .chain_get_block_hash(block_number)
+        // TODO: Change the `PartialBlockIdentifier` for distinguish between ethereum blocks and
+        // substrate blocks.
+        let block_hash = match maybe_block {
+            Some(PartialBlockIdentifier { hash: Some(block_hash), .. }) => {
+                // If a hash if provided, we don't know if it's a ethereum block hash or substrate
+                // block hash. We try to fetch the block using ethereum first, and
+                // if it fails, we try to fetch it using substrate.
+                let ethereum_block = self
+                    .client
+                    .call(&EthQuery::GetBlockByHash(H256(*block_hash).into()))
+                    .await
+                    .map(|result| match result {
+                        EthQueryResult::GetBlockByHash(block) => block,
+                        _ => unreachable!(),
+                    });
+
+                if let Ok(Some(ethereum_block)) = ethereum_block {
+                    // Convert ethereum block to substrate block by fetching the block by number.
+                    let substrate_block_number =
+                        BlockNumber::Number(ethereum_block.header().number());
+                    let substrate_block_hash = self
+                        .rpc_methods
+                        .chain_get_block_hash(Some(substrate_block_number))
+                        .await?
+                        .map(BlockRef::from_hash)
+                        .ok_or_else(|| anyhow::anyhow!("no block hash found"))?;
+
+                    // Verify if the ethereum block belongs to this substrate block.
+                    let query_current_eth_block =
+                        humanode_metadata::storage().ethereum().current_block();
+
+                    // Fetch ethereum block from `ethereum.current_block` state.
+                    let Some(actual_eth_block) = self
+                        .ws_client
+                        .storage()
+                        .at(substrate_block_hash.clone())
+                        .fetch(&query_current_eth_block)
+                        .await?
+                    else {
+                        // This error should not happen, once all humanode blocks must have one
+                        // ethereum block
+                        anyhow::bail!("[report this bug!] no ethereum block found for humanode at block {substrate_block_hash:?}");
+                    };
+
+                    // Verify if the ethereum block hash matches the provided ethereum block hash.
+                    // TODO: compute the block hash
+                    if U256(actual_eth_block.header.number.0) !=
+                        U256::from(ethereum_block.header().number())
+                    {
+                        anyhow::bail!("ethereum block hash mismatch");
+                    }
+                    if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
+                        &ethereum_block.header().header().parent_hash.0
+                    {
+                        anyhow::bail!("ethereum block hash mismatch");
+                    }
+                    substrate_block_hash
+                } else {
+                    self.rpc_methods
+                        .chain_get_block_hash(Some(BlockNumber::Hex(U256::from_big_endian(
+                            block_hash,
+                        ))))
+                        .await?
+                        .map(BlockRef::from_hash)
+                        .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+                }
+            },
+            Some(PartialBlockIdentifier { index: Some(block_number), .. }) => {
+                // If a block number is provided, the value is the same for ethereum blocks and
+                // substrate blocks.
+                self.rpc_methods
+                    .chain_get_block_hash(Some(BlockNumber::Number(*block_number)))
+                    .await?
+                    .map(BlockRef::from_hash)
+                    .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+            },
+            Some(PartialBlockIdentifier { .. }) | None => self
+                .rpc_methods
+                .chain_get_block_hash(None)
                 .await?
-                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
+                .map(BlockRef::from_hash)
+                .ok_or_else(|| anyhow::anyhow!("no block hash found"))?,
         };
 
         let account_info = self.ws_client.storage().at(block_hash).fetch(&storage_query).await?;
-
         account_info.map_or_else(
             || {
                 Ok(AccountInfo::<u32, AccountData<u128>> {
@@ -98,12 +179,7 @@ impl HumanodeClient {
                     consumers: 0,
                     providers: 0,
                     sufficients: 0,
-                    data: AccountData {
-                        free: 0,
-                        reserved: 0,
-                        misc_frozen: 0,
-                        fee_frozen: 0,
-                    },
+                    data: AccountData { free: 0, reserved: 0, misc_frozen: 0, fee_frozen: 0 },
                 })
             },
             |account_info| {
@@ -114,7 +190,6 @@ impl HumanodeClient {
     }
 }
 
-
 #[async_trait::async_trait]
 impl BlockchainClient for HumanodeClient {
     type MetadataParams = HumanodeMetadataParams;
@@ -123,27 +198,39 @@ impl BlockchainClient for HumanodeClient {
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
+    type AtBlock = PartialBlockIdentifier;
+    type BlockIdentifier = BlockIdentifier;
+
+    type Query = rosetta_config_ethereum::Query;
+    type Transaction = rosetta_config_ethereum::SignedTransaction;
+    type Subscription = <MaybeWsEthereumClient as BlockchainClient>::Subscription;
+    type Event = <MaybeWsEthereumClient as BlockchainClient>::Event;
+    type SubmitResult = <MaybeWsEthereumClient as BlockchainClient>::SubmitResult;
+
+    async fn query(
+        &self,
+        query: Self::Query,
+    ) -> Result<<Self::Query as rosetta_core::traits::Query>::Result> {
+        self.client.query(query).await
+    }
+
     fn config(&self) -> &BlockchainConfig {
         self.client.config()
     }
 
-    fn genesis_block(&self) -> &BlockIdentifier {
+    fn genesis_block(&self) -> Self::BlockIdentifier {
         self.client.genesis_block()
     }
 
-    async fn node_version(&self) -> Result<String> {
-        self.client.node_version().await
-    }
-
-    async fn current_block(&self) -> Result<BlockIdentifier> {
+    async fn current_block(&self) -> Result<Self::BlockIdentifier> {
         self.client.current_block().await
     }
 
-    async fn finalized_block(&self) -> Result<BlockIdentifier> {
+    async fn finalized_block(&self) -> Result<Self::BlockIdentifier> {
         self.client.finalized_block().await
     }
 
-    async fn balance(&self, address: &Address, block: &BlockIdentifier) -> Result<u128> {
+    async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128> {
         let balance = match address.format() {
             AddressFormat::Ss58(_) => {
                 let account_info = self.account_info(address, Some(block)).await?;
@@ -162,10 +249,6 @@ impl BlockchainClient for HumanodeClient {
             AddressFormat::Bech32(_) => return Err(anyhow::anyhow!("invalid address format")),
         };
         Ok(balance)
-    }
-
-    async fn coins(&self, address: &Address, block: &BlockIdentifier) -> Result<Vec<Coin>> {
-        self.client.coins(address, block).await
     }
 
     async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
@@ -203,20 +286,8 @@ impl BlockchainClient for HumanodeClient {
         Ok(HumanodeMetadata(self.client.metadata(public_key, &options.0).await?))
     }
 
-    async fn submit(&self, transaction: &[u8]) -> Result<Vec<u8>> {
+    async fn submit(&self, transaction: &[u8]) -> Result<Self::SubmitResult> {
         self.client.submit(transaction).await
-    }
-
-    async fn block(&self, block_identifier: &PartialBlockIdentifier) -> Result<Block> {
-        self.client.block(block_identifier).await
-    }
-
-    async fn block_transaction(
-        &self,
-        block_identifier: &BlockIdentifier,
-        tx: &TransactionIdentifier,
-    ) -> Result<Transaction> {
-        self.client.block_transaction(block_identifier, tx).await
     }
 
     async fn call(&self, req: &EthQuery) -> Result<EthQueryResult> {
@@ -226,8 +297,10 @@ impl BlockchainClient for HumanodeClient {
     async fn listen<'a>(&'a self) -> Result<Option<Self::EventStream<'a>>> {
         self.client.listen().await
     }
+    async fn subscribe(&self, _sub: &Self::Subscription) -> Result<u32> {
+        anyhow::bail!("not implemented");
+    }
 }
-
 
 #[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
@@ -236,7 +309,7 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use rosetta_config_ethereum::{AtBlock, CallResult};
-    use rosetta_docker::Env;
+    use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
 
@@ -257,7 +330,8 @@ mod tests {
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_humanode::config("dev")?;
-        rosetta_docker::tests::network_status::<HumanodeClient, _, _>(client_from_config, config).await
+        rosetta_docker::tests::network_status::<HumanodeClient, _, _>(client_from_config, config)
+            .await
     }
 
     #[tokio::test]
@@ -266,107 +340,164 @@ mod tests {
         rosetta_docker::tests::account(client_from_config, config).await
     }
 
+    #[tokio::test]
+    async fn test_construction() -> Result<()> {
+        let config = rosetta_config_humanode::config("dev")?;
+        rosetta_docker::tests::construction(client_from_config, config).await
+    }
 
-    // #[tokio::test]
-    // async fn test_construction() -> Result<()> {
-    //     let config = rosetta_config_astar::config("dev")?;
-    //     rosetta Solc::default();
-    //     let source = format!("contract Contract {{ {source} }}");
-    //     let mut sources = BTreeMap::new();
-    //     sources.insert(Path::new("contract.sol").into(), Source::new(source));
-    //     let input = CompilerInput::with_sources(sources)[0]
-    //         .clone()
-    //         .evm_version(EvmVersion::Homestead);
-    //     let output = solc.compile_exact(&input)?;
-    //     let file = output.contracts.get("contract.sol").unwrap();
-    //     let contract = file.get("Contract").unwrap();
-    //     let bytecode = contract
-    //         .evm
-    //         .as_ref()
-    //         .unwrap()
-    //         .bytecode
-    //         .as_ref()
-    //         .unwrap()
-    //         .object
-    //         .as_bytes()
-    //         .unwrap()
-    //         .to_vec();
-    //     Ok(bytecode)
-    // }
+    fn compile_snippet(source: &str) -> Result<Vec<u8>> {
+        let solc = Solc::default();
+        let source = format!("contract Contract {{ {source} }}");
+        let mut sources = BTreeMap::new();
+        sources.insert(Path::new("contract.sol").into(), Source::new(source));
+        let input = CompilerInput::with_sources(sources)[0]
+            .clone()
+            .evm_version(EvmVersion::Homestead);
+        let output = solc.compile_exact(&input)?;
+        let file = output.contracts.get("contract.sol").unwrap();
+        let contract = file.get("Contract").unwrap();
+        let bytecode = contract
+            .evm
+            .as_ref()
+            .unwrap()
+            .bytecode
+            .as_ref()
+            .unwrap()
+            .object
+            .as_bytes()
+            .unwrap()
+            .to_vec();
+        Ok(bytecode)
+    }
 
-    // #[tokio::test]
-    // async fn test_smart_contract() -> Result<()> {
-    //     let config = rosetta_config_astar::config("dev")?;
+    #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
+    async fn test_smart_contract() -> Result<()> {
+        let config = rosetta_config_humanode::config("dev")?;
 
-    //     let env = Env::new("astar-smart-contract", config.clone(), client_from_config).await?;
+        let env = Env::new("humanode-smart-contract", config.clone(), client_from_config).await?;
+        run_test(env, |env| async move {
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            wallet.faucet(faucet).await.unwrap();
 
-    //     let faucet = 100 * u128::pow(10, config.currency_decimals);
-    //     let wallet = env.ephemeral_wallet().await?;
-    //     wallet.faucet(faucet).await?;
+            let bytes = compile_snippet(
+                r"
+                event AnEvent();
+                function emitEvent() public {
+                    emit AnEvent();
+                }
+                ",
+            )
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
+            let tx_hash = {
+                let data = TestContract::emitEventCall::SELECTOR.to_vec();
+                wallet
+                    .eth_send_call(contract_address.0, data, 0, None, None)
+                    .await
+                    .unwrap()
+                    .tx_hash()
+                    .0
+            };
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let logs = receipt.logs;
+            assert_eq!(logs.len(), 1);
+            let topic = logs[0].topics[0];
+            let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
+            assert_eq!(topic, expected);
+        })
+        .await;
+        Ok(())
+    }
 
-    //     let bytes = compile_snippet(
-    //         r"
-    //         event AnEvent();
-    //         function emitEvent() public {
-    //             emit AnEvent();
-    //         }
-    //         ",
-    //     )?;
-    //     let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-    //     let contract_address = receipt.contract_address.unwrap();
-    //     let tx_hash = {
-    //         let data = TestContract::emitEventCall::SELECTOR.to_vec();
-    //         wallet.eth_send_call(contract_address.0, data, 0).await?
-    //     };
-    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-    //     let logs = receipt.logs;
-    //     assert_eq!(logs.len(), 1);
-    //     let topic = logs[0].topics[0];
-    //     let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
-    //     assert_eq!(topic, expected);
-    //     env.shutdown().await?;
-    //     Ok(())
-    // }
+    #[tokio::test]
+    #[allow(clippy::needless_raw_string_hashes)]
+    async fn test_smart_contract_view() -> Result<()> {
+        let config = rosetta_config_humanode::config("dev")?;
 
-    // #[tokio::test]
-    // async fn test_smart_contract_view() -> Result<()> {
-    //     let config = rosetta_config_astar::config("dev")?;
-    //     let faucet = 100 * u128::pow(10, config.currency_decimals);
+        let env =
+            Env::new("humanode-smart-contract-view", config.clone(), client_from_config).await?;
 
-    //     let env = Env::new("astar-smart-contract-view", config, client_from_config).await?;
+        run_test(env, |env| async move {
+            let faucet = 100 * u128::pow(10, config.currency_decimals);
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            wallet.faucet(faucet).await.unwrap();
 
-    //     let wallet = env.ephemeral_wallet().await?;
-    //     wallet.faucet(faucet).await?;
+            let bytes = compile_snippet(
+                r"
+                function identity(bool a) public view returns (bool) {
+                    return a;
+                }
+            ",
+            )
+            .unwrap();
+            let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let contract_address = receipt.contract_address.unwrap();
 
-    //     let bytes = compile_snippet(
-    //         r"
-    //         function identity(bool a) public view returns (bool) {
-    //             return a;
-    //         }
-    //     ",
-    //     )?;
-    //     let tx_hash = wallet.eth_deploy_contract(bytes).await?;
-    //     let receipt = wallet.eth_transaction_receipt(tx_hash).await?.unwrap();
-    //     let contract_address = receipt.contract_address.unwrap();
+            let response = {
+                let call = TestContract::identityCall { a: true };
+                wallet
+                    .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                    .await
+                    .unwrap()
+            };
+            assert_eq!(
+                response,
+                CallResult::Success(
+                    [
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 1
+                    ]
+                    .to_vec()
+                )
+            );
+        })
+        .await;
+        Ok(())
+    }
 
-    //     let response = {
-    //         let call = TestContract::identityCall { a: true };
-    //         wallet
-    //             .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-    //             .await?
-    //     };
-    //     assert_eq!(
-    //         response,
-    //         CallResult::Success(
-    //             [
-    //                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    //                 0, 0, 0, 0, 0, 1
-    //             ]
-    //             .to_vec()
-    //         )
-    //     );
-    //     env.shutdown().await?;
-    //     Ok(())
-    // }
+    #[tokio::test]
+    async fn test_subscription() -> Result<()> {
+        use futures_util::StreamExt;
+        use rosetta_core::{BlockOrIdentifier, ClientEvent};
+        let config = rosetta_config_humanode::config("dev").unwrap();
+        let env = Env::new("humanode-subscription", config.clone(), client_from_config)
+            .await
+            .unwrap();
+
+        run_test(env, |env| async move {
+            let wallet = env.ephemeral_wallet().await.unwrap();
+            let mut stream = wallet.listen().await.unwrap().unwrap();
+
+            let mut last_head: Option<u64> = None;
+            let mut last_finalized: Option<u64> = None;
+            for _ in 0..10 {
+                let event = stream.next().await.unwrap();
+                match event {
+                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(head)) => {
+                        if let Some(block_number) = last_head {
+                            assert!(head.index > block_number);
+                        }
+                        last_head = Some(head.index);
+                    },
+                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(finalized)) => {
+                        if let Some(block_number) = last_finalized {
+                            assert!(finalized.index > block_number);
+                        }
+                        last_finalized = Some(finalized.index);
+                    },
+                    event => panic!("unexpected event: {event:?}"),
+                }
+            }
+            assert!(last_head.is_some());
+            assert!(last_finalized.is_some());
+        })
+        .await;
+        Ok(())
+    }
 }

@@ -36,7 +36,7 @@ pub enum Blockchain {
     /// Arbitrum
     Arbitrum,
     /// Humanode
-    Humanode
+    Humanode,
 }
 
 impl std::str::FromStr for Blockchain {

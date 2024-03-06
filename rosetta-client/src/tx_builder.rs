@@ -47,7 +47,9 @@ impl GenericTransactionBuilder {
     ) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.method_call(contract, data, amount)?).into(),
-            Self::Humanode(tx) => HumanodeMetadataParams(tx.method_call(contract, data, amount)?).into(),
+            Self::Humanode(tx) => {
+                HumanodeMetadataParams(tx.method_call(contract, data, amount)?).into()
+            },
             Self::Ethereum(tx) => tx.method_call(contract, data, amount)?.into(),
             Self::Polkadot(tx) => tx.method_call(contract, data, amount)?.into(),
         })
@@ -56,7 +58,9 @@ impl GenericTransactionBuilder {
     pub fn deploy_contract(&self, contract_binary: Vec<u8>) -> Result<GenericMetadataParams> {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.deploy_contract(contract_binary)?).into(),
-            Self::Humanode(tx) => HumanodeMetadataParams(tx.deploy_contract(contract_binary)?).into(),
+            Self::Humanode(tx) => {
+                HumanodeMetadataParams(tx.deploy_contract(contract_binary)?).into()
+            },
             Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
             Self::Polkadot(tx) => tx.deploy_contract(contract_binary)?.into(),
         })

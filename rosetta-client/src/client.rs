@@ -13,7 +13,6 @@ use rosetta_core::{
     BlockchainClient, ClientEvent,
 };
 use rosetta_server_astar::{AstarClient, AstarMetadata, AstarMetadataParams};
-use rosetta_server_humanode::{HumanodeClient, HumanodeMetadata, HumanodeMetadataParams};
 use rosetta_server_bitcoin::{BitcoinClient, BitcoinMetadata, BitcoinMetadataParams};
 use rosetta_server_ethereum::{
     config::{
@@ -22,6 +21,7 @@ use rosetta_server_ethereum::{
     EthereumMetadata, EthereumMetadataParams, MaybeWsEthereumClient as EthereumClient,
     SubmitResult,
 };
+use rosetta_server_humanode::{HumanodeClient, HumanodeMetadata, HumanodeMetadataParams};
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

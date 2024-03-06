@@ -43,9 +43,11 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
                 format!("--chain={network}"),
                 "--force-authoring".into(),
                 "--rpc-cors=all".into(),
-                format!("--rpc-port={port}"),
-                "--rpc-external".into(),
-
+                // format!("--rpc-port={port}"),
+                format!("--ws-port={port}"),
+                "--ws-external".into(),
+                "--unsafe-ws-external".into(),
+                "--unsafe-rpc-external".into(),
             ];
             if network.ends_with("dev") {
                 params.extend_from_slice(&["--alice".into(), "--tmp".into()]);
