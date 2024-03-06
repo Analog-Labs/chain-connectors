@@ -105,6 +105,7 @@ impl Wallet {
         // self.client.finalized_block().await
         match &self.client {
             GenericClient::Astar(client) => client.finalized_block().await,
+            GenericClient::Humanode(client) => client.finalized_block().await,
             GenericClient::Ethereum(client) => client.finalized_block().await,
             GenericClient::Polkadot(client) => client.finalized_block().await,
         }
@@ -118,6 +119,9 @@ impl Wallet {
             Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = match &self.client {
             GenericClient::Astar(client) => {
+                client.balance(&address, &PartialBlockIdentifier::from(block)).await?
+            },
+            GenericClient::Humanode(client) => {
                 client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
             GenericClient::Ethereum(client) => {
@@ -238,6 +242,7 @@ impl Wallet {
             match self.metadata(&metadata_params).await? {
                 GenericMetadata::Ethereum(metadata) => metadata,
                 GenericMetadata::Astar(metadata) => metadata.0,
+                GenericMetadata::Humanode(metadata) => metadata.0,
                 GenericMetadata::Polkadot(_) => anyhow::bail!("unsupported op"),
             };
         Ok(u128::from(metadata.gas_limit))
@@ -283,6 +288,7 @@ impl Wallet {
         let result = match &self.client {
             GenericClient::Ethereum(client) => client.call(&query).await?,
             GenericClient::Astar(client) => client.call(&query).await?,
+            GenericClient::Humanode(client) => client.call(&query).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
         };
         let result = <Q as rosetta_server_ethereum::QueryItem>::parse_result(result)?;
@@ -403,6 +409,10 @@ fn update_metadata_params(
             params.gas_limit = gas_limit;
         },
         GenericMetadataParams::Astar(params) => {
+            params.0.nonce = nonce;
+            params.0.gas_limit = gas_limit;
+        },
+        GenericMetadataParams::Humanode(params) => {
             params.0.nonce = nonce;
             params.0.gas_limit = gas_limit;
         },
