@@ -15,6 +15,7 @@ use rosetta_config_ethereum::{
         transactions::LegacyTransaction,
         AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
     },
+    query::GetBlock,
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
     GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
     SubmitResult, Subscription,
@@ -29,7 +30,7 @@ use rosetta_ethereum_backend::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
+    BlockRange, EthereumPubSub, EthereumRpc, ExitReason, FilterBlockOption,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -444,17 +445,37 @@ where
                 };
                 EthQueryResult::GetBlockByHash(Some(block))
             },
+            EthQuery::GetBlock(GetBlock(at)) => {
+                let Some(block) = self.backend.block_with_uncles(*at).await? else {
+                    return Ok(EthQueryResult::GetBlock(None));
+                };
+                EthQueryResult::GetBlock(Some(block))
+            },
             EthQuery::ChainId => {
                 let chain_id = self.backend.chain_id().await?;
                 EthQueryResult::ChainId(chain_id)
             },
             EthQuery::GetLogs(logs) => {
+                use rosetta_config_ethereum::ext::types::BlockIdentifier as EthBlockIdentifier;
                 let block_range = BlockRange {
                     address: logs.contracts.clone(),
                     topics: logs.topics.clone(),
-                    from: None,
-                    to: None,
-                    blockhash: Some(logs.block),
+                    filter: match logs.block {
+                        AtBlock::At(EthBlockIdentifier::Hash(block_hash)) => {
+                            FilterBlockOption::AtBlockHash(block_hash)
+                        },
+                        AtBlock::At(EthBlockIdentifier::Number(block_number)) => {
+                            FilterBlockOption::Range {
+                                from_block: Some(AtBlock::At(EthBlockIdentifier::Number(
+                                    block_number,
+                                ))),
+                                to_block: Some(AtBlock::At(EthBlockIdentifier::Number(
+                                    block_number,
+                                ))),
+                            }
+                        },
+                        at => FilterBlockOption::Range { from_block: None, to_block: Some(at) },
+                    },
                 };
                 let logs = self.backend.get_logs(block_range).await?;
                 EthQueryResult::GetLogs(logs)

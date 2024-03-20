@@ -18,7 +18,7 @@ pub use types::{
 
 pub mod query {
     pub use crate::types::{
-        CallContract, GetBalance, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
+        CallContract, GetBalance, GetBlock, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
         GetTransactionReceipt, Query, QueryItem, QueryResult,
     };
 }

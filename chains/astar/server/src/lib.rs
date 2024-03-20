@@ -34,6 +34,15 @@ use subxt::{
     OnlineClient, PolkadotConfig,
 };
 
+/// Re-exports libraries to not require any additional
+/// dependencies to be explicitly added on the client side.
+#[doc(hidden)]
+pub mod ext {
+    pub use rosetta_config_ethereum as ethereum_config;
+    pub use rosetta_config_ethereum as astar_config;
+    pub use rosetta_core as core;
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct AstarMetadataParams(pub EthereumMetadataParams);
 
@@ -313,7 +322,7 @@ mod tests {
     use super::*;
     use alloy_sol_types::{sol, SolCall};
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
-    use rosetta_config_ethereum::{AtBlock, CallResult};
+    use rosetta_config_ethereum::{query::GetLogs, AtBlock, CallResult};
     use rosetta_docker::{run_test, Env};
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
@@ -413,6 +422,31 @@ mod tests {
             let topic = logs[0].topics[0];
             let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
             assert_eq!(topic, expected);
+
+            let block_hash = receipt.block_hash;
+            let block_number = receipt.block_number.unwrap();
+
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_hash.into()),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], expected);
+
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_number.into()),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], expected);
         })
         .await;
         Ok(())
