@@ -207,28 +207,51 @@ where
         receipt: TransactionReceipt,
         call_request: CallRequest,
     ) -> SubmitResult {
+        // Helper function used when we can't fetch the revert reason or call result
+        fn result_from_receipt(tx_hash: H256, receipt: TransactionReceipt) -> SubmitResult {
+            if receipt.status_code == Some(1) {
+                SubmitResult::Executed { tx_hash, result: CallResult::Success(Vec::new()), receipt }
+            } else {
+                SubmitResult::Executed { tx_hash, result: CallResult::Error, receipt }
+            }
+        }
+
         let tx_hash = receipt.transaction_hash;
+
+        // Fetch the block to get the parent_hash
+        let block = match self.block(receipt.block_hash.into()).await {
+            Ok(Some(block)) => block,
+            Ok(None) => {
+                tracing::warn!("Block {:?} not found", receipt.block_hash);
+                return result_from_receipt(tx_hash, receipt);
+            },
+            Err(error) => {
+                tracing::warn!(
+                    "Failed to retrieve block by hash {:?}: {error:?}",
+                    receipt.block_hash
+                );
+                return result_from_receipt(tx_hash, receipt);
+            },
+        };
+
+        // Execute the call in the parent block_hash to get the transaction result
         let exit_reason =
-            match self.call(&call_request, AtBlock::At(receipt.block_hash.into())).await {
+            match self.call(&call_request, AtBlock::At(block.header.parent_hash.into())).await {
                 Ok(exit_reason) => exit_reason,
                 Err(error) => {
-                    tracing::error!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
-                    if receipt.status_code == Some(1) {
-                        return SubmitResult::Executed {
-                            tx_hash,
-                            result: CallResult::Success(Vec::new()),
-                            receipt,
-                        };
-                    }
-                    return SubmitResult::Executed { tx_hash, result: CallResult::Error, receipt };
+                    tracing::warn!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
+                    return result_from_receipt(tx_hash, receipt);
                 },
             };
-        let result = match exit_reason {
-            ExitReason::Succeed(bytes) => CallResult::Success(bytes.to_vec()),
-            ExitReason::Revert(bytes) => CallResult::Revert(bytes.to_vec()),
-            ExitReason::Error(_) => CallResult::Error,
-        };
-        return SubmitResult::Executed { tx_hash, result, receipt };
+        SubmitResult::Executed {
+            tx_hash,
+            receipt,
+            result: match exit_reason {
+                ExitReason::Succeed(bytes) => CallResult::Success(bytes.to_vec()),
+                ExitReason::Revert(bytes) => CallResult::Revert(bytes.to_vec()),
+                ExitReason::Error(_) => CallResult::Error,
+            },
+        }
     }
 
     async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)> {
