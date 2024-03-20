@@ -362,10 +362,6 @@ where
             },
             Err(_) => anyhow::bail!("Invalid Transaction: failed to parse, must be a valid EIP1159, EIP-Eip2930 or Legacy"),
         };
-        {
-            let call_request_json = serde_json::to_string(&call_request)?;
-            tracing::debug!("Transaction submitted: {tx_hash:?} -> {call_request_json:?}");
-        }
 
         // Check if the transaction is already included in a block
         if let Some(receipt) = self.backend.transaction_receipt(tx_hash).await? {
@@ -378,20 +374,16 @@ where
             let actual_hash =
                 self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
             if tx_hash != actual_hash {
-                anyhow::bail!("Transaction hash mismatch: expect {tx_hash}, got {actual_hash}");
+                anyhow::bail!("Transaction hash mismatch, expect {tx_hash}, got {actual_hash}");
             }
         }
 
         // Wait for the transaction receipt
         let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
-            {
-                tracing::warn!("Transaction timeout: {tx_hash:?}");
-            }
+            tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
             return Ok(SubmitResult::Timeout { tx_hash });
         };
-        {
-            tracing::debug!("Transaction included in a block: {tx_hash:?}");
-        }
+        tracing::debug!("Transaction included in a block: {tx_hash:?}, status: {:?}", receipt.status_code);
         Ok(self.backend.get_call_result(receipt, call_request).await)
     }
 
