@@ -34,6 +34,15 @@ use subxt::{
     OnlineClient, PolkadotConfig,
 };
 
+/// Re-exports libraries to not require any additional
+/// dependencies to be explicitly added on the client side.
+#[doc(hidden)]
+pub mod ext {
+    pub use rosetta_config_ethereum as ethereum_config;
+    pub use rosetta_config_ethereum as astar_config;
+    pub use rosetta_core as core;
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct AstarMetadataParams(pub EthereumMetadataParams);
 

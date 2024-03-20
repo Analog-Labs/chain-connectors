@@ -17,7 +17,6 @@ mod client;
 mod event_stream;
 mod finalized_block_stream;
 mod log_filter;
-// mod logs_stream;
 mod multi_block;
 mod new_heads;
 mod proof;
@@ -30,11 +29,13 @@ pub mod config {
     pub use rosetta_config_ethereum::*;
 }
 
-/// Re-exports for proc-macro library to not require any additional
+/// Re-exports libraries to not require any additional
 /// dependencies to be explicitly added on the client side.
 #[doc(hidden)]
 pub mod ext {
     pub use rosetta_config_ethereum as config;
+    pub use rosetta_core as core;
+    pub use rosetta_ethereum_backend as backend;
 }
 
 #[derive(Clone)]

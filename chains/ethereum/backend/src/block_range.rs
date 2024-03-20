@@ -58,21 +58,12 @@ impl From<BlockIdentifier> for FilterBlockOption {
     derive(parity_scale_codec::Encode, parity_scale_codec::Decode, scale_info::TypeInfo)
 )]
 pub struct BlockRange {
-    // #[cfg_attr(
-    //     feature = "serde",
-    //     serde(with = "opt_value_or_array", skip_serializing_if = "Vec::is_empty")
-    // )]
     /// A list of addresses from which logs should originate.
     pub address: Vec<Address>,
 
-    // #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Vec::is_empty"))]
     /// Array of topics. topics are order-dependent.
     pub topics: Vec<H256>,
 
-    // #[cfg_attr(
-    //     feature = "serde",
-    //     serde(default, rename = "fromBlock", skip_serializing_if = "Option::is_none")
-    // )]
     /// Array of topics. topics are order-dependent.
     pub filter: FilterBlockOption,
 }
@@ -147,9 +138,6 @@ mod tests {
             "topics":["0x241ea03ca20251805084d27d4440371c34a0b85ff108f6bb5611248f73818b80"],
             "blockHash": "0x7c5a35e9cb3e8ae0e221ab470abae9d446c3a5626ce6689fc777dcffcab52c70",
         });
-        // Decode works
-        // let actual = serde_json::from_value::<BlockRange>(json.clone()).unwrap();
-        // assert_eq!(expected, actual);
 
         // Encode works
         let encoded = serde_json::to_value(expected).unwrap();
@@ -175,10 +163,6 @@ mod tests {
             "topics":["0x241ea03ca20251805084d27d4440371c34a0b85ff108f6bb5611248f73818b80"],
             "blockHash": "0x7c5a35e9cb3e8ae0e221ab470abae9d446c3a5626ce6689fc777dcffcab52c70",
         });
-
-        // Decode works
-        // let actual = serde_json::from_value::<BlockRange>(json.clone()).unwrap();
-        // assert_eq!(expected, actual);
 
         // Encode works
         let encoded = serde_json::to_value(expected).unwrap();
