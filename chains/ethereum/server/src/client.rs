@@ -383,7 +383,10 @@ where
             tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
             return Ok(SubmitResult::Timeout { tx_hash });
         };
-        tracing::debug!("Transaction included in a block: {tx_hash:?}, status: {:?}", receipt.status_code);
+        tracing::debug!(
+            "Transaction included in a block: {tx_hash:?}, status: {:?}",
+            receipt.status_code
+        );
         Ok(self.backend.get_call_result(receipt, call_request).await)
     }
 
