@@ -30,6 +30,13 @@ pub mod config {
     pub use rosetta_config_ethereum::*;
 }
 
+/// Re-exports for proc-macro library to not require any additional
+/// dependencies to be explicitly added on the client side.
+#[doc(hidden)]
+pub mod ext {
+    pub use rosetta_config_ethereum as config;
+}
+
 #[derive(Clone)]
 pub enum MaybeWsEthereumClient {
     Http(EthereumClient<HttpClient>),
@@ -324,6 +331,7 @@ mod tests {
             assert_eq!(topic, expected);
 
             let block_hash = receipt.block_hash;
+            let block_number = receipt.block_number.unwrap();
             assert_eq!(topic, expected);
 
             let logs = wallet
@@ -335,6 +343,18 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], topic);
+
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_number.into()),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], topic);
         })
         .await;
         Ok(())

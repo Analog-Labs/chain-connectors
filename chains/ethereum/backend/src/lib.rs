@@ -13,7 +13,7 @@ pub mod serde_util;
 extern crate alloc;
 
 use async_trait::async_trait;
-pub use block_range::BlockRange;
+pub use block_range::{BlockRange, FilterBlockOption};
 use futures_core::{future::BoxFuture, Stream};
 use rosetta_ethereum_types::{
     rpc::{CallRequest, RpcBlock, RpcTransaction},
