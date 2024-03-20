@@ -213,7 +213,7 @@ impl QueryT for GetProof {
 }
 impl_query_item!(GetProof);
 
-/// Returns information about a block whose hash is in the request.
+/// Returns information about a block whose number is in the request.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -234,6 +234,12 @@ impl From<H256> for GetBlock {
 impl From<u64> for GetBlock {
     fn from(block_number: u64) -> Self {
         Self(AtBlock::At(block_number.into()))
+    }
+}
+
+impl From<AtBlock> for GetBlock {
+    fn from(at: AtBlock) -> Self {
+        Self(at)
     }
 }
 
@@ -450,9 +456,9 @@ pub enum QueryResult {
     GetProof(<GetProof as QueryT>::Result),
     /// Returns information about a block whose hash is in the request, or null when no block was
     /// found.
-    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByHash"))]
     GetBlockByHash(<GetBlockByHash as QueryT>::Result),
-    /// Returns information about a block whose hash is in the request, or null when no block was
+    /// Returns information about a block whose number is in the request, or null when no block was
     /// found.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByNumber"))]
     GetBlock(<GetBlock as QueryT>::Result),
