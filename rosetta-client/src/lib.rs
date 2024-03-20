@@ -14,6 +14,18 @@ mod wallet;
 
 pub use signer::Signer;
 
+/// Re-exports libraries to not require any additional
+/// dependencies to be explicitly added on the client side.
+#[doc(hidden)]
+pub mod ext {
+    pub use anyhow;
+    pub use fraction;
+    pub use rosetta_core as core;
+    pub use rosetta_server_astar as astar;
+    pub use rosetta_server_ethereum as ethereum;
+    pub use rosetta_server_polkadot as polkadot;
+}
+
 /// Supported chains.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Blockchain {

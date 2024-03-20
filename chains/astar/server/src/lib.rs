@@ -38,9 +38,11 @@ use subxt::{
 /// dependencies to be explicitly added on the client side.
 #[doc(hidden)]
 pub mod ext {
+    pub use anyhow;
+    pub use rosetta_config_astar as astar_config;
     pub use rosetta_config_ethereum as ethereum_config;
-    pub use rosetta_config_ethereum as astar_config;
     pub use rosetta_core as core;
+    pub use subxt;
 }
 
 #[derive(Deserialize, Serialize)]
