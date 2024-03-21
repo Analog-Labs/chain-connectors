@@ -36,7 +36,6 @@ impl<T: BlockchainClient> Env<T> {
         log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
         let node = builder.run_node(&config).await?;
-
         let client = match builder.run_connector::<T, Fut, F>(start_connector, config).await {
             Ok(connector) => connector,
             Err(e) => {
@@ -178,7 +177,6 @@ impl<'a> EnvBuilder<'a> {
             opts = opts.expose(PublishPort::tcp(port), port);
         }
         let container = self.run_container(name, &opts.build()).await?;
-
         // TODO: replace this by a proper healthcheck
         let maybe_error = if matches!(config.node_uri.scheme, "http" | "https" | "ws" | "wss") {
             wait_for_http(
@@ -216,11 +214,11 @@ impl<'a> EnvBuilder<'a> {
         F: FnMut(BlockchainConfig) -> Fut + Send,
     {
         const MAX_RETRIES: usize = 10;
-
         let client = {
             let retry_strategy = tokio_retry::strategy::FibonacciBackoff::from_millis(1000)
                 .max_delay(Duration::from_secs(5))
                 .take(MAX_RETRIES);
+
             let mut result = Err(anyhow::anyhow!("failed to start connector"));
             for delay in retry_strategy {
                 match start_connector(config.clone()).await {
@@ -234,6 +232,7 @@ impl<'a> EnvBuilder<'a> {
                     },
                     Err(error) => {
                         result = Err(error);
+
                         tokio::time::sleep(delay).await;
                     },
                 }
