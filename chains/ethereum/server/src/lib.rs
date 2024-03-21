@@ -33,6 +33,7 @@ pub mod config {
 /// dependencies to be explicitly added on the client side.
 #[doc(hidden)]
 pub mod ext {
+    pub use anyhow;
     pub use rosetta_config_ethereum as config;
     pub use rosetta_core as core;
     pub use rosetta_ethereum_backend as backend;

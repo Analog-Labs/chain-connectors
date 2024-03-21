@@ -363,21 +363,30 @@ where
             Err(_) => anyhow::bail!("Invalid Transaction: failed to parse, must be a valid EIP1159, EIP-Eip2930 or Legacy"),
         };
 
-        // Check if the transaction was already submitted
+        // Check if the transaction is already included in a block
         if let Some(receipt) = self.backend.transaction_receipt(tx_hash).await? {
             return Ok(self.backend.get_call_result(receipt, call_request).await);
         }
 
-        // Send the transaction
-        let actual_hash = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
-        if tx_hash != actual_hash {
-            anyhow::bail!("Transaction hash mismatch: expect {tx_hash}, got {actual_hash}");
+        // Check if the message is not peding
+        if self.backend.transaction_by_hash(tx_hash).await?.is_none() {
+            // Send the transaction
+            let actual_hash =
+                self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
+            if tx_hash != actual_hash {
+                anyhow::bail!("Transaction hash mismatch, expect {tx_hash}, got {actual_hash}");
+            }
         }
 
-        // Wait for the transaction to be mined
+        // Wait for the transaction receipt
         let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
+            tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
             return Ok(SubmitResult::Timeout { tx_hash });
         };
+        tracing::debug!(
+            "Transaction included in a block: {tx_hash:?}, status: {:?}",
+            receipt.status_code
+        );
         Ok(self.backend.get_call_result(receipt, call_request).await)
     }
 
