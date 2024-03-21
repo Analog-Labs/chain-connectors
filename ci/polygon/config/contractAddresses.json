@@ -1,0 +1,30 @@
+{
+  "root": {
+    "Registry": "0x6858c23833cc5B5F79680f0beFd826ea8ec2858A",
+    "RootChain": "0x6F815a2A6fBE1b1aF81805F69844dF078d2F0e5B",
+    "GovernanceProxy": "0xaa493A35022b54a2354C3294a8B751EDC422d05C",
+    "RootChainProxy": "0xa7cd36d7c1AbEF53f25e300813760DAaCB731B7F",
+    "DepositManager": "0xfd9DF43391549ae27e899a2Dc1c0a76Bc2DBE670",
+    "DepositManagerProxy": "0x6ce8f3929549B82e787cecd761C99972F8b58B28",
+    "WithdrawManager": "0x9F4DB30C8E81144c007f773630d98e8C97C9b17d",
+    "WithdrawManagerProxy": "0xBbF12401Daf220ce7B6206E180a584fbd13087D3",
+    "StakeManager": "0x67e12dF1fC6c83b7efDb625e7d55279Ea8Fc9Bc0",
+    "StakeManagerProxy": "0x3f5C5853617C8b05C8D17ceA1706A4Ff2F0174c9",
+    "SlashingManager": "0xD87c8c5D3FEbd053BDB6F76c7FB09Eb922106a02",
+    "StakingInfo": "0x5b520aE134f64A405737CCF675BE9B95D3C77af3",
+    "ExitNFT": "0x6dd20FFB0E0725B05801B22689D7F40c7ec68ce0",
+    "StateSender": "0x835114467F38446a9BFb3dFd8Cd94Fb610294043",
+    "predicates": {
+      "ERC20Predicate": "0x066c43Cce7e8A82522cf7e159013B34133770E0a",
+      "ERC721Predicate": "0xE7fBa237Cd37Fe07b632Fb9eFDbca2F618451cB0",
+      "MarketplacePredicate": "0x922aCBdA36775BFBa9ed635884dd661e6E3aa55B",
+      "TransferWithSigPredicate": "0x126A5B9D02F6De24e06237b5df09Fc623f5063E9"
+    },
+    "tokens": {
+      "MaticToken": "0xdb190777fE45fb37eA7Dd155354Ed5A061222227",
+      "MaticWeth": "0xA279c26c5E3e1aA120662267ecaD43E8C60B7Fff",
+      "TestToken": "0x6BADd18b5fD95b0D7A687f28561CCE5d99b4DEa3",
+      "RootERC721": "0x5149D88EcA8e623F61abE9420d26C1BccC013F1b"
+    }
+  }
+}
