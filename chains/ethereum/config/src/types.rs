@@ -130,7 +130,7 @@ impl QueryT for GetBalance {
 }
 impl_query_item!(GetBalance);
 
-///·Returns·the·nonce·of·the·account·of·given·address.
+/// Returns the number of transactions sent from an address.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
 #[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
@@ -332,7 +332,7 @@ pub enum Query {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(GetBalance),
-    /// Returns the balance of the account of given address.
+    /// Returns the number of transactions sent from an address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
     GetTransactionCount(GetTransactionCount),
     /// Returns the value from a storage position at a given address.
@@ -459,7 +459,7 @@ pub enum QueryResult {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(<GetBalance as QueryT>::Result),
-    /// Returns the nonce of the account of given address.
+    /// Returns the number of transactions sent from an address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
     GetTransactionCount(<GetTransactionCount as QueryT>::Result),
     /// Returns the value from a storage position at a given address.
