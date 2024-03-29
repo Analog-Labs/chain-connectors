@@ -18,7 +18,6 @@ use std::sync::Arc;
 use futures_util::stream::Empty;
 pub use node_uri::{NodeUri, NodeUriError};
 pub use rosetta_crypto as crypto;
-// pub use rosetta_types as types;
 
 type NodeCommand = Arc<dyn Fn(&str, u16) -> Vec<String> + Send + Sync + 'static>;
 
