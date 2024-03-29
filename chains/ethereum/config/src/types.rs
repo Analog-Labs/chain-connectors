@@ -130,6 +130,23 @@ impl QueryT for GetBalance {
 }
 impl_query_item!(GetBalance);
 
+/// Returns the number of transactions sent from an address.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct GetTransactionCount {
+    /// Account address
+    pub address: Address,
+    /// Balance at the block
+    pub block: AtBlock,
+}
+
+impl QueryT for GetTransactionCount {
+    type Result = u64;
+}
+impl_query_item!(GetTransactionCount);
+
 /// Executes a new message call immediately without creating a transaction on the blockchain.
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -315,6 +332,9 @@ pub enum Query {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(GetBalance),
+    /// Returns the number of transactions sent from an address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
+    GetTransactionCount(GetTransactionCount),
     /// Returns the value from a storage position at a given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(GetStorageAt),
@@ -439,6 +459,9 @@ pub enum QueryResult {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(<GetBalance as QueryT>::Result),
+    /// Returns the number of transactions sent from an address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
+    GetTransactionCount(<GetTransactionCount as QueryT>::Result),
     /// Returns the value from a storage position at a given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(<GetStorageAt as QueryT>::Result),

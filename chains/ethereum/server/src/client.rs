@@ -17,9 +17,10 @@ use rosetta_config_ethereum::{
     },
     query::GetBlock,
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
-    GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
-    SubmitResult, Subscription,
+    GetStorageAt, GetTransactionCount, GetTransactionReceipt, Query as EthQuery,
+    QueryResult as EthQueryResult, SubmitResult, Subscription,
 };
+
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
@@ -396,6 +397,10 @@ where
             EthQuery::GetBalance(GetBalance { address, block }) => {
                 let balance = self.backend.get_balance(*address, *block).await?;
                 EthQueryResult::GetBalance(balance)
+            },
+            EthQuery::GetTransactionCount(GetTransactionCount { address, block }) => {
+                let nonce = self.backend.get_transaction_count(*address, *block).await?;
+                EthQueryResult::GetTransactionCount(nonce)
             },
             EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
                 let value = self.backend.storage(*address, *at, *block).await?;
