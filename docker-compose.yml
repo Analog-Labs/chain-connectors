@@ -21,6 +21,22 @@ services:
           memory: 1g
     volumes:
     - "ethereum-volume:/root"
+  
+    polygon:
+      image: "local/bor"
+      command: "--dev --ipcdisable --http --http.addr 0.0.0.0 --http.vhosts * --http.api eth,debug,admin,txpool,web3"
+      expose:
+      - "8546"
+      ulimits:
+        nofile:
+          soft: 10000
+          hard: 10000
+      deploy:
+        resources:
+          reservations:
+            memory: 1g
+      volumes:
+      - "local/bor"
 
   polkadot:
     image: "parity/polkadot:v1.5.0"
@@ -81,4 +97,13 @@ services:
     - "8083:8083"
     depends_on:
     - astar
+    restart: always
+
+  connector-polygon:
+    image: "local/bor"
+    command: "--network dev --addr 0.0.0.0:8084 --node-addr ws://polygon:9994"
+    ports:
+    - "8084:8084"
+    depends_on:
+    - polygon
     restart: always

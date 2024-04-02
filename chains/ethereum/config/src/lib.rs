@@ -213,7 +213,7 @@ pub fn polygon_config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "mainnet" => ("mainnet", 966, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
-    Ok(evm_config("polygon", network, "MATIC", bip44_id, is_dev))
+    Ok(poly_config("polygon", network, "MATIC", bip44_id, is_dev))
 }
 
 /// Retrieve the [`BlockchainConfig`] from the provided arbitrum `network`
@@ -308,6 +308,56 @@ fn evm_config(
         }),
         node_additional_ports: &[],
         connector_port: 8081,
+        testnet: is_dev,
+    }
+}
+
+
+
+fn poly_config(
+    blockchain: &'static str,
+    network: &'static str,
+    symbol: &'static str,
+    bip44_id: u32,
+    is_dev: bool,
+) -> BlockchainConfig {
+    BlockchainConfig {
+        blockchain,
+        network,
+        algorithm: Algorithm::EcdsaRecoverableSecp256k1,
+        address_format: AddressFormat::Eip55,
+        coin: bip44_id,
+        bip44: true,
+        utxo: false,
+        currency_unit: "matic",
+        currency_symbol: symbol,
+        currency_decimals: 18,
+        node_uri: NodeUri::parse("ws://127.0.0.1:8546").expect("uri is valid; qed"),
+        node_image: "local/bor",
+        node_command: rstd::sync::Arc::new(|network, port| {
+            let mut params = if network == "dev" {
+                vec!["--dev".into(), "--dev.period=1".into(), "--ipcdisable".into()]
+            } else {
+                vec!["--syncmode=full".into()]
+            };
+            params.extend_from_slice(&[
+                "--http".into(),
+                "--http.addr=0.0.0.0".into(),
+                format!("--http.port={port}"),
+                "--http.vhosts=*".into(),
+                "--http.corsdomain=*".into(),
+                "--http.api=eth,debug,admin,txpool,web3,net".into(),
+                "--ws".into(),
+                "--ws.addr=0.0.0.0".into(),
+                format!("--ws.port={port}"),
+                "--ws.origins=*".into(),
+                "--ws.api=eth,debug,admin,txpool,web3,net".into(),
+                "--ws.rpcprefix=/".into(),
+            ]);
+            params
+        }),
+        node_additional_ports: &[],
+        connector_port: 8084,
         testnet: is_dev,
     }
 }

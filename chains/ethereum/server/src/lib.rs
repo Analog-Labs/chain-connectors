@@ -233,7 +233,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("polygon-local")?;
+        println!("after creating config");
         rosetta_docker::tests::network_status::<MaybeWsEthereumClient, _, _>(
             client_from_config,
             config,
@@ -243,14 +244,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_account() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("polygon-local")?;
         rosetta_docker::tests::account::<MaybeWsEthereumClient, _, _>(client_from_config, config)
             .await
     }
 
     #[tokio::test]
     async fn test_construction() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev")?;
+        let config = rosetta_config_ethereum::config("polygon-local")?;
         rosetta_docker::tests::construction::<MaybeWsEthereumClient, _, _>(
             client_from_config,
             config,
@@ -286,7 +287,7 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let config = rosetta_config_ethereum::config("polygon-local").unwrap();
 
         let env = Env::new("ethereum-smart-contract", config.clone(), client_from_config).await?;
 
@@ -343,7 +344,7 @@ mod tests {
     #[tokio::test]
     #[allow(clippy::needless_raw_string_hashes)]
     async fn test_smart_contract_view() -> Result<()> {
-        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let config = rosetta_config_ethereum::config("polygon-local").unwrap();
         let env = Env::new("ethereum-smart-contract-logs-view", config.clone(), client_from_config)
             .await
             .unwrap();
@@ -391,7 +392,7 @@ mod tests {
     async fn test_subscription() -> Result<()> {
         use futures_util::StreamExt;
         use rosetta_core::{BlockOrIdentifier, ClientEvent};
-        let config = rosetta_config_ethereum::config("dev").unwrap();
+        let config = rosetta_config_ethereum::config("polygon-local").unwrap();
         let env = Env::new("ethereum-subscription", config.clone(), client_from_config)
             .await
             .unwrap();
