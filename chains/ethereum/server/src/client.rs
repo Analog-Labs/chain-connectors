@@ -15,10 +15,12 @@ use rosetta_config_ethereum::{
         transactions::LegacyTransaction,
         AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
     },
+    query::GetBlock,
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
-    GetStorageAt, GetTransactionReceipt, Query as EthQuery, QueryResult as EthQueryResult,
-    SubmitResult, Subscription,
+    GetStorageAt, GetTransactionCount, GetTransactionReceipt, Query as EthQuery,
+    QueryResult as EthQueryResult, SubmitResult, Subscription,
 };
+
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
@@ -29,7 +31,7 @@ use rosetta_ethereum_backend::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
+    BlockRange, EthereumPubSub, EthereumRpc, ExitReason, FilterBlockOption,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -362,21 +364,30 @@ where
             Err(_) => anyhow::bail!("Invalid Transaction: failed to parse, must be a valid EIP1159, EIP-Eip2930 or Legacy"),
         };
 
-        // Check if the transaction was already submitted
+        // Check if the transaction is already included in a block
         if let Some(receipt) = self.backend.transaction_receipt(tx_hash).await? {
             return Ok(self.backend.get_call_result(receipt, call_request).await);
         }
 
-        // Send the transaction
-        let actual_hash = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
-        if tx_hash != actual_hash {
-            anyhow::bail!("Transaction hash mismatch: expect {tx_hash}, got {actual_hash}");
+        // Check if the message is not peding
+        if self.backend.transaction_by_hash(tx_hash).await?.is_none() {
+            // Send the transaction
+            let actual_hash =
+                self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await?;
+            if tx_hash != actual_hash {
+                anyhow::bail!("Transaction hash mismatch, expect {tx_hash}, got {actual_hash}");
+            }
         }
 
-        // Wait for the transaction to be mined
+        // Wait for the transaction receipt
         let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
+            tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
             return Ok(SubmitResult::Timeout { tx_hash });
         };
+        tracing::debug!(
+            "Transaction included in a block: {tx_hash:?}, status: {:?}",
+            receipt.status_code
+        );
         Ok(self.backend.get_call_result(receipt, call_request).await)
     }
 
@@ -386,6 +397,10 @@ where
             EthQuery::GetBalance(GetBalance { address, block }) => {
                 let balance = self.backend.get_balance(*address, *block).await?;
                 EthQueryResult::GetBalance(balance)
+            },
+            EthQuery::GetTransactionCount(GetTransactionCount { address, block }) => {
+                let nonce = self.backend.get_transaction_count(*address, *block).await?;
+                EthQueryResult::GetTransactionCount(nonce)
             },
             EthQuery::GetStorageAt(GetStorageAt { address, at, block }) => {
                 let value = self.backend.storage(*address, *at, *block).await?;
@@ -444,17 +459,37 @@ where
                 };
                 EthQueryResult::GetBlockByHash(Some(block))
             },
+            EthQuery::GetBlock(GetBlock(at)) => {
+                let Some(block) = self.backend.block_with_uncles(*at).await? else {
+                    return Ok(EthQueryResult::GetBlock(None));
+                };
+                EthQueryResult::GetBlock(Some(block))
+            },
             EthQuery::ChainId => {
                 let chain_id = self.backend.chain_id().await?;
                 EthQueryResult::ChainId(chain_id)
             },
             EthQuery::GetLogs(logs) => {
+                use rosetta_config_ethereum::ext::types::BlockIdentifier as EthBlockIdentifier;
                 let block_range = BlockRange {
                     address: logs.contracts.clone(),
                     topics: logs.topics.clone(),
-                    from: None,
-                    to: None,
-                    blockhash: Some(logs.block),
+                    filter: match logs.block {
+                        AtBlock::At(EthBlockIdentifier::Hash(block_hash)) => {
+                            FilterBlockOption::AtBlockHash(block_hash)
+                        },
+                        AtBlock::At(EthBlockIdentifier::Number(block_number)) => {
+                            FilterBlockOption::Range {
+                                from_block: Some(AtBlock::At(EthBlockIdentifier::Number(
+                                    block_number,
+                                ))),
+                                to_block: Some(AtBlock::At(EthBlockIdentifier::Number(
+                                    block_number,
+                                ))),
+                            }
+                        },
+                        at => FilterBlockOption::Range { from_block: None, to_block: Some(at) },
+                    },
                 };
                 let logs = self.backend.get_logs(block_range).await?;
                 EthQueryResult::GetLogs(logs)

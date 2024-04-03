@@ -130,6 +130,23 @@ impl QueryT for GetBalance {
 }
 impl_query_item!(GetBalance);
 
+/// Returns the number of transactions sent from an address.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct GetTransactionCount {
+    /// Account address
+    pub address: Address,
+    /// Balance at the block
+    pub block: AtBlock,
+}
+
+impl QueryT for GetTransactionCount {
+    type Result = u64;
+}
+impl_query_item!(GetTransactionCount);
+
 /// Executes a new message call immediately without creating a transaction on the blockchain.
 #[derive(Clone, Default, PartialEq, Eq, Debug, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -213,7 +230,48 @@ impl QueryT for GetProof {
 }
 impl_query_item!(GetProof);
 
-/// Returns an array of all the logs matching the contract address and topics.
+/// Returns information about a block whose number is in the request.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
+#[cfg_attr(feature = "scale-codec", derive(parity_scale_codec::Encode, parity_scale_codec::Decode))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct GetBlock(pub AtBlock);
+
+impl From<H256> for GetBlock {
+    fn from(hash: H256) -> Self {
+        Self(AtBlock::At(hash.into()))
+    }
+}
+
+impl From<u64> for GetBlock {
+    fn from(block_number: u64) -> Self {
+        Self(AtBlock::At(block_number.into()))
+    }
+}
+
+impl From<AtBlock> for GetBlock {
+    fn from(at: AtBlock) -> Self {
+        Self(at)
+    }
+}
+
+impl From<GetBlock> for AtBlock {
+    fn from(query: GetBlock) -> Self {
+        query.0
+    }
+}
+
+impl QueryT for GetBlock {
+    type Result = Option<rosetta_ethereum_types::SealedBlock<H256, SealedHeaderInner>>;
+}
+impl_query_item!(GetBlock);
+
+/// Returns information about a block whose hash is in the request.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "scale-info", derive(scale_info::TypeInfo))]
@@ -274,6 +332,9 @@ pub enum Query {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(GetBalance),
+    /// Returns the number of transactions sent from an address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
+    GetTransactionCount(GetTransactionCount),
     /// Returns the value from a storage position at a given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(GetStorageAt),
@@ -291,8 +352,12 @@ pub enum Query {
     GetProof(GetProof),
     /// Returns information about a block whose hash is in the request, or null when no block was
     /// found.
-    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByHash"))]
     GetBlockByHash(GetBlockByHash),
+    /// Returns information about a block whose number is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByNumber"))]
+    GetBlock(GetBlock),
     /// Returns the currently configured chain ID, a value used in replay-protected transaction
     /// signing as introduced by EIP-155
     #[cfg_attr(feature = "serde", serde(rename = "eth_chainId"))]
@@ -394,6 +459,9 @@ pub enum QueryResult {
     /// Returns the balance of the account of given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getBalance"))]
     GetBalance(<GetBalance as QueryT>::Result),
+    /// Returns the number of transactions sent from an address.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getTransactionCount"))]
+    GetTransactionCount(<GetTransactionCount as QueryT>::Result),
     /// Returns the value from a storage position at a given address.
     #[cfg_attr(feature = "serde", serde(rename = "eth_getStorageAt"))]
     GetStorageAt(<GetStorageAt as QueryT>::Result),
@@ -411,8 +479,12 @@ pub enum QueryResult {
     GetProof(<GetProof as QueryT>::Result),
     /// Returns information about a block whose hash is in the request, or null when no block was
     /// found.
-    #[cfg_attr(feature = "serde", serde(rename = "eth_getblockbyhash"))]
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByHash"))]
     GetBlockByHash(<GetBlockByHash as QueryT>::Result),
+    /// Returns information about a block whose number is in the request, or null when no block was
+    /// found.
+    #[cfg_attr(feature = "serde", serde(rename = "eth_getBlockByNumber"))]
+    GetBlock(<GetBlock as QueryT>::Result),
     /// Returns the account and storage values of the specified account including the
     /// Merkle-proof. This call can be used to verify that the data you are pulling
     /// from is not tampered with.

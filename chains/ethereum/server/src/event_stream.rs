@@ -226,10 +226,14 @@ where
                     // Skip if the finalized block is equal to the best finalized block
                     if let Some(best_finalized_block) = self.best_finalized_block.take() {
                         if block.header().hash() == best_finalized_block.header().hash() {
-                            tracing::debug!("finalized block unchanged");
                             self.best_finalized_block = Some(best_finalized_block);
                             break Poll::Pending;
                         }
+                        tracing::debug!(
+                            "new finalized block {} {:?}",
+                            block.header().number(),
+                            block.header().hash()
+                        );
                     }
 
                     // Cache the new best finalized block

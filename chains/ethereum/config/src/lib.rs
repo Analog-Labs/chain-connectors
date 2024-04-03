@@ -12,13 +12,13 @@ use rosetta_ethereum_types::TxHash;
 pub use types::{
     Address, AtBlock, BlockFull, Bloom, CallContract, CallResult, EIP1186ProofResponse,
     EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionReceipt, Header, Log, PartialBlock, Query, QueryItem, QueryResult, SealedHeader,
-    SignedTransaction, StorageProof, TransactionReceipt, H256,
+    GetTransactionCount, GetTransactionReceipt, Header, Log, PartialBlock, Query, QueryItem,
+    QueryResult, SealedHeader, SignedTransaction, StorageProof, TransactionReceipt, H256,
 };
 
 pub mod query {
     pub use crate::types::{
-        CallContract, GetBalance, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
+        CallContract, GetBalance, GetBlock, GetBlockByHash, GetLogs, GetProof, GetStorageAt,
         GetTransactionReceipt, Query, QueryItem, QueryResult,
     };
 }
