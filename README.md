@@ -1,6 +1,6 @@
 # Rosetta SDK Documentation
 
-The Rosetta SDK is a Rust-based package that implements Coinbase’s [Rosetta API](https://www.rosetta-api.org/docs/welcome.html) specifications. This repo provides a framework for Analog’s connectors — special nodes hosted by time node operators — to simplify their interactions with Analog-connected chains in a manner compliant with the Analog Network’s protocol.
+The Rosetta is a set of tools for blockchain integration, it's goal is make blockchain integration simpler, faster, and more reliable. This repo provides a framework for Analog’s chronicles — special nodes hosted by time node operators — to simplify their interactions with Analog-connected chains in a manner compliant with the Analog Network’s protocol.
 
 ## Repository structure
 
@@ -20,110 +20,72 @@ This repo contains the following modules:
 
 <!--This section needs to be refined -->
 
-To get started with the Rosetta SDK, you must ensure you have [installed the latest version of Docker](https://www.docker.com/get-started/).\
-Run the following command to download chain-connectors:
+To get started with the Rosetta SDK, ensure you have following dependencies installed:
 
-```
-$ git clone https://github.com/Analog-Labs/chain-connectors.git
-```
+- [rust](https://www.rust-lang.org/)
+- [latest version of Docker](https://www.docker.com/get-started/)
+- solc 0.8.20+, recommend install using svm: https://github.com/alloy-rs/svm-rs
+- [dprint](https://github.com/dprint/dprint): `cargo install --locked dprint`
+- [cargo-deny](https://github.com/EmbarkStudios/cargo-deny): `cargo install --locked cargo-deny`
 
-You can also download the latest pre-built Docker image release from GitHub by running the following command:
+Build
 
-```
-curl -sSfL https://raw.githubusercontent.com/Analog-Labs/chain-connectors/master/install.sh | sh -s
-```
-
-After cloning this repo, simply run the following command:
-
-```
-make build-local
+```shell
+$ cargo build -p rosetta-client
 ```
 
-### Connector deployment
+Lint
 
-<!-- This section needs to describe how operators will deploy their connectors.-->
-<!--I am assuming here is where we initiate the rosetta-server and rosetta-client.-->
-
-### Install CLI tools
-
-Install the CLI tools by running the commands below:
-
-```
-cargo install --path rosetta-cli
-cargo install --path rosetta-wallet
-```
-
-To run any command with **rosetta-cli**, simply execute the **rosetta-cli** tool from the command line as follows:
-
-```
-rosetta-cli [command]
+```shell
+$ cargo +nightly fmt --all -- --check
+$ cargo clippy --locked --workspace --examples --tests --all-features -- \
+  -Dwarnings \
+  -Dclippy::unwrap_used \
+  -Dclippy::expect_used \
+  -Dclippy::nursery \
+  -Dclippy::pedantic \
+  -Aclippy::module_name_repetitions
+$ dprint check
+$ cargo deny check
 ```
 
-Similarly, to run a command with the **rosetta-wallet**, simply execute the **rosetta-wallet** tool from the command line as follows:
+Run unit tests
 
-```
-rosetta-wallet [command]
-```
-
-## Reference wallet implementations
-
-To help you get started with wallets on specific chains, we have developed complete Rosetta API reference implementations for Ethereum, and Substrate-based chains.
-
-### Ethereum example
-
-We have tested this implementation on an [AWS c5.2xlarge instance](https://aws.amazon.com/ec2/instance-types/c5). This instance type provides 8 vCPUs and 16 GB RAM. To use this repository, you need to fork it and start playing with the code. For example, running these commands will help you learn more about Rosetta API implementation for the Ethereum-based wallets:
-
-```
-rosetta-wallet --chain eth --keyfile /tmp/alice faucet 100000000000000
-rosetta-wallet --chain eth --keyfile /tmp/alice balance
-rosetta-wallet --chain eth --keyfile /tmp/bob account
-rosetta-wallet --chain eth --keyfile /tmp/alice transfer bob_acc_key 10000000000000
-rosetta-wallet --chain eth --keyfile /tmp/bob balance
+```shell
+$ cargo test --workspace --all-features \
+  --exclude rosetta-testing-arbitrum \
+  --exclude rosetta-server-astar \
+  --exclude rosetta-server-ethereum \
+  --exclude rosetta-server-polkadot \
+  --exclude rosetta-client
 ```
 
-### Substrate example
+Run integration tests
 
-We have tested this implementation on an [AWS c5.2xlarge instance](https://aws.amazon.com/ec2/instance-types/c5). This instance type provides 8 vCPUs and 16 GB RAM. To use this repository, you need to fork it and start playing with the code. For example, running these commands will help you learn more about Rosetta API implementation for Substrate-based wallets:
+```shell
+# Pull docker images
+./scripts/pull_nodes.sh
 
-```
-rosetta-wallet --chain dot --keyfile /tmp/alice faucet 3000000000000000
-rosetta-wallet --chain dot --keyfile /tmp/bob account
-rosetta-wallet --chain dot --keyfile /tmp/alice transfer bob_acc_key 1500000000000000
-rosetta-wallet --chain dot --keyfile /tmp/bob balance
-```
-
-## Reference CLI implementation
-
-To help you get started with rosetta-cli, we have developed a standard indexer endpoint that you can leverage to integrate external blockchains automatically. The indexer endpoint complements the existing Data and Construction API endpoints in Rosetta API specifications, allowing developers to fully support asset integration.
-
-You will need an indexer URL that gets passed with the “—indexer-URL” flag to run an indexer. For example, in a local environment, you can run these commands to use the indexer:
-
-```
-rosetta-cli --chain=btc search --indexer-url=http://localhost:8083 --type=Transfer --success=true
-
-rosetta-cli --chain=eth search --indexer-url=http://localhost:8084 --type=Transfer --success=true
-
-rosetta-cli --chain=dot search --indexer-url=http://localhost:8085 --type=Transfer --success=true
+# Run tests
+$ cargo test \
+  -p rosetta-server-astar \
+  -p rosetta-server-ethereum \
+  -p rosetta-server-polkadot \
+  -p rosetta-client
 ```
 
-### Block Explorer
+Run arbitrum integration tests
 
-To launch the Block Explorer in your browser, simply open your browser and point it to:
-http://rosetta.analog.one:3000
+```shell
+# Setup arbitrum local testnet
+git clone -b release --depth=1 --no-tags --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
+cd nitro-testnode
+./test-node.bash --detach
+cd ..
 
-### Run local testnet
-
-Running a local testnet with docker compose up initiates a number of containers, including:
-
-- ethereum: http://127.0.0.1:8081
-- polkadot: http://127.0.0.1:8082
-- block explorer: [http://127.0.0.1:3000](http://127.0.0.1:3000)
-
-You can override the default URL in rosetta-cli and rosetta-wallet with the “—URL” flag.
-
-## Update AWS deployment
-
-Create a new tag, push to master and use it to create a new github release.
+# Run tests
+cargo test --locked -p rosetta-testing-arbitrum
+```
 
 ## Contributing
 
