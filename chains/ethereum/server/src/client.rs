@@ -473,7 +473,7 @@ where
                 let block_range = BlockRange {
                     address: logs.contracts.clone(),
                     topics: logs.topics.clone(),
-                    filter: logs.block.clone(),
+                    filter: logs.block,
                 };
                 let logs = self.backend.get_logs(block_range).await?;
                 EthQueryResult::GetLogs(logs)
