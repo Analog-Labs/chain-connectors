@@ -144,13 +144,13 @@ impl AstarClient {
 
                     // Verify if the ethereum block hash matches the provided ethereum block hash.
                     // TODO: compute the block hash
-                    if U256(actual_eth_block.header.number.0) !=
-                        U256::from(ethereum_block.header().number())
+                    if U256(actual_eth_block.header.number.0)
+                        != U256::from(ethereum_block.header().number())
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
-                    if actual_eth_block.header.parent_hash.as_fixed_bytes() !=
-                        &ethereum_block.header().header().parent_hash.0
+                    if actual_eth_block.header.parent_hash.as_fixed_bytes()
+                        != &ethereum_block.header().header().parent_hash.0
                     {
                         anyhow::bail!("ethereum block hash mismatch");
                     }
@@ -432,7 +432,7 @@ mod tests {
                 .query(GetLogs {
                     contracts: vec![contract_address],
                     topics: vec![topic],
-                    block: AtBlock::At(block_hash.into()),
+                    block: AtBlock::At(block_hash.into()).into(),
                 })
                 .await
                 .unwrap();
@@ -443,7 +443,7 @@ mod tests {
                 .query(GetLogs {
                     contracts: vec![contract_address],
                     topics: vec![topic],
-                    block: AtBlock::At(block_number.into()),
+                    block: AtBlock::At(block_number.into()).into(),
                 })
                 .await
                 .unwrap();
