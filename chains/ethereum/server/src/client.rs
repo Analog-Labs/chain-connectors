@@ -31,7 +31,7 @@ use rosetta_ethereum_backend::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    BlockRange, EthereumPubSub, EthereumRpc, ExitReason, FilterBlockOption,
+    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -470,26 +470,10 @@ where
                 EthQueryResult::ChainId(chain_id)
             },
             EthQuery::GetLogs(logs) => {
-                use rosetta_config_ethereum::ext::types::BlockIdentifier as EthBlockIdentifier;
                 let block_range = BlockRange {
                     address: logs.contracts.clone(),
                     topics: logs.topics.clone(),
-                    filter: match logs.block {
-                        AtBlock::At(EthBlockIdentifier::Hash(block_hash)) => {
-                            FilterBlockOption::AtBlockHash(block_hash)
-                        },
-                        AtBlock::At(EthBlockIdentifier::Number(block_number)) => {
-                            FilterBlockOption::Range {
-                                from_block: Some(AtBlock::At(EthBlockIdentifier::Number(
-                                    block_number,
-                                ))),
-                                to_block: Some(AtBlock::At(EthBlockIdentifier::Number(
-                                    block_number,
-                                ))),
-                            }
-                        },
-                        at => FilterBlockOption::Range { from_block: None, to_block: Some(at) },
-                    },
+                    filter: logs.block.clone(),
                 };
                 let logs = self.backend.get_logs(block_range).await?;
                 EthQueryResult::GetLogs(logs)

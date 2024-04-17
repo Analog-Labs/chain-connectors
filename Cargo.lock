@@ -5257,6 +5257,7 @@ dependencies = [
  "parity-scale-codec",
  "rosetta-config-astar",
  "rosetta-core",
+ "rosetta-ethereum-backend",
  "rosetta-ethereum-types",
  "scale-info",
  "serde",
