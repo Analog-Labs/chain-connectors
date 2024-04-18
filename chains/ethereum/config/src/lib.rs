@@ -11,9 +11,10 @@ use rosetta_core::{
 use rosetta_ethereum_types::TxHash;
 pub use types::{
     Address, AtBlock, BlockFull, Bloom, CallContract, CallResult, EIP1186ProofResponse,
-    EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof, GetStorageAt,
-    GetTransactionCount, GetTransactionReceipt, Header, Log, PartialBlock, Query, QueryItem,
-    QueryResult, SealedHeader, SignedTransaction, StorageProof, TransactionReceipt, H256,
+    EthereumMetadata, EthereumMetadataParams, FilterBlockOption, GetBalance, GetProof,
+    GetStorageAt, GetTransactionCount, GetTransactionReceipt, Header, Log, PartialBlock, Query,
+    QueryItem, QueryResult, SealedHeader, SignedTransaction, StorageProof, TransactionReceipt,
+    H256,
 };
 
 pub mod query {
