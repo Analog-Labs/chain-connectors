@@ -1,3 +1,4 @@
+pub use rosetta_ethereum_backend::FilterBlockOption;
 pub use rosetta_ethereum_types::{
     rpc::RpcTransaction, Address, AtBlock, Block, Bloom, EIP1186ProofResponse, Header, Log,
     StorageProof, TransactionReceipt, H256, U256,
@@ -312,7 +313,7 @@ impl_query_item!(GetBlockByHash);
 pub struct GetLogs {
     pub contracts: Vec<Address>,
     pub topics: Vec<H256>,
-    pub block: AtBlock,
+    pub block: FilterBlockOption,
 }
 
 impl QueryT for GetLogs {

@@ -340,7 +340,7 @@ mod tests {
                 .query(GetLogs {
                     contracts: vec![contract_address],
                     topics: vec![topic],
-                    block: AtBlock::At(block_hash.into()),
+                    block: AtBlock::At(block_hash.into()).into(),
                 })
                 .await
                 .unwrap();
@@ -351,7 +351,7 @@ mod tests {
                 .query(GetLogs {
                     contracts: vec![contract_address],
                     topics: vec![topic],
-                    block: AtBlock::At(block_number.into()),
+                    block: AtBlock::At(block_number.into()).into(),
                 })
                 .await
                 .unwrap();
