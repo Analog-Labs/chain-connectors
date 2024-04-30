@@ -1,4 +1,3 @@
-
 //! # Polygon Rosetta Server Test Suite
 //!
 //! This module contains a test suite for an Ethereum Rosetta server implementation
@@ -34,8 +33,6 @@
 //!
 //! Note: The code assumes a local Polygon RPC node running on `ws://127.0.0.1:8546`. Ensure
 //! that this endpoint is configured correctly.
-//! 
-
 
 #[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
