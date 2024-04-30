@@ -1,3 +1,42 @@
+
+//! # Polygon Rosetta Server Test Suite
+//!
+//! This module contains a test suite for an Ethereum Rosetta server implementation
+//! specifically designed for interacting with the Polygon network. The code includes
+//! tests for network status, account management, and smart contract interaction.
+//!
+//! ## Features
+//!
+//! - Network status tests to ensure proper connection and consistency with the Polygon network.
+//! - Account tests, including faucet funding, balance retrieval, and error handling.
+//! - Smart contract tests covering deployment, event emission, and view function calls.
+//!
+//! ## Dependencies
+//!
+//! - `anyhow`: For flexible error handling.
+//! - `alloy_sol_types`: Custom types and macros for interacting with Solidity contracts.
+//! - `ethers`: Ethereum library for interaction with Ethereum clients.
+//! - `ethers_solc`: Integration for compiling Solidity code using the Solc compiler.
+//! - `hex_literal`: Macro for creating byte array literals from hexadecimal strings.
+//! - `rosetta_client`: Client library for Rosetta API interactions.
+//! - `rosetta_config_ethereum`: Configuration for Ethereum Rosetta server.
+//! - `rosetta_server_ethereum`: Custom client implementation for interacting with Ethereum.
+//! - `sha3`: SHA-3 (Keccak) implementation for hashing.
+//! - `tokio`: Asynchronous runtime for running async functions.
+//!
+//! ## Usage
+//!
+//! To run the tests, execute the following command:
+//!
+//! ```sh
+//! cargo test --package rosetta-testing-polygon --lib -- tests --nocapture
+//! ```
+//!
+//! Note: The code assumes a local Polygon RPC node running on `ws://127.0.0.1:8546`. Ensure
+//! that this endpoint is configured correctly.
+//! 
+
+
 #[allow(clippy::ignored_unit_patterns)]
 #[cfg(test)]
 mod tests {
@@ -34,7 +73,7 @@ mod tests {
         static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
         // Run the test in another thread
-        let test_handler = tokio::spawn(future);
+        let test_handler: tokio::task::JoinHandle<()> = tokio::spawn(future);
 
         // Acquire Lock
         let guard = LOCK.lock().await;
@@ -60,7 +99,6 @@ mod tests {
 
     #[tokio::test]
     async fn network_status() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
@@ -86,7 +124,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_account() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
@@ -130,7 +167,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_smart_contract() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
@@ -174,7 +210,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_smart_contract_view() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
