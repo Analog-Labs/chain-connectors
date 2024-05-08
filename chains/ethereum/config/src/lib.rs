@@ -266,9 +266,15 @@ fn evm_config(
     blockchain: &'static str,
     network: &'static str,
     symbol: &'static str,
-    bip44_id: u32,
+    _bip44_id: u32,
     is_dev: bool,
 ) -> BlockchainConfig {
+    // hard codes bip44_id to 60
+    // proper bip44 ids are here: https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+    // but famous wallets i.e. metamask, trust wallet uses 60 as coin_type' for ethereum chains.
+    // Reference: https://support.metamask.io/managing-my-wallet/secret-recovery-phrase-and-private-keys/importing-a-seed-phrase-from-another-wallet-software-derivation-path/
+    let bip44_id = 60;
+
     BlockchainConfig {
         blockchain,
         network,
