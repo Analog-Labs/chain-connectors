@@ -238,10 +238,10 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
 /// Returns `Err` if the network is not supported
 pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
     let (network, symbol, bip44_id, is_dev) = match network {
-        "dev" => ("dev", "ETH", 60, true),
+        "dev" => ("dev", "ETH", 1, true),
         "mainnet" => ("mainnet", "ETH", 60, false),
-        "goerli" => ("goerli", "TST", 60, true),
-        "sepolia" => ("sepolia", "SepoliaETH", 60, true),
+        "goerli" => ("goerli", "TST", 1, true),
+        "sepolia" => ("sepolia", "SepoliaETH", 1, true),
 
         // Polygon
         "polygon-local" => return polygon_config("dev"),
