@@ -3237,6 +3237,24 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 [[package]]
 name = "humanode"
 version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "ethers",
+ "ethers-solc",
+ "hex-literal",
+ "rand_core 0.6.4",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server-ethereum",
+ "rosetta-server-polkadot",
+ "sha3",
+ "tokio",
+ "tracing",
+ "url",
+]
 
 [[package]]
 name = "hyper"

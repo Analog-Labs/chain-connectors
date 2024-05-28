@@ -121,6 +121,7 @@ impl Wallet {
                 client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
             GenericClient::Ethereum(client) => {
+                println!(" address  {:?}",block);
                 client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
             GenericClient::Polkadot(client) => {

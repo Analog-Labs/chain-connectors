@@ -36,7 +36,7 @@ impl<T: BlockchainClient> Env<T> {
         log::info!("node: {}", node_port);
         builder.stop_container(&builder.node_name(&config)).await?;
         let node = builder.run_node(&config).await?;
-
+println!("ehhhere ");
         let client = match builder.run_connector::<T, Fut, F>(start_connector, config).await {
             Ok(connector) => connector,
             Err(e) => {
