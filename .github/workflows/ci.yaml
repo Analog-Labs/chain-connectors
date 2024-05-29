@@ -104,6 +104,19 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
+    
+    - name: Checkout humanode-distribution
+      if: ${{ matrix.crate == 'rosetta-testing-humanode' }}
+      run: git clone https://github.com/humanode-network/distribution.git
+
+    - name: Setup humanode distribution
+      if: ${{ matrix.crate == 'rosetta-testing-humanode' }}
+      run: |
+        cargo run
+        ./target/debug/humanode-distribution install --dir humanode-testnet --package-display-name "Testnet 5"
+        ./humanode-testnet/humanode-peer --dev
+
+        
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
