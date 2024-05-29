@@ -54,15 +54,11 @@ impl GenericClient {
                 let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
-            Blockchain::Humanode => {
-                let client = EthereumClient::new("humanode", network, url, private_key).await?;
-                Self::Ethereum(client)
-            },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
             },
-            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend | Blockchain::Humanode => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
             },
@@ -79,7 +75,7 @@ impl GenericClient {
     ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
-            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum  | Blockchain::Humanode => {
+            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
@@ -87,7 +83,7 @@ impl GenericClient {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
             },
-            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
+            Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend | Blockchain::Humanode => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
             },

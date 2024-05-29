@@ -31,7 +31,7 @@ pub mod metadata {
     }
 
     #[cfg(feature = "humanode-metadata")]
-    pub mod westend {
+    pub mod humanode {
         #[subxt::subxt(
             runtime_metadata_path = "res/humanode-local.scale",
             derive_for_all_types = "Clone, Eq, PartialEq"
@@ -76,7 +76,7 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
         // Since polkadot v1.2.0 the native runtime is no longer part of the node.
         // Reference:
         // https://github.com/paritytech/polkadot-sdk/compare/v1.1.0-rc2...v1.2.0-rc1#diff-67483124e887614f5d8edc2a46dd5329354bc294ed58bc1748f41dfeb6ec2404R90-R93
-        if matches!(blockchain, "polkadot" | "kusama" | "humanode") && network != "mainnet" {
+        if matches!(blockchain, "polkadot" | "kusama" | "humanode-dev") && network != "mainnet" {
             anyhow::bail!("{blockchain}-{network} is not supported anymore as the polkadot native runtime no longer part of the node.");
         }
 
@@ -117,7 +117,7 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
 
             // Humanode mainnet and dev networks
             ("humanode", "mainnet") => ("hmnd", 5234, 12, Ss58AddressFormatRegistry::KusamaAccount),
-            ("humanode", _) => ("hmnd", 1, 12, Ss58AddressFormatRegistry::KusamaAccount),
+            ("humanode", "dev") => ("hmnd", 1, 12, Ss58AddressFormatRegistry::KusamaAccount),
 
             _ => anyhow::bail!("unsupported network: {network}"),
         };

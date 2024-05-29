@@ -67,7 +67,7 @@ mod tests {
     #[tokio::test]
     async fn network_status() {
         run_test(async move {
-            let client = PolkadotClient::new( "dev", HUMANODE_RPC_WS_URL)
+            let client = PolkadotClient::new( "humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating client");
             // Check if the genesis is consistent
@@ -92,128 +92,58 @@ mod tests {
     #[tokio::test]
     async fn test_account() {
         run_test(async move {
-            let client = PolkadotClient::new("dev", HUMANODE_RPC_WS_URL)
+            let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating HumanodeClient");
             let wallet =
                 Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
                     .await
                     .unwrap();
-            let value = 10 * u128::pow(10, client.config().currency_decimals);
+            let value = 100 * u128::pow(10, client.config().currency_decimals);
+            
             let _ = wallet.faucet(value).await;
+            println!(" ::::: {:?} \n",wallet.balance().await);
+            
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
         .await;
     }
 
-    // fn compile_snippet(source: &str) -> Result<Vec<u8>> {
-    //     let solc = Solc::default();
-    //     let source = format!("contract Contract {{ {source} }}");
-    //     let mut sources = BTreeMap::new();
-    //     sources.insert(Path::new("contract.sol").into(), Source::new(source));
-    //     let input = CompilerInput::with_sources(sources)[0]
-    //         .clone()
-    //         .evm_version(EvmVersion::Homestead);
-    //     let output = solc.compile_exact(&input)?;
-    //     let file = output.contracts.get("contract.sol").unwrap();
-    //     let contract = file.get("Contract").unwrap();
-    //     let bytecode = contract
-    //         .evm
-    //         .as_ref()
-    //         .unwrap()
-    //         .bytecode
-    //         .as_ref()
-    //         .unwrap()
-    //         .object
-    //         .as_bytes()
-    //         .unwrap()
-    //         .to_vec();
-    //     Ok(bytecode)
-    // }
+    #[tokio::test]
+    async fn construction() {
+        run_test(async move {
+            let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
+                .await
+                .expect("Error creating HumanodeClient");
+            
+            let faucet = 100 * u128::pow(10, client.config().currency_decimals);
+            let value = u128::pow(10, client.config().currency_decimals);
+            let alice = Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            let bob = Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            assert_ne!(alice.public_key(), bob.public_key());
 
-    // #[tokio::test]
-    // async fn test_smart_contract() {
-    //     run_test(async move {
-    //         let client = MaybeWsEthereumClient::new("humanode-testnet", "dev", HUMANODE_RPC_WS_URL, None)
-    //             .await
-    //             .expect("Error creating ArbitrumClient");
-    //         let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-    //         let wallet =
-    //             Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
-    //                 .await
-    //                 .unwrap();
-    //         wallet.faucet(faucet).await.unwrap();
+            // Alice and bob have no balance
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, 0);
+            let balance = bob.balance().await.unwrap();
+            assert_eq!(balance, 0);
 
-    //         let bytes = compile_snippet(
-    //             r"
-    //             event AnEvent();
-    //             function emitEvent() public {
-    //                 emit AnEvent();
-    //             }
-    //             ",
-    //         )
-    //         .unwrap();
-    //         let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
-    //         let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-    //         let contract_address = receipt.contract_address.unwrap();
-    //         let tx_hash = {
-    //             let call = TestContract::emitEventCall {};
-    //             wallet
-    //                 .eth_send_call(contract_address.0, call.abi_encode(), 0, None, None)
-    //                 .await
-    //                 .unwrap()
-    //                 .tx_hash()
-    //                 .0
-    //         };
-    //         let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-    //         assert_eq!(receipt.logs.len(), 2);
-    //         let topic = receipt.logs[0].topics[0];
-    //         let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
-    //         assert_eq!(topic, expected);
-    //     })
-    //     .await;
-    // }
+            // Transfer faucets to alice
+            alice.faucet(faucet).await.unwrap();
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, faucet);
 
-    // #[tokio::test]
-    // async fn test_smart_contract_view() {
-    //     run_test(async move {
-    //         let client = MaybeWsEthereumClient::new("humanode-testnet", "dev", HUMANODE_RPC_WS_URL, None)
-    //             .await
-    //             .expect("Error creating ArbitrumClient");
-    //         let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-    //         let wallet =
-    //             Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
-    //                 .await
-    //                 .unwrap();
-    //         wallet.faucet(faucet).await.unwrap();
-    //         let bytes = compile_snippet(
-    //             r"
-    //             function identity(bool a) public view returns (bool) {
-    //                 return a;
-    //             }
-    //             ",
-    //         )
-    //         .unwrap();
-    //         let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
-    //         let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-    //         let contract_address = receipt.contract_address.unwrap();
+            // Alice transfers to bob
+            alice.transfer(bob.account(), value, None, None).await.unwrap();
+            let amount = bob.balance().await.unwrap();
+            assert_eq!(amount, value);
+        })
+        .await;
+    }
 
-    //         let response = {
-    //             let call = TestContract::identityCall { a: true };
-    //             wallet
-    //                 .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
-    //                 .await
-    //                 .unwrap()
-    //         };
-    //         assert_eq!(
-    //             response,
-    //             CallResult::Success(
-    //                 hex!("0000000000000000000000000000000000000000000000000000000000000001")
-    //                     .to_vec()
-    //             )
-    //         );
-    //     })
-    //     .await;
-    // }
 }
