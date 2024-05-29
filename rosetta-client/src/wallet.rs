@@ -200,7 +200,7 @@ impl Wallet {
     pub async fn faucet(&self, faucet_parameter: u128) -> Result<Vec<u8>> {
         let address =
             Address::new(self.client.config().address_format, self.account.address.clone());
-            self.client.faucet(&address, faucet_parameter).await
+        self.client.faucet(&address, faucet_parameter).await
     }
 
     /// deploys contract to chain

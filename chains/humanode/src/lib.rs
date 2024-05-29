@@ -19,7 +19,6 @@ mod tests {
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
         hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
 
-
     /// humanode rpc url
     const HUMANODE_RPC_WS_URL: &str = "ws://127.0.0.1:9944";
 
@@ -67,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn network_status() {
         run_test(async move {
-            let client = PolkadotClient::new( "humanode-dev", HUMANODE_RPC_WS_URL)
+            let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating client");
             // Check if the genesis is consistent
@@ -95,15 +94,19 @@ mod tests {
             let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating HumanodeClient");
-            let wallet =
-                Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
-                    .await
-                    .unwrap();
+            let wallet = Wallet::from_config(
+                client.config().clone(),
+                HUMANODE_RPC_WS_URL,
+                None,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .unwrap();
             let value = 100 * u128::pow(10, client.config().currency_decimals);
-            
+
             let _ = wallet.faucet(value).await;
-            println!(" ::::: {:?} \n",wallet.balance().await);
-            
+            println!(" ::::: {:?} \n", wallet.balance().await);
+
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -116,15 +119,16 @@ mod tests {
             let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating HumanodeClient");
-            
+
             let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             let value = u128::pow(10, client.config().currency_decimals);
-            let alice = Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+            let alice =
+                Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
                     .await
                     .unwrap();
             let bob = Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+                .await
+                .unwrap();
             assert_ne!(alice.public_key(), bob.public_key());
 
             // Alice and bob have no balance
@@ -145,5 +149,4 @@ mod tests {
         })
         .await;
     }
-
 }
