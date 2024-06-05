@@ -252,7 +252,6 @@ mod tests {
     #[tokio::test]
     async fn test_network_status() -> Result<()> {
         let config = rosetta_config_polkadot::config("westend-dev")?;
-        println!("url : {:?}", config.node_uri);
         rosetta_docker::tests::network_status::<PolkadotClient, _, _>(client_from_config, config)
             .await
     }

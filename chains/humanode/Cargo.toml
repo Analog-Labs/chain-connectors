@@ -1,24 +1,38 @@
 [package]
-name = "humanode"
+name = "rosetta-humanode"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "humanode rosetta."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 alloy-sol-types = { version = "0.6" }
 anyhow = "1.0"
+async-trait = "0.1"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
 ethers-solc = "2.0"
+futures-util = "0.3"
 hex-literal = "0.4"
+parity-scale-codec = { workspace = true, features = ["derive"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
+rosetta-config-polkadot.workspace = true
 rosetta-core.workspace = true
-rosetta-docker = { workspace = true, features = ["tests"] }
+rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
 rosetta-server-ethereum.workspace = true
 rosetta-server-polkadot.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha3 = "0.10"
+sp-keyring.workspace = true
+subxt = { workspace = true, features = ["substrate-compat"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = "0.1.40"
 url = "2.4"
+
+[dev-dependencies]
+rosetta-docker = { workspace = true, features = ["tests"] }

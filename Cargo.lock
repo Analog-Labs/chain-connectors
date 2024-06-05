@@ -3235,28 +3235,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
-name = "humanode"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "anyhow",
- "ethers",
- "ethers-solc",
- "hex-literal",
- "rand_core 0.6.4",
- "rosetta-client",
- "rosetta-config-ethereum",
- "rosetta-core",
- "rosetta-docker",
- "rosetta-server-ethereum",
- "rosetta-server-polkadot",
- "sha3",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
 name = "hyper"
 version = "0.14.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5408,6 +5386,37 @@ dependencies = [
  "trie-root",
  "uint",
  "void",
+]
+
+[[package]]
+name = "rosetta-humanode"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "async-trait",
+ "ethers",
+ "ethers-solc",
+ "futures-util",
+ "hex-literal",
+ "parity-scale-codec",
+ "rand_core 0.6.4",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-config-polkadot",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server",
+ "rosetta-server-ethereum",
+ "rosetta-server-polkadot",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sp-keyring",
+ "subxt",
+ "tokio",
+ "tracing",
+ "url",
 ]
 
 [[package]]

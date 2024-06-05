@@ -35,6 +35,7 @@ rosetta-tx-ethereum = { path = "chains/ethereum/tx" }
 rosetta-ethereum-types = { path = "chains/ethereum/types", default-features = false }
 rosetta-config-polkadot = { path = "chains/polkadot/config" }
 rosetta-server-polkadot = { path = "chains/polkadot/server" }
+rosetta-humanode = { path = "chains/humanode" }
 rosetta-tx-polkadot = { path = "chains/polkadot/tx" }
 rosetta-client = { path = "rosetta-client" }
 rosetta-core = { path = "rosetta-core" }
