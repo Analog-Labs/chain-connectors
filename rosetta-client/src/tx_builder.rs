@@ -17,10 +17,10 @@ impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
             "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
-            "ethereum" | "polygon" | "arbitrum" | "humanode" => {
+            "ethereum" | "polygon" | "arbitrum" => {
                 Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
             },
-            "polkadot" | "westend" | "rococo" => {
+            "polkadot" | "westend" | "rococo" | "humanode" => {
                 Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder)
             },
             _ => anyhow::bail!("unsupported blockchain: {}", config.blockchain),

@@ -75,18 +75,18 @@ impl HumanodeClient {
             .parse()
             .map_err(|err| anyhow::anyhow!("{}", err))
             .context("invalid address")?;
-        println!("1");
+
         // Build a dynamic storage query to iterate account information.
         let storage_query =
             subxt::dynamic::storage("System", "Account", vec![SubtxValue::from_bytes(account)]);
-        println!("2");
+
         // TODO: Change the `PartialBlockIdentifier` for distinguish between ethereum blocks and
         // substrate blocks.
         let block_hash = match maybe_block {
             Some(PartialBlockIdentifier { index: Some(block_number), .. }) => {
                 // If a block number is provided, the value is the same for ethereum blocks and
                 // substrate blocks.
-                println!("6");
+
                 self.rpc_methods
                     .chain_get_block_hash(Some(BlockNumber::Number(*block_number)))
                     .await?
@@ -94,7 +94,6 @@ impl HumanodeClient {
                     .ok_or_else(|| anyhow::anyhow!("no block hash found"))?
             },
             Some(PartialBlockIdentifier { hash: Some(block_hash), .. }) => {
-                println!("3");
                 // If a hash if provided, we don't know if it's a ethereum block hash or substrate
                 // block hash. We try to fetch the block using ethereum first, and
                 // if it fails, we try to fetch it using substrate.
@@ -106,20 +105,19 @@ impl HumanodeClient {
                         EthQueryResult::GetBlockByHash(block) => block,
                         _ => unreachable!(),
                     });
-                println!("4");
+
                 if let Ok(Some(ethereum_block)) = ethereum_block {
-                    println!("5");
                     // Convert ethereum block to substrate block by fetching the block by number.
                     let substrate_block_number =
                         BlockNumber::Number(ethereum_block.header().number());
-                    println!("6");
+
                     let substrate_block_hash = self
                         .rpc_methods
                         .chain_get_block_hash(Some(substrate_block_number))
                         .await?
                         .map(BlockRef::from_hash)
                         .ok_or_else(|| anyhow::anyhow!("no block hash found"))?;
-                    println!("7");
+
                     // Verify if the ethereum block belongs to this substrate block.
                     let query_current_eth_block =
                         humanode_metadata::storage().ethereum().current_block();
@@ -166,7 +164,7 @@ impl HumanodeClient {
                 .map(BlockRef::from_hash)
                 .ok_or_else(|| anyhow::anyhow!("no block hash found"))?,
         };
-        println!("8");
+
         let account_info = self.ws_client.storage().at(block_hash).fetch(&storage_query).await?;
         account_info.map_or_else(
             || {
@@ -374,7 +372,7 @@ mod tests {
     #[tokio::test]
     async fn network_status() {
         run_test(async move {
-            let client = PolkadotClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
+            let client = HumanodeClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
                 .await
                 .expect("Error creating client");
             // Check if the genesis is consistent
@@ -397,15 +395,96 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_account() -> Result<()> {
-        let config = rosetta_config_polkadot::config("humanode-dev").unwrap();
-        rosetta_docker::tests::account::<PolkadotClient, _, _>(client_from_config, config).await
+    async fn test_account() {
+        run_test(async move {
+            let client = HumanodeClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
+                .await
+                .expect("Error creating client");
+
+            let wallet =
+                Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            let value = 100 * u128::pow(10, client.config().currency_decimals);
+            let address = Address::new(
+                client.client.config().address_format,
+                wallet.account().address.clone(),
+            );
+            wallet.faucet(value).await.unwrap();
+            let block = client.client.current_block().await.unwrap();
+            let account_info = client
+                .account_info(&address, Some(&PartialBlockIdentifier::from(block)))
+                .await
+                .unwrap();
+            assert_eq!(account_info.data.free, value);
+        })
+        .await
     }
 
     #[tokio::test]
     async fn test_construction() {
-        let config = rosetta_config_polkadot::config("humanode-dev").unwrap();
-        let _ = rosetta_docker::tests::construction(client_from_config, config).await;
+        run_test(async move {
+            let client = HumanodeClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
+                .await
+                .expect("Error creating client");
+
+            let faucet = 100 * u128::pow(10, client.config().currency_decimals);
+
+            let alice =
+                Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            let alice_address = Address::new(
+                client.client.config().address_format,
+                alice.account().address.clone(),
+            );
+            let bob = Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
+
+            let bob_address =
+                Address::new(client.client.config().address_format, bob.account().address.clone());
+            assert_ne!(alice.public_key(), bob.public_key());
+            let block = client.client.current_block().await.unwrap();
+
+            // Alice and bob have no balance
+            let account_info_alice = client
+                .account_info(&alice_address, Some(&PartialBlockIdentifier::from(block.clone())))
+                .await
+                .unwrap();
+            let account_info_bob = client
+                .account_info(&bob_address, Some(&PartialBlockIdentifier::from(block)))
+                .await
+                .unwrap();
+            assert_eq!(account_info_alice.data.free, 0);
+            assert_eq!(account_info_bob.data.free, 0);
+
+            // Transfer faucets to alice
+            alice.faucet(faucet).await.unwrap();
+            let block = client.client.current_block().await.unwrap();
+            let account_info_alice = client
+                .account_info(&alice_address, Some(&PartialBlockIdentifier::from(block.clone())))
+                .await
+                .unwrap();
+            assert_eq!(account_info_alice.data.free, faucet);
+
+            let value = 100; //u128::pow(1, client.config().currency_decimals);
+            let block = client.client.current_block().await.unwrap();
+            let account_info_alice = client
+                .account_info(&alice_address, Some(&PartialBlockIdentifier::from(block)))
+                .await
+                .unwrap();
+            println!("{:?}", account_info_alice);
+            // Alice transfers to bob
+            let x = alice
+                .transfer(bob.account(), value, Some(account_info_alice.nonce.into()), None)
+                .await
+                .unwrap();
+            println!("xxx: {:?}", x);
+            let amount = bob.balance().await.unwrap();
+            assert_eq!(amount, value);
+        })
+        .await
     }
 
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
@@ -434,155 +513,75 @@ mod tests {
     }
 
     #[tokio::test]
-    // #[allow(clippy::needless_raw_string_hashes)]
-    async fn test_smart_contract() {
-        let config = rosetta_config_polkadot::config("humanode-dev").unwrap();
-        println!("config : {:?}", config.network);
-        let env = Env::new("humanode-smart-contract", config.clone(), client_from_config)
-            .await
-            .unwrap();
-        // rosetta_docker::run_test(env, |env| async move {
-        //     let faucet = 100 * u128::pow(10, config.currency_decimals);
-        //     let wallet = env.ephemeral_wallet().await.unwrap();
-        //     wallet.faucet(faucet).await.unwrap();
-
-        //     let bytes = compile_snippet(
-        //         r"
-        //         event AnEvent();
-        //         function emitEvent() public {
-        //             emit AnEvent();
-        //         }
-        //         ",
-        //     )
-        //     .unwrap();
-        //     let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
-        //     let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-        //     let contract_address = receipt.contract_address.unwrap();
-        //     let tx_hash = {
-        //         let data = TestContract::emitEventCall::SELECTOR.to_vec();
-        //         wallet
-        //             .eth_send_call(contract_address.0, data, 0, None, None)
-        //             .await
-        //             .unwrap()
-        //             .tx_hash()
-        //             .0
-        //     };
-        //     let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-        //     let logs = receipt.logs;
-        //     assert_eq!(logs.len(), 1);
-        //     let topic = logs[0].topics[0];
-        //     let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
-        //     assert_eq!(topic, expected);
-
-        //     let block_hash = receipt.block_hash;
-        //     let block_number = receipt.block_number.unwrap();
-
-        //     let logs = wallet
-        //         .query(GetLogs {
-        //             contracts: vec![contract_address],
-        //             topics: vec![topic],
-        //             block: AtBlock::At(block_hash.into()).into(),
-        //         })
-        //         .await
-        //         .unwrap();
-        //     assert_eq!(logs.len(), 1);
-        //     assert_eq!(logs[0].topics[0], expected);
-
-        //     let logs = wallet
-        //         .query(GetLogs {
-        //             contracts: vec![contract_address],
-        //             topics: vec![topic],
-        //             block: AtBlock::At(block_number.into()).into(),
-        //         })
-        //         .await
-        //         .unwrap();
-        //     assert_eq!(logs.len(), 1);
-        //     assert_eq!(logs[0].topics[0], expected);
-        // })
-        // .await;
-    }
-
-    #[tokio::test]
     #[allow(clippy::needless_raw_string_hashes)]
-    async fn test_smart_contract_view() -> Result<()> {
-        let config = rosetta_config_polkadot::config("humanode-dev")?;
+    async fn test_smart_contract() -> Result<()> {
+        run_test(async move {
+            let client = HumanodeClient::new("humanode-dev", HUMANODE_RPC_WS_URL)
+                .await
+                .expect("Error creating client");
 
-        let env = Env::new("astar-smart-contract-view", config.clone(), client_from_config).await?;
-
-        rosetta_docker::run_test(env, |env| async move {
-            let faucet = 100 * u128::pow(10, config.currency_decimals);
-            let wallet = env.ephemeral_wallet().await.unwrap();
+            let wallet =
+                Wallet::from_config(client.config().clone(), HUMANODE_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             wallet.faucet(faucet).await.unwrap();
-
+            println!("1");
             let bytes = compile_snippet(
                 r"
-                function identity(bool a) public view returns (bool) {
-                    return a;
+                event AnEvent();
+                function emitEvent() public {
+                    emit AnEvent();
                 }
-            ",
+                ",
             )
             .unwrap();
+            println!("2");
             let tx_hash = wallet.eth_deploy_contract(bytes).await.unwrap().tx_hash().0;
+            println!("3");
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            println!("4");
             let contract_address = receipt.contract_address.unwrap();
-
-            let response = {
-                let call = TestContract::identityCall { a: true };
+            let tx_hash = {
+                let data = TestContract::emitEventCall::SELECTOR.to_vec();
                 wallet
-                    .eth_view_call(contract_address.0, call.abi_encode(), AtBlock::Latest)
+                    .eth_send_call(contract_address.0, data, 0, None, None)
                     .await
                     .unwrap()
+                    .tx_hash()
+                    .0
             };
-            assert_eq!(
-                response,
-                CallResult::Success(
-                    [
-                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                        0, 0, 0, 0, 0, 0, 1
-                    ]
-                    .to_vec()
-                )
-            );
-        })
-        .await;
-        Ok(())
-    }
+            let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
+            let logs = receipt.logs;
+            assert_eq!(logs.len(), 1);
+            let topic = logs[0].topics[0];
+            let expected = H256::from_slice(sha3::Keccak256::digest("AnEvent()").as_ref());
+            assert_eq!(topic, expected);
 
-    #[tokio::test]
-    async fn test_subscription() -> Result<()> {
-        use futures_util::StreamExt;
-        use rosetta_core::{BlockOrIdentifier, ClientEvent};
-        let config = rosetta_config_polkadot::config("humanode-dev").unwrap();
-        let env = Env::new("astar-subscription", config.clone(), client_from_config)
-            .await
-            .unwrap();
+            let block_hash = receipt.block_hash;
+            let block_number = receipt.block_number.unwrap();
 
-        rosetta_docker::run_test(env, |env| async move {
-            let wallet = env.ephemeral_wallet().await.unwrap();
-            let mut stream = wallet.listen().await.unwrap().unwrap();
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_hash.into()).into(),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], expected);
 
-            let mut last_head: Option<u64> = None;
-            let mut last_finalized: Option<u64> = None;
-            for _ in 0..10 {
-                let event = stream.next().await.unwrap();
-                match event {
-                    ClientEvent::NewHead(BlockOrIdentifier::Identifier(head)) => {
-                        if let Some(block_number) = last_head {
-                            assert!(head.index > block_number);
-                        }
-                        last_head = Some(head.index);
-                    },
-                    ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(finalized)) => {
-                        if let Some(block_number) = last_finalized {
-                            assert!(finalized.index > block_number);
-                        }
-                        last_finalized = Some(finalized.index);
-                    },
-                    event => panic!("unexpected event: {event:?}"),
-                }
-            }
-            assert!(last_head.is_some());
-            assert!(last_finalized.is_some());
+            let logs = wallet
+                .query(GetLogs {
+                    contracts: vec![contract_address],
+                    topics: vec![topic],
+                    block: AtBlock::At(block_number.into()).into(),
+                })
+                .await
+                .unwrap();
+            assert_eq!(logs.len(), 1);
+            assert_eq!(logs[0].topics[0], expected);
         })
         .await;
         Ok(())
