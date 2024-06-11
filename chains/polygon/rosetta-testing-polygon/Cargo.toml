@@ -2,6 +2,10 @@
 name = "rosetta-testing-polygon"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Polygon rosetta test."
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
