@@ -94,6 +94,7 @@ mod tests {
         }
     }
 
+    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn network_status() {
         run_test(async move {
@@ -119,6 +120,7 @@ mod tests {
         .await;
     }
 
+    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_account() {
         run_test(async move {
@@ -137,6 +139,7 @@ mod tests {
         .await;
     }
 
+    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_construction() {
         run_test(async move {
@@ -198,6 +201,7 @@ mod tests {
         Ok(bytecode)
     }
 
+    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_smart_contract() {
         run_test(async move {
@@ -241,6 +245,7 @@ mod tests {
         .await;
     }
 
+    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_smart_contract_view() {
         run_test(async move {
