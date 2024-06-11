@@ -137,6 +137,42 @@ mod tests {
         .await;
     }
 
+    #[tokio::test]
+    async fn test_construction() {
+        run_test(async move {
+            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+                .await
+                .expect("Error creating ArbitrumClient");
+            let faucet = 100 * u128::pow(10, client.config().currency_decimals);
+            let value = u128::pow(10, client.config().currency_decimals);
+            let alice =
+                Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                    .await
+                    .unwrap();
+            let bob = Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
+            assert_ne!(alice.public_key(), bob.public_key());
+
+            // Alice and bob have no balance
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, 0);
+            let balance = bob.balance().await.unwrap();
+            assert_eq!(balance, 0);
+
+            // Transfer faucets to alice
+            alice.faucet(faucet).await.unwrap();
+            let balance = alice.balance().await.unwrap();
+            assert_eq!(balance, faucet);
+
+            // Alice transfers to bob
+            alice.transfer(bob.account(), value, None, None).await.unwrap();
+            let amount = bob.balance().await.unwrap();
+            assert_eq!(amount, value);
+        })
+        .await;
+    }
+
     fn compile_snippet(source: &str) -> Result<Vec<u8>> {
         let solc = Solc::default();
         let source = format!("contract Contract {{ {source} }}");
