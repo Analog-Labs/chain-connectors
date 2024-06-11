@@ -117,6 +117,7 @@ ignore = [
   'RUSTSEC-2021-0064', # Crate `cpuid-bool` has been renamed to `cpufeatures`
   'RUSTSEC-2021-0139', # ansi_term is Unmaintained
   'RUSTSEC-2022-0093', # related issue: https://github.com/Analog-Labs/chain-connectors/issues/162
+  'RUSTSEC-2024-0336', # a `close_notify` alert is received during a handshake, `complete_io`does not terminate.
 ]
 
 # This section is considered when running `cargo deny check sources`.
