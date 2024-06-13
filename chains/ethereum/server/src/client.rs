@@ -304,14 +304,14 @@ where
         } else {
             self.backend.get_transaction_count(from, AtBlock::Latest).await?
         };
-        let tx = CallRequest {
+        let mut tx = CallRequest {
             from: Some(from),
             to,
             gas_limit: None,
             gas_price: None,
             value: Some(U256(options.amount)),
             data: Some(options.data.clone().into()),
-            nonce: Some(nonce),
+            nonce: None,
             chain_id: None, // Astar doesn't support this field for eth_call
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             access_list: AccessList::default(),
@@ -324,6 +324,8 @@ where
             let gas_limit = self.backend.estimate_gas(&tx, AtBlock::Latest).await?;
             u64::try_from(gas_limit).unwrap_or(u64::MAX)
         };
+
+        tx.nonce = Some(nonce);
 
         Ok(EthereumMetadata {
             chain_id,
