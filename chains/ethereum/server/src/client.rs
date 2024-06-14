@@ -59,8 +59,8 @@ impl BlockFinalityStrategy {
             // TODO: ISSUE-242 Replace this hack by quering arbitrum checkpoints
             // Arbitrum finalized blocks are stored on ethereum mainnet roughly every 15 minutes
             // Arbitrum block interval is ~0.26 seconds, 15 minutes / 0.26 = ~3462
-            ("arbitrum",false) => Self::Confirmations(3462),
-            ("arbitrum",true) => Self::Confirmations(230),
+            ("arbitrum", false) => Self::Confirmations(3462),
+            ("arbitrum", true) => Self::Confirmations(230),
             _ => Self::Finalized,
         }
     }
