@@ -20,7 +20,7 @@ impl GenericTransactionBuilder {
             "ethereum" | "polygon" | "arbitrum" => {
                 Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
             },
-            "polkadot" | "westend" | "rococo" => {
+            "polkadot" | "westend" | "rococo" | "humanode" => {
                 Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder)
             },
             _ => anyhow::bail!("unsupported blockchain: {}", config.blockchain),

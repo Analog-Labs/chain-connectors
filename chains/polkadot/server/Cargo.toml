@@ -11,7 +11,7 @@ anyhow = "1.0"
 async-trait = "0.1"
 hex = "0.4"
 parity-scale-codec = { workspace = true, features = ["derive"] }
-rosetta-config-polkadot = { workspace = true, features = ["polkadot-metadata", "westend-metadata"] }
+rosetta-config-polkadot = { workspace = true, features = ["polkadot-metadata", "westend-metadata", "humanode-metadata"] }
 rosetta-core.workspace = true
 rosetta-server = { workspace = true, default-features = false, features = ["ws", "webpki-tls"] }
 scale-info.workspace = true
