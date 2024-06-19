@@ -18,6 +18,7 @@ members = [
   "rosetta-types",
   "chains/arbitrum/testing/rosetta-testing-arbitrum",
   "rosetta-utils",
+  "chains/polygon/rosetta-testing-polygon",
   "chains/humanode",
 ]
 resolver = "2"

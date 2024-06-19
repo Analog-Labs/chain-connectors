@@ -210,7 +210,8 @@ impl rosetta_core::traits::Block for BlockFull {
 pub fn polygon_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
-        "mumbai" => ("mumbai", 1, true),
+        "mumbai" => ("mumbai", 80001, true),
+        "amoy" => ("amoy", 80002, true),
         "mainnet" => ("mainnet", 966, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
@@ -247,6 +248,7 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "polygon-local" => return polygon_config("dev"),
         "polygon" => return polygon_config("mainnet"),
         "mumbai" => return polygon_config("mumbai"),
+        "amoy" => return polygon_config("amoy"),
 
         // Astar
         "astar-local" => return astar_config("dev"),
