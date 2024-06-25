@@ -44,7 +44,7 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         network,
         algorithm: Algorithm::EcdsaRecoverableSecp256k1,
         address_format: AddressFormat::Eip55,
-        coin: if network == "astar" { 810 } else { 1 },
+        coin: if network == "astar" { 810 } else { 60 },
         bip44: true,
         utxo: false,
         currency_unit: "planck",
