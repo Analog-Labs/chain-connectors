@@ -64,8 +64,8 @@ pub trait FeeEstimatorConfig {
     /// under it.
     const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64;
     /// Different evm blockchains returns base fee in different units. Like Ethereum returns in wei,
-    /// Polygon returns in gwei. so this multiplier converts them to wei format in order to calculate
-    /// gas fee
+    /// Polygon returns in gwei. so this multiplier converts them to wei format in order to
+    /// calculate gas fee
     const EIP1559_BASE_FEE_MULTIPLIER: u64;
 }
 
@@ -130,8 +130,8 @@ fn estimate_priority_fee<F: FeeEstimatorConfig>(rewards: &[Vec<U256>]) -> U256 {
 
     // If we encountered a big change in fees at a certain position, then consider only
     // the values >= it.
-    let values = if max_change >= F::EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into()
-        && (max_change_index >= (rewards.len() / 2))
+    let values = if max_change >= F::EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
+        (max_change_index >= (rewards.len() / 2))
     {
         rewards[max_change_index..].to_vec()
     } else {
