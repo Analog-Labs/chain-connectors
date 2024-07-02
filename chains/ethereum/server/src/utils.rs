@@ -50,20 +50,53 @@ impl AtBlockExt for AtBlock {
     }
 }
 
-/// The number of blocks from the past for which the fee rewards are fetched for fee estimation.
-const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
-/// The default percentile of gas premiums that are fetched for fee estimation.
-const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
-/// The default max priority fee per gas, used in case the base fee is within a threshold.
-const EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE: u64 = 3_000_000_000;
-/// The threshold for base fee below which we use the default priority fee, and beyond which we
-/// estimate an appropriate value for priority fee.
-const EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER: u64 = 100_000_000_000;
-/// The threshold max change/difference (in %) at which we will ignore the fee history values
-/// under it.
-const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64 = 200;
+pub trait FeeEstimatorConfig {
+    /// The number of blocks from the past for which the fee rewards are fetched for fee estimation.
+    const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64;
+    /// The default percentile of gas premiums that are fetched for fee estimation.
+    const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64;
+    /// The default max priority fee per gas, used in case the base fee is within a threshold.
+    const EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE: u64;
+    /// The threshold for base fee below which we use the default priority fee, and beyond which we
+    /// estimate an appropriate value for priority fee.
+    const EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER: u64;
+    /// The threshold max change/difference (in %) at which we will ignore the fee history values
+    /// under it.
+    const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64;
+    /// Different evm blockchains returns base fee in different units. Like Ethereum returns in wei,
+    /// Polygon returns in gwei. so this multiplier converts them to wei format in order to calculate
+    /// gas fee
+    const EIP1559_BASE_FEE_MULTIPLIER: u64;
+}
 
-fn estimate_priority_fee(rewards: &[Vec<U256>]) -> U256 {
+// Default config for ethereum and astar
+pub struct DefaultFeeEstimatorConfig {}
+
+impl FeeEstimatorConfig for DefaultFeeEstimatorConfig {
+    const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 10;
+    const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 5.0;
+    const EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE: u64 = 3_000_000_000;
+    const EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER: u64 = 100_000_000_000;
+    const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64 = 200;
+    const EIP1559_BASE_FEE_MULTIPLIER: u64 = 1;
+}
+
+// Polygon Amoy fee estimator config
+pub struct PolygonFeeEstimatorConfig {}
+
+impl FeeEstimatorConfig for PolygonFeeEstimatorConfig {
+    // Computes safe low,
+    // reference: https://docs.polygon.technology/tools/gas/polygon-gas-station/
+    const EIP1559_FEE_ESTIMATION_PAST_BLOCKS: u64 = 15;
+    const EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE: f64 = 10.0;
+    const EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE: u64 = 30_000_000_000;
+    const EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER: u64 = 0;
+    const EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE: i64 = 200;
+    // Polygon returns base fee in gwei. we need to convert it into wei
+    const EIP1559_BASE_FEE_MULTIPLIER: u64 = 1_000_000_000;
+}
+
+fn estimate_priority_fee<F: FeeEstimatorConfig>(rewards: &[Vec<U256>]) -> U256 {
     let mut rewards: Vec<U256> =
         rewards.iter().map(|r| r[0]).filter(|r| *r > U256::zero()).collect();
     if rewards.is_empty() {
@@ -97,8 +130,8 @@ fn estimate_priority_fee(rewards: &[Vec<U256>]) -> U256 {
 
     // If we encountered a big change in fees at a certain position, then consider only
     // the values >= it.
-    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
-        (max_change_index >= (rewards.len() / 2))
+    let values = if max_change >= F::EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into()
+        && (max_change_index >= (rewards.len() / 2))
     {
         rewards[max_change_index..].to_vec()
     } else {
@@ -121,14 +154,17 @@ fn base_fee_surged(base_fee_per_gas: U256) -> U256 {
     }
 }
 
-pub fn eip1559_default_estimator(base_fee_per_gas: U256, rewards: &[Vec<U256>]) -> (U256, U256) {
+pub fn eip1559_default_estimator<F: FeeEstimatorConfig>(
+    base_fee_per_gas: U256,
+    rewards: &[Vec<U256>],
+) -> (U256, U256) {
     let max_priority_fee_per_gas =
-        if base_fee_per_gas < U256::from(EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER) {
-            U256::from(EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE)
+        if base_fee_per_gas < U256::from(F::EIP1559_FEE_ESTIMATION_PRIORITY_FEE_TRIGGER) {
+            U256::from(F::EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE)
         } else {
             std::cmp::max(
-                estimate_priority_fee(rewards),
-                U256::from(EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE),
+                estimate_priority_fee::<F>(rewards),
+                U256::from(F::EIP1559_FEE_ESTIMATION_DEFAULT_PRIORITY_FEE),
             )
         };
     let potential_max_fee = base_fee_surged(base_fee_per_gas);
@@ -153,7 +189,7 @@ pub trait EthereumRpcExt {
         call_request: CallRequest,
     ) -> SubmitResult;
 
-    async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)>;
+    async fn estimate_eip1559_fees<F: FeeEstimatorConfig>(&self) -> anyhow::Result<(U256, U256)>;
 
     async fn block_with_uncles(
         &self,
@@ -173,7 +209,7 @@ where
         tx_hash: H256,
     ) -> anyhow::Result<TransactionReceipt> {
         let now = std::time::Instant::now();
-        let timeout = std::time::Duration::from_secs(30);
+        let timeout = std::time::Duration::from_secs(120);
         let receipt = loop {
             let Some(receipt) = <T as EthereumRpc>::transaction_receipt(self, tx_hash).await?
             else {
@@ -257,25 +293,27 @@ where
         }
     }
 
-    async fn estimate_eip1559_fees(&self) -> anyhow::Result<(U256, U256)> {
+    async fn estimate_eip1559_fees<F: FeeEstimatorConfig>(&self) -> anyhow::Result<(U256, U256)> {
         let Some(block) = self.block(AtBlock::Latest).await? else {
             anyhow::bail!("latest block not found");
         };
-        let Some(base_fee_per_gas) = block.header.base_fee_per_gas else {
+        let Some(mut base_fee_per_gas) = block.header.base_fee_per_gas else {
             anyhow::bail!("EIP-1559 not activated");
         };
 
+        base_fee_per_gas = base_fee_per_gas.saturating_mul(F::EIP1559_BASE_FEE_MULTIPLIER);
+
         let fee_history = self
             .fee_history(
-                EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
+                F::EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
                 AtBlock::Latest,
-                &[EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
+                &[F::EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
             )
             .await?;
 
         // Estimate fees
         let (max_fee_per_gas, max_priority_fee_per_gas) =
-            eip1559_default_estimator(base_fee_per_gas.into(), fee_history.reward.as_ref());
+            eip1559_default_estimator::<F>(base_fee_per_gas.into(), fee_history.reward.as_ref());
         Ok((max_fee_per_gas, max_priority_fee_per_gas))
     }
 
