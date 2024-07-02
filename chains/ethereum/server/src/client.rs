@@ -264,7 +264,7 @@ where
                 let address: H160 = address.address().parse()?;
 
                 let (max_fee_per_gas, max_priority_fee_per_gas) =
-                    if self.config().blockchain == String::from("polygon") {
+                    if self.config().blockchain == "polygon" {
                         self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
                     } else {
                         self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
@@ -302,12 +302,11 @@ where
     ) -> Result<EthereumMetadata> {
         let from: H160 = public_key.to_address(self.config().address_format).address().parse()?;
         let to = options.destination.map(H160);
-        let (max_fee_per_gas, max_priority_fee_per_gas) =
-            if self.config().blockchain == String::from("polygon") {
-                self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
-            } else {
-                self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
-            };
+        let (max_fee_per_gas, max_priority_fee_per_gas) = if self.config().blockchain == "polygon" {
+            self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
+        } else {
+            self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
+        };
         let chain_id = self.backend.chain_id().await?;
 
         let nonce = if let Some(nonce) = options.nonce {
