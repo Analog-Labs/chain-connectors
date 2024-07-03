@@ -209,7 +209,7 @@ where
         tx_hash: H256,
     ) -> anyhow::Result<TransactionReceipt> {
         let now = std::time::Instant::now();
-        let timeout = std::time::Duration::from_secs(120);
+        let timeout = std::time::Duration::from_secs(30);
         let receipt = loop {
             let Some(receipt) = <T as EthereumRpc>::transaction_receipt(self, tx_hash).await?
             else {
