@@ -538,8 +538,8 @@ impl I256 {
         //   the result.
         let overflow = matches!(
             (self.sign(), rhs.sign(), result.sign()),
-            (Sign::Positive, Sign::Positive, Sign::Negative) |
-                (Sign::Negative, Sign::Negative, Sign::Positive)
+            (Sign::Positive, Sign::Positive, Sign::Negative)
+                | (Sign::Negative, Sign::Negative, Sign::Positive)
         );
 
         (result, overflow)
@@ -597,8 +597,8 @@ impl I256 {
         //   the result.
         let overflow = matches!(
             (self.sign(), rhs.sign(), result.sign()),
-            (Sign::Positive, Sign::Negative, Sign::Negative) |
-                (Sign::Negative, Sign::Positive, Sign::Positive)
+            (Sign::Positive, Sign::Negative, Sign::Negative)
+                | (Sign::Negative, Sign::Positive, Sign::Positive)
         );
 
         (result, overflow)

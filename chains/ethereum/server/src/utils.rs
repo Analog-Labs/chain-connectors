@@ -108,8 +108,8 @@ fn estimate_priority_fee(rewards: &[Vec<U256>]) -> U256 {
 
     // If we encountered a big change in fees at a certain position, then consider only
     // the values >= it.
-    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
-        (max_change_index >= (rewards.len() / 2))
+    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into()
+        && (max_change_index >= (rewards.len() / 2))
     {
         rewards[max_change_index..].to_vec()
     } else {
@@ -219,30 +219,35 @@ where
         let tx_hash = receipt.transaction_hash;
 
         // Fetch the block to get the parent_hash
-        let block = match self.block(receipt.block_hash.into()).await {
-            Ok(Some(block)) => block,
-            Ok(None) => {
-                tracing::warn!("Block {:?} not found", receipt.block_hash);
-                return result_from_receipt(tx_hash, receipt);
-            },
-            Err(error) => {
-                tracing::warn!(
-                    "Failed to retrieve block by hash {:?}: {error:?}",
-                    receipt.block_hash
-                );
-                return result_from_receipt(tx_hash, receipt);
+        let block_number = match receipt.block_number {
+            Some(block_number) => block_number,
+            None => match self.block(receipt.block_hash.into()).await {
+                Ok(Some(block)) => block,
+                Ok(None) => {
+                    tracing::warn!("Block {:?} not found", receipt.block_hash);
+                    return result_from_receipt(tx_hash, receipt);
+                },
+                Err(error) => {
+                    tracing::warn!(
+                        "Failed to retrieve block by hash {:?}: {error:?}",
+                        receipt.block_hash
+                    );
+                    return result_from_receipt(tx_hash, receipt);
+                },
             },
         };
 
         // Execute the call in the parent block_hash to get the transaction result
-        let exit_reason =
-            match self.call(&call_request, AtBlock::At(block.header.parent_hash.into())).await {
-                Ok(exit_reason) => exit_reason,
-                Err(error) => {
-                    tracing::warn!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
-                    return result_from_receipt(tx_hash, receipt);
-                },
-            };
+        let exit_reason = match self
+            .call(&call_request, AtBlock::At(block_number.saturating_sub(1).into()))
+            .await
+        {
+            Ok(exit_reason) => exit_reason,
+            Err(error) => {
+                tracing::warn!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
+                return result_from_receipt(tx_hash, receipt);
+            },
+        };
         SubmitResult::Executed {
             tx_hash,
             receipt,

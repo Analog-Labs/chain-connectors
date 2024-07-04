@@ -340,8 +340,8 @@ impl Signer for Keypair {
         };
         let v = u8::try_from(v)
             .map_err(|_| secp256k1::Error::InvalidRecoveryId)
-            .map(u64::from)? &
-            1;
+            .map(u64::from)?
+            & 1;
 
         // All transaction signatures whose s-value is greater than secp256k1n/2 are invalid.
         // - https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md

@@ -188,8 +188,8 @@ where
                                 return Ok(revert);
                             }
                         }
-                    } else if msg.message().contains("overflow") ||
-                        msg.message().contains("underflow")
+                    } else if msg.message().contains("overflow")
+                        || msg.message().contains("underflow")
                     {
                         // we assume it's an stack overflow or underflow error.
                         return Ok(ExitReason::Error(msg.message().to_string().into()));

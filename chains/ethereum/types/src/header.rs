@@ -273,24 +273,24 @@ impl rlp::Decodable for Header {
 impl rlp::Encodable for Header {
     fn rlp_append(&self, s: &mut rlp::RlpStream) {
         let mut size = 15;
-        if self.base_fee_per_gas.is_some() ||
-            self.withdrawals_root.is_some() ||
-            self.blob_gas_used.is_some() ||
-            self.excess_blob_gas.is_some() ||
-            self.parent_beacon_block_root.is_some()
+        if self.base_fee_per_gas.is_some()
+            || self.withdrawals_root.is_some()
+            || self.blob_gas_used.is_some()
+            || self.excess_blob_gas.is_some()
+            || self.parent_beacon_block_root.is_some()
         {
             size += 1;
         }
-        if self.withdrawals_root.is_some() ||
-            self.blob_gas_used.is_some() ||
-            self.excess_blob_gas.is_some() ||
-            self.parent_beacon_block_root.is_some()
+        if self.withdrawals_root.is_some()
+            || self.blob_gas_used.is_some()
+            || self.excess_blob_gas.is_some()
+            || self.parent_beacon_block_root.is_some()
         {
             size += 1;
         }
-        if self.blob_gas_used.is_some() ||
-            self.excess_blob_gas.is_some() ||
-            self.parent_beacon_block_root.is_some()
+        if self.blob_gas_used.is_some()
+            || self.excess_blob_gas.is_some()
+            || self.parent_beacon_block_root.is_some()
         {
             size += 1;
         }
@@ -322,10 +322,10 @@ impl rlp::Encodable for Header {
         // but withdrawals root is present.
         if let Some(ref base_fee) = self.base_fee_per_gas {
             s.append(&U256::from(*base_fee));
-        } else if self.withdrawals_root.is_some() ||
-            self.blob_gas_used.is_some() ||
-            self.excess_blob_gas.is_some() ||
-            self.parent_beacon_block_root.is_some()
+        } else if self.withdrawals_root.is_some()
+            || self.blob_gas_used.is_some()
+            || self.excess_blob_gas.is_some()
+            || self.parent_beacon_block_root.is_some()
         {
             s.begin_list(0);
         }
@@ -334,9 +334,9 @@ impl rlp::Encodable for Header {
         // but blob gas used is present.
         if let Some(ref root) = self.withdrawals_root {
             s.append(root);
-        } else if self.blob_gas_used.is_some() ||
-            self.excess_blob_gas.is_some() ||
-            self.parent_beacon_block_root.is_some()
+        } else if self.blob_gas_used.is_some()
+            || self.excess_blob_gas.is_some()
+            || self.parent_beacon_block_root.is_some()
         {
             s.append_empty_data();
         }
