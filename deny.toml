@@ -119,6 +119,7 @@ ignore = [
   'RUSTSEC-2022-0093', # related issue: https://github.com/Analog-Labs/chain-connectors/issues/162
   'RUSTSEC-2024-0336', # a `close_notify` alert is received during a handshake, `complete_io`does not terminate. https://rustsec.org/advisories/RUSTSEC-2024-0336.html
   'RUSTSEC-2024-0332', # https://rustsec.org/advisories/RUSTSEC-2024-0332.html
+  'RUSTSEC-2024-0344', # Timing variabilit on curve25519-dalek, which can potentially leak private keys
 ]
 
 # This section is considered when running `cargo deny check sources`.
