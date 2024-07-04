@@ -32,9 +32,8 @@ impl SecretKey {
     fn tweak_add(&self, secret_key: &Self) -> Result<Option<Self>> {
         use ecdsa::elliptic_curve::NonZeroScalar;
         match (self, secret_key) {
-            (Self::EcdsaSecp256k1(secret), Self::EcdsaSecp256k1(secret2))
-            | (Self::EcdsaRecoverableSecp256k1(secret), Self::EcdsaRecoverableSecp256k1(secret2)) =>
-            {
+            (Self::EcdsaSecp256k1(secret), Self::EcdsaSecp256k1(secret2)) |
+            (Self::EcdsaRecoverableSecp256k1(secret), Self::EcdsaRecoverableSecp256k1(secret2)) => {
                 let scalar = secret.as_nonzero_scalar().as_ref();
                 let tweak = secret2.as_nonzero_scalar().as_ref();
                 let scalar: Option<NonZeroScalar<_>> =

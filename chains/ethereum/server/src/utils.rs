@@ -108,8 +108,8 @@ fn estimate_priority_fee(rewards: &[Vec<U256>]) -> U256 {
 
     // If we encountered a big change in fees at a certain position, then consider only
     // the values >= it.
-    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into()
-        && (max_change_index >= (rewards.len() / 2))
+    let values = if max_change >= EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
+        (max_change_index >= (rewards.len() / 2))
     {
         rewards[max_change_index..].to_vec()
     } else {
@@ -244,7 +244,16 @@ where
         {
             Ok(exit_reason) => exit_reason,
             Err(error) => {
-                tracing::warn!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
+                if matches!(receipt.status_code, Some(0) | None) {
+                    tracing::warn!(
+                        "Failed to retrieve transaction revert reason: {tx_hash:?}: {error:?}"
+                    );
+                } else {
+                    // Using debug level, once retrieve the transaction result is not critical
+                    tracing::debug!(
+                        "Failed to retrieve transaction result: {tx_hash:?}: {error:?}"
+                    );
+                }
                 return result_from_receipt(tx_hash, receipt);
             },
         };

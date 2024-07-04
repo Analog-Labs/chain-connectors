@@ -344,7 +344,6 @@ where
             Ok((tx, Some(signature))) => {
                 let tx_hash = tx.compute_tx_hash(&signature);
                 let sender = DefaultCrypto::secp256k1_ecdsa_recover(&signature, tx.sighash())?;
-                
                 // Obs: this call is used only to retrieve the revert reason
                 let call_request = CallRequest {
                     from: Some(sender),
