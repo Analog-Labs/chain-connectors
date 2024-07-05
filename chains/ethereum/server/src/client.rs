@@ -344,6 +344,7 @@ where
             Ok((tx, Some(signature))) => {
                 let tx_hash = tx.compute_tx_hash(&signature);
                 let sender = DefaultCrypto::secp256k1_ecdsa_recover(&signature, tx.sighash())?;
+                // Obs: this call is used only to retrieve the revert reason
                 let call_request = CallRequest {
                     from: Some(sender),
                     to: tx.to(),
@@ -351,7 +352,7 @@ where
                     gas_price: None,
                     value: Some(tx.value()),
                     data: Some(Bytes::from_iter(tx.data())),
-                    nonce: None,
+                    nonce: None, // Omit the nonce, once it was causing issues in astar
                     chain_id: None,
                     max_priority_fee_per_gas: None,
                     access_list: tx.access_list().cloned().unwrap_or_default(),

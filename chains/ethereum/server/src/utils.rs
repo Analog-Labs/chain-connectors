@@ -1,8 +1,7 @@
 use rosetta_config_ethereum::{
     ext::types::{
-        rpc::{CallRequest, RpcBlock, RpcTransaction},
-        SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt, TxHash, TypedTransaction,
-        H256, I256, U256,
+        rpc::CallRequest, SealedBlock, SealedHeader, SignedTransaction, TransactionReceipt,
+        TypedTransaction, H256, I256, U256,
     },
     AtBlock, CallResult, SubmitResult,
 };
@@ -34,16 +33,6 @@ where
         } else {
             write!(f, "{msg_str}")
         }
-    }
-}
-
-pub trait LogErrorExt: Sized {
-    fn truncate(&self) -> SafeLogError<'_, Self>;
-}
-
-impl LogErrorExt for rosetta_ethereum_backend::jsonrpsee::core::ClientError {
-    fn truncate(&self) -> SafeLogError<'_, Self> {
-        SafeLogError(self)
     }
 }
 
@@ -219,30 +208,44 @@ where
         let tx_hash = receipt.transaction_hash;
 
         // Fetch the block to get the parent_hash
-        let block = match self.block(receipt.block_hash.into()).await {
-            Ok(Some(block)) => block,
-            Ok(None) => {
-                tracing::warn!("Block {:?} not found", receipt.block_hash);
-                return result_from_receipt(tx_hash, receipt);
-            },
-            Err(error) => {
-                tracing::warn!(
-                    "Failed to retrieve block by hash {:?}: {error:?}",
-                    receipt.block_hash
-                );
-                return result_from_receipt(tx_hash, receipt);
+        let block_number = match receipt.block_number {
+            Some(block_number) => block_number,
+            None => match self.block(receipt.block_hash.into()).await {
+                Ok(Some(block)) => block.header.number,
+                Ok(None) => {
+                    tracing::warn!("Block {:?} not found", receipt.block_hash);
+                    return result_from_receipt(tx_hash, receipt);
+                },
+                Err(error) => {
+                    tracing::warn!(
+                        "Failed to retrieve block by hash {:?}: {error:?}",
+                        receipt.block_hash
+                    );
+                    return result_from_receipt(tx_hash, receipt);
+                },
             },
         };
 
         // Execute the call in the parent block_hash to get the transaction result
-        let exit_reason =
-            match self.call(&call_request, AtBlock::At(block.header.parent_hash.into())).await {
-                Ok(exit_reason) => exit_reason,
-                Err(error) => {
-                    tracing::warn!("Failed to retrieve transaction result {tx_hash:?}: {error:?}");
-                    return result_from_receipt(tx_hash, receipt);
-                },
-            };
+        let exit_reason = match self
+            .call(&call_request, AtBlock::At(block_number.saturating_sub(1).into()))
+            .await
+        {
+            Ok(exit_reason) => exit_reason,
+            Err(error) => {
+                if matches!(receipt.status_code, Some(0) | None) {
+                    tracing::warn!(
+                        "Failed to retrieve transaction revert reason: {tx_hash:?}: {error:?}"
+                    );
+                } else {
+                    // Using debug level, once retrieve the transaction result is not critical
+                    tracing::debug!(
+                        "Failed to retrieve transaction result: {tx_hash:?}: {error:?}"
+                    );
+                }
+                return result_from_receipt(tx_hash, receipt);
+            },
+        };
         SubmitResult::Executed {
             tx_hash,
             receipt,
@@ -302,42 +305,6 @@ where
         }
         let block = block.with_ommers(uncles);
         Ok(Some(block))
-    }
-}
-
-pub trait RpcBlockExt {
-    fn try_into_sealed(
-        self,
-    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, H256>>;
-}
-
-impl RpcBlockExt for RpcBlock<RpcTransaction, H256> {
-    fn try_into_sealed(
-        self,
-    ) -> anyhow::Result<SealedBlock<SignedTransaction<TypedTransaction>, TxHash>> {
-        // Convert the `RpcBlock` to `SealedBlock`
-        let block = SealedBlock::try_from(self)
-            .map_err(|err| anyhow::format_err!("invalid block: {err}"))?;
-
-        // Convert the `RpcTransaction` to `SignedTransaction`
-        let block_hash = block.header().hash();
-        let block = {
-            let transactions = block
-                .body()
-                .transactions
-                .iter()
-                .enumerate()
-                .map(|(index, tx)| {
-                    SignedTransaction::try_from(tx.clone()).map_err(|err| {
-                        anyhow::format_err!(
-                            "Invalid tx in block {block_hash:?} at index {index}: {err}"
-                        )
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            block.with_transactions(transactions)
-        };
-        Ok(block)
     }
 }
 

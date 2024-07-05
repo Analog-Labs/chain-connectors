@@ -13,12 +13,12 @@
 /// applicable) an account instantiation refers to.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SubAccountIdentifier {
-    /// The SubAccount address may be a cryptographic value or some other identifier (ex: bonded)
-    /// that uniquely specifies a SubAccount.
+    /// The `SubAccount` address may be a cryptographic value or some other identifier (ex: bonded)
+    /// that uniquely specifies a `SubAccount`.
     #[serde(rename = "address")]
     pub address: String,
-    /// If the SubAccount address is not sufficient to uniquely specify a SubAccount, any other
-    /// identifying information can be stored here.  It is important to note that two SubAccounts
+    /// If the `SubAccount` address is not sufficient to uniquely specify a `SubAccount`, any other
+    /// identifying information can be stored here.  It is important to note that two `SubAccounts`
     /// with identical addresses but differing metadata will not be considered equal by clients.
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,

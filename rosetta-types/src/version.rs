@@ -12,12 +12,12 @@
 /// components of the Rosetta implementation.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Version {
-    /// The rosetta_version is the version of the Rosetta interface the implementation adheres to.
-    /// This can be useful for clients looking to reliably parse responses.
+    /// The `rosetta_version` is the version of the Rosetta interface the implementation adheres
+    /// to. This can be useful for clients looking to reliably parse responses.
     #[serde(rename = "rosetta_version")]
     pub rosetta_version: String,
-    /// The node_version is the canonical version of the node runtime. This can help clients manage
-    /// deployments.
+    /// The `node_version` is the canonical version of the node runtime. This can help clients
+    /// manage deployments.
     #[serde(rename = "node_version")]
     pub node_version: String,
     /// When a middleware server is used to adhere to the Rosetta interface, it should return its

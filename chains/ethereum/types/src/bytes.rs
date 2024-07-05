@@ -233,6 +233,7 @@ impl PartialEq<bytes::Bytes> for Bytes {
     }
 }
 
+#[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(thiserror::Error), error("Failed to parse bytes: {0}"))]
 pub struct ParseBytesError(const_hex::FromHexError);

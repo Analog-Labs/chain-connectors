@@ -215,7 +215,7 @@ impl BlockchainClient for MaybeWsEthereumClient {
     }
 }
 
-#[allow(clippy::ignored_unit_patterns)]
+#[allow(clippy::ignored_unit_patterns, clippy::pub_underscore_fields)]
 #[cfg(test)]
 mod tests {
     use super::*;

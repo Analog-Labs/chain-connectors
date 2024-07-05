@@ -60,7 +60,7 @@ pub struct Header {
     /// A scalar value equal to the total gas used in transactions in this block; formally Hg.
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub gas_used: u64,
-    /// A scalar value equal to the reasonable output of Unix’s time() at this block’s inception;
+    /// A scalar value equal to the reasonable output of Unix’s `time()` at this block’s inception;
     /// formally Hs.
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub timestamp: u64,

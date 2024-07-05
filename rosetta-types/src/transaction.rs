@@ -19,7 +19,7 @@ pub struct Transaction {
     #[serde(rename = "related_transactions", skip_serializing_if = "Option::is_none")]
     pub related_transactions: Option<Vec<crate::RelatedTransaction>>,
     /// Transactions that are related to other transactions (like a cross-shard transaction) should
-    /// include the tranaction_identifier of these transactions in the metadata.
+    /// include the `tranaction_identifier` of these transactions in the metadata.
     #[serde(rename = "metadata", skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }

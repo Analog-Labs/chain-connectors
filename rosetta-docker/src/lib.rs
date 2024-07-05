@@ -312,7 +312,7 @@ async fn wait_for_http<S: AsRef<str> + Send>(url: S, container: &Container) -> R
 
 /// Helper function to run a test and shutdown docker containers regardless if the test panics or
 /// not
-#[allow(clippy::future_not_send)]
+#[allow(clippy::future_not_send, clippy::redundant_pub_crate)]
 pub async fn run_test<T, Fut, F>(env: Env<T>, cb: F)
 where
     T: Sync + Send + 'static + rosetta_core::BlockchainClient,
@@ -325,7 +325,13 @@ where
     // Execute the test and catch any panics
     let result = unsafe {
         let handler = tokio::spawn(cb(&mut *ptr));
-        handler.await
+        tokio::select! {
+            result = handler => result,
+            _ = tokio::signal::ctrl_c() => {
+                log::info!("ctrl-c received, shutting down docker containers...");
+                Ok(())
+            },
+        }
     };
 
     // Convert the raw pointer back into a context

@@ -66,7 +66,7 @@ pub struct CallRequest {
     ///
     /// Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
     ///
-    /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
+    /// [EIP-155](https://eips.ethereum.org/EIPS/eip-155)
     #[cfg_attr(
         feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none", with = "uint_to_hex",)
@@ -77,7 +77,7 @@ pub struct CallRequest {
     ///
     /// Incorporated as part of the London upgrade via [EIP-1559].
     ///
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    /// [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559)
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_priority_fee_per_gas: Option<U256>,
 
@@ -85,7 +85,7 @@ pub struct CallRequest {
     ///
     /// Added in [EIP-2930].
     ///
-    /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    /// [EIP-2930]: <https://eips.ethereum.org/EIPS/eip-2930>
     #[cfg_attr(
         feature = "serde",
         serde(
@@ -100,7 +100,7 @@ pub struct CallRequest {
     ///
     /// Incorporated as part of the Cancun upgrade via [EIP-4844].
     ///
-    /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
+    /// [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
 

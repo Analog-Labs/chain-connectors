@@ -34,7 +34,7 @@
 //! Note: The code assumes a local Polygon RPC node running on `ws://127.0.0.1:8546`. Ensure
 //! that this endpoint is configured correctly.
 
-#[allow(clippy::ignored_unit_patterns)]
+#[allow(clippy::ignored_unit_patterns, clippy::pub_underscore_fields)]
 #[cfg(test)]
 mod tests {
     use alloy_sol_types::{sol, SolCall};

@@ -31,6 +31,24 @@ do
     esac
 done
 
+# Check for 'docker' and abort if it is not running.
+docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please start docker and try again."; exit 1; }
+
+# Check for 'cargo' and abort if it is not available.
+cargo -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'cargo' for compile the binaries"; exit 1; }
+
+# Check for 'solc' and abort if it is not available.
+solc --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'solc >= 0.8.20' for compile the contracts"; exit 1; }
+
+# Check for 'cargo deny' and abort if it is not available.
+cargo deny -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'cargo deny' not found, install using 'cargo install --locked cargo-deny'"; exit 1; }
+
+# Check for 'dprint' and abort if it is not available.
+dprint -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'dprint' not found, install using 'cargo install --locked dprint'"; exit 1; }
+
+# Check for 'shellcheck' and abort if it is not available.
+shellcheck -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'shellcheck' not found, please visit 'https://github.com/koalaman/shellcheck?tab=readme-ov-file#installing'"; exit 1; }
+
 # Setup console colors
 if test -t 1 && command -v tput >/dev/null 2>&1; then
     ncolors=$(tput colors)
@@ -65,12 +83,11 @@ exec_cmd() {
     exit 1
   fi
 }
-# LINT_FLAGS='-- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 
+CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
 if [[ "${RUN_FIX}" == "1" ]]; then
   exec_cmd 'format' 'cargo +nightly fmt --all && dprint fmt'
-  # exec_cmd 'clippy fix' 'cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features --exclude playground -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-  # exec_cmd 'clippy --fix' 'cargo clippy --fix --workspace --examples --tests --all-features --allow-dirty -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions -Aclippy::missing_errors_doc'
+  # exec_cmd 'clippy --fix' "cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
 fi
 exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
 exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
@@ -91,7 +108,6 @@ exec_cmd 'cargo deny' 'cargo deny check'
 #   exec_cmd "ethereum clippy ${features}" "cargo clippy -p rosetta-config-ethereum --no-default-features --features=${features} ${LINT_FLAGS}"
 # done
 
-CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
 
 # exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
