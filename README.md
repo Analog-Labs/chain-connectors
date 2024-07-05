@@ -27,12 +27,19 @@ To get started with the Rosetta SDK, ensure you have following dependencies inst
 - solc 0.8.25+, recommend install using svm: https://github.com/alloy-rs/svm-rs
 - [dprint](https://github.com/dprint/dprint): `cargo install --locked dprint`
 - [cargo-deny](https://github.com/EmbarkStudios/cargo-deny): `cargo install --locked cargo-deny`
+- [shellcheck](https://github.com/koalaman/shellcheck?tab=readme-ov-file#installing) for shell script analysis
 
 ```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo install --locked svm-rs
 cargo install --locked dprint
 cargo install --locked cargo-deny
+
+sudo apt install shellcheck # On Debian
+brew install shellcheck # MacOS
+pacman -S shellcheck # Arch Linux
+sudo yum -y install epel-release && sudo yum -y install ShellCheck # EPEL based distros
+# For more options, visit: https://github.com/koalaman/shellcheck?tab=readme-ov-file#installing
 
 # Install solc 0.8.25, if not installed already
 [[ $(solc --version | sed -ne 's/[^0-9]*\(\([0-9]\.\)\{0,3\}[0-9][^.]\).*/\1/p') != '0.8.25' ]] && svm install 0.8.25 && svm use 0.8.25

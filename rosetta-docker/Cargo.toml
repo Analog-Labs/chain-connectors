@@ -23,7 +23,7 @@ rosetta-core.workspace = true
 serde_json = "1.0"
 sha2 = "0.10"
 surf = { version = "2.3", default-features = false, features = ["h1-client-no-tls"] }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["signal"] }
 tokio-retry = "0.3"
 
 [dev-dependencies]

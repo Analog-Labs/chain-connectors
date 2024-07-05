@@ -4,6 +4,9 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "${SCRIPT_DIR}/../"
 
+# Check for 'uname' and abort if it is not available.
+uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
+
 RUN_FIX=0
 RUN_TESTS=0
 TEST_ETH_BACKEND=0
@@ -30,6 +33,24 @@ do
         ;;
     esac
 done
+
+# Check for 'docker' and abort if it is not running.
+docker info > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'docker', please start docker and try again."; exit 1; }
+
+# Check for 'cargo' and abort if it is not available.
+cargo -V > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'cargo' for compile the binaries"; exit 1; }
+
+# Check for 'solc' and abort if it is not available.
+solc --version > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'solc >= 0.8.20' for compile the contracts"; exit 1; }
+
+# Check for 'cargo deny' and abort if it is not available.
+cargo deny -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'cargo deny' not found, install using 'cargo install --locked cargo-deny'"; exit 1; }
+
+# Check for 'dprint' and abort if it is not available.
+dprint -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'dprint' not found, install using 'cargo install --locked dprint'"; exit 1; }
+
+# Check for 'shellcheck' and abort if it is not available.
+shellcheck -V > /dev/null 2>&1 || { echo >&2 "ERROR - 'shellcheck' not found, please visit 'https://github.com/koalaman/shellcheck?tab=readme-ov-file#installing'"; exit 1; }
 
 # Setup console colors
 if test -t 1 && command -v tput >/dev/null 2>&1; then
