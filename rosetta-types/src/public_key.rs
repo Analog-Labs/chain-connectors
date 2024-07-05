@@ -13,7 +13,7 @@
 /// implementation.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct PublicKey {
-    /// Hex-encoded public key bytes in the format specified by the CurveType.
+    /// Hex-encoded public key bytes in the format specified by the `CurveType`.
     #[serde(rename = "hex_bytes")]
     pub hex_bytes: String,
     #[serde(rename = "curve_type")]

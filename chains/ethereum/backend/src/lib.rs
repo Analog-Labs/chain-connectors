@@ -203,7 +203,7 @@ pub trait EthereumRpc {
     async fn transaction_by_hash(&self, tx: TxHash) -> Result<Option<RpcTransaction>, Self::Error>;
 
     /// Creates an EIP-2930 access list that you can include in a transaction.
-    /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    /// [EIP-2930]: <https://eips.ethereum.org/EIPS/eip-2930>
     fn create_access_list<'life0, 'life1, 'async_trait>(
         &'life0 self,
         tx: &'life1 CallRequest,

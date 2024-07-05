@@ -22,7 +22,7 @@ use std::path::Path;
 
 /// The wallet provides the main entry point to this crate.
 pub struct Wallet {
-    /// GenericClient instance
+    /// `GenericClient` instance
     pub client: GenericClient,
     account: AccountIdentifier,
     secret_key: DerivedSecretKey,

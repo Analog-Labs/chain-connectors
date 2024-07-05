@@ -47,9 +47,9 @@ use crate::serde_utils::uint_to_hex;
 pub struct Eip1559Transaction {
     /// The chain ID of the transaction. It is mandatory for EIP-1559 transactions.
     ///
-    /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
-    /// [EIP-2718]: https://eips.ethereum.org/EIPS/eip-2718
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    /// [EIP-155]: <https://eips.ethereum.org/EIPS/eip-155>
+    /// [EIP-2718]: <https://eips.ethereum.org/EIPS/eip-2718>
+    /// [EIP-1559]: <https://eips.ethereum.org/EIPS/eip-1559>
     #[cfg_attr(feature = "serde", serde(with = "uint_to_hex"))]
     pub chain_id: u64,
 
@@ -67,7 +67,7 @@ pub struct Eip1559Transaction {
     /// priority fee.
     ///
     /// Incorporated as part of the London upgrade via [EIP-1559].
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    /// [EIP-1559]: <https://eips.ethereum.org/EIPS/eip-1559>
     pub max_priority_fee_per_gas: U256,
 
     /// Represents the maximum amount that a user is willing to pay for their tx (inclusive of
@@ -75,7 +75,7 @@ pub struct Eip1559Transaction {
     /// baseFeePerGas + maxPriorityFeePerGas is “refunded” to the user.
     ///
     /// Incorporated as part of the London upgrade via [EIP-1559].
-    /// [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    /// [EIP-1559]: <https://eips.ethereum.org/EIPS/eip-1559>
     pub max_fee_per_gas: U256,
 
     /// Supplied gas
@@ -94,7 +94,7 @@ pub struct Eip1559Transaction {
     pub data: Bytes,
 
     /// Optional access list introduced in EIP-2930.
-    /// [EIP-2930]: https://eips.ethereum.org/EIPS/eip-2930
+    /// [EIP-2930]: <https://eips.ethereum.org/EIPS/eip-2930>
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "AccessList::is_empty"))]
     pub access_list: AccessList,
 }

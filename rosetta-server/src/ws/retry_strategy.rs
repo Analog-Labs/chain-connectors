@@ -14,7 +14,7 @@ pub enum RetryStrategy {
     /// A retry strategy driven by the fibonacci series.
     /// Each retry uses a delay which is the sum of the two previous delays.
     /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead
-    /// to better throughput than the ExponentialBackoff strategy.
+    /// to better throughput than the `ExponentialBackoff` strategy.
     FibonacciBackoff(FibonacciBackoff),
 }
 

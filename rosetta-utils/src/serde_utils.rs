@@ -9,7 +9,7 @@ use serde::Deserializer;
 pub enum ExpectedLen {
     /// Exact length in bytes.
     Exact(usize),
-    /// A bytes length between (min; slice.len()].
+    /// A bytes length between (min; `slice.len()`].
     Between(usize, usize),
 }
 

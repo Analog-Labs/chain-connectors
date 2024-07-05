@@ -646,7 +646,7 @@ impl SerializableRational for Vec<Rational64> {
     {
         // Safety: `Vec<Rational64>` and `Vec<RationalNumber>` have the same memory layout
         #[allow(clippy::transmute_undefined_repr)]
-        let value = unsafe { &*(self as *const Self).cast::<Vec<RationalNumber>>() };
+        let value = unsafe { &*std::ptr::from_ref::<Self>(self).cast::<Vec<RationalNumber>>() };
         <Vec<RationalNumber> as Serialize>::serialize(value, serializer)
     }
 }

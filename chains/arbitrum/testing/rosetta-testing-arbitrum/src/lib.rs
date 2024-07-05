@@ -36,7 +36,7 @@
 //! Note: The code assumes a local Arbitrum Nitro Testnet node running on `ws://127.0.0.1:8548` and
 //! a local Ethereum node on `http://localhost:8545`. Ensure that these endpoints are configured correctly.
 
-#[allow(clippy::ignored_unit_patterns)]
+#[allow(clippy::ignored_unit_patterns, clippy::pub_underscore_fields)]
 #[cfg(test)]
 mod tests {
     use alloy_sol_types::{sol, SolCall};

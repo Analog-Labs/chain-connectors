@@ -13,7 +13,7 @@ use crate::{eth_hash::H520, eth_uint::U256};
 )]
 pub struct Signature {
     /// The ECDSA recovery id, this value encodes the parity of the y-coordinate of the secp256k1
-    /// signature. May also encode the chain_id for legacy EIP-155 transactions.
+    /// signature. May also encode the `chain_id` for legacy EIP-155 transactions.
     pub v: RecoveryId,
     /// The ECDSA signature r
     pub r: U256,

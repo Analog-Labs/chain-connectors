@@ -14,12 +14,12 @@ pub enum WsTransportClient {
     #[default]
     Auto,
 
-    /// Socketto is the default WebSocket client for Substrate and Subxt.
+    /// Socketto is the default `WebSocket` client for Substrate and Subxt.
     /// Whoever have an issue when connecting to some RPC nodes using TLS.
-    /// https://github.com/paritytech/jsonrpsee/issues/1142
+    /// [1]: <https://github.com/paritytech/jsonrpsee/issues/1142>
     Socketto,
 
-    /// Tungstenite is the most used stream-based WebSocket Client
+    /// Tungstenite is the most used stream-based `WebSocket` Client
     /// Use this if you have issues with Socketto.
     Tungstenite,
 }
@@ -48,9 +48,9 @@ pub enum RetryStrategyConfig {
     /// A retry strategy driven by the fibonacci series.
     /// Each retry uses a delay which is the sum of the two previous delays.
     /// Depending on the problem at hand, a fibonacci retry strategy might perform better and lead
-    /// to better throughput than the ExponentialBackoff strategy. See "A Performance Comparison of
-    /// Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."  for
-    /// more details.
+    /// to better throughput than the `ExponentialBackoff` strategy. See "A Performance Comparison
+    /// of Different Backoff Algorithms under Different Rebroadcast Probabilities for MANETs."
+    /// for more details.
     FibonacciBackoff {
         /// Initial base duration in milliseconds.
         initial: u64,
@@ -66,7 +66,7 @@ pub enum RetryStrategyConfig {
 /// Common configuration for Socketto and Tungstenite clients.
 #[derive(Debug, Clone)]
 pub struct RpcClientConfig {
-    /// Supported WebSocket transport clients.
+    /// Supported `WebSocket` transport clients.
     pub client: WsTransportClient,
 
     /// The target minimum size of the write buffer to reach before writing the data
@@ -110,11 +110,11 @@ pub struct RpcClientConfig {
 
     /// JSON-RPC max buffer capacity for each subscription; when the capacity is exceeded the
     /// subscription will be dropped (default is 1024). You may prevent the subscription from being
-    /// dropped by polling often enough Subscription::next() such that it can keep with the rate as
-    /// server produces new items on the subscription.
+    /// dropped by polling often enough `Subscription::next()` such that it can keep with the rate
+    /// as server produces new items on the subscription.
     pub rpc_max_buffer_capacity_per_subscription: NonZeroUsize,
 
-    /// JSON-RPC request object id data type. (default is IdKind::Number)
+    /// JSON-RPC request object id data type. (default is `IdKind::Number`)
     pub rpc_id_kind: IdKind,
 
     /// Max length for logging for requests and responses.
@@ -125,7 +125,7 @@ pub struct RpcClientConfig {
     /// Set the interval at which pings frames are submitted (disabled by default).
     ///
     /// Periodically submitting pings at a defined interval has mainly two benefits:
-    ///  - Directly, it acts as a "keep-alive" alternative in the WebSocket world.
+    ///  - Directly, it acts as a "keep-alive" alternative in the `WebSocket` world.
     ///  - Indirectly by inspecting debug logs, it ensures that the endpoint is still responding to
     ///    messages.
     ///

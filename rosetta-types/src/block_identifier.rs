@@ -14,7 +14,7 @@ pub struct BlockIdentifier {
     /// This is also known as the block height.
     #[serde(rename = "index")]
     pub index: u64,
-    /// This should be normalized according to the case specified in the block_hash_case network
+    /// This should be normalized according to the case specified in the `block_hash` case network
     /// options.
     #[serde(skip_serializing)]
     pub hash: [u8; 32],

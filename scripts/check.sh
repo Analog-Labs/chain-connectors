@@ -65,12 +65,11 @@ exec_cmd() {
     exit 1
   fi
 }
-# LINT_FLAGS='-- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 
+CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
 if [[ "${RUN_FIX}" == "1" ]]; then
   exec_cmd 'format' 'cargo +nightly fmt --all && dprint fmt'
-  # exec_cmd 'clippy fix' 'cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features --exclude playground -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-  # exec_cmd 'clippy --fix' 'cargo clippy --fix --workspace --examples --tests --all-features --allow-dirty -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions -Aclippy::missing_errors_doc'
+  # exec_cmd 'clippy --fix' "cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
 fi
 exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
 exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
@@ -91,7 +90,6 @@ exec_cmd 'cargo deny' 'cargo deny check'
 #   exec_cmd "ethereum clippy ${features}" "cargo clippy -p rosetta-config-ethereum --no-default-features --features=${features} ${LINT_FLAGS}"
 # done
 
-CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
 
 # exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'

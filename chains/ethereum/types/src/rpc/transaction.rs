@@ -48,7 +48,7 @@ pub struct RpcTransaction {
     /// Gas Price
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub gas_price: Option<U256>,
-    /// Max BaseFeePerGas the user is willing to pay.
+    /// Max `BaseFeePerGas` the user is willing to pay.
     #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
     pub max_fee_per_gas: Option<U256>,
     /// The miner's tip.

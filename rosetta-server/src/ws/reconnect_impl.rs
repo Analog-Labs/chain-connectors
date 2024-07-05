@@ -264,7 +264,7 @@ pub enum ReconnectStateMachine<T: Config> {
     /// # Description
     /// This state is reached in two cases:
     /// 1 - The current reconnect attempt took longer than the retry delay
-    /// 2 - or the retry_strategy returns None, meaning that there is no delay between retries
+    /// 2 - or the `retry_strategy` returns None, meaning that there is no delay between retries
     ///
     /// # State Transitions
     /// 1 - [`ReconnectStateMachine::Failure`] if reconnect fails, no delay is passed as parameter
@@ -290,15 +290,15 @@ pub enum ReconnectStateMachine<T: Config> {
     /// Retrying to connect
     ///
     /// # State Transitions
-    /// 1 - if retry_strategy.next() is Some(delay), transition to
-    /// [`ReconnectStateMachine::ReconnectAndWaitDelay`] 2 - if retry_strategy.next() is None,
+    /// 1 - if `retry_strategy.next()` is Some(delay), transition to
+    /// [`ReconnectStateMachine::ReconnectAndWaitDelay`] 2 - if `retry_strategy.next()` is None,
     /// transition to [`ReconnectStateMachine::Reconnecting`]
     Retry,
 
     /// The connection was reestablished successfully
     ///
     /// # Description
-    /// Update the ConnectionStatus on the [`SharedState`] and return the client
+    /// Update the `ConnectionStatus` on the [`SharedState`] and return the client
     ///
     /// # State Transitions
     /// This state is final, may return an error if the `connection_status` at [`SharedState`] was

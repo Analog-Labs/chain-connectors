@@ -12,7 +12,7 @@
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CoinIdentifier {
     /// Identifier should be populated with a globally unique identifier of a Coin. In Bitcoin,
-    /// this identifier would be transaction_hash:index.
+    /// this identifier would be `transaction_hash:index`.
     #[serde(rename = "identifier")]
     pub identifier: String,
 }
