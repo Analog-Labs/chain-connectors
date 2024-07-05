@@ -35,6 +35,9 @@ cargo install --locked svm-rs
 cargo install --locked dprint
 cargo install --locked cargo-deny
 
+rustup target add wasm32-unknown-unknown --toolchain stable
+rustup target add wasm32-unknown-unknown --toolchain nightly
+
 sudo apt install shellcheck # On Debian
 brew install shellcheck # MacOS
 pacman -S shellcheck # Arch Linux
