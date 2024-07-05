@@ -4,9 +4,6 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "${SCRIPT_DIR}/../"
 
-# Check for 'uname' and abort if it is not available.
-uname -v > /dev/null 2>&1 || { echo >&2 "ERROR - requires 'uname' to identify the platform."; exit 1; }
-
 RUN_FIX=0
 RUN_TESTS=0
 TEST_ETH_BACKEND=0
