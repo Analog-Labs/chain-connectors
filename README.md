@@ -24,9 +24,19 @@ To get started with the Rosetta SDK, ensure you have following dependencies inst
 
 - [rust](https://www.rust-lang.org/)
 - [latest version of Docker](https://www.docker.com/get-started/)
-- solc 0.8.20+, recommend install using svm: https://github.com/alloy-rs/svm-rs
+- solc 0.8.25+, recommend install using svm: https://github.com/alloy-rs/svm-rs
 - [dprint](https://github.com/dprint/dprint): `cargo install --locked dprint`
 - [cargo-deny](https://github.com/EmbarkStudios/cargo-deny): `cargo install --locked cargo-deny`
+
+```shell
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install --locked svm-rs
+cargo install --locked dprint
+cargo install --locked cargo-deny
+
+# Install solc 0.8.25, if not installed already
+[[ $(solc --version | sed -ne 's/[^0-9]*\(\([0-9]\.\)\{0,3\}[0-9][^.]\).*/\1/p') != '0.8.25' ]] && svm install 0.8.25 && svm use 0.8.25
+```
 
 Build
 
