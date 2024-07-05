@@ -127,7 +127,7 @@ jobs:
       with:
         toolchain: 1.78.0
         components: clippy
-        target: x86_64-unknown-linux-musl,wasm32-unknown-unknown
+        target: wasm32-unknown-unknown
         override: true
 
     - name: clippy
