@@ -3,7 +3,10 @@ use crate::{
     event_stream::EthereumEventStream,
     log_filter::LogFilter,
     proof::verify_proof,
-    utils::{AtBlockExt, EthereumRpcExt, PartialBlock},
+    utils::{
+        AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, PartialBlock,
+        PolygonFeeEstimatorConfig,
+    },
 };
 use anyhow::{Context, Result};
 use rosetta_config_ethereum::{
@@ -261,7 +264,11 @@ where
                 let address: H160 = address.address().parse()?;
 
                 let (max_fee_per_gas, max_priority_fee_per_gas) =
-                    self.backend.estimate_eip1559_fees().await?;
+                    if self.config().blockchain == "polygon" {
+                        self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
+                    } else {
+                        self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
+                    };
                 let tx = CallRequest {
                     from: Some(coinbase),
                     to: Some(address),
@@ -295,8 +302,11 @@ where
     ) -> Result<EthereumMetadata> {
         let from: H160 = public_key.to_address(self.config().address_format).address().parse()?;
         let to = options.destination.map(H160);
-        let (max_fee_per_gas, max_priority_fee_per_gas) =
-            self.backend.estimate_eip1559_fees().await?;
+        let (max_fee_per_gas, max_priority_fee_per_gas) = if self.config().blockchain == "polygon" {
+            self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?
+        } else {
+            self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?
+        };
         let chain_id = self.backend.chain_id().await?;
 
         let nonce = if let Some(nonce) = options.nonce {
