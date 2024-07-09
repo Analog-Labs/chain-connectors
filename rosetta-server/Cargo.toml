@@ -8,8 +8,8 @@ description = "Generic rosetta server implementation."
 
 [features]
 default = []
-native-tls = ["tokio-tungstenite/native-tls", "jsonrpsee/client-ws-transport-native-tls"]
-webpki-tls = ["tokio-tungstenite/rustls-tls-webpki-roots", "jsonrpsee/client-ws-transport-webpki-tls"]
+native-tls = ["tokio-tungstenite/native-tls", "jsonrpsee/client-ws-transport-tls"]
+webpki-tls = ["tokio-tungstenite/rustls-tls-webpki-roots", "jsonrpsee/client-ws-transport-tls"]
 ws = [
   "dep:async-trait",
   "dep:futures",

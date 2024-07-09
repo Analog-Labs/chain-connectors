@@ -7,15 +7,14 @@ use crate::{
         string::ToString,
         vec::Vec,
     },
-    BlockRange, MaybeDeserializeOwned,
+    BlockRange, BoxFuture, MaybeDeserializeOwned,
 };
 use async_trait::async_trait;
-use futures_core::future::BoxFuture;
 
 use crate::{AccessListWithGasUsed, AtBlock, CallRequest, EthereumPubSub, EthereumRpc, ExitReason};
 pub use jsonrpsee_core as core;
 use jsonrpsee_core::{
-    client::{ClientT, SubscriptionClientT},
+    client::{ClientT, Subscription, SubscriptionClientT},
     rpc_params, ClientError as Error,
 };
 use rosetta_ethereum_types::{
@@ -396,9 +395,9 @@ impl<T> EthereumPubSub for Adapter<T>
 where
     T: SubscriptionClientT + Send + Sync,
 {
-    type SubscriptionError = <Self as EthereumRpc>::Error;
-    type NewHeadsStream<'a> = jsonrpsee_core::client::Subscription<RpcBlock<H256>> where Self: 'a;
-    type LogsStream<'a> = jsonrpsee_core::client::Subscription<Log> where Self: 'a;
+    type SubscriptionError = serde_json::Error;
+    type NewHeadsStream<'a> = Subscription<RpcBlock<H256>> where Self: 'a;
+    type LogsStream<'a> = Subscription<Log> where Self: 'a;
 
     /// Fires a notification each time a new header is appended to the chain, including chain
     /// reorganizations.

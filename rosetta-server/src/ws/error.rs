@@ -47,7 +47,6 @@ fn clone_error(error: &JsonRpseeError) -> JsonRpseeError {
             InvalidRequestId::Occupied(message) => InvalidRequestId::Occupied(message.clone()),
         }),
         JsonRpseeError::RequestTimeout => JsonRpseeError::RequestTimeout,
-        JsonRpseeError::MaxSlotsExceeded => JsonRpseeError::MaxSlotsExceeded,
         JsonRpseeError::Custom(message) => JsonRpseeError::Custom(message.clone()),
         JsonRpseeError::HttpNotImplemented => JsonRpseeError::HttpNotImplemented,
         JsonRpseeError::EmptyBatchRequest(request) => JsonRpseeError::EmptyBatchRequest(*request),
