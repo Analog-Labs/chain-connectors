@@ -101,9 +101,7 @@ pub async fn default_client(
     config: Option<RpcClientConfig>,
 ) -> Result<DefaultClient, JsonRpseeError> {
     let config = config.unwrap_or_default();
-    let url = url
-        .parse::<Url>()
-        .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
+    let url = url.parse::<Url>().map_err(|e| JsonRpseeError::Transport(e.into()))?;
     let reconnect_config = DefaultReconnectConfig { url, config };
 
     DefaultStrategy::connect(reconnect_config).await.map(Reconnect::into_client)
@@ -114,9 +112,7 @@ pub async fn default_client(
 /// # Errors
 /// Returns `Err` if the url is not valid
 pub fn default_http_client(url: &str) -> Result<HttpClient, JsonRpseeError> {
-    let url = url
-        .parse::<Url>()
-        .map_err(|e| JsonRpseeError::Transport(anyhow::Error::from(e)))?;
+    let url = url.parse::<Url>().map_err(|e| JsonRpseeError::Transport(e.into()))?;
     let client = jsonrpsee::http_client::HttpClientBuilder::new().build(url)?;
     Ok(client)
 }
@@ -130,7 +126,7 @@ async fn build_socketto_client(
     let (sender, receiver) = WsTransportClientBuilder::from(config)
         .build(url)
         .await
-        .map_err(|error| JsonRpseeError::Transport(anyhow::Error::from(error)))?;
+        .map_err(|error| JsonRpseeError::Transport(error.into()))?;
     let client = builder.build_with_tokio(sender, receiver);
     Ok(client)
 }
@@ -143,7 +139,7 @@ async fn build_tungstenite_client(
 ) -> Result<Client, JsonRpseeError> {
     let client = TungsteniteClient::new(url, config)
         .await
-        .map_err(|error| JsonRpseeError::Transport(anyhow::Error::from(error)))?;
+        .map_err(|error| JsonRpseeError::Transport(error.into()))?;
     let (sender, receiver) = client.split();
     let client = builder.build_with_tokio(sender, receiver);
     Ok(client)

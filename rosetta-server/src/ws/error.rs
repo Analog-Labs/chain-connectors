@@ -34,7 +34,7 @@ fn clone_error(error: &JsonRpseeError) -> JsonRpseeError {
     match error {
         JsonRpseeError::Call(error) => JsonRpseeError::Call(error.clone()),
         JsonRpseeError::Transport(error) => {
-            JsonRpseeError::Transport(anyhow::format_err!("{error:?}"))
+            JsonRpseeError::Transport(anyhow::format_err!("{error:?}").into())
         },
         JsonRpseeError::RestartNeeded(reason) => JsonRpseeError::RestartNeeded(reason.clone()),
         JsonRpseeError::ParseError(error) => JsonRpseeError::Custom(format!("{error:?}")), /* TODO: return an parser error instead a custom error */

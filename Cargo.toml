@@ -45,7 +45,7 @@ rosetta-types = { path = "rosetta-types" }
 rosetta-utils = { path = "rosetta-utils", default-features = false }
 
 ## Crates we want all members to use the same version
-jsonrpsee = { version = "0.23", default-features = false }
+jsonrpsee = { version = "0.24", default-features = false }
 parity-scale-codec = { version = "3.6" }
 tokio = { version = "1.32" }
 subxt = { version = "0.34", default-features = false }
