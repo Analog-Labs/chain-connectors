@@ -43,7 +43,8 @@ impl TungsteniteClient {
     /// Returns `Err` if the handshake fails
     pub async fn new(url: Url, config: &RpcClientConfig) -> Result<Self, WsError> {
         let config = WebSocketConfig::from(config);
-        let (ws_stream, response) = connect_async_with_config(url, Some(config), false).await?;
+        let (ws_stream, response) =
+            connect_async_with_config(url.to_string(), Some(config), false).await?;
         let (send, receive) = ws_stream.split();
         tracing::trace!(
             "Successfully connected to the server using Tungstenite. Handshake HTTP code: {}",

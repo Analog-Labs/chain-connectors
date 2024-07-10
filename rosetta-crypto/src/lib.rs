@@ -8,7 +8,7 @@ use ecdsa::{
     signature::{hazmat::PrehashSigner, Signer as _, Verifier as _},
     RecoveryId,
 };
-use ed25519_dalek::{Signer as _, Verifier as _};
+// use ed25519_dalek::{Signer as _, Verifier as _};
 use sha2::Digest;
 
 pub mod address;
@@ -49,7 +49,7 @@ pub enum SecretKey {
     /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::SigningKey<p256::NistP256>),
     /// Ed25519.
-    Ed25519(ed25519_dalek::Keypair),
+    Ed25519(ed25519_dalek::SigningKey),
     /// Schnorrkel used by substrate/polkadot.
     Sr25519(schnorrkel::Keypair, Option<schnorrkel::MiniSecretKey>),
 }
@@ -90,10 +90,27 @@ impl SecretKey {
                 Self::EcdsaSecp256r1(ecdsa::SigningKey::from_bytes(bytes.into())?)
             },
             Algorithm::Ed25519 => {
-                let secret = ed25519_dalek::SecretKey::from_bytes(bytes)?;
-                let public = ed25519_dalek::PublicKey::from(&secret);
-                let keypair = ed25519_dalek::Keypair { secret, public };
-                Self::Ed25519(keypair)
+                let signing_key = match bytes.len() {
+                    ed25519_dalek::KEYPAIR_LENGTH => {
+                        let mut keypair = [0u8; ed25519_dalek::KEYPAIR_LENGTH];
+                        keypair.copy_from_slice(bytes);
+                        ed25519_dalek::SigningKey::from_keypair_bytes(&keypair)?
+                    },
+                    ed25519_dalek::SECRET_KEY_LENGTH => {
+                        let mut secret = ed25519_dalek::SecretKey::default();
+                        secret.copy_from_slice(bytes);
+                        ed25519_dalek::SigningKey::from_bytes(&secret)
+                    },
+                    len => {
+                        anyhow::bail!(
+                            "invalid Ed25519 keypair, expected {} bytes, got {len} bytes",
+                            ed25519_dalek::KEYPAIR_LENGTH
+                        )
+                    },
+                };
+                // let public = ed25519_dalek::PublicKey::from(&secret);
+                // let keypair = ed25519_dalek::Keypair { secret, public };
+                Self::Ed25519(signing_key)
             },
             Algorithm::Sr25519 => {
                 if bytes.len() == 32 {
@@ -119,7 +136,7 @@ impl SecretKey {
                 secret.to_bytes().to_vec()
             },
             Self::EcdsaSecp256r1(secret) => secret.to_bytes().to_vec(),
-            Self::Ed25519(secret) => secret.secret.to_bytes().to_vec(),
+            Self::Ed25519(secret) => secret.as_bytes().to_vec(),
             Self::Sr25519(_, Some(minisecret)) => minisecret.as_bytes().to_vec(),
             Self::Sr25519(secret, None) => secret.secret.to_bytes().to_vec(),
         }
@@ -134,7 +151,7 @@ impl SecretKey {
                 PublicKey::EcdsaRecoverableSecp256k1(*secret.verifying_key())
             },
             Self::EcdsaSecp256r1(secret) => PublicKey::EcdsaSecp256r1(*secret.verifying_key()),
-            Self::Ed25519(secret) => PublicKey::Ed25519(secret.public),
+            Self::Ed25519(secret) => PublicKey::Ed25519(secret.verifying_key()),
             Self::Sr25519(secret, _) => PublicKey::Sr25519(secret.public),
         }
     }
@@ -193,7 +210,7 @@ pub enum PublicKey {
     /// ECDSA with NIST P-256.
     EcdsaSecp256r1(ecdsa::VerifyingKey<p256::NistP256>),
     /// Ed25519.
-    Ed25519(ed25519_dalek::PublicKey),
+    Ed25519(ed25519_dalek::VerifyingKey),
     /// Schnorrkel used by substrate/polkadot.
     Sr25519(schnorrkel::PublicKey),
 }
@@ -227,7 +244,7 @@ impl PublicKey {
             Algorithm::EcdsaSecp256r1 => {
                 Self::EcdsaSecp256r1(ecdsa::VerifyingKey::from_sec1_bytes(bytes)?)
             },
-            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::PublicKey::from_bytes(bytes)?),
+            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::VerifyingKey::try_from(bytes)?),
             Algorithm::Sr25519 => {
                 let public = schnorrkel::PublicKey::from_bytes(bytes)
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
@@ -334,7 +351,7 @@ impl Signature {
                 RecoveryId::from_byte(bytes[64]).context("invalid signature")?,
             ),
             Algorithm::EcdsaSecp256r1 => Self::EcdsaSecp256r1(ecdsa::Signature::try_from(bytes)?),
-            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::Signature::from_bytes(bytes)?),
+            Algorithm::Ed25519 => Self::Ed25519(ed25519_dalek::Signature::try_from(bytes)?),
             Algorithm::Sr25519 => {
                 let sig = schnorrkel::Signature::from_bytes(bytes)
                     .map_err(|err| anyhow::anyhow!("{}", err))?;
