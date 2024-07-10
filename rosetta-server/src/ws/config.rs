@@ -194,16 +194,6 @@ impl From<&RpcClientConfig> for WsTransportClientBuilder {
     fn from(config: &RpcClientConfig) -> Self {
         let message_size =
             u32::try_from(config.max_message_size.unwrap_or(TEN_MB_SIZE_BYTES)).unwrap_or(u32::MAX);
-        // let builder = Self::default()
-        //     .max_request_size(message_size)
-        //     .max_response_size(message_size)
-        //     .max_redirections(5);
-        // builder = if cfg!(any(feature = "webpki-tls", feature = "webpki-roots")) {
-        //     builder.use_webpki_rustls()
-        // } else {
-        //     builder.use_native_rustls()
-        // };
-        // builder
         Self::default()
             .max_request_size(message_size)
             .max_response_size(message_size)

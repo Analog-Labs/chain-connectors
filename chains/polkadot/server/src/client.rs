@@ -12,9 +12,6 @@ use subxt::{
 type Config<T> = SubxtConfigAdapter<T>;
 type OnlineClient<T> = subxt::OnlineClient<Config<T>>;
 type LegacyRpcMethods<T> = subxt::backend::legacy::LegacyRpcMethods<Config<T>>;
-// type LegacyBackend<T> = subxt::backend::legacy::LegacyBackend<Config<T>>;
-// type PairSigner<T> = subxt::tx::PairSigner<Config<T>, <T as ClientConfig>::Pair>;
-// type Block<T> = subxt::blocks::Block<Config<T>, OnlineClient<T>>;
 type BlockDetails<T> = subxt::backend::legacy::rpc_methods::BlockDetails<Config<T>>;
 
 pub struct SubstrateClient<T: ClientConfig> {
