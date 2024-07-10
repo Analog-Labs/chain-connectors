@@ -17,7 +17,7 @@ pub mod metadata {
     #[cfg(feature = "polkadot-metadata")]
     pub mod polkadot {
         #[subxt::subxt(
-            runtime_metadata_path = "res/polkadot-v1000001.scale",
+            runtime_metadata_path = "res/polkadot-v1002006.scale",
             derive_for_all_types = "Clone, Eq, PartialEq"
         )]
         pub mod dev {}

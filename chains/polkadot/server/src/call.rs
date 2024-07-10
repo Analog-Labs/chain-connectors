@@ -7,7 +7,7 @@ use scale_info::{
 use serde_json::{Map, Value, Value as SerdeValue};
 use subxt::{
     dynamic::Value as SubxtValue,
-    ext::scale_value::{self, scale::TypeId, BitSequence, ValueDef},
+    ext::scale_value::{self, BitSequence, ValueDef},
     metadata::types::StorageEntryType,
     OnlineClient,
 };
@@ -321,7 +321,7 @@ fn make_bit_sequence(
     Ok(SubxtValue::bit_sequence(bits_array))
 }
 
-fn scale_to_serde_json(data: ValueDef<TypeId>) -> Result<SerdeValue> {
+fn scale_to_serde_json(data: ValueDef<u32>) -> Result<SerdeValue> {
     match data {
         scale_value::ValueDef::Composite(val) => match val {
             scale_value::Composite::Named(named_composite) => {

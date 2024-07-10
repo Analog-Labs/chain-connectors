@@ -8,7 +8,7 @@ use std::sync::Arc;
 // Generate an interface that we can use from the node's metadata.
 #[cfg(feature = "astar-metadata")]
 pub mod metadata {
-    #[subxt::subxt(runtime_metadata_path = "res/astar-dev.scale")]
+    #[subxt::subxt(runtime_metadata_path = "res/astar-90.scale")]
     pub mod dev {}
 }
 

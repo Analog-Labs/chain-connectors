@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use subxt::{
     backend::{
-        legacy::{rpc_methods::BlockNumber, LegacyBackend, LegacyRpcMethods},
+        legacy::{rpc_methods::BlockNumber, LegacyBackendBuilder, LegacyRpcMethods},
         rpc::RpcClient,
         BlockRef,
     },
@@ -75,7 +75,7 @@ impl AstarClient {
         let ws_client = default_client(url, None).await?;
         let rpc_client = RpcClient::new(ws_client.clone());
         let rpc_methods = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client.clone());
-        let backend = LegacyBackend::new(rpc_client);
+        let backend = LegacyBackendBuilder::new().build(rpc_client);
         let substrate_client =
             OnlineClient::<PolkadotConfig>::from_backend(Arc::new(backend)).await?;
         let ethereum_client =
@@ -279,7 +279,8 @@ impl BlockchainClient for AstarClient {
         };
 
         // Build the transfer transaction
-        let balance_transfer_tx = astar_metadata::tx().balances().transfer(dest.into(), value);
+        let balance_transfer_tx =
+            astar_metadata::tx().balances().transfer_allow_death(dest.into(), value);
         let alice = sp_keyring::AccountKeyring::Alice.pair();
         let signer = PairSigner::<PolkadotConfig, _>::new(alice);
 
