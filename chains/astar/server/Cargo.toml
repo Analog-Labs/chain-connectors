@@ -26,8 +26,8 @@ subxt = { workspace = true, features = ["substrate-compat"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-alloy-primitives = { version = "0.6" }
-alloy-sol-types = { version = "0.6" }
+alloy-primitives = { version = "0.7" }
+alloy-sol-types = { version = "0.7" }
 ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }
