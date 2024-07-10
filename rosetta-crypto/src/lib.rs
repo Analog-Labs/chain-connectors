@@ -8,7 +8,6 @@ use ecdsa::{
     signature::{hazmat::PrehashSigner, Signer as _, Verifier as _},
     RecoveryId,
 };
-// use ed25519_dalek::{Signer as _, Verifier as _};
 use sha2::Digest;
 
 pub mod address;
@@ -108,8 +107,6 @@ impl SecretKey {
                         )
                     },
                 };
-                // let public = ed25519_dalek::PublicKey::from(&secret);
-                // let keypair = ed25519_dalek::Keypair { secret, public };
                 Self::Ed25519(signing_key)
             },
             Algorithm::Sr25519 => {

@@ -8,8 +8,8 @@ description = "Cryptographic primitives used by the rosetta client."
 
 [dependencies]
 anyhow = "1.0"
-bech32 = "0.9.1"
-blake2-rfc = "0.2.18"
+bech32 = "0.9"
+blake2-rfc = "0.2"
 bs58 = "0.5"
 ecdsa = { version = "0.16.0", features = ["arithmetic"] }
 ed25519-dalek = "2.0"
