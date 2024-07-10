@@ -45,14 +45,14 @@ rosetta-types = { path = "rosetta-types" }
 rosetta-utils = { path = "rosetta-utils", default-features = false }
 
 ## Crates we want all members to use the same version
-jsonrpsee = { version = "0.22", default-features = false }
+jsonrpsee = { version = "0.24", default-features = false }
 parity-scale-codec = { version = "3.6" }
-tokio = { version = "1.32" }
-subxt = { version = "0.34", default-features = false }
+tokio = { version = "1.37" }
+subxt = { version = "0.37", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
-scale-info = { version = "2.3" }
+scale-info = { version = "2.11" }
 
 # Used to sign substrate transactions, must be the same version used by subxt
-# https://github.com/paritytech/subxt/blob/v0.34.0/Cargo.toml#L125
-sp-keyring = { version = "31.0" }
+# https://github.com/paritytech/subxt/blob/v0.37.0/Cargo.toml#L138
+sp-keyring = { version = "34.0" }

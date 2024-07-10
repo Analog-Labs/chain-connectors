@@ -3,13 +3,16 @@ use rosetta_config_polkadot::metadata::westend::dev;
 use std::borrow::Borrow;
 use subxt::{
     config::{polkadot::PolkadotExtrinsicParams, PolkadotConfig},
-    storage::address,
-    utils::{AccountId32, MultiAddress},
+    ext::subxt_core::{
+        storage::address::{StaticAddress, StaticStorageKey},
+        tx::payload::StaticPayload,
+        utils::{AccountId32, MultiAddress, Yes},
+    },
 };
 
 pub type Config = SubxtConfigAdapter<WestendDevConfig>;
 pub type ExtrinsicParams = PolkadotExtrinsicParams<Config>;
-pub type OtherParams = <ExtrinsicParams as subxt::config::ExtrinsicParams<Config>>::OtherParams;
+pub type OtherParams = <ExtrinsicParams as subxt::config::ExtrinsicParams<Config>>::Params;
 pub type PairSigner = subxt::tx::PairSigner<Config, sp_keyring::sr25519::sr25519::Pair>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,20 +40,14 @@ impl ClientConfig for WestendDevConfig {
 
     fn account_info(
         account: impl Borrow<AccountId32>,
-    ) -> address::Address<
-        address::StaticStorageMapKey,
-        Self::AccountInfo,
-        address::Yes,
-        address::Yes,
-        (),
-    > {
+    ) -> StaticAddress<StaticStorageKey<Self::AccountId>, Self::AccountInfo, Yes, Yes, ()> {
         dev::storage().system().account(account)
     }
 
     fn transfer_keep_alive(
         dest: MultiAddress<AccountId32, ()>,
         value: u128,
-    ) -> ::subxt::tx::Payload<Self::TransferKeepAlive> {
+    ) -> StaticPayload<Self::TransferKeepAlive> {
         dev::tx().balances().transfer_keep_alive(dest, value)
     }
 

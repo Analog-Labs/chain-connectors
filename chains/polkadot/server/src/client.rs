@@ -2,11 +2,9 @@ use crate::types::{BlockIdentifier, ClientConfig, SubxtConfigAdapter};
 use anyhow::Context;
 use std::{borrow::Borrow, future::Future, sync::Arc};
 use subxt::{
-    backend::{
-        rpc::{RpcClient, RpcClientT},
-        RuntimeVersion,
-    },
+    backend::rpc::{RpcClient, RpcClientT},
     blocks::BlockRef,
+    client::RuntimeVersion,
     metadata::Metadata,
     utils::AccountId32,
 };
@@ -14,9 +12,6 @@ use subxt::{
 type Config<T> = SubxtConfigAdapter<T>;
 type OnlineClient<T> = subxt::OnlineClient<Config<T>>;
 type LegacyRpcMethods<T> = subxt::backend::legacy::LegacyRpcMethods<Config<T>>;
-type LegacyBackend<T> = subxt::backend::legacy::LegacyBackend<Config<T>>;
-// type PairSigner<T> = subxt::tx::PairSigner<Config<T>, <T as ClientConfig>::Pair>;
-// type Block<T> = subxt::blocks::Block<Config<T>, OnlineClient<T>>;
 type BlockDetails<T> = subxt::backend::legacy::rpc_methods::BlockDetails<Config<T>>;
 
 pub struct SubstrateClient<T: ClientConfig> {
@@ -32,7 +27,7 @@ impl<T: ClientConfig> SubstrateClient<T> {
     pub async fn from_client<C: RpcClientT>(client: C) -> anyhow::Result<Self> {
         let rpc_client = RpcClient::new(client);
         let rpc_methods = LegacyRpcMethods::<T>::new(rpc_client.clone());
-        let backend = LegacyBackend::<T>::new(rpc_client);
+        let backend = subxt::backend::legacy::LegacyBackendBuilder::new().build(rpc_client);
         let client = OnlineClient::<T>::from_backend(Arc::new(backend)).await?;
         Ok(Self { client, rpc_methods })
     }
@@ -117,7 +112,7 @@ impl<T: ClientConfig> SubstrateClient<T> {
     pub async fn faucet(
         &self,
         signer: T::Pair,
-        dest: subxt::utils::MultiAddress<AccountId32, ()>,
+        dest: subxt::ext::subxt_core::utils::MultiAddress<AccountId32, ()>,
         value: u128,
     ) -> anyhow::Result<T::Hash> {
         let tx = T::transfer_keep_alive(dest, value);

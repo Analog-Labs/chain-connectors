@@ -6,10 +6,8 @@ license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
 description = "Polygon rosetta test."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-alloy-sol-types = { version = "0.6" }
+alloy-sol-types = { version = "0.7" }
 anyhow = "1.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
 ethers-solc = "2.0"

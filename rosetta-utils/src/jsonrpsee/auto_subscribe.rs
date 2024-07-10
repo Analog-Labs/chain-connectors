@@ -1,6 +1,5 @@
 #![allow(clippy::option_if_let_else)]
 use super::FutureFactory;
-use crate::error::LogErrorExt;
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use jsonrpsee_core::client::{Error as RpcError, Subscription};
@@ -208,20 +207,9 @@ where
                         },
 
                         // Got an error
-                        Poll::Ready(Some(Err(err))) => match err {
-                            // Subscription terminated, resubscribe.
-                            RpcError::RestartNeeded(msg) => {
-                                tracing::error!("subscription terminated: {}", msg.truncate());
-                                *this.state = State::Unsubscribing {
-                                    subscriber,
-                                    fut: subscription.unsubscribe().boxed(),
-                                };
-                            },
-                            // Return error
-                            err => {
-                                *this.state = State::Subscribed { subscriber, subscription };
-                                return Poll::Ready(Some(Err(err)));
-                            },
+                        Poll::Ready(Some(Err(err))) => {
+                            *this.state = State::Subscribed { subscriber, subscription };
+                            return Poll::Ready(Some(Err(RpcError::ParseError(err))));
                         },
 
                         // Stream was close, resubscribe.

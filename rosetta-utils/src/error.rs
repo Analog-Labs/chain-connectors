@@ -20,14 +20,3 @@ where
         }
     }
 }
-
-pub trait LogErrorExt: Sized {
-    fn truncate(&self) -> SafeLogError<'_, Self>;
-}
-
-#[cfg(feature = "jsonrpsee")]
-impl LogErrorExt for jsonrpsee_core::ClientError {
-    fn truncate(&self) -> SafeLogError<'_, Self> {
-        SafeLogError(self)
-    }
-}

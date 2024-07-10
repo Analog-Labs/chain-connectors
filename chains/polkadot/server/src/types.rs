@@ -1,15 +1,26 @@
 use rosetta_core::{traits::Member, types::PartialBlockIdentifier};
 use std::{borrow::Borrow, fmt::Debug, marker::PhantomData};
 use subxt::{
+    blocks::StaticExtrinsic,
     config::{ExtrinsicParams, Hasher, Header},
-    ext::{codec::Encode, scale_decode::DecodeAsType, scale_encode::EncodeAsType},
-    utils::{AccountId32, MultiAddress},
+    ext::{
+        codec::Encode,
+        scale_decode::DecodeAsType,
+        scale_encode::{EncodeAsFields, EncodeAsType},
+        subxt_core::{
+            config::BlockHash,
+            metadata::DecodeWithMetadata,
+            storage::address::{StaticAddress, StaticStorageKey},
+            tx::{payload::StaticPayload, signer::Signer},
+            utils::{AccountId32, MultiAddress, Yes},
+        },
+    },
     Config as SubxtConfig,
 };
 
 pub trait ClientConfig: Debug + Clone + PartialEq + Eq + Sized + Send + Sync + 'static {
     /// The output of the `Hasher` function.
-    type Hash: subxt::config::BlockHash;
+    type Hash: BlockHash;
 
     /// The account ID type.
     type AccountId: Member + Encode;
@@ -32,36 +43,27 @@ pub trait ClientConfig: Debug + Clone + PartialEq + Eq + Sized + Send + Sync + '
     type OtherParams: Default + Send + Sync + 'static;
 
     /// This type defines the extrinsic extra and additional parameters.
-    type ExtrinsicParams: ExtrinsicParams<SubxtConfigAdapter<Self>, OtherParams = Self::OtherParams>;
+    type ExtrinsicParams: ExtrinsicParams<SubxtConfigAdapter<Self>, Params = Self::OtherParams>;
 
     /// This is used to identify an asset in the `ChargeAssetTxPayment` signed extension.
     type AssetId: Debug + Clone + Encode + DecodeAsType + EncodeAsType;
 
-    type AccountInfo: Member + subxt::metadata::DecodeWithMetadata;
+    type AccountInfo: Member + DecodeWithMetadata;
 
-    type TransferKeepAlive: Member
-        + subxt::blocks::StaticExtrinsic
-        + subxt::ext::scale_encode::EncodeAsFields;
+    type TransferKeepAlive: Member + StaticExtrinsic + EncodeAsFields;
 
-    type Pair: subxt::tx::Signer<SubxtConfigAdapter<Self>> + Send + Sync + 'static;
+    type Pair: Signer<SubxtConfigAdapter<Self>> + Send + Sync + 'static;
 
     fn account_info(
         account: impl Borrow<AccountId32>,
-    ) -> ::subxt::storage::address::Address<
-        ::subxt::storage::address::StaticStorageMapKey,
-        Self::AccountInfo,
-        ::subxt::storage::address::Yes,
-        ::subxt::storage::address::Yes,
-        (),
-    >;
+    ) -> StaticAddress<StaticStorageKey<Self::AccountId>, Self::AccountInfo, Yes, Yes, ()>;
 
     fn transfer_keep_alive(
         dest: MultiAddress<AccountId32, ()>,
         value: u128,
-    ) -> ::subxt::tx::Payload<Self::TransferKeepAlive>;
+    ) -> StaticPayload<Self::TransferKeepAlive>;
 
-    fn other_params(
-    ) -> <Self::ExtrinsicParams as ExtrinsicParams<SubxtConfigAdapter<Self>>>::OtherParams;
+    fn other_params() -> Self::OtherParams;
 }
 
 pub struct SubxtConfigAdapter<T>(PhantomData<T>);
