@@ -9,6 +9,7 @@ use rosetta_core::{
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
+use rosetta_ethereum_backend::jsonrpsee::Adapter;
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
@@ -106,7 +107,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<DefaultClient> where Self: 'a;
+    type EventStream<'a> = EthereumEventStream<Adapter<DefaultClient>> where Self: 'a;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 

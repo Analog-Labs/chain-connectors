@@ -1,44 +1,57 @@
-use super::finalized_block_stream::FinalizedBlockStream;
+use super::{finalized_block_stream::FinalizedBlockStream, new_heads::NewHeadsStream};
 use futures_util::StreamExt;
 use rosetta_config_ethereum::Event;
 use rosetta_core::{stream::Stream, types::BlockIdentifier, BlockOrIdentifier, ClientEvent};
 use rosetta_ethereum_backend::{
-    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, H256},
-    jsonrpsee::{
-        core::client::{Subscription, SubscriptionClientT},
-        Adapter,
-    },
+    ext::types::{rpc::RpcBlock, H256},
+    jsonrpsee::core::client::{error::Error as RpcError, Subscription},
+    EthereumPubSub,
 };
 use std::{pin::Pin, task::Poll};
 
-// Maximum number of failures in sequence before closing the stream
-const FAILURE_THRESHOLD: u32 = 10;
-
-pub struct EthereumEventStream<P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static> {
-    /// Ethereum subscription for new heads
-    new_head_stream: Option<Subscription<RpcBlock<H256>>>,
+pub struct EthereumEventStream<C>
+where
+    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
+    C::SubscriptionError: Send + Sync,
+{
+    /// Latest block stream
+    new_head_stream: Option<NewHeadsStream<C>>,
     /// Finalized blocks stream
-    finalized_stream: Option<FinalizedBlockStream<Adapter<P>>>,
-    /// Count the number of failed attempts to retrieve the latest block
-    failures: u32,
+    finalized_stream: Option<FinalizedBlockStream<C>>,
 }
 
-impl<P> EthereumEventStream<P>
+impl<C> EthereumEventStream<C>
 where
-    P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
+    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
+    C::SubscriptionError: Send + Sync,
 {
-    pub fn new(client: P, subscription: Subscription<RpcBlock<H256>>) -> Self {
+    pub fn new(client: C) -> Self {
         Self {
-            new_head_stream: Some(subscription),
-            finalized_stream: Some(FinalizedBlockStream::new(Adapter(client))),
-            failures: 0,
+            new_head_stream: Some(NewHeadsStream::new(client.clone())),
+            finalized_stream: Some(FinalizedBlockStream::new(client)),
         }
     }
 }
 
-impl<P> Stream for EthereumEventStream<P>
+impl<C> Stream for EthereumEventStream<C>
 where
-    P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
+    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
+        + Clone
+        + Unpin
+        + Send
+        + Sync
+        + 'static,
+    C::SubscriptionError: Send + Sync,
 {
     type Item = ClientEvent<BlockIdentifier, Event>;
 
@@ -77,48 +90,25 @@ where
             return Poll::Ready(None);
         };
 
-        loop {
-            if self.failures >= FAILURE_THRESHOLD {
-                self.new_head_stream = None;
+        match new_head_stream.poll_next_unpin(cx) {
+            Poll::Ready(Some(block)) => {
+                // Convert block to block identifier
+                let block = {
+                    let header = block.header();
+                    BlockIdentifier::new(header.number(), header.hash().0)
+                };
+
+                self.new_head_stream = Some(new_head_stream);
+                Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(block))))
+            },
+            Poll::Ready(None) => {
                 self.finalized_stream = None;
-                return Poll::Ready(Some(ClientEvent::Close(
-                    "More than 10 failures in sequence".into(),
-                )));
-            }
-
-            match new_head_stream.poll_next_unpin(cx) {
-                Poll::Ready(Some(block)) => {
-                    // Convert raw block to block identifier
-                    let block = match block {
-                        Ok(block) => {
-                            let header = if let Some(hash) = block.hash {
-                                block.header.seal(hash)
-                            } else {
-                                block.header.seal_slow::<DefaultCrypto>()
-                            };
-                            BlockIdentifier::new(header.number(), header.hash().0)
-                        },
-                        Err(error) => {
-                            self.failures += 1;
-                            tracing::error!("[RPC BUG] invalid latest block: {error}");
-                            continue;
-                        },
-                    };
-
-                    // Reset failure counter
-                    self.failures = 0;
-
-                    self.new_head_stream = Some(new_head_stream);
-                    return Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(
-                        block,
-                    ))));
-                },
-                Poll::Ready(None) => return Poll::Ready(None),
-                Poll::Pending => {
-                    self.new_head_stream = Some(new_head_stream);
-                    break Poll::Pending;
-                },
-            };
+                Poll::Ready(None)
+            },
+            Poll::Pending => {
+                self.new_head_stream = Some(new_head_stream);
+                Poll::Pending
+            },
         }
     }
 }

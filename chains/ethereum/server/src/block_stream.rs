@@ -15,6 +15,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     finalized: FinalizedBlockStream<RPC>,
     new_heads: NewHeadsStream<RPC>,

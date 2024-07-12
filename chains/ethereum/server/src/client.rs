@@ -9,6 +9,7 @@ use crate::{
     },
 };
 use anyhow::{Context, Result};
+use futures_util::StreamExt;
 use rosetta_config_ethereum::{
     ext::types::{
         crypto::{Crypto, DefaultCrypto, Keypair, Signer},
@@ -27,14 +28,14 @@ use rosetta_config_ethereum::{
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
-    BlockchainConfig,
+    BlockchainConfig, ClientEvent,
 };
 use rosetta_ethereum_backend::{
     jsonrpsee::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
+    BlockRange, EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -519,8 +520,13 @@ where
     P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn listen(&self) -> Result<EthereumEventStream<P>> {
-        let new_heads = EthereumPubSub::new_heads(&self.backend).await?;
-        Ok(EthereumEventStream::new(self.backend.clone().0, new_heads))
+    pub async fn listen(&self) -> Result<EthereumEventStream<Adapter<P>>> {
+        let mut stream = EthereumEventStream::new(self.backend.clone());
+        match stream.next().await {
+            Some(ClientEvent::Close(msg)) => anyhow::bail!(msg),
+            None => anyhow::bail!("Failed to open the event stream"),
+            Some(_) => {},
+        }
+        Ok(stream)
     }
 }
