@@ -516,11 +516,11 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: SubscriptionClientT + Send + Sync + 'static,
+    P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
+    pub async fn listen(&self) -> Result<EthereumEventStream<P>> {
         let new_heads = EthereumPubSub::new_heads(&self.backend).await?;
-        Ok(EthereumEventStream::new(self, new_heads))
+        Ok(EthereumEventStream::new(self.backend.clone().0, new_heads))
     }
 }
