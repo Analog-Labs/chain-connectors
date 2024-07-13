@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::utils::{FullBlock, PartialBlock};
+use rosetta_core::{types::BlockIdentifier, BlockOrIdentifier};
 use rosetta_ethereum_backend::ext::types::{
     crypto::DefaultCrypto, Header, SealedHeader, H256, U256,
 };
@@ -180,6 +181,45 @@ impl Ord for BlockRef {
                 this_parent.cmp(&other_parent)
             },
             ordering => ordering,
+        }
+    }
+}
+
+impl From<&'_ MultiBlock> for BlockRef {
+    fn from(block: &'_ MultiBlock) -> Self {
+        block.as_block_ref()
+    }
+}
+
+impl From<&'_ SealedHeader> for BlockRef {
+    fn from(block: &'_ SealedHeader) -> Self {
+        Self { number: block.number(), hash: block.hash() }
+    }
+}
+
+impl From<&'_ PartialBlock> for BlockRef {
+    fn from(block: &'_ PartialBlock) -> Self {
+        Self::from(block.header())
+    }
+}
+
+impl From<&'_ FullBlock> for BlockRef {
+    fn from(block: &'_ FullBlock) -> Self {
+        Self::from(block.header())
+    }
+}
+
+impl From<&'_ BlockIdentifier> for BlockRef {
+    fn from(identifier: &'_ BlockIdentifier) -> Self {
+        Self { number: identifier.index, hash: H256(identifier.hash) }
+    }
+}
+
+impl From<&'_ BlockOrIdentifier<BlockIdentifier>> for BlockRef {
+    fn from(identifier: &'_ BlockOrIdentifier<BlockIdentifier>) -> Self {
+        match identifier {
+            BlockOrIdentifier::Identifier(id) => Self::from(id),
+            BlockOrIdentifier::Block(block) => Self::from(&block.block_identifier),
         }
     }
 }

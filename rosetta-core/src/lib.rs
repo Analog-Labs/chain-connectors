@@ -13,7 +13,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 pub use futures_util::{future, stream};
 use serde::{de::DeserializeOwned, Serialize};
-use std::sync::Arc;
+use std::{fmt::Display, sync::Arc};
 
 use futures_util::stream::Empty;
 pub use node_uri::{NodeUri, NodeUriError};
@@ -70,6 +70,18 @@ impl<ID> From<ID> for BlockOrIdentifier<ID> {
 impl<T: BlockchainClient> From<Block> for BlockOrIdentifier<T> {
     fn from(block: Block) -> Self {
         Self::Block(block)
+    }
+}
+
+impl<ID> Display for BlockOrIdentifier<ID>
+where
+    ID: Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier(id) => Display::fmt(id, f),
+            Self::Block(block) => Display::fmt(&block.block_identifier, f),
+        }
     }
 }
 

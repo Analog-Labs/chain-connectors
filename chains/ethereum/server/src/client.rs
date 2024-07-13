@@ -1,8 +1,10 @@
 #![allow(clippy::option_if_let_else)]
 use crate::{
-    event_stream::EthereumEventStream,
+    block_stream::BlockStream,
     log_filter::LogFilter,
     proof::verify_proof,
+    shared_stream::SharedStream,
+    state::State,
     utils::{
         AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, PartialBlock,
         PolygonFeeEstimatorConfig,
@@ -74,6 +76,7 @@ pub struct EthereumClient<P> {
     nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
     log_filter: Arc<std::sync::Mutex<LogFilter>>,
+    // event_stream: SharedStream<BlockStream<Adapter<P>>>
 }
 
 impl<P> Clone for EthereumClient<P>
@@ -520,13 +523,14 @@ where
     P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn listen(&self) -> Result<EthereumEventStream<Adapter<P>>> {
-        let mut stream = EthereumEventStream::new(self.backend.clone());
+    pub async fn listen(&self) -> Result<SharedStream<BlockStream<Adapter<P>>>> {
+        let best_finalized_block = self.finalized_block(None).await?;
+        let mut stream = BlockStream::new(self.backend.clone(), State::new(best_finalized_block));
         match stream.next().await {
             Some(ClientEvent::Close(msg)) => anyhow::bail!(msg),
             None => anyhow::bail!("Failed to open the event stream"),
             Some(_) => {},
         }
-        Ok(stream)
+        Ok(SharedStream::new(stream, 100))
     }
 }

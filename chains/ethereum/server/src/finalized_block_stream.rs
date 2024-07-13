@@ -88,9 +88,13 @@ impl Statistics {
             self.new += 1;
             true
         } else {
-            debug_assert!(new_block.number > expected, "Non monotonically increasing finalized block number");
+            debug_assert!(
+                new_block.number > expected,
+                "Non monotonically increasing finalized block number"
+            );
             // Cap the gap_size to `ADJUST_THRESHOLD`.
-            let gap_size = i32::try_from(new_block.number - expected).unwrap_or(1).min(ADJUST_THRESHOLD);
+            let gap_size =
+                i32::try_from(new_block.number - expected).unwrap_or(1).min(ADJUST_THRESHOLD);
             self.gaps += 1;
             self.adjust_threshold -= gap_size;
             true
