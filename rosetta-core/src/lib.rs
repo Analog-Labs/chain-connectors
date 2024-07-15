@@ -13,7 +13,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 pub use futures_util::{future, stream};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{fmt::Display, sync::Arc};
+use std::{fmt::{Display, Debug}, sync::Arc};
 
 use futures_util::stream::Empty;
 pub use node_uri::{NodeUri, NodeUriError};
@@ -41,7 +41,7 @@ pub struct BlockchainConfig {
     pub testnet: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum BlockOrIdentifier<ID> {
     Identifier(ID),
     Block(Block),
@@ -70,6 +70,18 @@ impl<ID> From<ID> for BlockOrIdentifier<ID> {
 impl<T: BlockchainClient> From<Block> for BlockOrIdentifier<T> {
     fn from(block: Block) -> Self {
         Self::Block(block)
+    }
+}
+
+impl<ID> Debug for BlockOrIdentifier<ID>
+where
+    ID: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier(id) => Debug::fmt(id, f),
+            Self::Block(block) => Debug::fmt(&block.block_identifier, f),
+        }
     }
 }
 

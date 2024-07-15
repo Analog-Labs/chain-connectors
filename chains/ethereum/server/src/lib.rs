@@ -40,6 +40,7 @@ pub mod ext {
     pub use rosetta_config_ethereum as config;
     pub use rosetta_core as core;
     pub use rosetta_ethereum_backend as backend;
+    pub use futures_util;
 }
 
 #[derive(Clone)]
@@ -80,9 +81,11 @@ impl MaybeWsEthereumClient {
     ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
+            tracing::trace!("Initializing Ethereum client with Websocket at {uri}");
             let client = default_client(uri.as_str(), None).await?;
             Self::from_jsonrpsee(config, client, private_key).await
         } else {
+            tracing::trace!("Initializing Ethereum client with Http at {uri}");
             let http_connection = default_http_client(uri.as_str())?;
             // let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection, private_key).await?;

@@ -85,9 +85,9 @@ where
                     }
 
                     let event = if is_finalized {
-                        ClientEvent::NewHead(block_id)
-                    } else {
                         ClientEvent::NewFinalized(block_id)
+                    } else {
+                        ClientEvent::NewHead(block_id)
                     };
                     self.block_stream = Some(block_stream);
                     break Poll::Ready(Some(event));

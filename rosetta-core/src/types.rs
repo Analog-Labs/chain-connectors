@@ -35,7 +35,7 @@ pub struct Block {
 }
 
 /// `BlockIdentifier` : The `block_identifier` uniquely identifies a block in a particular network.
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BlockIdentifier {
     /// This is also known as the block height.
     #[serde(rename = "index")]
@@ -58,6 +58,16 @@ impl Display for BlockIdentifier {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let hash_hex = const_hex::encode_prefixed(self.hash);
         write!(f, "{}: {}", self.index, hash_hex)
+    }
+}
+
+impl Debug for BlockIdentifier {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let hash_hex = const_hex::encode_prefixed(self.hash);
+        f.debug_struct("BlockIdentifier")
+            .field("index", &self.index)
+            .field("hash", &hash_hex)
+            .finish()
     }
 }
 
