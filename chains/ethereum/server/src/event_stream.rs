@@ -109,12 +109,6 @@ where
             Poll::Ready(Some(block)) => {
                 self.finalized_stream = Some(finalized_stream);
                 return Poll::Ready(Some(NewBlock::new_finalized(block)));
-                // return Poll::Ready(Some(ClientEvent::NewFinalized(
-                //     BlockOrIdentifier::Identifier(BlockIdentifier::new(
-                //         block.header().header().number,
-                //         block.header().hash().0,
-                //     )),
-                // )));
             },
             Poll::Ready(None) => {
                 self.new_head_stream = None;
@@ -133,15 +127,8 @@ where
 
         match new_head_stream.poll_next_unpin(cx) {
             Poll::Ready(Some(block)) => {
-                // Convert block to block identifier
-                // let block = {
-                //     let header = block.header();
-                //     BlockIdentifier::new(header.number(), header.hash().0)
-                // };
-
                 self.new_head_stream = Some(new_head_stream);
                 Poll::Ready(Some(NewBlock::new_head(block)))
-                // Poll::Ready(Some(ClientEvent::NewHead(BlockOrIdentifier::Identifier(block))))
             },
             Poll::Ready(None) => {
                 self.finalized_stream = None;
