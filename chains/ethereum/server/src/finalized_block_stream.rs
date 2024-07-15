@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::utils::{EthereumRpcExt, PartialBlock};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};

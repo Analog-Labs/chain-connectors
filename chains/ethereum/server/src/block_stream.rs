@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use super::{
     event_stream::{EthereumEventStream, NewBlock},
     state::State,

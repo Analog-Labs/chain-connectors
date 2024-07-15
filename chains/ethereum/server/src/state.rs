@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{Arc, RwLock},
@@ -10,9 +9,6 @@ use hashbrown::{hash_map::Entry, HashMap};
 use rosetta_config_ethereum::ext::types::H256;
 
 type ForkTree = fork_tree::ForkTree<BlockRef, u64, H256>;
-
-/// Maximum number of blocks that can be skipped when importing a block
-const MAX_BLOCK_GAP: u64 = 1000;
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
@@ -115,44 +111,6 @@ impl StateInner {
             })?;
         self.fork_tree.rebalance();
         Ok(())
-    }
-
-    fn insert_orphan_block(
-        &mut self,
-        block: MultiBlock,
-        mut children: BTreeMap<BlockRef, MultiBlock>,
-    ) {
-        // Add block to the orphan list
-        let missing_ref = if let Some(parent_ref) = self.orphans.get(&block.parent_ref()).copied() {
-            self.orphans.insert(block.as_block_ref(), parent_ref);
-            parent_ref
-        } else {
-            let parent_ref = block.parent_ref();
-            self.orphans.insert(block.as_block_ref(), parent_ref);
-            parent_ref
-        };
-
-        // Update children missing references
-        for child_ref in children.keys().copied() {
-            self.orphans.insert(child_ref, missing_ref);
-        }
-
-        // Add block to the orphan list
-        match self.missing.entry(missing_ref) {
-            Entry::Occupied(mut entry) => {
-                let orphans = entry.get_mut();
-                if let Some(cached) = orphans.get_mut(&block.as_block_ref()) {
-                    cached.upgrade(block);
-                } else {
-                    orphans.insert(block.as_block_ref(), block);
-                }
-                orphans.extend(children);
-            },
-            Entry::Vacant(entry) => {
-                children.insert(block.as_block_ref(), block);
-                entry.insert(children);
-            },
-        }
     }
 
     #[allow(clippy::too_many_lines)]

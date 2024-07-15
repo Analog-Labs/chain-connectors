@@ -13,7 +13,10 @@ use anyhow::Result;
 use async_trait::async_trait;
 pub use futures_util::{future, stream};
 use serde::{de::DeserializeOwned, Serialize};
-use std::{fmt::{Display, Debug}, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
 use futures_util::stream::Empty;
 pub use node_uri::{NodeUri, NodeUriError};

@@ -37,10 +37,10 @@ pub mod config {
 #[doc(hidden)]
 pub mod ext {
     pub use anyhow;
+    pub use futures_util;
     pub use rosetta_config_ethereum as config;
     pub use rosetta_core as core;
     pub use rosetta_ethereum_backend as backend;
-    pub use futures_util;
 }
 
 #[derive(Clone)]
