@@ -6,6 +6,8 @@ targets = [
 ]
 
 [licenses] # ----------------------------------------------------------------- #
+version = 2
+
 # The lint level for crates which do not have a detectable license
 unlicensed = "deny"
 
@@ -90,17 +92,19 @@ wildcards = "allow"
 highlight = "all"
 
 [advisories] # --------------------------------------------------------------- #
+version = 2
+
 # The path where the advisory database is cloned/fetched into
 db-path = "~/.cargo/advisory-db"
 
 # The url(s) of the advisory databases to use
 db-urls = ["https://github.com/rustsec/advisory-db"]
 
-# The lint level for security vulnerabilities
-vulnerability = "deny"
-
 # The lint level for unmaintained crates
 unmaintained = "deny"
+
+# The lint level for crates that have been marked as unsound in an advisory database
+unsound = "deny"
 
 # The lint level for crates that have been yanked from their source registry
 yanked = "deny"
@@ -113,11 +117,17 @@ notice = "deny"
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-  'RUSTSEC-2021-0060', # Create `aes-soft` has been merged into the `aes` crate
-  'RUSTSEC-2021-0064', # Crate `cpuid-bool` has been renamed to `cpufeatures`
-  'RUSTSEC-2021-0139', # ansi_term is Unmaintained
-  'RUSTSEC-2022-0093', # related issue: https://github.com/Analog-Labs/chain-connectors/issues/162
-  'RUSTSEC-2024-0344', # Timing variabilit on curve25519-dalek, which can potentially leak private keys
+  # Create `aes-soft` has been merged into the `aes` crate
+  { id = 'RUSTSEC-2021-0060', reason = "Will be fixed in a future PR" },
+
+  # Crate `cpuid-bool` has been renamed to `cpufeatures`
+  { id = 'RUSTSEC-2021-0064', reason = "Will be fixed in a future PR" },
+
+  # ansi_term is Unmaintained
+  { id = 'RUSTSEC-2021-0139', reason = "Will be fixed in a future PR" },
+
+  # Timing variabilit on curve25519-dalek, which can potentially leak private keys
+  { id = 'RUSTSEC-2024-0344', reason = "Waiting for third-part libraries to update to the fixed version" },
 ]
 
 # This section is considered when running `cargo deny check sources`.
