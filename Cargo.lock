@@ -5604,6 +5604,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-humanode"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "async-trait",
+ "ethers",
+ "ethers-solc",
+ "futures-util",
+ "hex-literal",
+ "parity-scale-codec",
+ "rand_core 0.6.4",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-config-polkadot",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server",
+ "rosetta-server-ethereum",
+ "rosetta-server-polkadot",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sp-keyring",
+ "subxt",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "rosetta-server"
 version = "0.6.0"
 dependencies = [

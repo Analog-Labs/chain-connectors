@@ -10,7 +10,7 @@ on:
 
 jobs:
   rustfmt:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
         scandir: './scripts'
 
   cargo-deny:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
       matrix:
         crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum]
     name: ${{ matrix.crate }}
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
@@ -104,6 +104,17 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
+    
+    - name: Checkout humanode-distribution
+      run: git clone https://github.com/humanode-network/distribution.git
+
+    - name: Setup humanode distribution
+      run: |
+        cargo run
+        ./target/debug/humanode-distribution install --dir humanode-testnet --package-display-name "Testnet 5"
+        ./humanode-testnet/humanode-peer --dev
+
+        
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
@@ -111,7 +122,7 @@ jobs:
   # Test all crates, excluding the clients
   test:
     needs: [rustfmt]
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources

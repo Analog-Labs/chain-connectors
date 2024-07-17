@@ -135,7 +135,6 @@ impl BlockchainClient for PolkadotClient {
         params: &Self::MetadataParams,
     ) -> Result<Self::Metadata> {
         let address = public_key.to_address(self.config().address_format);
-
         let account: AccountId32 = address
             .address()
             .parse()

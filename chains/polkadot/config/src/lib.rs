@@ -31,6 +31,15 @@ pub mod metadata {
         )]
         pub mod dev {}
     }
+
+    #[cfg(feature = "humanode-metadata")]
+    pub mod humanode {
+        #[subxt::subxt(
+            runtime_metadata_path = "res/humanode-local.scale",
+            derive_for_all_types = "Clone, Eq, PartialEq"
+        )]
+        pub mod dev {}
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -81,6 +90,7 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
             "westend" => "westend",
             "wococo" => "wococo",
             "versi" => "versi",
+            "humanode" => "humanode",
             _ => anyhow::bail!("unsupported blockchain: {}", blockchain),
         };
 
@@ -106,6 +116,12 @@ impl TryFrom<&str> for PolkadotNetworkProperties {
 
             // Versi
             ("versi", _) => ("VRS", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
+
+            // Humanode mainnet and dev networks
+            ("humanode", "mainnet") => {
+                ("hmnd", 5234, 12, Ss58AddressFormatRegistry::SubstrateAccount)
+            },
+            ("humanode", "dev") => ("hmnd", 1, 12, Ss58AddressFormatRegistry::SubstrateAccount),
 
             _ => anyhow::bail!("unsupported network: {network}"),
         };

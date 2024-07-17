@@ -13,7 +13,8 @@ serde.workspace = true
 subxt = { workspace = true, features = ["substrate-compat", "native"] }
 
 [features]
-default = ["polkadot-metadata", "westend-metadata", "rococo-metadata"]
+default = ["polkadot-metadata", "westend-metadata", "rococo-metadata", "humanode-metadata"]
 polkadot-metadata = []
 westend-metadata = []
 rococo-metadata = []
+humanode-metadata = []
