@@ -126,7 +126,7 @@ mod tests {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
-                .expect("Error creating ArbitrumClient");
+                .expect("Error creating PolygonClient");
             let wallet =
                 Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
                     .await
@@ -145,7 +145,7 @@ mod tests {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
-                .expect("Error creating ArbitrumClient");
+                .expect("Error creating PolygonClient");
             let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             let value = u128::pow(10, client.config().currency_decimals);
             let alice =
@@ -207,7 +207,7 @@ mod tests {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
-                .expect("Error creating ArbitrumClient");
+                .expect("Error creating PolygonClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
                 Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
@@ -251,7 +251,7 @@ mod tests {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
                 .await
-                .expect("Error creating ArbitrumClient");
+                .expect("Error creating PolygonClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
                 Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)

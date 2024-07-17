@@ -223,7 +223,7 @@ pub fn polygon_config(network: &str) -> anyhow::Result<BlockchainConfig> {
 /// # Errors
 /// Returns `Err` if the network is not supported
 pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
-    // All available networks are listed here:
+    // All available networks in arbitrum are listed here:
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
         "goerli" => ("goerli", 1, true),
@@ -231,6 +231,21 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
         _ => anyhow::bail!("unsupported network: {}", network),
     };
     Ok(evm_config("arbitrum", network, "ARB", bip44_id, is_dev))
+}
+
+/// Retrieve the [`BlockchainConfig`] from the provided binance `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn binance_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks in binance are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1337, true),
+        "testnet" => ("testnet", 97, true),
+        "mainnet" => ("mainnet", 56, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("binance", network, "bnb", bip44_id, is_dev))
 }
 
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
@@ -257,6 +272,11 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "arbitrum-local" => return arbitrum_config("dev"),
         "arbitrum" => return arbitrum_config("mainnet"),
         "arbitrum-goerli" => return arbitrum_config("goerli"),
+
+        // Binance
+        "binance-dev" => return binance_config("dev"),
+        "binance" => return binance_config("mainnet"),
+        "Testnet" => return binance_config("testnet"),
 
         network => return astar_config(network),
     };
