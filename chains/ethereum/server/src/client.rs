@@ -1,14 +1,17 @@
 #![allow(clippy::option_if_let_else)]
 use crate::{
-    event_stream::EthereumEventStream,
+    block_stream::BlockStream,
     log_filter::LogFilter,
     proof::verify_proof,
+    shared_stream::SharedStream,
+    state::State,
     utils::{
         AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, PartialBlock,
         PolygonFeeEstimatorConfig,
     },
 };
 use anyhow::{Context, Result};
+use futures_util::StreamExt;
 use rosetta_config_ethereum::{
     ext::types::{
         crypto::{Crypto, DefaultCrypto, Keypair, Signer},
@@ -27,14 +30,14 @@ use rosetta_config_ethereum::{
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
-    BlockchainConfig,
+    BlockchainConfig, ClientEvent,
 };
 use rosetta_ethereum_backend::{
     jsonrpsee::{
         core::client::{ClientT, SubscriptionClientT},
         Adapter,
     },
-    BlockRange, EthereumPubSub, EthereumRpc, ExitReason,
+    BlockRange, EthereumRpc, ExitReason,
 };
 use std::sync::{
     atomic::{self, Ordering},
@@ -73,6 +76,7 @@ pub struct EthereumClient<P> {
     nonce: Arc<std::sync::atomic::AtomicU64>,
     private_key: Option<[u8; 32]>,
     log_filter: Arc<std::sync::Mutex<LogFilter>>,
+    // event_stream: SharedStream<BlockStream<Adapter<P>>>
 }
 
 impl<P> Clone for EthereumClient<P>
@@ -516,11 +520,17 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: SubscriptionClientT + Send + Sync + 'static,
+    P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn listen(&self) -> Result<EthereumEventStream<'_, P>> {
-        let new_heads = EthereumPubSub::new_heads(&self.backend).await?;
-        Ok(EthereumEventStream::new(self, new_heads))
+    pub async fn listen(&self) -> Result<SharedStream<BlockStream<Adapter<P>>>> {
+        let best_finalized_block = self.finalized_block(None).await?;
+        let mut stream = BlockStream::new(self.backend.clone(), State::new(best_finalized_block));
+        match stream.next().await {
+            Some(ClientEvent::Close(msg)) => anyhow::bail!(msg),
+            None => anyhow::bail!("Failed to open the event stream"),
+            Some(_) => {},
+        }
+        Ok(SharedStream::new(stream, 100))
     }
 }

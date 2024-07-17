@@ -1,3 +1,4 @@
+[graph]
 # cargo-deny is really only ever intended to run on the "normal" tier-1 targets
 targets = [
   { triple = "x86_64-unknown-linux-gnu" },
@@ -6,8 +7,7 @@ targets = [
 ]
 
 [licenses] # ----------------------------------------------------------------- #
-# The lint level for crates which do not have a detectable license
-unlicensed = "deny"
+version = 2
 
 # List of explicitly allowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -25,27 +25,10 @@ allow = [
   "Unicode-DFS-2016",
 ]
 
-# Lint level for licenses considered copyleft
-copyleft = "deny"
-# Blanket approval or denial for OSI-approved or FSF Free/Libre licenses
-# * both - The license will be approved if it is both OSI-approved *AND* FSF
-# * either - The license will be approved if it is either OSI-approved *OR* FSF
-# * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
-# * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
-# * neither - This predicate is ignored and the default lint level is used
-
-allow-osi-fsf-free = "neither"
-# Lint level used when no other predicates are matched
-# 1. License isn't in the allow or deny lists
-# 2. License isn't copyleft
-# 3. License isn't OSI/FSF, or allow-osi-fsf-free = "neither"
-
-default = "deny"
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
 # canonical license text of a valid SPDX license file.
 # [possible values: any between 0.0 and 1.0].
-
 confidence-threshold = 0.9
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
@@ -90,34 +73,31 @@ wildcards = "allow"
 highlight = "all"
 
 [advisories] # --------------------------------------------------------------- #
+version = 2
+
 # The path where the advisory database is cloned/fetched into
 db-path = "~/.cargo/advisory-db"
 
 # The url(s) of the advisory databases to use
 db-urls = ["https://github.com/rustsec/advisory-db"]
 
-# The lint level for security vulnerabilities
-vulnerability = "deny"
-
-# The lint level for unmaintained crates
-unmaintained = "deny"
-
 # The lint level for crates that have been yanked from their source registry
 yanked = "deny"
-
-# The lint level for crates with security notices. Note that as of
-# 2019-12-17 there are no security notice advisories in
-# https://github.com/rustsec/advisory-db
-notice = "deny"
 
 # A list of advisory IDs to ignore. Note that ignored advisories will still
 # output a note when they are encountered.
 ignore = [
-  'RUSTSEC-2021-0060', # Create `aes-soft` has been merged into the `aes` crate
-  'RUSTSEC-2021-0064', # Crate `cpuid-bool` has been renamed to `cpufeatures`
-  'RUSTSEC-2021-0139', # ansi_term is Unmaintained
-  'RUSTSEC-2022-0093', # related issue: https://github.com/Analog-Labs/chain-connectors/issues/162
-  'RUSTSEC-2024-0344', # Timing variabilit on curve25519-dalek, which can potentially leak private keys
+  # Create `aes-soft` has been merged into the `aes` crate
+  { id = 'RUSTSEC-2021-0060', reason = "Will be fixed in a future PR" },
+
+  # Crate `cpuid-bool` has been renamed to `cpufeatures`
+  { id = 'RUSTSEC-2021-0064', reason = "Will be fixed in a future PR" },
+
+  # ansi_term is Unmaintained
+  { id = 'RUSTSEC-2021-0139', reason = "Will be fixed in a future PR" },
+
+  # Timing variabilit on curve25519-dalek, which can potentially leak private keys
+  { id = 'RUSTSEC-2024-0344', reason = "Waiting for third-part libraries to update to the fixed version" },
 ]
 
 # This section is considered when running `cargo deny check sources`.

@@ -1,5 +1,7 @@
-#![allow(dead_code)]
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::{Arc, RwLock},
+};
 
 use crate::multi_block::{BlockRef, MultiBlock};
 use fork_tree::FinalizationResult;
@@ -8,17 +10,40 @@ use rosetta_config_ethereum::ext::types::H256;
 
 type ForkTree = fork_tree::ForkTree<BlockRef, u64, H256>;
 
-/// Maximum number of blocks that can be skipped when importing a block
-const MAX_BLOCK_GAP: u64 = 1000;
-
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
     #[error("block not found: {0}")]
     BlockNotFound(H256),
 }
 
-/// Manages the client state
+#[derive(Debug, Clone)]
 pub struct State {
+    inner: Arc<RwLock<StateInner>>,
+}
+
+impl State {
+    pub fn new<B: Into<MultiBlock>>(best_finalized_block: B) -> Self {
+        Self { inner: Arc::new(RwLock::new(StateInner::new(best_finalized_block))) }
+    }
+
+    pub fn import<B: Into<MultiBlock>>(&self, block: B) -> Result<(), fork_tree::Error<Error>> {
+        #[allow(clippy::unwrap_used)]
+        self.inner.write().unwrap().import(block)
+    }
+
+    pub fn finalize<B: Into<BlockRef>>(
+        &self,
+        finalized_block_ref: B,
+    ) -> Result<Vec<MultiBlock>, fork_tree::Error<Error>> {
+        let finalized_block_ref = finalized_block_ref.into();
+        #[allow(clippy::unwrap_used)]
+        self.inner.write().unwrap().finalize(finalized_block_ref)
+    }
+}
+
+/// Manages the client state
+#[derive(Debug, PartialEq)]
+struct StateInner {
     /// Map of block hashes to their full block data
     blocks: HashMap<BlockRef, MultiBlock>,
     /// Maps an orphan block to missing block
@@ -29,10 +54,12 @@ pub struct State {
     fork_tree: ForkTree,
     /// List of finalized finalized blocks
     finalized_blocks: VecDeque<BlockRef>,
+    /// latest known block
+    latest_block: BlockRef,
 }
 
-impl State {
-    pub fn new<B: Into<MultiBlock>>(best_finalized_block: B) -> Self {
+impl StateInner {
+    fn new<B: Into<MultiBlock>>(best_finalized_block: B) -> Self {
         let best_finalized_block = best_finalized_block.into();
         let best_finalized_block_ref = best_finalized_block.as_block_ref();
         let best_finalized_block_parent = best_finalized_block.parent_hash();
@@ -69,6 +96,7 @@ impl State {
             missing: HashMap::new(),
             fork_tree,
             finalized_blocks,
+            latest_block: best_finalized_block_ref,
         }
     }
 
@@ -85,46 +113,8 @@ impl State {
         Ok(())
     }
 
-    fn insert_orphan_block(
-        &mut self,
-        block: MultiBlock,
-        mut children: BTreeMap<BlockRef, MultiBlock>,
-    ) {
-        // Add block to the orphan list
-        let missing_ref = if let Some(parent_ref) = self.orphans.get(&block.parent_ref()).copied() {
-            self.orphans.insert(block.as_block_ref(), parent_ref);
-            parent_ref
-        } else {
-            let parent_ref = block.parent_ref();
-            self.orphans.insert(block.as_block_ref(), parent_ref);
-            parent_ref
-        };
-
-        // Update children missing references
-        for child_ref in children.keys().copied() {
-            self.orphans.insert(child_ref, missing_ref);
-        }
-
-        // Add block to the orphan list
-        match self.missing.entry(missing_ref) {
-            Entry::Occupied(mut entry) => {
-                let orphans = entry.get_mut();
-                if let Some(cached) = orphans.get_mut(&block.as_block_ref()) {
-                    cached.upgrade(block);
-                } else {
-                    orphans.insert(block.as_block_ref(), block);
-                }
-                orphans.extend(children);
-            },
-            Entry::Vacant(entry) => {
-                children.insert(block.as_block_ref(), block);
-                entry.insert(children);
-            },
-        }
-    }
-
     #[allow(clippy::too_many_lines)]
-    pub fn import<B: Into<MultiBlock>>(&mut self, block: B) -> Result<(), fork_tree::Error<Error>> {
+    fn import<B: Into<MultiBlock>>(&mut self, block: B) -> Result<(), fork_tree::Error<Error>> {
         let block = block.into();
 
         // Check if the block is already in the cache, if so, update it
@@ -234,7 +224,7 @@ impl State {
         Ok(())
     }
 
-    pub fn finalize(
+    fn finalize(
         &mut self,
         finalized_block_ref: BlockRef,
     ) -> Result<Vec<MultiBlock>, fork_tree::Error<Error>> {
@@ -373,7 +363,7 @@ mod tests {
         //
         // (where N is not a part of fork tree)
         let block_a = create_block(H256::zero(), 1, 1);
-        let mut state = State::new(block_a.clone());
+        let state = State::new(block_a.clone());
         let block_b = create_block(block_a.hash(), 2, 2);
         let block_c = create_block(block_b.hash(), 3, 3);
         let block_d = create_block(block_c.hash(), 4, 4);
@@ -436,7 +426,7 @@ mod tests {
         //
         // (where N is not a part of fork tree)
         let block_a = create_block(H256::zero(), 1, 1);
-        let mut state = State::new(block_a.clone());
+        let state = State::new(block_a.clone());
         let block_b = create_block(block_a.hash(), 2, 2);
         let block_c = create_block(block_b.hash(), 3, 3);
         let block_d = create_block(block_c.hash(), 4, 4);
@@ -476,8 +466,13 @@ mod tests {
             state.import(block).unwrap();
         }
 
-        assert_eq!(state.orphans.len(), 4);
-        assert_eq!(state.missing.len(), 1);
+        #[allow(clippy::significant_drop_tightening)]
+        {
+            let inner = state.inner.read().unwrap();
+            assert_eq!(inner.orphans.len(), 4);
+            assert_eq!(inner.missing.len(), 1);
+            drop(inner);
+        }
 
         // Finalize block A
         let retracted = state.finalize(block_a.as_block_ref()).unwrap();

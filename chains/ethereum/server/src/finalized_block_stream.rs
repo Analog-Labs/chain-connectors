@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::utils::{EthereumRpcExt, PartialBlock};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};
@@ -40,9 +39,6 @@ enum StateMachine<'a, T> {
 struct Statistics {
     /// Latest known finalized block.
     best_finalized_block: Option<Header>,
-
-    /// required number of successful polls before starting to adjust the polling interval.
-    probation_period: u32,
 
     /// Incremented the best finalized block is parent of the new block.
     /// Ex: if the best known finalized block is 100, and the new block is 101.
@@ -91,7 +87,13 @@ impl Statistics {
             self.new += 1;
             true
         } else {
-            let gap_size = i32::try_from(new_block.number - expected).unwrap_or(1);
+            debug_assert!(
+                new_block.number > expected,
+                "Non monotonically increasing finalized block number"
+            );
+            // Cap the gap_size to `ADJUST_THRESHOLD`.
+            let gap_size =
+                i32::try_from(new_block.number - expected).unwrap_or(1).min(ADJUST_THRESHOLD);
             self.gaps += 1;
             self.adjust_threshold -= gap_size;
             true
@@ -149,7 +151,6 @@ where
             backend,
             statistics: Statistics {
                 best_finalized_block: None,
-                probation_period: 0,
                 new: 0,
                 duplicated: 0,
                 gaps: 0,

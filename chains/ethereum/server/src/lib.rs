@@ -1,4 +1,5 @@
 use anyhow::Result;
+use block_stream::BlockStream;
 pub use client::EthereumClient;
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
@@ -9,6 +10,7 @@ use rosetta_core::{
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
+use rosetta_ethereum_backend::jsonrpsee::Adapter;
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
@@ -20,6 +22,7 @@ mod log_filter;
 mod multi_block;
 mod new_heads;
 mod proof;
+mod shared_stream;
 mod state;
 mod utils;
 
@@ -34,6 +37,7 @@ pub mod config {
 #[doc(hidden)]
 pub mod ext {
     pub use anyhow;
+    pub use futures_util;
     pub use rosetta_config_ethereum as config;
     pub use rosetta_core as core;
     pub use rosetta_ethereum_backend as backend;
@@ -77,9 +81,11 @@ impl MaybeWsEthereumClient {
     ) -> Result<Self> {
         let uri = Url::parse(addr.as_ref())?;
         if uri.scheme() == "ws" || uri.scheme() == "wss" {
+            tracing::trace!("Initializing Ethereum client with Websocket at {uri}");
             let client = default_client(uri.as_str(), None).await?;
             Self::from_jsonrpsee(config, client, private_key).await
         } else {
+            tracing::trace!("Initializing Ethereum client with Http at {uri}");
             let http_connection = default_http_client(uri.as_str())?;
             // let http_connection = Http::new(uri);
             let client = EthereumClient::new(config, http_connection, private_key).await?;
@@ -106,7 +112,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = EthereumEventStream<'a, DefaultClient>;
+    type EventStream<'a> = shared_stream::SharedStream<BlockStream<Adapter<DefaultClient>>> where Self: 'a;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 

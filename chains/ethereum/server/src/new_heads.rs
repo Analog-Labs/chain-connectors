@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use rosetta_ethereum_backend::{
     ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, AtBlock, SealedBlock, H256},
@@ -26,20 +25,22 @@ struct PollLatestBlock<RPC>(RPC);
 impl<RPC> FutureFactory for PollLatestBlock<RPC>
 where
     RPC: EthereumRpc<Error = RpcError> + Send + Sync + 'static,
+    RPC::Error: Send + Sync,
 {
-    type Output = Result<Option<PartialBlock>, RpcError>;
+    type Output = Result<Option<PartialBlock>, <RPC as EthereumRpc>::Error>;
     type Future<'a> = BoxFuture<'a, Self::Output>;
     fn new_future(&mut self) -> Self::Future<'_> {
         async move {
             let Some(block) = self.0.block(AtBlock::Latest).await? else {
                 return Ok(None);
             };
-            let Some(hash) = block.hash else {
-                return Err(RpcError::Custom(
-                    "[report this bug] the api returned the latest block without hash".to_string(),
-                ));
+            let block = if let Some(hash) = block.hash {
+                block.seal(hash)
+            } else {
+                tracing::warn!("[report this bug] the api returned the latest block without hash, computing block hash manually");
+                block.seal_slow::<DefaultCrypto>()
             };
-            Ok(Some(block.seal(hash)))
+            Ok(Some(block))
         }
         .boxed()
     }
@@ -88,6 +89,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     Subscription(AutoSubscribe<RpcBlock<H256>, NewHeadsSubscriber<RPC>>),
     Polling(CircuitBreaker<PollingInterval<PollLatestBlock<RPC>>, ()>),
@@ -101,6 +103,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -117,6 +120,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     /// Subscription or Polling to new block headers.
     state: State<RPC>,
@@ -135,6 +139,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -149,6 +154,7 @@ where
         + Send
         + Sync
         + 'static,
+    RPC::SubscriptionError: Send + Sync,
 {
     type Item = PartialBlock;
 

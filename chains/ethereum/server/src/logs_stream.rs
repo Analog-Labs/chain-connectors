@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use futures_util::{future::BoxFuture, Stream, StreamExt};
 use rosetta_ethereum_backend::{
     ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, AtBlock, SealedBlock, H256},
