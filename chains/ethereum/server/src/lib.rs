@@ -14,10 +14,12 @@ use rosetta_ethereum_backend::jsonrpsee::Adapter;
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
+mod block_fetcher;
 mod block_stream;
 mod client;
 mod event_stream;
 mod finalized_block_stream;
+mod fns;
 mod log_filter;
 mod multi_block;
 mod new_heads;

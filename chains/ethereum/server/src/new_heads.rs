@@ -37,7 +37,7 @@ where
             let block = if let Some(hash) = block.hash {
                 block.seal(hash)
             } else {
-                tracing::warn!("[report this bug] the api returned the latest block without hash, computing block hash manually");
+                tracing::error!("[report this bug] the api returned the latest block without hash, computing block hash manually");
                 block.seal_slow::<DefaultCrypto>()
             };
             Ok(Some(block))
