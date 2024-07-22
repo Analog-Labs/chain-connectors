@@ -267,6 +267,7 @@ impl StateInner {
         self.finalized_blocks.push_back(finalized_block_ref);
 
         // Remove retracted blocks
+        let head_block_number = finalized_block_ref.number + 1;
         let finalized_blocks = &self.finalized_blocks;
         let mut removed = self
             .blocks

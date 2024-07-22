@@ -80,7 +80,7 @@ impl MultiBlock {
             (&self, &other),
             (Self::Partial(_), Self::Full(_)) | (Self::Header(_), Self::Full(_) | Self::Partial(_))
         );
-        if should_upgrade {
+        if should_upgrade && self.number() == other.number() && self.hash() == other.hash() {
             std::mem::replace(self, other)
         } else {
             other
@@ -139,7 +139,7 @@ impl From<Header> for MultiBlock {
 }
 
 // A reference to a block
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct BlockRef {
     pub number: u64,
     pub hash: H256,

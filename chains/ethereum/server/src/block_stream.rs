@@ -1,4 +1,7 @@
+use crate::multi_block::BlockRef;
+
 use super::{
+    block_fetcher::{BlockFetcher, RequestBlock},
     event_stream::{EthereumEventStream, NewBlock},
     state::State,
 };
@@ -11,12 +14,15 @@ use rosetta_ethereum_backend::{
     EthereumPubSub,
 };
 use std::{
+    collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
 };
+use tinyvec::TinyVec;
 
-pub struct BlockStream<RPC>
+pub struct BlockStream<RPC, REQ>
 where
+    REQ: RequestBlock,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -25,12 +31,17 @@ where
         + 'static,
     RPC::SubscriptionError: Send + Sync,
 {
+    block_fetcher: BlockFetcher<REQ, REQ::Future>,
     block_stream: Option<EthereumEventStream<RPC>>,
+    block_tree: VecDeque<TinyVec<[BlockRef; 3]>>,
+    head: Option<BlockRef>,
+    best_block: Option<BlockRef>,
     state: State,
 }
 
-impl<RPC> BlockStream<RPC>
+impl<RPC, REQ> BlockStream<RPC, REQ>
 where
+    REQ: RequestBlock,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -40,13 +51,21 @@ where
     RPC::SubscriptionError: Send + Sync,
 {
     #[must_use]
-    pub fn new(client: RPC, state: State) -> Self {
-        Self { block_stream: Some(EthereumEventStream::new(client)), state }
+    pub fn new(client: RPC, block_fetcher: REQ, state: State) -> Self {
+        Self {
+            block_fetcher: BlockFetcher::new(block_fetcher, 10),
+            block_stream: Some(EthereumEventStream::new(client)),
+            block_tree: VecDeque::with_capacity(2048),
+            head: None,
+            best_block: None,
+            state,
+        }
     }
 }
 
-impl<RPC> Stream for BlockStream<RPC>
+impl<RPC, REQ> Stream for BlockStream<RPC, REQ>
 where
+    REQ: RequestBlock,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -101,6 +120,6 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, None)
+        (self.block_fetcher.size_hint().0, None)
     }
 }

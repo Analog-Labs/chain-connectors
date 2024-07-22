@@ -5681,6 +5681,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "thiserror",
+ "tinyvec",
  "tokio",
  "tokio-stream",
  "tracing",

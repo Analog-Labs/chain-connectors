@@ -24,6 +24,7 @@ rosetta-utils = { workspace = true, features = ["std", "jsonrpsee"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror = "1.0"
+tinyvec = { version = "1.8" }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tracing = "0.1"
