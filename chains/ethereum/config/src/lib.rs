@@ -240,7 +240,7 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
 pub fn binance_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     // All available networks in binance are listed here:
     let (network, bip44_id, is_dev) = match network {
-        "dev" => ("dev", 1337, true),
+        "dev" => ("dev", 1, true),
         "testnet" => ("testnet", 97, true),
         "mainnet" => ("mainnet", 56, false),
         _ => anyhow::bail!("unsupported network: {}", network),
