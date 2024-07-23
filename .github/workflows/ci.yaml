@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -104,6 +104,13 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
+    
+    - name: Setup BSC node
+      if: ${{ matrix.crate == 'rosetta-testing-binance' }}
+      run: |
+        docker pull manojanalog/bsc_for_analog
+        docker run -d --name bsc-node manojanalog/bsc_for_analog
+        docker exec bsc-node ../build/bin/geth --datadir ./ --unlock 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --allow-insecure-unlock --http --mine --miner.etherbase 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --ws.port 8546 --ws --rpc.allow-unprotected-txs
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
@@ -135,6 +142,7 @@ jobs:
         cargo clippy --locked --workspace --examples --tests --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
@@ -157,6 +165,7 @@ jobs:
         cargo test --locked --workspace --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
