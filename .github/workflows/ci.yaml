@@ -109,7 +109,7 @@ jobs:
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
       run: |
         docker pull manojanalog/bsc_for_analog
-        docker run manojanalog/bsc_for_analog:latest geth --datadir ./datadir --unlock 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --allow-insecure-unlock --http --mine --miner.etherbase 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --ws.port 8546 --ws --rpc.allow-unprotected-txs --password password.txt
+        docker run -d manojanalog/bsc_for_analog:latest geth --datadir ./datadir --unlock 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --allow-insecure-unlock --http --mine --miner.etherbase 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --ws.port 8546 --ws --rpc.allow-unprotected-txs --password password.txt
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
