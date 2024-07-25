@@ -1,0 +1,21 @@
+[package]
+name = "rosetta-testing-avalanche"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+alloy-sol-types = { version = "0.7" }
+anyhow = "1.0"
+ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
+ethers-solc = "2.0"
+hex-literal = "0.4"
+rand_core = { version = "0.6", features = ["getrandom"] }
+rosetta-client.workspace = true
+rosetta-config-ethereum.workspace = true
+rosetta-core.workspace = true
+rosetta-docker = { workspace = true, features = ["tests"] }
+rosetta-server-ethereum.workspace = true
+sha3 = "0.10"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing = "0.1.40"
+url = "2.4"

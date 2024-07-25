@@ -47,6 +47,8 @@ pub enum Blockchain {
     Polygon,
     /// Arbitrum
     Arbitrum,
+    /// Avalanche
+    Avalanche
 }
 
 impl std::str::FromStr for Blockchain {
@@ -63,6 +65,7 @@ impl std::str::FromStr for Blockchain {
             "wococo" => Self::Wococo,
             "polygon" => Self::Polygon,
             "arbitrum" => Self::Arbitrum,
+            "avalanche" => Self::Avalanche,
             _ => anyhow::bail!("unsupported blockchain {}", blockchain),
         })
     }

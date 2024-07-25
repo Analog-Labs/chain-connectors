@@ -5731,6 +5731,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-testing-avalanche"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "ethers",
+ "ethers-solc",
+ "hex-literal",
+ "rand_core 0.6.4",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server-ethereum",
+ "sha3",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "rosetta-testing-polygon"
 version = "0.1.0"
 dependencies = [

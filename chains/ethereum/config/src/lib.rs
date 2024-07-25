@@ -233,6 +233,21 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     Ok(evm_config("arbitrum", network, "ARB", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided avalanche `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn avalanche_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "fuji" => ("goerli", 1, true),
+        "mainnet" => ("mainnet", 42161, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
+}
+
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
@@ -257,6 +272,11 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "arbitrum-local" => return arbitrum_config("dev"),
         "arbitrum" => return arbitrum_config("mainnet"),
         "arbitrum-goerli" => return arbitrum_config("goerli"),
+
+        // Avalanche
+        "avalanche-local" => return avalanche_config("dev"),
+        "avalanche" => return avalanche_config("mainnet"),
+        "avalanche-fuji" => return avalanche_config("fuji"),
 
         network => return astar_config(network),
     };

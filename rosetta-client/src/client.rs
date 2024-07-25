@@ -54,6 +54,10 @@ impl GenericClient {
                 let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
+            Blockchain::Avalanche => {
+                let client = EthereumClient::new("avalanche", network, url, private_key).await?;
+                Self::Ethereum(client)
+            },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
@@ -75,7 +79,7 @@ impl GenericClient {
     ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
-            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum => {
+            Blockchain::Ethereum | Blockchain::Polygon | Blockchain::Arbitrum | Blockchain::Avalanche => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
