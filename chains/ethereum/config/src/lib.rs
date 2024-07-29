@@ -276,7 +276,7 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         // Binance
         "binance-dev" => return binance_config("dev"),
         "binance" => return binance_config("mainnet"),
-        "Testnet" => return binance_config("testnet"),
+        "testnet" => return binance_config("testnet"),
 
         network => return astar_config(network),
     };
