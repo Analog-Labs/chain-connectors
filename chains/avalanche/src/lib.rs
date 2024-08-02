@@ -60,15 +60,15 @@ mod tests {
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36");
+        hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
 
     /// Account used exclusively to continuously sending tx to mine new blocks.
     const BLOCK_INCREMENTER_PRIVATE_KEY: [u8; 32] =
-        hex!("b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659");
+        hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
 
     /// Avalanche rpc url
     const AVALANCHE_RPC_HTTP_URL: &str = "http://127.0.0.1:8547";
-    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:8548";
+    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/C//ws";
 
     type WsProvider = ethers::providers::Provider<ethers::providers::Ws>;
 
@@ -81,79 +81,7 @@ mod tests {
         }
     }
 
-    /// Send funds from funding account to the provided account.
-    /// This function is can be called concurrently.
-    async fn sync_send_funds(dest: H160, amount: u128) -> Result<()> {
-        // Guarantee the funding account nonce is incremented atomically
-        static NONCE: tokio::sync::Mutex<u64> = tokio::sync::Mutex::const_new(0);
-
-        // Connect to the provider
-        let wallet = LocalWallet::from_bytes(&FUNDING_ACCOUNT_PRIVATE_KEY)?;
-        let provider =
-            ethers::providers::Provider::<ethers::providers::Http>::try_from(AVALANCHE_RPC_HTTP_URL)
-                .context("Failed to create HTTP provider")?
-                .interval(Duration::from_secs(1));
-
-        // Retrieve chain id
-        let chain_id = provider.get_chainid().await?.as_u64();
-
-        // Acquire nonce lock
-        let mut nonce_lock = NONCE.lock().await;
-
-        // Initialize nonce if necessary
-        if *nonce_lock == 0 {
-            // retrieve the current nonce, used to initialize the nonce if necessary, once
-            // `OnceLock` doesn't support async functions
-            let current_nonce = provider
-                .get_transaction_count(wallet.address(), Some(BlockId::Number(BlockNumber::Latest)))
-                .await?
-                .as_u64();
-            *nonce_lock = current_nonce;
-        }
-
-        // Create a transaction request
-        let transaction_request = TransactionRequest {
-            from: None,
-            to: Some(ethers::types::NameOrAddress::Address(dest)),
-            value: Some(U256::from(amount)),
-            gas: Some(U256::from(210_000)),
-            gas_price: Some(U256::from(500_000_000)),
-            nonce: Some(U256::from(*nonce_lock)),
-            data: None,
-            chain_id: Some(chain_id.into()),
-        };
-
-        // Sign and send the transaction
-        let tx: TypedTransaction = transaction_request.into();
-        let signature = wallet.sign_transaction(&tx).await?;
-        let tx = tx.rlp_signed(&signature);
-        let pending_tx = provider.send_raw_transaction(tx).await?;
-
-        // Increment and release nonce lock
-        // increment only after successfully send the tx to avoid nonce gaps
-        *nonce_lock += 1;
-        drop(nonce_lock);
-
-        // Verify if the tx reverted
-        let receipt =
-            pending_tx.confirmations(1).await?.context("failed to retrieve tx receipt")?;
-        if !matches!(receipt.status, Some(U64([1]))) {
-            anyhow::bail!("Transaction reverted: {:?}", receipt.transaction_hash);
-        }
-        Ok(())
-    }
-
-    /// Creates a random account and send funds to it
-    async fn create_test_account(initial_balance: u128) -> Result<[u8; 32]> {
-        use ethers::core::k256::ecdsa::SigningKey;
-        use rand_core::OsRng;
-        let signing_key = SigningKey::random(&mut OsRng);
-        let address = ::ethers::utils::secret_key_to_address(&signing_key);
-        sync_send_funds(address, initial_balance).await?;
-        Ok(signing_key.to_bytes().into())
-    }
-
-    /// Run the test in another thread while sending txs to force avalanche to mine new blocks
+  /// Run the test in another thread while sending txs to force binance to mine new blocks
     /// # Panic
     /// Panics if the future panics
     async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {
@@ -178,65 +106,6 @@ mod tests {
             return;
         }
 
-        // Connect to avalanche node
-        let wallet = LocalWallet::from_bytes(&BLOCK_INCREMENTER_PRIVATE_KEY).unwrap();
-        let provider = WsProvider::connect(AVALANCHE_RPC_WS_URL)
-            .await
-            .map(|provider| provider.interval(Duration::from_millis(500)))
-            .unwrap();
-
-        // Retrieve chain id
-        let chain_id = provider.get_chainid().await.unwrap().as_u64();
-
-        // Retrieve current nonce
-        let mut nonce = provider
-            .get_transaction_count(wallet.address(), None)
-            .await
-            .expect("failed to retrieve account nonce")
-            .as_u64();
-
-        // Create a transaction request
-        let transaction_request = TransactionRequest {
-            from: None,
-            to: Some(wallet.address().into()),
-            value: None,
-            gas: Some(U256::from(210_000)),
-            gas_price: Some(U256::from(500_000_000)),
-            nonce: None,
-            data: None,
-            chain_id: Some(chain_id.into()),
-        };
-        let mut tx: TypedTransaction = transaction_request.into();
-
-        // Mine a new block by sending a transaction until the test finishes
-        while !test_handler.is_finished() {
-            // Set tx nonce
-            tx.set_nonce(nonce);
-
-            // Increment nonce
-            nonce += 1;
-
-            // Sign and send the transaction
-            let signature = wallet.sign_transaction(&tx).await.expect("failed to sign tx");
-            let tx: ethers::types::Bytes = tx.rlp_signed(&signature);
-            let receipt = provider
-                .send_raw_transaction(tx)
-                .await
-                .unwrap()
-                .confirmations(1)
-                .await
-                .unwrap()
-                .expect("tx receipt not found");
-
-            // Verify if the tx reverted
-            assert!(receipt.status.unwrap().as_u64() == 1, "Transaction reverted: {receipt:?}");
-
-            // Wait 500ms for the tx to be mined
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        }
-        // Release lock
-        drop(guard);
-
         // Now is safe to panic
         if let Err(err) = test_handler.await {
             // Resume the panic on the main task
@@ -246,13 +115,13 @@ mod tests {
 
     #[tokio::test]
     async fn network_status() {
-        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
                 "dev",
                 AVALANCHE_RPC_WS_URL,
-                Some(private_key),
+                None,
             )
             .await
             .expect("Error creating client");
@@ -277,13 +146,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_account() {
-        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
                 "dev",
                 AVALANCHE_RPC_WS_URL,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .expect("Error creating AvalancheClient");
@@ -291,12 +160,13 @@ mod tests {
                 client.config().clone(),
                 AVALANCHE_RPC_WS_URL,
                 None,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let _ = wallet.faucet(value).await;
+            let x = wallet.faucet(value).await;
+        println!(":::: {:?} :::::\n\n",x);
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -330,13 +200,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_smart_contract() {
-        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
                 "dev",
                 AVALANCHE_RPC_WS_URL,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .expect("Error creating AvalancheClient");
@@ -345,10 +215,11 @@ mod tests {
                 client.config().clone(),
                 AVALANCHE_RPC_WS_URL,
                 None,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .unwrap();
+    println!("ara {:?}: : {:?}",wallet.account().address, faucet);
             wallet.faucet(faucet).await.unwrap();
 
             let bytes = compile_snippet(
@@ -383,13 +254,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_smart_contract_view() {
-        let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
+        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
                 "dev",
                 AVALANCHE_RPC_WS_URL,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .expect("Error creating AvalancheClient");
@@ -398,7 +269,7 @@ mod tests {
                 client.config().clone(),
                 AVALANCHE_RPC_WS_URL,
                 None,
-                Some(private_key),
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
             )
             .await
             .unwrap();
