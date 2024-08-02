@@ -51,7 +51,7 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     /// Creates a new ethereum client from `network` and `addr`.
-    /// Supported blockchains are `ethereum`, `polygon`, `arbitrum` and binance.
+    /// Supported blockchains are `ethereum`, `polygon`, `arbitrum`, binance and avalanche.
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
@@ -66,6 +66,7 @@ impl MaybeWsEthereumClient {
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
             "binance" => rosetta_config_ethereum::binance_config(network)?,
+            "avalanche" => rosetta_config_ethereum::avalanche_config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr, private_key).await

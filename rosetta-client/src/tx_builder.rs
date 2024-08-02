@@ -17,7 +17,7 @@ impl GenericTransactionBuilder {
     pub fn new(config: &BlockchainConfig) -> Result<Self> {
         Ok(match config.blockchain {
             "astar" => Self::Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
-            "ethereum" | "polygon" | "arbitrum" | "binance" => {
+            "ethereum" | "polygon" | "arbitrum" | "binance" | "avalanche" => {
                 Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
             },
             "polkadot" | "westend" | "rococo" => {
