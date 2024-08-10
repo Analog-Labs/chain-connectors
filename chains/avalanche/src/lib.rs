@@ -1,6 +1,6 @@
 #![allow(clippy::large_futures)]
 
-//! # Avalanche Nitro Testnet Rosetta Server
+//! # Avalanche Testnet Rosetta Server
 //!
 //! This module contains the production test for an Avalanche Rosetta server implementation
 //! specifically designed for interacting with the Avalanche Nitro Testnet. The code includes
@@ -40,15 +40,8 @@
 #[cfg(test)]
 mod tests {
     use alloy_sol_types::{sol, SolCall};
-    use anyhow::{Context, Result};
-    use ethers::{
-        providers::Middleware,
-        signers::{LocalWallet, Signer},
-        types::{
-            transaction::eip2718::TypedTransaction, BlockId, BlockNumber, TransactionRequest, H160,
-            H256, U256, U64,
-        },
-    };
+    use anyhow::Result;
+    use ethers::types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use hex_literal::hex;
     use rosetta_client::Wallet;
@@ -56,21 +49,15 @@ mod tests {
     use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sha3::Digest;
-    use std::{collections::BTreeMap, future::Future, path::Path, time::Duration};
+    use std::{collections::BTreeMap, future::Future, path::Path};
+    use serial_test::serial;
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
         hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
 
-    /// Account used exclusively to continuously sending tx to mine new blocks.
-    const BLOCK_INCREMENTER_PRIVATE_KEY: [u8; 32] =
-        hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
-
     /// Avalanche rpc url
-    const AVALANCHE_RPC_HTTP_URL: &str = "http://127.0.0.1:8547";
-    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/C//ws";
-
-    type WsProvider = ethers::providers::Provider<ethers::providers::Ws>;
+    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/local/ws";
 
     sol! {
         interface TestContract {
@@ -114,8 +101,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn network_status() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
@@ -145,8 +132,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_account() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
@@ -165,8 +152,7 @@ mod tests {
             .await
             .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let x = wallet.faucet(value).await;
-        println!(":::: {:?} :::::\n\n",x);
+            let _ = wallet.faucet(value).await;
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -199,8 +185,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_smart_contract() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",
@@ -219,7 +205,6 @@ mod tests {
             )
             .await
             .unwrap();
-    println!("ara {:?}: : {:?}",wallet.account().address, faucet);
             wallet.faucet(faucet).await.unwrap();
 
             let bytes = compile_snippet(
@@ -253,8 +238,8 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_smart_contract_view() {
-        // let private_key = create_test_account(20 * u128::pow(10, 18)).await.unwrap();
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
                 "avalanche",

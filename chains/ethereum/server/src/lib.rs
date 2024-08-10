@@ -175,8 +175,8 @@ impl BlockchainClient for MaybeWsEthereumClient {
 
     async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
         match self {
-            Self::Http(http_client) => http_client.faucet(address, param).await,
-            Self::Ws(ws_client) => ws_client.faucet(address, param).await,
+            Self::Http(http_client) => http_client.faucet(address, param, None).await,
+            Self::Ws(ws_client) => ws_client.faucet(address, param, None).await,
         }
     }
 
