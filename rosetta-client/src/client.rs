@@ -83,10 +83,11 @@ impl GenericClient {
     ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
-            Blockchain::Ethereum |
-            Blockchain::Polygon |
-            Blockchain::Arbitrum |
-            Blockchain::Binance | Blockchain::Avalanche => {
+            Blockchain::Ethereum
+            | Blockchain::Polygon
+            | Blockchain::Arbitrum
+            | Blockchain::Binance
+            | Blockchain::Avalanche => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
@@ -211,8 +212,13 @@ impl BlockchainClient for GenericClient {
         }
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        dispatch!(self.faucet(address, param).await)
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
+        dispatch!(self.faucet(address, param, high_gas_price).await)
     }
 
     async fn metadata(

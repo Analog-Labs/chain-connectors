@@ -296,7 +296,7 @@ mod tests {
             .await
             .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let _ = wallet.faucet(value).await;
+            let _ = wallet.faucet(value, None).await;
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -349,7 +349,7 @@ mod tests {
             )
             .await
             .unwrap();
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, None).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
@@ -402,7 +402,7 @@ mod tests {
             )
             .await
             .unwrap();
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, None).await.unwrap();
             let bytes = compile_snippet(
                 r"
                 function identity(bool a) public view returns (bool) {

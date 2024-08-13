@@ -50,7 +50,7 @@ pub enum Blockchain {
     /// Binance
     Binance,
     /// Avalanche
-    Avalanche
+    Avalanche,
 }
 
 impl std::str::FromStr for Blockchain {

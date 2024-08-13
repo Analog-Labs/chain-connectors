@@ -225,7 +225,12 @@ where
     }
 
     #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
-    pub async fn faucet(&self, address: &Address, param: u128, high_gas_price: Option<u128>) -> Result<Vec<u8>> {
+    pub async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
         match self.private_key {
             Some(private_key) => {
                 let chain_id = self.chain_id;

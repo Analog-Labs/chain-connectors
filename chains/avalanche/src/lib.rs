@@ -48,16 +48,16 @@ mod tests {
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
+    use serial_test::serial;
     use sha3::Digest;
     use std::{collections::BTreeMap, future::Future, path::Path};
-    use serial_test::serial;
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
         hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
 
     /// Avalanche rpc url
-    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/local/ws";
+    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/test/ws";
 
     sol! {
         interface TestContract {
@@ -68,7 +68,7 @@ mod tests {
         }
     }
 
-  /// Run the test in another thread while sending txs to force binance to mine new blocks
+    /// Run the test in another thread while sending txs to force binance to mine new blocks
     /// # Panic
     /// Panics if the future panics
     async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {
@@ -104,14 +104,9 @@ mod tests {
     #[serial]
     async fn network_status() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new(
-                "avalanche",
-                "dev",
-                AVALANCHE_RPC_WS_URL,
-                None,
-            )
-            .await
-            .expect("Error creating client");
+            let client = MaybeWsEthereumClient::new("avalanche", "dev", AVALANCHE_RPC_WS_URL, None)
+                .await
+                .expect("Error creating client");
             // Check if the genesis is consistent
             let genesis_block = client.genesis_block();
             assert_eq!(genesis_block.index, 0);
@@ -152,7 +147,7 @@ mod tests {
             .await
             .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let _ = wallet.faucet(value).await;
+            let _ = wallet.faucet(value, Some(25_000_000_000)).await;
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -205,7 +200,7 @@ mod tests {
             )
             .await
             .unwrap();
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
@@ -258,7 +253,7 @@ mod tests {
             )
             .await
             .unwrap();
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
             let bytes = compile_snippet(
                 r"
                 function identity(bool a) public view returns (bool) {
