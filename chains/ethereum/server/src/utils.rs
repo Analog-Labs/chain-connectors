@@ -130,8 +130,8 @@ fn estimate_priority_fee<F: FeeEstimatorConfig>(rewards: &[Vec<U256>]) -> U256 {
 
     // If we encountered a big change in fees at a certain position, then consider only
     // the values >= it.
-    let values = if max_change >= F::EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into()
-        && (max_change_index >= (rewards.len() / 2))
+    let values = if max_change >= F::EIP1559_FEE_ESTIMATION_THRESHOLD_MAX_CHANGE.into() &&
+        (max_change_index >= (rewards.len() / 2))
     {
         rewards[max_change_index..].to_vec()
     } else {

@@ -69,8 +69,8 @@ where
 
     #[must_use]
     pub const fn is_initializing(&self) -> bool {
-        matches!(self.state, State::Idle(_) | State::Subscribing(_))
-            && self.total_subscriptions == 0
+        matches!(self.state, State::Idle(_) | State::Subscribing(_)) &&
+            self.total_subscriptions == 0
     }
 
     #[must_use]
@@ -94,11 +94,11 @@ where
     /// Consume the subscription and return the inner subscriber.
     pub fn into_subscriber(self) -> Option<F> {
         match self.state {
-            State::Idle(subscriber)
-            | State::Subscribed { subscriber, .. }
-            | State::ResubscribeAfterDelay { subscriber, .. }
-            | State::Unsubscribing { subscriber, .. }
-            | State::Unsubscribed { subscriber, .. } => Some(subscriber),
+            State::Idle(subscriber) |
+            State::Subscribed { subscriber, .. } |
+            State::ResubscribeAfterDelay { subscriber, .. } |
+            State::Unsubscribing { subscriber, .. } |
+            State::Unsubscribed { subscriber, .. } => Some(subscriber),
             State::Subscribing(fut) => fut.now_or_never().map(|(subscriber, _)| subscriber),
             State::Poisoned => None,
         }
