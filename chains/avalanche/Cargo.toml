@@ -6,7 +6,6 @@ license = "MIT"
 repository = "https://github.com/analog-labs/chain-connectors"
 description = "avalanche rosetta test."
 
-
 [dependencies]
 alloy-sol-types = { version = "0.7" }
 anyhow = "1.0"
