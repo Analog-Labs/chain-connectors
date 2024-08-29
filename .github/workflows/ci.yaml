@@ -115,8 +115,8 @@ jobs:
       if: ${{matrix.crate == 'rosetta-testing-avalanche'}}
       run: |
         docker pull avaplatform/avalanche-cli
-        docker run avaplatform/avalanche-cli:latest subnet create local --evm --evm-chain-id 676767 --evm-defaults --evm-token SUB
-        docker run avaplatform/avalanche-cli:latest subnet deploy local --local
+        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain create local --evm --evm-chain-id 676767 --evm-defaults --evm-token SUB
+        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain deploy local --local
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
@@ -148,6 +148,7 @@ jobs:
         cargo clippy --locked --workspace --examples --tests --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
@@ -171,6 +172,7 @@ jobs:
         cargo test --locked --workspace --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
