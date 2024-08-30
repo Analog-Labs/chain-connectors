@@ -54,7 +54,7 @@ mod tests {
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("56289e99c94b6912bfc12adc093c9b51124f0dc54ac7a766b2bc5ccf558d8027");
+        hex!("673250a146acf929ec07ef144a6c6f8cc35759cf20bf7fce938e5e5a3601d713");
 
     /// Avalanche rpc url
     const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/test/ws";
@@ -200,7 +200,7 @@ mod tests {
             )
             .await
             .unwrap();
-            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
+            wallet.faucet(faucet, Some(50_000_000_000)).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
