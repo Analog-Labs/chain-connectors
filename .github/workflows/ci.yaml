@@ -110,14 +110,13 @@ jobs:
       run: |
         docker pull avaplatform/avalanche-cli
         docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain create local --evm --evm-chain-id 676767 --evm-defaults --evm-token SUB
-        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain deploy local --local
+        docker run -d -p 9650:9650 -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain deploy local --local
 
     - name: Setup BSC node
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
       run: |
         docker pull manojanalog/bsc_for_analog
         docker run -d -p 8545:8545 -p 8546:8546 manojanalog/bsc_for_analog:latest geth --datadir ./datadir --unlock 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --allow-insecure-unlock --http --http.addr 0.0.0.0 --http.port 8545 --http.api personal,db,eth,net,web3 --mine --miner.etherbase 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --ws --ws.addr 0.0.0.0 --ws.port 8546 --ws.api personal,db,eth,net,web3 --rpc.allow-unprotected-txs --password password.txt
-    
 
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
