@@ -110,7 +110,7 @@ jobs:
       run: |
         docker pull avaplatform/avalanche-cli
         docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ avaplatform/avalanche-cli:latest blockchain create local --evm --evm-chain-id 676767 --evm-defaults --evm-token SUB
-        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650-9659:9650-9659 --entrypoint bash avaplatform/avalanche-cli:latest -c "/avalanche blockchain deploy local --local; tail -f /dev/null"
+        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650-9659:9650-9659 --entrypoint bash avaplatform/avalanche-cli:latest -c "/avalanche blockchain deploy test --local; tail -f /dev/null"
 
     - name: Setup BSC node
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
