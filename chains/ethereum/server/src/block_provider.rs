@@ -1,11 +1,3 @@
-// Copyright (C) AnalogOne Technologies Ltd.
-// SPDX-License-Identifier: Apache-2.0
-
-//! # Balances Pallet
-//!
-//! The Balances pallet provides functionality for handling accounts and balances for a single
-//! token.
-
 use super::client::BlockFinalityStrategy;
 use std::{
     fmt::{Debug, Display},
