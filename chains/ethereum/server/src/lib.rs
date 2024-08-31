@@ -1,6 +1,5 @@
 use anyhow::Result;
-use block_stream::BlockStream;
-pub use client::EthereumClient;
+pub use client::{BlockStreamType, EthereumClient};
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
     QueryResult as EthQueryResult, SubmitResult, Subscription,
@@ -10,17 +9,15 @@ use rosetta_core::{
     types::{BlockIdentifier, PartialBlockIdentifier},
     BlockchainClient, BlockchainConfig,
 };
-use rosetta_ethereum_backend::jsonrpsee::Adapter;
 use rosetta_server::ws::{default_client, default_http_client, DefaultClient, HttpClient};
 use url::Url;
 
-mod block_fetcher;
+mod block_provider;
 mod block_stream;
-mod chain_sync;
+// mod chain_sync;
 mod client;
 mod event_stream;
 mod finalized_block_stream;
-mod fns;
 mod log_filter;
 mod multi_block;
 mod new_heads;
@@ -115,7 +112,7 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = shared_stream::SharedStream<BlockStream<Adapter<DefaultClient>>> where Self: 'a;
+    type EventStream<'a> = BlockStreamType<DefaultClient> where Self: 'a;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 

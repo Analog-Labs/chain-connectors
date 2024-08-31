@@ -277,7 +277,13 @@ impl StateInner {
                     return false;
                 }
                 // Check if the block exists in the fork tree
-                !self.fork_tree.iter().any(|(block_ref, _, _)| block_ref.hash == block.hash())
+                let exists =
+                    self.fork_tree.iter().any(|(block_ref, _, _)| block_ref.hash == block.hash());
+                if exists {
+                    return false;
+                }
+                // Check if the block is descendent of the finalized block
+                block.number() < head_block_number
             })
             .map(|(_, block)| block)
             .collect::<Vec<_>>();

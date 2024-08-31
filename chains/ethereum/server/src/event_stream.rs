@@ -1,3 +1,5 @@
+use crate::block_provider::BlockProvider;
+
 use super::{finalized_block_stream::FinalizedBlockStream, new_heads::NewHeadsStream};
 use futures_util::StreamExt;
 use rosetta_config_ethereum::ext::types::SealedBlock;
@@ -49,8 +51,9 @@ impl From<NewBlock> for SealedBlock<H256> {
     }
 }
 
-pub struct EthereumEventStream<C>
+pub struct EthereumEventStream<P, C>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
     C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -62,11 +65,14 @@ where
     /// Latest block stream
     new_head_stream: Option<NewHeadsStream<C>>,
     /// Finalized blocks stream
-    finalized_stream: Option<FinalizedBlockStream<C>>,
+    finalized_stream: Option<FinalizedBlockStream<P>>,
 }
 
-impl<C> EthereumEventStream<C>
+impl<P, C> EthereumEventStream<P, C>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::FinalizedFut: Unpin + Send + 'static,
+    P::Error: std::error::Error,
     C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -75,16 +81,19 @@ where
         + 'static,
     C::SubscriptionError: Send + Sync,
 {
-    pub fn new(client: C) -> Self {
+    pub fn new(client: C, provider: P) -> Self {
         Self {
-            new_head_stream: Some(NewHeadsStream::new(client.clone())),
-            finalized_stream: Some(FinalizedBlockStream::new(client)),
+            new_head_stream: Some(NewHeadsStream::new(client)),
+            finalized_stream: Some(FinalizedBlockStream::new(provider)),
         }
     }
 }
 
-impl<C> Stream for EthereumEventStream<C>
+impl<P, C> Stream for EthereumEventStream<P, C>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::FinalizedFut: Unpin + Send + 'static,
+    P::Error: std::error::Error,
     C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin

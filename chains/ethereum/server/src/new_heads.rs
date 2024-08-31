@@ -4,7 +4,10 @@ use rosetta_ethereum_backend::{
     jsonrpsee::core::client::{Error as RpcError, Subscription},
     EthereumPubSub, EthereumRpc,
 };
-use rosetta_utils::jsonrpsee::{AutoSubscribe, CircuitBreaker, FutureFactory, PollingInterval};
+use rosetta_utils::{
+    futures::FutureFactory,
+    jsonrpsee::{AutoSubscribe, CircuitBreaker, PollingInterval},
+};
 use std::{
     mem,
     pin::Pin,

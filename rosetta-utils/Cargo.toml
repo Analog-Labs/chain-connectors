@@ -36,9 +36,15 @@ bytes = ["dep:bytes"]
 jsonrpsee = [
   "std",
   "serde",
+  "futures",
+  "dep:jsonrpsee-core",
+  "dep:pin-project",
+  "dep:tracing",
+]
+futures = [
+  "std",
   "dep:futures-util",
   "dep:futures-timer",
-  "dep:jsonrpsee-core",
   "dep:pin-project",
   "dep:tracing",
 ]

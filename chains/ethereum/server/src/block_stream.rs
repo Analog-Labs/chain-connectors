@@ -1,7 +1,7 @@
-use crate::multi_block::BlockRef;
+// use crate::multi_block::BlockRef;
 
 use super::{
-    block_fetcher::{BlockFetcher, RequestBlock},
+    block_provider::BlockProvider,
     event_stream::{EthereumEventStream, NewBlock},
     state::State,
 };
@@ -14,15 +14,16 @@ use rosetta_ethereum_backend::{
     EthereumPubSub,
 };
 use std::{
-    collections::VecDeque,
+    // collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
 };
-use tinyvec::TinyVec;
+// use tinyvec::TinyVec;
 
-pub struct BlockStream<RPC, REQ>
+pub struct BlockStream<P, RPC>
 where
-    REQ: RequestBlock,
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -31,17 +32,18 @@ where
         + 'static,
     RPC::SubscriptionError: Send + Sync,
 {
-    block_fetcher: BlockFetcher<REQ, REQ::Future>,
-    block_stream: Option<EthereumEventStream<RPC>>,
-    block_tree: VecDeque<TinyVec<[BlockRef; 3]>>,
-    head: Option<BlockRef>,
-    best_block: Option<BlockRef>,
+    stream: Option<EthereumEventStream<P, RPC>>,
+    // block_tree: VecDeque<TinyVec<[BlockRef; 3]>>,
+    // head: Option<BlockRef>,
+    // best_block: Option<BlockRef>,
     state: State,
 }
 
-impl<RPC, REQ> BlockStream<RPC, REQ>
+impl<P, RPC> BlockStream<P, RPC>
 where
-    REQ: RequestBlock,
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::FinalizedFut: Unpin + Send + 'static,
+    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -51,21 +53,22 @@ where
     RPC::SubscriptionError: Send + Sync,
 {
     #[must_use]
-    pub fn new(client: RPC, block_fetcher: REQ, state: State) -> Self {
+    pub fn new(provider: P, client: RPC, state: State) -> Self {
         Self {
-            block_fetcher: BlockFetcher::new(block_fetcher, 10),
-            block_stream: Some(EthereumEventStream::new(client)),
-            block_tree: VecDeque::with_capacity(2048),
-            head: None,
-            best_block: None,
+            stream: Some(EthereumEventStream::new(client, provider)),
+            // block_tree: VecDeque::with_capacity(2048),
+            // head: None,
+            // best_block: None,
             state,
         }
     }
 }
 
-impl<RPC, REQ> Stream for BlockStream<RPC, REQ>
+impl<P, RPC> Stream for BlockStream<P, RPC>
 where
-    REQ: RequestBlock,
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::FinalizedFut: Unpin + Send + 'static,
+    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Clone
         + Unpin
@@ -77,13 +80,13 @@ where
     type Item = ClientEvent<BlockIdentifier, EthEvent>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let Some(mut block_stream) = self.block_stream.take() else {
+        let Some(mut stream) = self.stream.take() else {
             return Poll::Ready(None);
         };
 
         let mut failures = 0;
         loop {
-            match block_stream.poll_next_unpin(cx) {
+            match stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(new_block)) => {
                     let block_id = {
                         let header = new_block.sealed_block().header();
@@ -95,7 +98,7 @@ where
                     let is_finalized = matches!(new_block, NewBlock::Finalized(_));
                     if let Err(err) = self.state.import(new_block.into_sealed_block()) {
                         failures += 1;
-                        tracing::warn!("failed to import block {block_id} ({failures}): {:?}", err);
+                        tracing::warn!("failed to import block {block_id} ({failures}): {err:?}");
                         if failures >= 5 {
                             return Poll::Ready(None);
                         }
@@ -107,19 +110,15 @@ where
                     } else {
                         ClientEvent::NewHead(block_id)
                     };
-                    self.block_stream = Some(block_stream);
+                    self.stream = Some(stream);
                     break Poll::Ready(Some(event));
                 },
                 Poll::Ready(None) => break Poll::Ready(None),
                 Poll::Pending => {
-                    self.block_stream = Some(block_stream);
+                    self.stream = Some(stream);
                     break Poll::Pending;
                 },
             }
         }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.block_fetcher.size_hint().0, None)
     }
 }

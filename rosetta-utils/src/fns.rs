@@ -12,3 +12,16 @@ where
         self(arg)
     }
 }
+
+pub trait Fn1<A>: FnMut1<A> {
+    fn call(&self, arg: A) -> Self::Output;
+}
+
+impl<T, A, R> Fn1<A> for T
+where
+    T: Fn(A) -> R,
+{
+    fn call(&self, arg: A) -> R {
+        self(arg)
+    }
+}

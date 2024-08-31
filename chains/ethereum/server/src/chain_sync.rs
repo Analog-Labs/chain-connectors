@@ -3,13 +3,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures_util::{Future, Stream, StreamExt};
+use futures_util::{Stream, FutureExt};
 use hashbrown::{HashMap, HashSet};
-use rosetta_config_ethereum::{ext::types::SealedBlock, H256};
+use rosetta_config_ethereum::H256;
 use tracing::Level;
 
 use super::{
-    block_fetcher::{BlockFetcher, RequestBlock},
+    block_provider::BlockProvider,
     multi_block::{BlockRef, MultiBlock},
 };
 
@@ -36,8 +36,8 @@ pub struct BlockData {
     pub status: BlockSyncStatus,
 }
 
-pub struct ChainSync<F, Fut> {
-    block_fetcher: BlockFetcher<F, Fut>,
+pub struct ChainSync<P> {
+    provider: P,
     /// A collection of blocks that are being downloaded from peers
     blocks: HashMap<H256, BlockData>,
     /// The best block in our queue of blocks to import
@@ -47,10 +47,10 @@ pub struct ChainSync<F, Fut> {
     queue_blocks: HashSet<BlockRef>,
 }
 
-impl<F, Fut> ChainSync<F, Fut> {
-    pub fn new(block_fetcher: BlockFetcher<F, Fut>) -> Self {
+impl<P: BlockProvider> ChainSync<P> {
+    pub fn new(provider: P) -> Self {
         Self {
-            block_fetcher,
+            provider,
             blocks: HashMap::new(),
             best_block: BlockRef::default(),
             queue_blocks: HashSet::new(),
@@ -58,16 +58,15 @@ impl<F, Fut> ChainSync<F, Fut> {
     }
 }
 
-impl<F> Stream for ChainSync<F, F::Future>
+impl<P: BlockProvider> Stream for ChainSync<P>
 where
-    F: RequestBlock + Unpin,
-    F::Error: core::fmt::Debug,
-    F::Future: Future<Output = Result<SealedBlock<H256>, F::Error>>,
+    P::Error: core::fmt::Debug,
+    P::BlockAtFut: Unpin,
 {
     type Item = ();
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.block_fetcher.poll_next_unpin(cx) {
+        match self.provider.poll_next_unpin(cx) {
             Poll::Ready(Some(Ok(block))) => {
                 let block_ref = BlockRef::from(&block);
                 tracing::event!(

@@ -1,11 +1,7 @@
-use crate::utils::{EthereumRpcExt, PartialBlock};
+use crate::{block_provider::BlockProvider, utils::PartialBlock};
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};
-use rosetta_config_ethereum::ext::types::crypto::DefaultCrypto;
-use rosetta_ethereum_backend::{
-    ext::types::{AtBlock, Header},
-    EthereumRpc,
-};
+use rosetta_ethereum_backend::ext::types::Header;
 use std::{
     pin::Pin,
     task::{Context, Poll},
@@ -125,9 +121,9 @@ impl Statistics {
 
 /// A stream which emits new blocks finalized blocks, it also guarantees new finalized blocks are
 /// monotonically increasing.
-pub struct FinalizedBlockStream<B: EthereumRpc> {
+pub struct FinalizedBlockStream<P: BlockProvider> {
     /// Ethereum RPC backend.
-    backend: B,
+    provider: P,
 
     /// Controls the polling interval for checking for new finalized blocks.
     statistics: Statistics,
@@ -136,19 +132,19 @@ pub struct FinalizedBlockStream<B: EthereumRpc> {
     best_finalized_block: Option<(PartialBlock, Instant)>,
 
     /// State machine that controls fetching the latest finalized block.
-    state: Option<StateMachine<'static, Result<Option<PartialBlock>, B::Error>>>,
+    state: Option<StateMachine<'static, Result<PartialBlock, P::Error>>>,
 
     /// Count of consecutive errors.
     consecutive_errors: u32,
 }
 
-impl<B> FinalizedBlockStream<B>
+impl<P> FinalizedBlockStream<P>
 where
-    B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
+    P: BlockProvider + Unpin + Send + Sync + 'static,
 {
-    pub fn new(backend: B) -> Self {
+    pub fn new(provider: P) -> Self {
         Self {
-            backend,
+            provider,
             statistics: Statistics {
                 best_finalized_block: None,
                 new: 0,
@@ -164,9 +160,11 @@ where
     }
 }
 
-impl<B> Stream for FinalizedBlockStream<B>
+impl<P> Stream for FinalizedBlockStream<P>
 where
-    B: EthereumRpc + EthereumRpcExt + Unpin + Clone + Send + Sync + 'static,
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::FinalizedFut: Unpin + Send + 'static,
+    P::Error: std::error::Error,
 {
     type Item = PartialBlock;
 
@@ -186,21 +184,8 @@ where
                 ////////////////////////////////////////////////
                 StateMachine::Wait(mut delay) => match delay.poll_unpin(cx) {
                     Poll::Ready(()) => {
-                        let client = self.backend.clone();
-                        let static_fut =
-                            async move {
-                                let block = client.block(AtBlock::Finalized).await;
-                                block.map(|maybe_block| maybe_block.map(|block| {
-                                    if let Some(hash) = block.hash {
-                                        block.seal(hash)
-                                    } else {
-                                        // TODO: this should never happen, as a finalized block should always have a hash.
-                                        tracing::warn!("[report this bug] api returned a finalized block without hash, computing the hash locally...");
-                                        block.seal_slow::<DefaultCrypto>()
-                                    }
-                                }))
-                            }.boxed();
-                        Some(StateMachine::Polling(static_fut))
+                        let future = self.provider.finalized().boxed();
+                        Some(StateMachine::Polling(future))
                     },
                     Poll::Pending => {
                         self.state = Some(StateMachine::Wait(delay));
@@ -213,23 +198,16 @@ where
                 //////////////////////////////////////////
                 StateMachine::Polling(mut fut) => match fut.poll_unpin(cx) {
                     // Backend returned a new finalized block.
-                    Poll::Ready(Ok(Some(new_block))) => {
+                    Poll::Ready(Ok(block)) => {
                         // Update last finalized block.
-                        if self.statistics.on_finalized_block(new_block.header().header()) {
-                            self.best_finalized_block = Some((new_block.clone(), Instant::now()));
+                        if self.statistics.on_finalized_block(block.header().header()) {
+                            self.best_finalized_block = Some((block.clone(), Instant::now()));
                             self.state = Some(StateMachine::Wait(Delay::new(
                                 self.statistics.polling_interval,
                             )));
-                            return Poll::Ready(Some(new_block));
+                            return Poll::Ready(Some(block));
                         }
                         self.consecutive_errors = 0;
-                        Some(StateMachine::Wait(Delay::new(self.statistics.polling_interval)))
-                    },
-
-                    // Backend returned an empty finalized block, this should never happen.
-                    Poll::Ready(Ok(None)) => {
-                        self.consecutive_errors += 1;
-                        tracing::error!("[report this bug] api returned empty for finalized block");
                         Some(StateMachine::Wait(Delay::new(self.statistics.polling_interval)))
                     },
 
@@ -237,7 +215,7 @@ where
                     Poll::Ready(Err(err)) => {
                         let delay = self.statistics.polling_interval;
                         tracing::warn!(
-                            "failed to retrieve finalized block, retrying in {delay:?}: {err}"
+                            "failed to retrieve finalized block, retrying in {delay:?}: {err:?}"
                         );
                         Some(StateMachine::Wait(Delay::new(delay)))
                     },
