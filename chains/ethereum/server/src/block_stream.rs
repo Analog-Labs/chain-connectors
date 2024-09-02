@@ -1,5 +1,3 @@
-// use crate::multi_block::BlockRef;
-
 use super::{
     block_provider::BlockProvider,
     event_stream::{EthereumEventStream, NewBlock},
@@ -49,10 +47,7 @@ where
 {
     #[must_use]
     pub fn new(provider: P, client: RPC, state: State) -> Self {
-        Self {
-            stream: Some(EthereumEventStream::new(client, provider)),
-            state,
-        }
+        Self { stream: Some(EthereumEventStream::new(client, provider)), state }
     }
 }
 

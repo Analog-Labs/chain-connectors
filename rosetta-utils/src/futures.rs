@@ -1,6 +1,3 @@
-// mod throttle;
-
-// pub use throttle::Throttle;
 use futures_util::Future;
 
 pub trait FutureFactory: Send + 'static {
