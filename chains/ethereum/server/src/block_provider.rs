@@ -347,7 +347,7 @@ where
         // Check if the cache has expired
         if guard.1.elapsed() > self.cache_timeout {
             let at_block = match self.finality_strategy {
-                BlockFinalityStrategy::Finalized => AtBlock::Latest,
+                BlockFinalityStrategy::Finalized => AtBlock::Finalized,
                 BlockFinalityStrategy::Confirmations(confirmations) => {
                     let latest_block_number = self.latest_block().await?.header().number();
                     let best_block_number = latest_block_number.saturating_sub(confirmations);
