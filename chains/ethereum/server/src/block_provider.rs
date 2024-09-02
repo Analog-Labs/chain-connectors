@@ -351,6 +351,11 @@ where
                 BlockFinalityStrategy::Confirmations(confirmations) => {
                     let latest_block_number = self.latest_block().await?.header().number();
                     let best_block_number = latest_block_number.saturating_sub(confirmations);
+                    // If the best block number is the same, simply refresh the cache timestamp.
+                    if best_block_number == guard.0.header().number() {
+                        *guard = (guard.0.clone(), Instant::now());
+                        return Ok(guard.0.clone());
+                    }
                     AtBlock::At(BlockIdentifier::Number(best_block_number))
                 },
             };
