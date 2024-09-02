@@ -267,7 +267,6 @@ impl StateInner {
         self.finalized_blocks.push_back(finalized_block_ref);
 
         // Remove retracted blocks
-        let head_block_number = finalized_block_ref.number + 1;
         let finalized_blocks = &self.finalized_blocks;
         let mut removed = self
             .blocks
@@ -277,13 +276,7 @@ impl StateInner {
                     return false;
                 }
                 // Check if the block exists in the fork tree
-                let exists =
-                    self.fork_tree.iter().any(|(block_ref, _, _)| block_ref.hash == block.hash());
-                if exists {
-                    return false;
-                }
-                // Check if the block is descendent of the finalized block
-                block.number() < head_block_number
+                !self.fork_tree.iter().any(|(block_ref, _, _)| block_ref.hash == block.hash())
             })
             .map(|(_, block)| block)
             .collect::<Vec<_>>();

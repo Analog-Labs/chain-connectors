@@ -526,9 +526,6 @@ where
 
 impl<P> EthereumClient<P>
 where
-    // P: BlockProvider + Unpin + Send + Sync + 'static,
-    // P::FinalizedFut: Unpin + Send + Sync + 'static,
-    // P::Error: std::error::Error,
     P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]

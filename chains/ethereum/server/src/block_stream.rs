@@ -14,11 +14,9 @@ use rosetta_ethereum_backend::{
     EthereumPubSub,
 };
 use std::{
-    // collections::VecDeque,
     pin::Pin,
     task::{Context, Poll},
 };
-// use tinyvec::TinyVec;
 
 pub struct BlockStream<P, RPC>
 where

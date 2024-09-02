@@ -14,7 +14,6 @@ use url::Url;
 
 mod block_provider;
 mod block_stream;
-// mod chain_sync;
 mod client;
 mod event_stream;
 mod finalized_block_stream;
