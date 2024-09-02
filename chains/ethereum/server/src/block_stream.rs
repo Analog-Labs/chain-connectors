@@ -31,9 +31,6 @@ where
     RPC::SubscriptionError: Send + Sync,
 {
     stream: Option<EthereumEventStream<P, RPC>>,
-    // block_tree: VecDeque<TinyVec<[BlockRef; 3]>>,
-    // head: Option<BlockRef>,
-    // best_block: Option<BlockRef>,
     state: State,
 }
 
@@ -54,9 +51,6 @@ where
     pub fn new(provider: P, client: RPC, state: State) -> Self {
         Self {
             stream: Some(EthereumEventStream::new(client, provider)),
-            // block_tree: VecDeque::with_capacity(2048),
-            // head: None,
-            // best_block: None,
             state,
         }
     }

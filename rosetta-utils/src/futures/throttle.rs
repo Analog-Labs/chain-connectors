@@ -18,11 +18,6 @@ impl<F: FutureFactory + 'static> Throttle<F> where F::Output: Clone {
     pub fn new(callback: F, delay: Duration) -> Self {
         Self { callback, delay, state: State::Idle }
     }
-
-    // pub fn flush(&mut self) {
-    //     let future = self.callback.new_future();
-    //     self.future = Some(self.callback.new_future().shared());
-    // }
 }
 
 impl <'a, F: FutureFactory + 'a> Future for Throttle<F> {
@@ -82,6 +77,7 @@ impl <'a, F: FutureFactory + 'a> Future for Throttle<F> {
                 }
             },
         };
+        
     }
 }
 
