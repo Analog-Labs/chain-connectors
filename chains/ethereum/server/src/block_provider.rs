@@ -21,14 +21,17 @@ pub trait BlockProvider: Unpin {
     /// Error type
     type Error: Unpin + Send + Sync + 'static;
     /// Future type
-    type BlockAtFut: Future<Output = Result<Option<PartialBlock>, Self::Error>>
+    type BlockAtFut: Future<Output = Result<Option<Arc<PartialBlock>>, Self::Error>>
         + Unpin
         + Send
         + 'static;
     /// Future type
-    type LatestFut: Future<Output = Result<PartialBlock, Self::Error>> + Unpin + Send + 'static;
+    type LatestFut: Future<Output = Result<Arc<PartialBlock>, Self::Error>> + Unpin + Send + 'static;
     /// Future type
-    type FinalizedFut: Future<Output = Result<PartialBlock, Self::Error>> + Unpin + Send + 'static;
+    type FinalizedFut: Future<Output = Result<Arc<PartialBlock>, Self::Error>>
+        + Unpin
+        + Send
+        + 'static;
 
     /// Get block by identifier
     fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut;
@@ -147,11 +150,11 @@ where
     /// Error type
     type Error = BlockProviderError<RPC::Error>;
     /// Future type
-    type BlockAtFut = BoxFuture<'static, Result<Option<PartialBlock>, Self::Error>>;
+    type BlockAtFut = BoxFuture<'static, Result<Option<Arc<PartialBlock>>, Self::Error>>;
     /// Future type
-    type LatestFut = BoxFuture<'static, Result<PartialBlock, Self::Error>>;
+    type LatestFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
     /// Future type
-    type FinalizedFut = BoxFuture<'static, Result<PartialBlock, Self::Error>>;
+    type FinalizedFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
 
     /// Get block by identifier
     fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
@@ -160,7 +163,7 @@ where
             let maybe_block = retrieve_sealed_block(rpc, block_ref.into())
                 .await
                 .map_err(BlockProviderError::Rpc)?;
-            Ok(maybe_block)
+            Ok(maybe_block.map(Arc::new))
         }
         .boxed()
     }
@@ -175,7 +178,7 @@ where
             else {
                 return Err(BlockProviderError::LatestBlockNotFound);
             };
-            Ok(latest_block)
+            Ok(Arc::new(latest_block))
         }
         .boxed()
     }
@@ -190,7 +193,7 @@ where
             else {
                 return Err(BlockProviderError::FinalizedBlockNotFound);
             };
-            Ok(best_block)
+            Ok(Arc::new(best_block))
         }
         .boxed()
     }
@@ -268,11 +271,11 @@ where
     /// Error type
     type Error = BlockProviderError<RPC::Error>;
     /// Future type
-    type BlockAtFut = BoxFuture<'static, Result<Option<PartialBlock>, Self::Error>>;
+    type BlockAtFut = BoxFuture<'static, Result<Option<Arc<PartialBlock>>, Self::Error>>;
     /// Future type
-    type LatestFut = BoxFuture<'static, Result<PartialBlock, Self::Error>>;
+    type LatestFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
     /// Future type
-    type FinalizedFut = BoxFuture<'static, Result<PartialBlock, Self::Error>>;
+    type FinalizedFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
 
     /// Get block by identifier
     fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
@@ -282,21 +285,13 @@ where
     /// Retrieve the latest block
     fn latest(&self) -> Self::LatestFut {
         let this = self.inner.clone();
-        async move {
-            let latest_block = this.latest_block().await?.as_ref().clone();
-            Ok(latest_block)
-        }
-        .boxed()
+        async move { this.latest_block().await }.boxed()
     }
 
     /// Retrieve the latest finalized block, following the specified finality strategy
     fn finalized(&self) -> Self::FinalizedFut {
         let this = self.inner.clone();
-        async move {
-            let best_block = this.best_block().await?.as_ref().clone();
-            Ok(best_block)
-        }
-        .boxed()
+        async move { this.best_block().await }.boxed()
     }
 }
 

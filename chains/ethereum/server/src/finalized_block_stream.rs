@@ -4,6 +4,7 @@ use futures_util::{future::BoxFuture, FutureExt, Stream};
 use rosetta_ethereum_backend::ext::types::Header;
 use std::{
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
     time::{Duration, Instant},
 };
@@ -129,10 +130,10 @@ pub struct FinalizedBlockStream<P: BlockProvider> {
     statistics: Statistics,
 
     /// Latest known finalized block and the timestamp when it was received.
-    best_finalized_block: Option<(PartialBlock, Instant)>,
+    best_finalized_block: Option<(Arc<PartialBlock>, Instant)>,
 
     /// State machine that controls fetching the latest finalized block.
-    state: Option<StateMachine<'static, Result<PartialBlock, P::Error>>>,
+    state: Option<StateMachine<'static, Result<Arc<PartialBlock>, P::Error>>>,
 
     /// Count of consecutive errors.
     consecutive_errors: u32,
@@ -205,7 +206,7 @@ where
                             self.state = Some(StateMachine::Wait(Delay::new(
                                 self.statistics.polling_interval,
                             )));
-                            return Poll::Ready(Some(block));
+                            return Poll::Ready(Some(block.as_ref().clone()));
                         }
                         self.consecutive_errors = 0;
                         Some(StateMachine::Wait(Delay::new(self.statistics.polling_interval)))
