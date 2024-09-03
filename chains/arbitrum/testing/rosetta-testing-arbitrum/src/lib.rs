@@ -60,7 +60,7 @@ mod tests {
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("8aab161e2a1e57367b60bd870861e3042c2513f8a856f9fee014e7b96e0a2a36");
+        hex!("b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659");
 
     /// Account used exclusively to continuously sending tx to mine new blocks.
     const BLOCK_INCREMENTER_PRIVATE_KEY: [u8; 32] =
