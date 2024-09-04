@@ -210,8 +210,8 @@ impl rosetta_core::traits::Block for BlockFull {
 pub fn polygon_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
-        "mumbai" => ("mumbai", 80001, true),
-        "amoy" => ("amoy", 80002, true),
+        "mumbai" => ("mumbai", 60, true),
+        "amoy" => ("amoy", 60, true),
         "mainnet" => ("mainnet", 966, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
@@ -226,7 +226,7 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     // All available networks in arbitrum are listed here:
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
-        "goerli" => ("goerli", 1, true),
+        "goerli" => ("goerli", 60, true),
         "mainnet" => ("mainnet", 42161, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
@@ -256,8 +256,8 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
     let (network, symbol, bip44_id, is_dev) = match network {
         "dev" => ("dev", "ETH", 1, true),
         "mainnet" => ("mainnet", "ETH", 60, false),
-        "goerli" => ("goerli", "TST", 1, true),
-        "sepolia" => ("sepolia", "SepoliaETH", 1, true),
+        "goerli" => ("goerli", "TST", 60, true),
+        "sepolia" => ("sepolia", "SepoliaETH", 60, true),
 
         // Polygon
         "polygon-local" => return polygon_config("dev"),
