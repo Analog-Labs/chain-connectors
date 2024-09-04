@@ -9,6 +9,7 @@ description = "Ethereum rosetta server."
 [dependencies]
 anyhow = "1.0"
 async-trait = "0.1"
+auto_impl = "1.2"
 fork-tree = { version = "13.0" }
 futures-timer = "3.0"
 futures-util = "0.3"

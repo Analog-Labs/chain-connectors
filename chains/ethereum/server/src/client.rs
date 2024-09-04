@@ -1,5 +1,6 @@
 #![allow(clippy::option_if_let_else)]
 use crate::{
+    block_provider::RpcBlockProvider,
     block_stream::BlockStream,
     log_filter::LogFilter,
     proof::verify_proof,
@@ -11,7 +12,6 @@ use crate::{
     },
 };
 use anyhow::{Context, Result};
-use futures_util::StreamExt;
 use rosetta_config_ethereum::{
     ext::types::{
         crypto::{Crypto, DefaultCrypto, Keypair, Signer},
@@ -27,6 +27,7 @@ use rosetta_config_ethereum::{
     QueryResult as EthQueryResult, SubmitResult, Subscription,
 };
 
+use futures_util::StreamExt;
 use rosetta_core::{
     crypto::{address::Address, PublicKey},
     types::{BlockIdentifier, PartialBlockIdentifier},
@@ -39,10 +40,15 @@ use rosetta_ethereum_backend::{
     },
     BlockRange, EthereumRpc, ExitReason,
 };
-use std::sync::{
-    atomic::{self, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{self, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
+
+pub type BlockStreamType<P> = SharedStream<BlockStream<RpcBlockProvider<Adapter<P>>, Adapter<P>>>;
 
 /// Strategy used to determine the finalized block
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,7 +165,7 @@ where
 
 impl<P> EthereumClient<P>
 where
-    P: ClientT + Send + Sync + 'static,
+    P: ClientT + Unpin + Send + Sync + 'static,
 {
     pub const fn config(&self) -> &BlockchainConfig {
         &self.config
@@ -528,9 +534,19 @@ where
     P: SubscriptionClientT + Unpin + Clone + Send + Sync + 'static,
 {
     #[allow(clippy::missing_errors_doc)]
-    pub async fn listen(&self) -> Result<SharedStream<BlockStream<Adapter<P>>>> {
+    pub async fn listen(&self) -> Result<BlockStreamType<P>> {
         let best_finalized_block = self.finalized_block(None).await?;
-        let mut stream = BlockStream::new(self.backend.clone(), State::new(best_finalized_block));
+        let block_provider = RpcBlockProvider::new(
+            self.backend.clone(),
+            Duration::from_secs(5),
+            self.block_finality_strategy,
+        )
+        .await?;
+        let mut stream = BlockStream::new(
+            block_provider,
+            self.backend.clone(),
+            State::new(best_finalized_block),
+        );
         match stream.next().await {
             Some(ClientEvent::Close(msg)) => anyhow::bail!(msg),
             None => anyhow::bail!("Failed to open the event stream"),

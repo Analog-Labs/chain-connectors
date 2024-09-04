@@ -1,5 +1,5 @@
 #![allow(clippy::option_if_let_else)]
-use super::FutureFactory;
+use crate::futures::FutureFactory;
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream, StreamExt};
 use jsonrpsee_core::client::{Error as RpcError, Subscription};

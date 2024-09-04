@@ -8,7 +8,7 @@ use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
 pub struct SharedStream<T>
 where
-    T: Stream + Unpin,
+    T: Stream + Unpin + 'static,
     T::Item: Clone + Send + Sync + 'static,
 {
     inner: Inner<T>,

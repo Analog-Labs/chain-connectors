@@ -104,9 +104,11 @@ where
     }
 }
 
+impl<T> Unpin for Adapter<T> where T: Unpin {}
+
 impl<T> Debug for Adapter<T>
 where
-    T: ClientT + Send + Sync + Debug,
+    T: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_tuple("Adapter").field(&self.0).finish()
@@ -115,7 +117,7 @@ where
 
 impl<T> Display for Adapter<T>
 where
-    T: ClientT + Send + Sync + Display,
+    T: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         <T as Display>::fmt(&self.0, f)

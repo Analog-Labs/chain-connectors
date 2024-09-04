@@ -8,7 +8,7 @@ description = "Ethereum RPC method."
 
 [dependencies]
 async-trait = "0.1"
-auto_impl = "1.1"
+auto_impl = "1.2"
 futures-core = { version = "0.3", default-features = false, features = ["alloc"] }
 jsonrpsee-core = { version = "0.24", default-features = false, features = ["client"], optional = true }
 parity-scale-codec = { workspace = true, features = ["derive"], optional = true }

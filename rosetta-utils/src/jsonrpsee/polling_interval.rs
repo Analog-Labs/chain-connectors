@@ -1,4 +1,4 @@
-use super::FutureFactory;
+use crate::futures::FutureFactory;
 use futures_timer::Delay;
 use futures_util::{future::BoxFuture, FutureExt, Stream};
 use pin_project::pin_project;

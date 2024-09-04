@@ -87,7 +87,7 @@ exec_cmd() {
 CLIPPY_FLAGS="-Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions"
 if [[ "${RUN_FIX}" == "1" ]]; then
   exec_cmd 'format' 'cargo +nightly fmt --all && dprint fmt'
-  # exec_cmd 'clippy --fix' "cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
+  # exec_cmd 'clippy --fix' "cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features -- ${CLIPPY_FLAGS}"
 fi
 exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
 exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
@@ -113,7 +113,7 @@ exec_cmd 'cargo deny' 'cargo deny check'
 # exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
 # exec_cmd 'clippy rosetta-client' 'cargo clippy --locked -p rosetta-client --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features --exclude playground -- ${CLIPPY_FLAGS}"
+exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features -- ${CLIPPY_FLAGS}"
 
 if [[ "${TEST_ETH_BACKEND}" == "1" ]]; then
   NAME='rosetta-ethereum-backend'
