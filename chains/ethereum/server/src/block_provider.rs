@@ -12,7 +12,7 @@ use rosetta_config_ethereum::{
     ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, BlockIdentifier, SealedBlock},
     AtBlock, H256,
 };
-use rosetta_ethereum_backend::EthereumRpc;
+use rosetta_ethereum_backend::{jsonrpsee::Adapter, EthereumRpc};
 
 /// Block Provider trait provides an interface to query blocks from an Ethereum node using
 /// different finality strategies.
@@ -76,11 +76,58 @@ fn into_sealed_block<ERR>(
     Ok(Some(Arc::new(block)))
 }
 
-#[derive(Clone)]
-pub struct RpcBlockProvider<RPC> {
-    /// Ethereum RPC client
-    inner: Arc<InnerState<RPC>>,
+impl<RPC> BlockProvider for Adapter<RPC>
+where
+    RPC: EthereumRpc + Send + Clone + 'static,
+    RPC::Error: Send,
+{
+    type Error = BlockProviderError<<RPC as EthereumRpc>::Error>;
+    type BlockAtFut = BoxFuture<'static, Result<Option<Arc<PartialBlock>>, Self::Error>>;
+    type LatestFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
+    type FinalizedFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
+
+    fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
+        let rpc = self.clone();
+        async move {
+            let maybe_block = <RPC as EthereumRpc>::block(&rpc.0, block_ref.into())
+                .map(into_sealed_block)
+                .await?;
+            Ok(maybe_block)
+        }
+        .boxed()
+    }
+
+    fn latest(&self) -> Self::LatestFut {
+        let rpc = self.clone();
+        async move {
+            let Some(latest_block) = <RPC as EthereumRpc>::block(&rpc.0, AtBlock::Latest)
+                .map(into_sealed_block)
+                .await?
+            else {
+                return Err(BlockProviderError::LatestBlockNotFound);
+            };
+            Ok(latest_block)
+        }
+        .boxed()
+    }
+
+    fn finalized(&self) -> Self::FinalizedFut {
+        let rpc = self.clone();
+        async move {
+            let Some(best_block) = <RPC as EthereumRpc>::block(&rpc.0, AtBlock::Finalized)
+                .map(into_sealed_block)
+                .await?
+            else {
+                return Err(BlockProviderError::FinalizedBlockNotFound);
+            };
+            Ok(best_block)
+        }
+        .boxed()
+    }
 }
+
+#[derive(Clone)]
+pub struct RpcBlockProvider<RPC>(Arc<InnerState<RPC>>);
 
 impl<RPC> RpcBlockProvider<RPC>
 where
@@ -129,13 +176,13 @@ where
         };
 
         // Return the block provider
-        Ok(Self { inner: Arc::new(inner) })
+        Ok(Self(Arc::new(inner)))
     }
 }
 
 impl<RPC> AsRef<RPC> for RpcBlockProvider<RPC> {
     fn as_ref(&self) -> &RPC {
-        &self.inner.rpc
+        &self.0.rpc
     }
 }
 
@@ -155,7 +202,7 @@ where
 
     /// Get block by identifier
     fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
-        let this = self.inner.clone();
+        let this = self.0.clone();
         async move {
             let maybe_block = <RPC as EthereumRpc>::block(&this.rpc, block_ref.into())
                 .map(into_sealed_block)
@@ -167,13 +214,13 @@ where
 
     /// Retrieve the latest block
     fn latest(&self) -> Self::LatestFut {
-        let this = self.inner.clone();
+        let this = self.0.clone();
         async move { this.latest_block().await }.boxed()
     }
 
     /// Retrieve the latest finalized block, following the specified finality strategy
     fn finalized(&self) -> Self::FinalizedFut {
-        let this = self.inner.clone();
+        let this = self.0.clone();
         async move { this.best_block().await }.boxed()
     }
 }
