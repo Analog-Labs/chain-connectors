@@ -19,14 +19,13 @@ use std::{
 pub struct BlockStream<P, RPC>
 where
     P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     stream: Option<EthereumEventStream<P, RPC>>,
     state: State,
@@ -35,15 +34,13 @@ where
 impl<P, RPC> BlockStream<P, RPC>
 where
     P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::FinalizedFut: Unpin + Send + 'static,
-    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     #[must_use]
     pub fn new(provider: P, client: RPC, state: State) -> Self {
@@ -54,15 +51,13 @@ where
 impl<P, RPC> Stream for BlockStream<P, RPC>
 where
     P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::FinalizedFut: Unpin + Send + 'static,
-    P::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     type Item = ClientEvent<BlockIdentifier, EthEvent>;
 

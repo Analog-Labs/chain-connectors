@@ -141,7 +141,7 @@ pub struct FinalizedBlockStream<P: BlockProvider> {
 
 impl<P> FinalizedBlockStream<P>
 where
-    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P: BlockProvider + Send + 'static,
 {
     pub fn new(provider: P) -> Self {
         Self {
@@ -163,9 +163,8 @@ where
 
 impl<P> Stream for FinalizedBlockStream<P>
 where
-    P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::FinalizedFut: Unpin + Send + 'static,
-    P::Error: std::error::Error,
+    P: BlockProvider + Unpin + Send + 'static,
+    P::Error: std::error::Error + Send,
 {
     type Item = PartialBlock;
 
@@ -235,7 +234,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MaybeWsEthereumClient;
+    use crate::{
+        block_provider::RpcBlockProvider, client::BlockFinalityStrategy, MaybeWsEthereumClient,
+    };
     use futures_util::StreamExt;
     use rosetta_core::BlockchainConfig;
     use rosetta_docker::{run_test, Env};
@@ -259,7 +260,14 @@ mod tests {
                 MaybeWsEthereumClient::Http(_) => panic!("the connections must be ws"),
                 MaybeWsEthereumClient::Ws(client) => client.backend.clone(),
             };
-            let mut sub = FinalizedBlockStream::new(client);
+            let provider = RpcBlockProvider::new(
+                client,
+                Duration::from_secs(1),
+                BlockFinalityStrategy::Finalized,
+            )
+            .await
+            .unwrap();
+            let mut sub = FinalizedBlockStream::new(provider);
             let mut last_block: Option<PartialBlock> = None;
             for _ in 0..30 {
                 let Some(new_block) = sub.next().await else {

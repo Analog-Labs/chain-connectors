@@ -92,7 +92,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     Subscription(AutoSubscribe<RpcBlock<H256>, NewHeadsSubscriber<RPC>>),
     Polling(CircuitBreaker<PollingInterval<PollLatestBlock<RPC>>, ()>),
@@ -106,7 +106,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -123,7 +123,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     /// Subscription or Polling to new block headers.
     state: State<RPC>,
@@ -138,11 +138,10 @@ where
 impl<RPC> NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + EthereumRpc
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -153,11 +152,10 @@ where
 impl<RPC> Stream for NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + EthereumRpc
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     type Item = PartialBlock;
 

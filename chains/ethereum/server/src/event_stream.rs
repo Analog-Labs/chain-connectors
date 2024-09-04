@@ -51,37 +51,35 @@ impl From<NewBlock> for SealedBlock<H256> {
     }
 }
 
-pub struct EthereumEventStream<P, C>
+pub struct EthereumEventStream<P, RPC>
 where
-    P: BlockProvider + Unpin + Send + Sync + 'static,
-    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
+    P: BlockProvider + Unpin + Send + 'static,
+    P::Error: std::error::Error + Send,
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Unpin
         + Send
         + Sync
         + 'static,
-    C::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync,
 {
     /// Latest block stream
-    new_head_stream: Option<NewHeadsStream<C>>,
+    new_head_stream: Option<NewHeadsStream<RPC>>,
     /// Finalized blocks stream
     finalized_stream: Option<FinalizedBlockStream<P>>,
 }
 
-impl<P, C> EthereumEventStream<P, C>
+impl<P, RPC> EthereumEventStream<P, RPC>
 where
     P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::FinalizedFut: Unpin + Send + 'static,
-    P::Error: std::error::Error,
-    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
+    P::Error: std::error::Error + Send + Sync + 'static,
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Unpin
         + Send
         + Sync
         + 'static,
-    C::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
-    pub fn new(client: C, provider: P) -> Self {
+    pub fn new(client: RPC, provider: P) -> Self {
         Self {
             new_head_stream: Some(NewHeadsStream::new(client)),
             finalized_stream: Some(FinalizedBlockStream::new(provider)),
@@ -89,18 +87,16 @@ where
     }
 }
 
-impl<P, C> Stream for EthereumEventStream<P, C>
+impl<P, RPC> Stream for EthereumEventStream<P, RPC>
 where
     P: BlockProvider + Unpin + Send + Sync + 'static,
-    P::FinalizedFut: Unpin + Send + 'static,
-    P::Error: std::error::Error,
-    C: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
+    P::Error: std::error::Error + Send + Sync + 'static,
+    RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
         + Unpin
         + Send
         + Sync
         + 'static,
-    C::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     type Item = NewBlock;
 

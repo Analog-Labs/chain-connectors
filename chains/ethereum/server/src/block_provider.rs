@@ -1,33 +1,33 @@
 use super::client::BlockFinalityStrategy;
-use std::{
-    fmt::{Debug, Display},
-    sync::Arc,
-};
+use std::sync::Arc;
 use tokio::{
     sync::Mutex,
     time::{Duration, Instant},
 };
 
 use crate::utils::PartialBlock;
+use auto_impl::auto_impl;
 use futures_util::{future::BoxFuture, Future, FutureExt};
 use rosetta_config_ethereum::{
-    ext::types::{crypto::DefaultCrypto, BlockIdentifier},
-    AtBlock,
+    ext::types::{crypto::DefaultCrypto, rpc::RpcBlock, BlockIdentifier, SealedBlock},
+    AtBlock, H256,
 };
 use rosetta_ethereum_backend::EthereumRpc;
 
-/// Block Provider
-pub trait BlockProvider: Unpin {
+/// Block Provider trait provides an interface to query blocks from an Ethereum node using
+/// different finality strategies.
+#[auto_impl(&, Box, Arc)]
+pub trait BlockProvider {
     /// Error type
-    type Error: Unpin + Send + Sync + 'static;
-    /// Future type
+    type Error: Send;
+    /// Future type when querying a block by hash or number
     type BlockAtFut: Future<Output = Result<Option<Arc<PartialBlock>>, Self::Error>>
         + Unpin
         + Send
         + 'static;
-    /// Future type
+    /// Future type when querying the latest block
     type LatestFut: Future<Output = Result<Arc<PartialBlock>, Self::Error>> + Unpin + Send + 'static;
-    /// Future type
+    /// Future type when querying the latest finalized block
     type FinalizedFut: Future<Output = Result<Arc<PartialBlock>, Self::Error>>
         + Unpin
         + Send
@@ -42,161 +42,38 @@ pub trait BlockProvider: Unpin {
 }
 
 /// Block Provider Error
+#[derive(thiserror::Error, Debug, PartialEq, Eq, Clone)]
 pub enum BlockProviderError<ERR> {
+    #[error("{0}")]
     Rpc(ERR),
+    #[error("latest block not found")]
     LatestBlockNotFound,
+    #[error("finalized block not found")]
     FinalizedBlockNotFound,
 }
 
-impl<ERR> Unpin for BlockProviderError<ERR> where ERR: Unpin {}
-unsafe impl<ERR> Send for BlockProviderError<ERR> where ERR: Send {}
-unsafe impl<ERR> Sync for BlockProviderError<ERR> where ERR: Sync {}
-
-impl<ERR> std::error::Error for BlockProviderError<ERR>
-where
-    ERR: std::error::Error + Display + Debug,
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Rpc(err) => err.source(),
-            Self::LatestBlockNotFound | Self::FinalizedBlockNotFound => None,
-        }
-    }
-}
-
-impl<ERR> Display for BlockProviderError<ERR>
-where
-    ERR: Display,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Rpc(err) => Display::fmt(err, f),
-            Self::LatestBlockNotFound => write!(f, "latest block not found"),
-            Self::FinalizedBlockNotFound => write!(f, "finalized block not found"),
-        }
-    }
-}
-
-impl<ERR> Debug for BlockProviderError<ERR>
-where
-    ERR: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Rpc(err) => f.debug_tuple("Rpc").field(err).finish(),
-            Self::LatestBlockNotFound => write!(f, "LatestBlockNotFound"),
-            Self::FinalizedBlockNotFound => write!(f, "FinalizedBlockNotFound"),
-        }
-    }
-}
-
-impl<ERR> PartialEq for BlockProviderError<ERR>
-where
-    ERR: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Rpc(err0), Self::Rpc(err1)) => err0.eq(err1),
-            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
-        }
-    }
-}
-impl<ERR> Eq for BlockProviderError<ERR> where ERR: Eq {}
-
-impl<ERR> Clone for BlockProviderError<ERR>
-where
-    ERR: Clone,
-{
-    fn clone(&self) -> Self {
-        match self {
-            Self::Rpc(err) => Self::Rpc(err.clone()),
-            Self::LatestBlockNotFound => Self::LatestBlockNotFound,
-            Self::FinalizedBlockNotFound => Self::FinalizedBlockNotFound,
-        }
-    }
-}
-
-async fn retrieve_sealed_block<RPC>(
-    rpc: RPC,
-    at: AtBlock,
-) -> Result<Option<PartialBlock>, RPC::Error>
-where
-    RPC: EthereumRpc + Unpin + Send + Sync + 'static,
-    RPC::Error: std::error::Error + Unpin + Send + Sync + 'static,
-{
-    let Some(block) = EthereumRpc::block(&rpc, at).await? else {
+/// Converts a `RpcBlock` into a `Arc<SealedBlock>`.
+fn into_sealed_block<ERR>(
+    block: Result<Option<RpcBlock<H256>>, ERR>,
+) -> Result<Option<Arc<SealedBlock<H256>>>, BlockProviderError<ERR>> {
+    let Some(block) = block.map_err(BlockProviderError::Rpc)? else {
         return Ok(None);
     };
 
+    let block_number = block.header.number;
     let block = if let Some(hash) = block.hash {
         block.seal(hash)
     } else {
-        // OBS: this should never happen, except for pending blocks, a block should always have a
-        // hash.
-        tracing::warn!(
-            "[report this bug] api returned a block without hash, computing the hash locally..."
+        // OBS: this should never happen, except for pending blocks, a block should
+        // always have a hash.
+        let sealed_block = block.seal_slow::<DefaultCrypto>();
+        let block_hash = sealed_block.header().hash();
+        tracing::error!(
+            "[report this bug] api returned the block {block_number} without hash, hash was computed locally: {block_hash}."
         );
-        block.seal_slow::<DefaultCrypto>()
+        sealed_block
     };
-    Ok(Some(block))
-}
-
-/// Implement `BlockProvider` for `EthereumRpc`
-impl<RPC> BlockProvider for RPC
-where
-    RPC: EthereumRpc + Send + Sync + Clone + Unpin + 'static,
-    RPC::Error: std::error::Error + Unpin + Send + Sync + 'static,
-{
-    /// Error type
-    type Error = BlockProviderError<RPC::Error>;
-    /// Future type
-    type BlockAtFut = BoxFuture<'static, Result<Option<Arc<PartialBlock>>, Self::Error>>;
-    /// Future type
-    type LatestFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
-    /// Future type
-    type FinalizedFut = BoxFuture<'static, Result<Arc<PartialBlock>, Self::Error>>;
-
-    /// Get block by identifier
-    fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
-        let rpc = self.clone();
-        async move {
-            let maybe_block = retrieve_sealed_block(rpc, block_ref.into())
-                .await
-                .map_err(BlockProviderError::Rpc)?;
-            Ok(maybe_block.map(Arc::new))
-        }
-        .boxed()
-    }
-
-    /// Retrieve the latest block
-    fn latest(&self) -> Self::LatestFut {
-        let rpc = self.clone();
-        async move {
-            let Some(latest_block) = retrieve_sealed_block(rpc, AtBlock::Latest)
-                .await
-                .map_err(BlockProviderError::Rpc)?
-            else {
-                return Err(BlockProviderError::LatestBlockNotFound);
-            };
-            Ok(Arc::new(latest_block))
-        }
-        .boxed()
-    }
-
-    /// Retrieve the latest finalized block
-    fn finalized(&self) -> Self::FinalizedFut {
-        let rpc = self.clone();
-        async move {
-            let Some(best_block) = retrieve_sealed_block(rpc, AtBlock::Finalized)
-                .await
-                .map_err(BlockProviderError::Rpc)?
-            else {
-                return Err(BlockProviderError::FinalizedBlockNotFound);
-            };
-            Ok(Arc::new(best_block))
-        }
-        .boxed()
-    }
+    Ok(Some(Arc::new(block)))
 }
 
 #[derive(Clone)]
@@ -207,8 +84,8 @@ pub struct RpcBlockProvider<RPC> {
 
 impl<RPC> RpcBlockProvider<RPC>
 where
-    RPC: EthereumRpc + Send + Sync + Clone + Unpin + 'static,
-    RPC::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    RPC: EthereumRpc + Send + Sync + Clone + 'static,
+    RPC::Error: std::error::Error + Send,
 {
     pub async fn new(
         rpc: RPC,
@@ -216,9 +93,9 @@ where
         finality_strategy: BlockFinalityStrategy,
     ) -> Result<Self, BlockProviderError<RPC::Error>> {
         // Retrieve the latest block
-        let Some(latest_block) = retrieve_sealed_block(rpc.clone(), AtBlock::Latest)
-            .await
-            .map_err(BlockProviderError::Rpc)?
+        let Some(latest_block) = <RPC as EthereumRpc>::block(&rpc, AtBlock::Latest)
+            .map(into_sealed_block)
+            .await?
         else {
             return Err(BlockProviderError::LatestBlockNotFound);
         };
@@ -233,9 +110,8 @@ where
                     AtBlock::At(BlockIdentifier::Number(best_block_number))
                 },
             };
-            let Some(best_block) = retrieve_sealed_block(rpc.clone(), at_block)
-                .await
-                .map_err(BlockProviderError::Rpc)?
+            let Some(best_block) =
+                <RPC as EthereumRpc>::block(&rpc, at_block).map(into_sealed_block).await?
             else {
                 return Err(BlockProviderError::FinalizedBlockNotFound);
             };
@@ -248,8 +124,8 @@ where
             rpc,
             finality_strategy,
             cache_timeout,
-            best_block: Mutex::new((Arc::new(best_block), now)),
-            latest_block: Mutex::new((Arc::new(latest_block), now)),
+            best_block: Mutex::new((best_block, now)),
+            latest_block: Mutex::new((latest_block, now)),
         };
 
         // Return the block provider
@@ -265,8 +141,8 @@ impl<RPC> AsRef<RPC> for RpcBlockProvider<RPC> {
 
 impl<RPC> BlockProvider for RpcBlockProvider<RPC>
 where
-    RPC: EthereumRpc + Send + Sync + Clone + Unpin + 'static,
-    RPC::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    RPC: EthereumRpc + Send + Sync + 'static,
+    RPC::Error: std::error::Error + Send,
 {
     /// Error type
     type Error = BlockProviderError<RPC::Error>;
@@ -279,7 +155,14 @@ where
 
     /// Get block by identifier
     fn block_at(&self, block_ref: BlockIdentifier) -> Self::BlockAtFut {
-        <RPC as BlockProvider>::block_at(&self.inner.rpc, block_ref)
+        let this = self.inner.clone();
+        async move {
+            let maybe_block = <RPC as EthereumRpc>::block(&this.rpc, block_ref.into())
+                .map(into_sealed_block)
+                .await?;
+            Ok(maybe_block)
+        }
+        .boxed()
     }
 
     /// Retrieve the latest block
@@ -310,8 +193,8 @@ struct InnerState<RPC> {
 
 impl<RPC> InnerState<RPC>
 where
-    RPC: EthereumRpc + Send + Sync + Clone + Unpin + 'static,
-    RPC::Error: std::error::Error + Unpin + Send + Sync + 'static,
+    RPC: EthereumRpc + Send + Sync + 'static,
+    RPC::Error: std::error::Error + Send,
 {
     /// Get the cached latest block, or refresh after `cache_timeout`.
     async fn latest_block<'a: 'b, 'b>(
@@ -321,13 +204,13 @@ where
 
         // Check if the cache has expired
         if guard.1.elapsed() > self.cache_timeout {
-            let Some(latest_block) = retrieve_sealed_block(self.rpc.clone(), AtBlock::Latest)
-                .await
-                .map_err(BlockProviderError::Rpc)?
+            let Some(latest_block) = <RPC as EthereumRpc>::block(&self.rpc, AtBlock::Latest)
+                .map(into_sealed_block)
+                .await?
             else {
                 return Err(BlockProviderError::LatestBlockNotFound);
             };
-            *guard = (Arc::new(latest_block), Instant::now());
+            *guard = (latest_block, Instant::now());
         }
 
         Ok(guard.0.clone())
@@ -354,13 +237,12 @@ where
                     AtBlock::At(BlockIdentifier::Number(best_block_number))
                 },
             };
-            let Some(best_block) = retrieve_sealed_block(self.rpc.clone(), at_block)
-                .await
-                .map_err(BlockProviderError::Rpc)?
+            let Some(best_block) =
+                <RPC as EthereumRpc>::block(&self.rpc, at_block).map(into_sealed_block).await?
             else {
                 return Err(BlockProviderError::FinalizedBlockNotFound);
             };
-            *guard = (Arc::new(best_block), Instant::now());
+            *guard = (best_block, Instant::now());
         }
 
         Ok(guard.0.clone())
