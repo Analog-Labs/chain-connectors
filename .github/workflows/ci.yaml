@@ -110,7 +110,7 @@ jobs:
       run: |
         docker pull manojanalog/avalanche-cli-analog
         docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ manojanalog/avalanche-cli-analog blockchain create localnew --evm --evm-token SUB --genesis ./genesis.json --teleporter=false --vm-version v0.6.9 
-        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650:9650  --entrypoint bash  manojanalog/avalanche-cli-analog -c "/avalanche blockchain deploy localnew --local;tail -f /dev/null"
+        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650:9650  --entrypoint bash  manojanalog/avalanche-cli-analog -c "/avalanche blockchain deploy localnew --local;tail -f /dev/null"
 
     - name: Setup BSC node
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
