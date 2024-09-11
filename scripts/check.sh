@@ -192,7 +192,7 @@ shellcheck_version="$(awk '{print $2}' <<< "${shellcheck_version}")"
 # "$(shellcheck --version | grep 'version:' | awk '{print $2}')"
 checkSemver 'shellcheck' \
   "${shellcheck_version}" \
-  '0.9.0' \
+  '0.8.0' \
   "upgrade ${bold_color}shellcheck${reset_color} following the instructions at: ${warn_color}https://github.com/koalaman/shellcheck${reset_color}"
 
 # Check `docker api` version
