@@ -1,12 +1,12 @@
-//! # Polygon Rosetta Server Test Suite
+//! # Binance Rosetta Server Test Suite
 //!
 //! This module contains a test suite for an Ethereum Rosetta server implementation
-//! specifically designed for interacting with the Polygon network. The code includes
+//! specifically designed for interacting with the Binance network. The code includes
 //! tests for network status, account management, and smart contract interaction.
 //!
 //! ## Features
 //!
-//! - Network status tests to ensure proper connection and consistency with the Polygon network.
+//! - Network status tests to ensure proper connection and consistency with the Binance network.
 //! - Account tests, including faucet funding, balance retrieval, and error handling.
 //! - Smart contract tests covering deployment, event emission, and view function calls.
 //!
@@ -28,10 +28,10 @@
 //! To run the tests, execute the following command:
 //!
 //! ```sh
-//! cargo test --package rosetta-testing-polygon --lib -- tests --nocapture
+//! cargo test --package rosetta-testing-binance --lib -- tests --nocapture
 //! ```
 //!
-//! Note: The code assumes a local Polygon RPC node running on `ws://127.0.0.1:8546`. Ensure
+//! Note: The code assumes a local Binance RPC node running on `ws://127.0.0.1:8546`. Ensure
 //! that this endpoint is configured correctly.
 
 #[allow(clippy::ignored_unit_patterns, clippy::pub_underscore_fields)]
@@ -50,8 +50,8 @@ mod tests {
     use sha3::Digest;
     use std::{collections::BTreeMap, future::Future, path::Path};
 
-    /// Polygon rpc url
-    const POLYGON_RPC_WS_URL: &str = "ws://127.0.0.1:8546";
+    /// Binance rpc url
+    const BINANCE_RPC_WS_URL: &str = "ws://127.0.0.1:8546";
 
     sol! {
         interface TestContract {
@@ -62,7 +62,7 @@ mod tests {
         }
     }
 
-    /// Run the test in another thread while sending txs to force polygon to mine new blocks
+    /// Run the test in another thread while sending txs to force binance to mine new blocks
     /// # Panic
     /// Panics if the future panics
     async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {
@@ -94,11 +94,10 @@ mod tests {
         }
     }
 
-    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn network_status() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
                 .await
                 .expect("Error creating client");
             // Check if the genesis is consistent
@@ -120,15 +119,14 @@ mod tests {
         .await;
     }
 
-    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_account() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
                 .await
-                .expect("Error creating PolygonClient");
+                .expect("Error creating BinanceClient");
             let wallet =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
                     .await
                     .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
@@ -139,20 +137,19 @@ mod tests {
         .await;
     }
 
-    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_construction() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
                 .await
-                .expect("Error creating PolygonClient");
+                .expect("Error creating BinanceClient");
             let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             let value = u128::pow(10, client.config().currency_decimals);
             let alice =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
                     .await
                     .unwrap();
-            let bob = Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+            let bob = Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
                 .await
                 .unwrap();
             assert_ne!(alice.public_key(), bob.public_key());
@@ -201,16 +198,15 @@ mod tests {
         Ok(bytecode)
     }
 
-    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_smart_contract() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
                 .await
-                .expect("Error creating PolygonClient");
+                .expect("Error creating BinanceClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
                     .await
                     .unwrap();
             wallet.faucet(faucet).await.unwrap();
@@ -237,7 +233,7 @@ mod tests {
                     .0
             };
             let receipt = wallet.eth_transaction_receipt(tx_hash).await.unwrap().unwrap();
-            assert_eq!(receipt.logs.len(), 2);
+            assert_eq!(receipt.logs.len(), 1);
             let topic = receipt.logs[0].topics[0];
             let expected = H256(sha3::Keccak256::digest("AnEvent()").into());
             assert_eq!(topic, expected);
@@ -245,16 +241,15 @@ mod tests {
         .await;
     }
 
-    #[ignore = "No Polygon CI"]
     #[tokio::test]
     async fn test_smart_contract_view() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("polygon", "dev", POLYGON_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
                 .await
-                .expect("Error creating PolygonClient");
+                .expect("Error creating BinanceClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_WS_URL, None, None)
+                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
                     .await
                     .unwrap();
             wallet.faucet(faucet).await.unwrap();
