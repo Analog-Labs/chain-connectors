@@ -4,7 +4,10 @@ use rosetta_ethereum_backend::{
     jsonrpsee::core::client::{Error as RpcError, Subscription},
     EthereumPubSub, EthereumRpc,
 };
-use rosetta_utils::jsonrpsee::{AutoSubscribe, CircuitBreaker, FutureFactory, PollingInterval};
+use rosetta_utils::{
+    futures::FutureFactory,
+    jsonrpsee::{AutoSubscribe, CircuitBreaker, PollingInterval},
+};
 use std::{
     mem,
     pin::Pin,
@@ -37,7 +40,7 @@ where
             let block = if let Some(hash) = block.hash {
                 block.seal(hash)
             } else {
-                tracing::warn!("[report this bug] the api returned the latest block without hash, computing block hash manually");
+                tracing::error!("[report this bug] the api returned the latest block without hash, computing block hash manually");
                 block.seal_slow::<DefaultCrypto>()
             };
             Ok(Some(block))
@@ -89,7 +92,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     Subscription(AutoSubscribe<RpcBlock<H256>, NewHeadsSubscriber<RPC>>),
     Polling(CircuitBreaker<PollingInterval<PollLatestBlock<RPC>>, ()>),
@@ -103,7 +106,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -120,7 +123,7 @@ where
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     /// Subscription or Polling to new block headers.
     state: State<RPC>,
@@ -135,11 +138,10 @@ where
 impl<RPC> NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + EthereumRpc
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     #[must_use]
     pub const fn new(backend: RPC) -> Self {
@@ -150,11 +152,10 @@ where
 impl<RPC> Stream for NewHeadsStream<RPC>
 where
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + EthereumRpc
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send,
 {
     type Item = PartialBlock;
 

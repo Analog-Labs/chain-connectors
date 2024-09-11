@@ -1,4 +1,5 @@
 use super::{
+    block_provider::BlockProvider,
     event_stream::{EthereumEventStream, NewBlock},
     state::State,
 };
@@ -15,56 +16,59 @@ use std::{
     task::{Context, Poll},
 };
 
-pub struct BlockStream<RPC>
+pub struct BlockStream<P, RPC>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
-    block_stream: Option<EthereumEventStream<RPC>>,
+    stream: Option<EthereumEventStream<P, RPC>>,
     state: State,
 }
 
-impl<RPC> BlockStream<RPC>
+impl<P, RPC> BlockStream<P, RPC>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     #[must_use]
-    pub fn new(client: RPC, state: State) -> Self {
-        Self { block_stream: Some(EthereumEventStream::new(client)), state }
+    pub fn new(provider: P, client: RPC, state: State) -> Self {
+        Self { stream: Some(EthereumEventStream::new(client, provider)), state }
     }
 }
 
-impl<RPC> Stream for BlockStream<RPC>
+impl<P, RPC> Stream for BlockStream<P, RPC>
 where
+    P: BlockProvider + Unpin + Send + Sync + 'static,
+    P::Error: std::error::Error + Send + Sync + 'static,
     RPC: for<'s> EthereumPubSub<Error = RpcError, NewHeadsStream<'s> = Subscription<RpcBlock<H256>>>
-        + Clone
         + Unpin
         + Send
         + Sync
         + 'static,
-    RPC::SubscriptionError: Send + Sync,
+    RPC::SubscriptionError: Send + Sync + 'static,
 {
     type Item = ClientEvent<BlockIdentifier, EthEvent>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        let Some(mut block_stream) = self.block_stream.take() else {
+        let Some(mut stream) = self.stream.take() else {
             return Poll::Ready(None);
         };
 
         let mut failures = 0;
         loop {
-            match block_stream.poll_next_unpin(cx) {
+            match stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(new_block)) => {
                     let block_id = {
                         let header = new_block.sealed_block().header();
@@ -76,7 +80,7 @@ where
                     let is_finalized = matches!(new_block, NewBlock::Finalized(_));
                     if let Err(err) = self.state.import(new_block.into_sealed_block()) {
                         failures += 1;
-                        tracing::warn!("failed to import block {block_id} ({failures}): {:?}", err);
+                        tracing::warn!("failed to import block {block_id} ({failures}): {err:?}");
                         if failures >= 5 {
                             return Poll::Ready(None);
                         }
@@ -88,19 +92,15 @@ where
                     } else {
                         ClientEvent::NewHead(block_id)
                     };
-                    self.block_stream = Some(block_stream);
+                    self.stream = Some(stream);
                     break Poll::Ready(Some(event));
                 },
                 Poll::Ready(None) => break Poll::Ready(None),
                 Poll::Pending => {
-                    self.block_stream = Some(block_stream);
+                    self.stream = Some(stream);
                     break Poll::Pending;
                 },
             }
         }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, None)
     }
 }
