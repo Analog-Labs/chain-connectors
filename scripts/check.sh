@@ -133,7 +133,8 @@ fi
 
 if [[ "${TEST_ETH_TYPES}" == "1" ]]; then
   NAME='rosetta-ethereum-types'
-  # Docker built-in networks
+  # Combine all features, to make sure any combination of features works.
+  # The following features must work on wasm32-unknown-unknown targets, once they must be used in substrate runtime.
   FEATURES=(
     '--features=serde'
     '--features=with-rlp'
