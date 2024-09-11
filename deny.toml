@@ -98,6 +98,9 @@ ignore = [
 
   # Timing variabilit on curve25519-dalek, which can potentially leak private keys
   { id = 'RUSTSEC-2024-0344', reason = "Waiting for third-part libraries to update to the fixed version" },
+
+  #proc-macro-error is unmaintained
+  { id = 'RUSTSEC-2024-0370', reason = "proc-macro-error's maintainer seems to be unreachable, with no commits for 2 years, no releases pushed for 4 years, and no activity on the GitLab repo or response to email."},
 ]
 
 # This section is considered when running `cargo deny check sources`.
