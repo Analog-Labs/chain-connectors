@@ -54,10 +54,10 @@ mod tests {
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("673250a146acf929ec07ef144a6c6f8cc35759cf20bf7fce938e5e5a3601d713");
+        hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
 
     /// Avalanche rpc url
-    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/test/ws";
+    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/localnew/ws";
 
     sol! {
         interface TestContract {
