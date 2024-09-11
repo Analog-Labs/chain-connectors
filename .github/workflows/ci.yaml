@@ -66,7 +66,7 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v4
 
-    - run: sudo add-apt-repository ppa:ethereum/ethereum
+    # - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
     - name: Install deps
       run: sudo apt-get install -y musl-dev musl-tools solc
@@ -125,7 +125,7 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v4
 
-    - run: sudo add-apt-repository ppa:ethereum/ethereum
+    # - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
     - name: Install deps
       run: sudo apt-get install -y musl-dev musl-tools solc
