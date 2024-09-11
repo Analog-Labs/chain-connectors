@@ -109,6 +109,7 @@ if [[ "${RUN_FIX}" == "1" ]]; then
 fi
 
 if [[ "${CHECK_FORMAT}" == "1" ]]; then
+  exec_cmd 'update cargo deny' 'cargo install --locked cargo-deny --force'
   exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
   exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
   exec_cmd 'dprint check' 'dprint check'
