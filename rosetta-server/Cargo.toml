@@ -10,16 +10,6 @@ description = "Generic rosetta server implementation."
 default = []
 native-tls = ["tokio-tungstenite/native-tls"]
 webpki-tls = ["tokio-tungstenite/rustls-tls-webpki-roots"]
-# ws = [
-#   "dep:async-trait",
-#   "dep:futures",
-#   "dep:futures-util",
-#   "dep:futures-timer",
-#   "dep:jsonrpsee",
-#   "dep:subxt",
-#   "dep:pin-project",
-#   "futures/std",
-# ]
 
 [dependencies]
 anyhow = "1.0"
