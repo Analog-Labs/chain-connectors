@@ -17,7 +17,7 @@ parity-scale-codec = { workspace = true, features = ["derive"] }
 rosetta-config-astar = { workspace = true, features = ["astar-metadata"] }
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
-rosetta-server = { workspace = true, features = ["ws", "webpki-tls"] }
+rosetta-server = { workspace = true, features = ["webpki-tls"] }
 rosetta-server-ethereum.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -26,8 +26,8 @@ subxt = { workspace = true, features = ["substrate-compat"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [dev-dependencies]
-alloy-primitives = { version = "0.7" }
-alloy-sol-types = { version = "0.7" }
+alloy-primitives = { version = "0.8" }
+alloy-sol-types = { version = "0.8" }
 ethers-solc = "2.0"
 rosetta-client.workspace = true
 rosetta-docker = { workspace = true, features = ["tests"] }

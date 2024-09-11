@@ -140,20 +140,6 @@ impl I256 {
         Self(U256::MAX)
     }
 
-    /// The maximum value which can be inhabited by this type.
-    #[inline(always)]
-    #[must_use]
-    pub const fn max_value() -> Self {
-        Self::MAX
-    }
-
-    /// The minimum value which can be inhabited by this type.
-    #[inline(always)]
-    #[must_use]
-    pub const fn min_value() -> Self {
-        Self::MIN
-    }
-
     /// Creates an I256 from a sign and an absolute value. Returns the value and a bool that is true
     /// if the conversion caused an overflow.
     #[inline(always)]
@@ -712,7 +698,7 @@ impl I256 {
     #[inline(always)]
     #[must_use]
     pub fn checked_div(self, rhs: Self) -> Option<Self> {
-        if rhs.is_zero() || (self == Self::min_value() && rhs == Self::minus_one()) {
+        if rhs.is_zero() || (self == Self::MIN && rhs == Self::minus_one()) {
             None
         } else {
             Some(self.overflowing_div(rhs).0)
@@ -844,7 +830,7 @@ impl I256 {
     #[track_caller]
     #[must_use]
     pub fn overflowing_div_euclid(self, rhs: Self) -> (Self, bool) {
-        if self == Self::min_value() && rhs == Self::minus_one() {
+        if self == Self::MIN && rhs == Self::minus_one() {
             (self, true)
         } else {
             (self.div_euclid(rhs), false)
@@ -856,7 +842,7 @@ impl I256 {
     #[inline(always)]
     #[must_use]
     pub fn checked_div_euclid(self, rhs: Self) -> Option<Self> {
-        if rhs.is_zero() || (self == Self::min_value() && rhs == Self::minus_one()) {
+        if rhs.is_zero() || (self == Self::MIN && rhs == Self::minus_one()) {
             None
         } else {
             Some(self.div_euclid(rhs))
@@ -916,7 +902,7 @@ impl I256 {
     #[track_caller]
     #[must_use]
     pub fn overflowing_rem_euclid(self, rhs: Self) -> (Self, bool) {
-        if self == Self::min_value() && rhs == Self::minus_one() {
+        if self == Self::MIN && rhs == Self::minus_one() {
             (Self::zero(), true)
         } else {
             (self.rem_euclid(rhs), false)
@@ -944,7 +930,7 @@ impl I256 {
     #[inline(always)]
     #[must_use]
     pub fn checked_rem_euclid(self, rhs: Self) -> Option<Self> {
-        if rhs.is_zero() || (self == Self::min_value() && rhs == Self::minus_one()) {
+        if rhs.is_zero() || (self == Self::MIN && rhs == Self::minus_one()) {
             None
         } else {
             Some(self.rem_euclid(rhs))
@@ -1049,7 +1035,7 @@ impl I256 {
     /// shift value was larger than or equal to the number of bits.
     #[inline(always)]
     #[must_use]
-    pub fn overflowing_shl(self, rhs: usize) -> (Self, bool) {
+    pub fn overflowing_shl(self, rhs: u32) -> (Self, bool) {
         if rhs >= 256 {
             (Self::zero(), true)
         } else {
@@ -1061,7 +1047,7 @@ impl I256 {
     /// equal to the number of bits in `self`.
     #[inline(always)]
     #[must_use]
-    pub fn checked_shl(self, rhs: usize) -> Option<Self> {
+    pub fn checked_shl(self, rhs: u32) -> Option<Self> {
         match self.overflowing_shl(rhs) {
             (value, false) => Some(value),
             _ => None,
@@ -1072,8 +1058,8 @@ impl I256 {
     /// number of bits in `self`.
     #[inline(always)]
     #[must_use]
-    pub fn wrapping_shl(self, rhs: usize) -> Self {
-        self.overflowing_shl(rhs).0
+    pub fn wrapping_shl(self, lhs: u32) -> Self {
+        self.overflowing_shl(lhs).0
     }
 
     /// Shifts self right by `rhs` bits.
@@ -1082,7 +1068,7 @@ impl I256 {
     /// shift value was larger than or equal to the number of bits.
     #[inline(always)]
     #[must_use]
-    pub fn overflowing_shr(self, rhs: usize) -> (Self, bool) {
+    pub fn overflowing_shr(self, rhs: u32) -> (Self, bool) {
         if rhs >= 256 {
             (Self::zero(), true)
         } else {
@@ -1094,7 +1080,7 @@ impl I256 {
     /// equal to the number of bits in `self`.
     #[inline(always)]
     #[must_use]
-    pub fn checked_shr(self, rhs: usize) -> Option<Self> {
+    pub fn checked_shr(self, rhs: u32) -> Option<Self> {
         match self.overflowing_shr(rhs) {
             (value, false) => Some(value),
             _ => None,
@@ -1105,7 +1091,7 @@ impl I256 {
     /// number of bits in `self`.
     #[inline(always)]
     #[must_use]
-    pub fn wrapping_shr(self, rhs: usize) -> Self {
+    pub fn wrapping_shr(self, rhs: u32) -> Self {
         self.overflowing_shr(rhs).0
     }
 
@@ -1113,7 +1099,7 @@ impl I256 {
     /// the number is positive this is the same as logic shift right.
     #[inline(always)]
     #[must_use]
-    pub fn asr(self, rhs: usize) -> Self {
+    pub fn asr(self, rhs: u32) -> Self {
         // Avoid shifting if we are going to know the result regardless of the value.
         match (rhs, self.sign()) {
             (0, _) => self,
@@ -1148,7 +1134,7 @@ impl I256 {
     /// Returns `None` if the operation overflowed (most significant bit changes).
     #[inline(always)]
     #[must_use]
-    pub fn asl(self, rhs: usize) -> Option<Self> {
+    pub fn asl(self, rhs: u32) -> Option<Self> {
         if rhs == 0 {
             Some(self)
         } else {
@@ -1198,6 +1184,7 @@ macro_rules! impl_conversions {
             }
 
             impl From<$i> for I256 {
+                #[allow(clippy::cast_sign_loss)]
                 #[inline(always)]
                 fn from(value: $i) -> Self {
                     let uint: $u = value as $u;
@@ -1213,6 +1200,7 @@ macro_rules! impl_conversions {
             impl TryFrom<I256> for $u {
                 type Error = TryFromBigIntError;
 
+                #[allow(clippy::cast_possible_truncation)]
                 #[inline(always)]
                 fn try_from(value: I256) -> Result<$u, Self::Error> {
                     if value.is_negative() || value > I256::from(<$u>::MAX) {
@@ -1226,6 +1214,7 @@ macro_rules! impl_conversions {
             impl TryFrom<I256> for $i {
                 type Error = TryFromBigIntError;
 
+                #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
                 #[inline(always)]
                 fn try_from(value: I256) -> Result<$i, Self::Error> {
                     if value < I256::from(<$i>::MIN) || value > I256::from(<$i>::MAX) {
@@ -1240,6 +1229,7 @@ macro_rules! impl_conversions {
 
     (@impl_fns $t:ty, $actual_low:ident $low:ident $as:ident) => {
         /// Low word.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
         #[inline(always)]
         #[must_use]
         pub const fn $low(&self) -> $t {
@@ -1549,9 +1539,10 @@ macro_rules! impl_shift {
             impl ops::Shl<$t> for I256 {
                 type Output = Self;
 
+                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation, clippy::cast_lossless)]
                 #[inline(always)]
                 fn shl(self, rhs: $t) -> Self::Output {
-                    self.wrapping_shl(rhs as usize)
+                    self.wrapping_shl(rhs as u32)
                 }
             }
 
@@ -1565,9 +1556,10 @@ macro_rules! impl_shift {
             impl ops::Shr<$t> for I256 {
                 type Output = Self;
 
+                #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation, clippy::cast_lossless)]
                 #[inline(always)]
                 fn shr(self, rhs: $t) -> Self::Output {
-                    self.wrapping_shr(rhs as usize)
+                    self.wrapping_shr(rhs as u32)
                 }
             }
 
@@ -1624,6 +1616,226 @@ fn handle_overflow((result, overflow): (I256, bool)) -> I256 {
     result
 }
 
+// num-traits
+impl num_traits::Zero for I256 {
+    #[inline(always)]
+    fn zero() -> Self {
+        Self(U256::zero())
+    }
+
+    #[inline(always)]
+    fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
+}
+
+impl num_traits::One for I256 {
+    #[inline(always)]
+    fn one() -> Self {
+        Self(U256::one())
+    }
+
+    #[inline(always)]
+    fn set_one(&mut self) {
+        self.0.set_one();
+    }
+
+    #[inline]
+    fn is_one(&self) -> bool
+    where
+        Self: PartialEq,
+    {
+        self.0.is_one()
+    }
+}
+
+impl num_traits::Bounded for I256 {
+    #[inline(always)]
+    fn min_value() -> Self {
+        Self::MIN
+    }
+
+    #[inline(always)]
+    fn max_value() -> Self {
+        Self::MAX
+    }
+}
+
+impl num_traits::Pow<u32> for I256 {
+    type Output = Self;
+
+    #[inline(always)]
+    fn pow(self, rhs: u32) -> Self {
+        Self::pow(self, rhs)
+    }
+}
+
+impl num_traits::Pow<u32> for &I256 {
+    type Output = I256;
+
+    #[inline(always)]
+    fn pow(self, rhs: u32) -> Self::Output {
+        I256::pow(*self, rhs)
+    }
+}
+
+impl num_traits::WrappingAdd for I256 {
+    #[inline(always)]
+    fn wrapping_add(&self, v: &Self) -> Self {
+        Self::wrapping_add(*self, *v)
+    }
+}
+
+impl num_traits::WrappingSub for I256 {
+    #[inline(always)]
+    fn wrapping_sub(&self, v: &Self) -> Self {
+        Self::wrapping_sub(*self, *v)
+    }
+}
+
+impl num_traits::WrappingMul for I256 {
+    #[inline(always)]
+    fn wrapping_mul(&self, v: &Self) -> Self {
+        Self::wrapping_mul(*self, *v)
+    }
+}
+
+impl num_traits::WrappingNeg for I256 {
+    #[inline(always)]
+    fn wrapping_neg(&self) -> Self {
+        Self::wrapping_neg(*self)
+    }
+}
+
+impl num_traits::WrappingShr for I256 {
+    #[inline(always)]
+    fn wrapping_shr(&self, rhs: u32) -> Self {
+        Self::wrapping_shr(*self, rhs)
+    }
+}
+
+impl num_traits::WrappingShl for I256 {
+    #[inline(always)]
+    fn wrapping_shl(&self, rhs: u32) -> Self {
+        Self::wrapping_shl(*self, rhs)
+    }
+}
+
+impl num_traits::CheckedAdd for I256 {
+    #[inline(always)]
+    fn checked_add(&self, v: &Self) -> Option<Self> {
+        Self::checked_add(*self, *v)
+    }
+}
+
+impl num_traits::CheckedSub for I256 {
+    #[inline(always)]
+    fn checked_sub(&self, v: &Self) -> Option<Self> {
+        Self::checked_sub(*self, *v)
+    }
+}
+
+impl num_traits::CheckedMul for I256 {
+    #[inline(always)]
+    fn checked_mul(&self, v: &Self) -> Option<Self> {
+        Self::checked_mul(*self, *v)
+    }
+}
+
+impl num_traits::CheckedDiv for I256 {
+    #[inline(always)]
+    fn checked_div(&self, v: &Self) -> Option<Self> {
+        Self::checked_div(*self, *v)
+    }
+}
+
+impl num_traits::CheckedRem for I256 {
+    #[inline(always)]
+    fn checked_rem(&self, v: &Self) -> Option<Self> {
+        Self::checked_rem(*self, *v)
+    }
+}
+
+impl num_traits::CheckedNeg for I256 {
+    #[inline(always)]
+    fn checked_neg(&self) -> Option<Self> {
+        Self::checked_neg(*self)
+    }
+}
+
+impl num_traits::Euclid for I256 {
+    #[inline(always)]
+    fn div_euclid(&self, v: &Self) -> Self {
+        Self::div_euclid(*self, *v)
+    }
+
+    #[inline(always)]
+    fn rem_euclid(&self, v: &Self) -> Self {
+        Self::rem_euclid(*self, *v)
+    }
+}
+
+impl num_traits::CheckedEuclid for I256 {
+    #[inline(always)]
+    fn checked_div_euclid(&self, v: &Self) -> Option<Self> {
+        Self::checked_div_euclid(*self, *v)
+    }
+
+    #[inline(always)]
+    fn checked_rem_euclid(&self, v: &Self) -> Option<Self> {
+        Self::checked_rem_euclid(*self, *v)
+    }
+}
+
+impl num_traits::SaturatingAdd for I256 {
+    #[inline(always)]
+    fn saturating_add(&self, v: &Self) -> Self {
+        Self::saturating_add(*self, *v)
+    }
+}
+
+impl num_traits::SaturatingSub for I256 {
+    #[inline(always)]
+    fn saturating_sub(&self, v: &Self) -> Self {
+        Self::saturating_sub(*self, *v)
+    }
+}
+
+impl num_traits::SaturatingMul for I256 {
+    #[inline(always)]
+    fn saturating_mul(&self, v: &Self) -> Self {
+        Self::saturating_mul(*self, *v)
+    }
+}
+
+impl num_traits::FromBytes for I256 {
+    type Bytes = [u8; 32];
+
+    fn from_be_bytes(bytes: &Self::Bytes) -> Self {
+        Self(U256::from_big_endian(bytes))
+    }
+
+    fn from_le_bytes(bytes: &Self::Bytes) -> Self {
+        Self(U256::from_little_endian(bytes))
+    }
+}
+
+impl num_traits::ToBytes for I256 {
+    type Bytes = [u8; 32];
+
+    fn to_be_bytes(&self) -> Self::Bytes {
+        let mut bytes = [0u8; 32];
+        self.0.to_big_endian(&mut bytes);
+        bytes
+    }
+
+    fn to_le_bytes(&self) -> Self::Bytes {
+        let mut bytes = [0u8; 32];
+        self.0.to_little_endian(&mut bytes);
+        bytes
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1643,11 +1855,11 @@ mod tests {
         assert_eq!(I256::one().to_string(), "1");
         assert_eq!(I256::minus_one().to_string(), "-1");
         assert_eq!(
-            I256::max_value().to_string(),
+            I256::MAX.to_string(),
             "57896044618658097711785492504343953926634992332820282019728792003956564819967"
         );
         assert_eq!(
-            I256::min_value().to_string(),
+            I256::MIN.to_string(),
             "-57896044618658097711785492504343953926634992332820282019728792003956564819968"
         );
     }
@@ -1668,20 +1880,11 @@ mod tests {
             ($signed:ty, $unsigned:ty) => {
                 assert_eq!(I256::from(-42 as $signed).to_string(), "-42");
                 assert_eq!(I256::from(42 as $signed).to_string(), "42");
-                assert_eq!(
-                    I256::from(<$signed>::max_value()).to_string(),
-                    <$signed>::max_value().to_string(),
-                );
-                assert_eq!(
-                    I256::from(<$signed>::min_value()).to_string(),
-                    <$signed>::min_value().to_string(),
-                );
+                assert_eq!(I256::from(<$signed>::MAX).to_string(), <$signed>::MAX.to_string(),);
+                assert_eq!(I256::from(<$signed>::MIN).to_string(), <$signed>::MIN.to_string(),);
 
                 assert_eq!(I256::from(42 as $unsigned).to_string(), "42");
-                assert_eq!(
-                    I256::from(<$unsigned>::max_value()).to_string(),
-                    <$unsigned>::max_value().to_string(),
-                );
+                assert_eq!(I256::from(<$unsigned>::MAX).to_string(), <$unsigned>::MAX.to_string(),);
 
                 assert!(matches!(<$signed>::try_from(small_positive), Ok(42)));
                 assert!(matches!(<$signed>::try_from(small_negative), Ok(-42)));
@@ -2065,19 +2268,16 @@ mod tests {
 
         // Overflowing
         assert_eq!(a.overflowing_rem_euclid(b), (I256::from(3), false));
-        assert_eq!(
-            I256::min_value().overflowing_rem_euclid(I256::minus_one()),
-            (I256::zero(), true)
-        );
+        assert_eq!(I256::MIN.overflowing_rem_euclid(I256::minus_one()), (I256::zero(), true));
 
         // Wrapping
         assert_eq!(I256::from(100).wrapping_rem_euclid(I256::from(10)), I256::zero());
-        assert_eq!(I256::min_value().wrapping_rem_euclid(I256::minus_one()), I256::zero());
+        assert_eq!(I256::MIN.wrapping_rem_euclid(I256::minus_one()), I256::zero());
 
         // Checked
         assert_eq!(a.checked_rem_euclid(b), Some(I256::from(3)));
         assert_eq!(a.checked_rem_euclid(I256::zero()), None);
-        assert_eq!(I256::min_value().checked_rem_euclid(I256::minus_one()), None);
+        assert_eq!(I256::MIN.checked_rem_euclid(I256::minus_one()), None);
     }
 
     #[test]

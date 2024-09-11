@@ -1,4 +1,3 @@
-#![cfg(feature = "ws")]
 mod config;
 mod error;
 mod jsonrpsee_client;
