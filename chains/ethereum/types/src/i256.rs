@@ -1841,6 +1841,9 @@ mod tests {
     use super::*;
     use core::ops::Neg;
 
+    #[cfg(not(feature = "std"))]
+    use alloc::{format, string::ToString};
+
     #[inline]
     fn min_abs() -> U256 {
         U256::from(1) << 255

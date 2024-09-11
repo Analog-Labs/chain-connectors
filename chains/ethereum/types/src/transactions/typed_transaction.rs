@@ -257,6 +257,9 @@ mod tests {
         signature::Signature,
     };
 
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
     #[allow(clippy::unwrap_used)]
     fn build_typed_transaction<T: Into<TypedTransaction>>(
         builder: fn() -> (T, Signature, serde_json::Value),

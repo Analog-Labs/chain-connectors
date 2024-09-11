@@ -118,6 +118,8 @@ jobs:
   test:
     needs: [rustfmt]
     runs-on: self-hosted
+    env:
+      CLIPPY_FLAGS: -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
@@ -146,15 +148,39 @@ jobs:
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
           -- \
-          -Dwarnings \
-          -Dclippy::unwrap_used \
-          -Dclippy::expect_used \
-          -Dclippy::nursery \
-          -Dclippy::pedantic \
-          -Aclippy::module_name_repetitions
+          ${CLIPPY_FLAGS}
 
-    - name: ethereum-types no-std
-      run: cargo build --locked -p rosetta-ethereum-types --no-default-features --target wasm32-unknown-unknown
+    # Test rosetta-ethereum-types with different feature flags, including wasm32-unknown-unknown
+    # This is done to ensure that the library can be compiled with different feature flags
+    - name: rosetta-ethereum-types --all-features
+      env:
+        EXTRA_FLAGS: --all-features
+      run: |
+        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
+
+    - name: rosetta-ethereum-types --no-default-features
+      env:
+        EXTRA_FLAGS: --no-default-features
+      run: |
+        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types --target wasm32-unknown-unknown ${EXTRA_FLAGS}
+
+    - name: rosetta-ethereum-types --no-default-features --features=std
+      env:
+        EXTRA_FLAGS: --no-default-features --features=std
+      run: |
+        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
+
+    - name: rosetta-ethereum-types --no-default-features --features=with-rlp,with-codec,with-crypto
+      env:
+        EXTRA_FLAGS: --no-default-features --features=with-rlp,with-codec,with-crypto
+      run: |
+        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
+        cargo build --locked -p rosetta-ethereum-types --target wasm32-unknown-unknown ${EXTRA_FLAGS}
 
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh

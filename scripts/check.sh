@@ -7,6 +7,7 @@ cd "${SCRIPT_DIR}/../"
 RUN_FIX=0
 RUN_TESTS=0
 TEST_ETH_BACKEND=0
+TEST_ETH_TYPES=0
 
 # process arguments
 while [[ $# -gt 0 ]]
@@ -22,6 +23,10 @@ do
         ;;
         --eth-backend)
           TEST_ETH_BACKEND=1
+          shift 1
+        ;;
+        --eth-types)
+          TEST_ETH_TYPES=1
           shift 1
         ;;
         *)
@@ -124,6 +129,47 @@ if [[ "${TEST_ETH_BACKEND}" == "1" ]]; then
   exec_cmd 'clippy jsonrpsee' "cargo clippy -p ${NAME} --tests --no-default-features --features=jsonrpsee -- ${CLIPPY_FLAGS}"
   exec_cmd 'clippy with-codec' "cargo clippy -p ${NAME} --tests --no-default-features --features=with-codec -- ${CLIPPY_FLAGS}"
   exec_cmd 'build wasm32-unknown-unknown' "cargo build -p ${NAME} --target wasm32-unknown-unknown --no-default-features --features=with-codec,jsonrpsee,serde"
+fi
+
+if [[ "${TEST_ETH_TYPES}" == "1" ]]; then
+  NAME='rosetta-ethereum-types'
+  # Docker built-in networks
+  FEATURES=(
+    '--features=serde'
+    '--features=with-rlp'
+    '--features=with-codec'
+    '--features=with-crypto'
+    '--features=serde,with-rlp'
+    '--features=serde,with-codec'
+    '--features=serde,with-crypto'
+    '--features=with-rlp,with-codec'
+    '--features=with-rlp,with-crypto'
+    '--features=with-rlp,with-codec,with-crypto,serde'
+  )
+
+  # all features
+  extraflags='--all-features'
+  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
+
+  # no features
+  extraflags='--no-default-features'
+  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
+  exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build -p ${NAME} --target wasm32-unknown-unknown ${extraflags}"
+
+  # only std feature
+  extraflags='--no-default-features --features=std'
+  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
+
+  # iterate over all features
+  for index in "${!FEATURES[@]}";
+  do
+    extraflags="${FEATURES[${index}]}"
+    exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} --no-default-features ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+    exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build -p ${NAME} --target wasm32-unknown-unknown --no-default-features ${extraflags}"
+  done
 fi
 
 if [[ "${RUN_TESTS}" == "1" ]]; then
