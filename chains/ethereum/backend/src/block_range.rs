@@ -1,3 +1,4 @@
+use crate::rstd::vec::Vec;
 use rosetta_ethereum_types::{Address, AtBlock, BlockIdentifier, H256};
 
 /// Represents the target range of blocks for the filter

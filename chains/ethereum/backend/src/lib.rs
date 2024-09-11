@@ -36,21 +36,29 @@ pub mod ext {
 #[cfg(feature = "std")]
 pub(crate) mod rstd {
     #[cfg(feature = "jsonrpsee")]
-    pub use std::{ops, str, string, vec};
+    pub use std::{ops, string};
+
+    pub mod vec {
+        pub use std::vec::*;
+    }
 
     pub mod sync {
         pub use std::sync::Arc;
     }
-    pub use std::{borrow, boxed, fmt, marker};
+    pub use std::{borrow, boxed, fmt, marker, str};
 }
 
 #[cfg(not(feature = "std"))]
 pub(crate) mod rstd {
     #[cfg(feature = "jsonrpsee")]
-    pub use alloc::{string, vec};
+    pub use alloc::string;
 
     #[cfg(feature = "jsonrpsee")]
     pub use core::ops;
+
+    pub mod vec {
+        pub use alloc::vec::*;
+    }
 
     pub mod sync {
         pub use alloc::sync::Arc;
@@ -66,6 +74,7 @@ use rstd::{
     marker::Sized,
     str,
     sync::Arc,
+    vec::Vec,
 };
 
 /// Exit reason

@@ -13,21 +13,28 @@ TEST_ETH_TYPES=0
 while [[ $# -gt 0 ]]
 do
     case "$1" in
+        --all)
+        RUN_FIX=1
+        RUN_TESTS=1
+        TEST_ETH_BACKEND=1
+        TEST_ETH_TYPES=1
+        shift 1
+        ;;
         --test|--tests)
         RUN_TESTS=1
         shift 1
         ;;
         --fix)
-          RUN_FIX=1
-          shift 1
+        RUN_FIX=1
+        shift 1
         ;;
         --eth-backend)
-          TEST_ETH_BACKEND=1
-          shift 1
+        TEST_ETH_BACKEND=1
+        shift 1
         ;;
         --eth-types)
-          TEST_ETH_TYPES=1
-          shift 1
+        TEST_ETH_TYPES=1
+        shift 1
         ;;
         *)
         warn "Unknown argument: $1"
