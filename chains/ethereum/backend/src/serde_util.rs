@@ -1,3 +1,4 @@
+use crate::rstd::vec::Vec;
 use serde::Deserialize;
 
 /// Helper type for deserialize a single value or a vector of values
@@ -12,7 +13,7 @@ pub(crate) enum ValueOrArray<T> {
 /// Helper for parse/serialize `Vec<T>` to `Vec<T>`, `T` or `None` depending on the number of
 /// elements. Must be used with `#[serde(with = "opt_value_or_array")]`
 pub mod opt_value_or_array {
-    use super::ValueOrArray;
+    use super::{ValueOrArray, Vec};
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// # Errors
