@@ -4,6 +4,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd "${SCRIPT_DIR}/../"
 
+CHECK_FORMAT=0
 RUN_FIX=0
 RUN_TESTS=0
 TEST_ETH_BACKEND=0
@@ -14,10 +15,15 @@ while [[ $# -gt 0 ]]
 do
     case "$1" in
         --all)
+        CHECK_FORMAT=1
         RUN_FIX=1
         RUN_TESTS=1
         TEST_ETH_BACKEND=1
         TEST_ETH_TYPES=1
+        shift 1
+        ;;
+        --fmt|--format)
+        CHECK_FORMAT=1
         shift 1
         ;;
         --test|--tests)
@@ -101,41 +107,24 @@ if [[ "${RUN_FIX}" == "1" ]]; then
   exec_cmd 'format' 'cargo +nightly fmt --all && dprint fmt'
   # exec_cmd 'clippy --fix' "cargo clippy --fix --allow-dirty --workspace --examples --tests --all-features -- ${CLIPPY_FLAGS}"
 fi
-exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
-exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
-exec_cmd 'dprint check' 'dprint check'
-exec_cmd 'cargo deny' 'cargo deny check'
 
-# Run clippy on all packages with different feature flags
-# LINT_FLAGS='-- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-
-# exec_cmd 'ethereum build all-features' 'cargo build -p rosetta-config-ethereum --all-features'
-# exec_cmd 'ethereum test all-features' 'cargo test -p rosetta-config-ethereum --all-features'
-# exec_cmd 'ethereum clippy all-features' "cargo clippy -p rosetta-config-ethereum --all-features ${LINT_FLAGS}"
-# ethereumFeatures=('std' 'std,serde' 'std,scale-info' 'std,scale-codec')
-# for features in "${ethereumFeatures[@]}";
-# do
-#   exec_cmd "ethereum build ${features}" "cargo build -p rosetta-config-ethereum --no-default-features --features=${features}"
-#   exec_cmd "ethereum test ${features}" "cargo test -p rosetta-config-ethereum --no-default-features --features=${features}"
-#   exec_cmd "ethereum clippy ${features}" "cargo clippy -p rosetta-config-ethereum --no-default-features --features=${features} ${LINT_FLAGS}"
-# done
-
-
-# exec_cmd 'clippy rosetta-server-astar' 'cargo clippy --locked -p rosetta-server-astar --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'clippy rosetta-server-ethereum' 'cargo clippy --locked -p rosetta-server-ethereum --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'clippy rosetta-server-polkadot' 'cargo clippy --locked -p rosetta-server-polkadot --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-# exec_cmd 'clippy rosetta-client' 'cargo clippy --locked -p rosetta-client --examples --tests -- -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions'
-exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features -- ${CLIPPY_FLAGS}"
+if [[ "${CHECK_FORMAT}" == "1" ]]; then
+  exec_cmd 'shellcheck' 'shellcheck --enable=all --severity=style ./scripts/*.sh'
+  exec_cmd 'cargo fmt' 'cargo +nightly fmt --all -- --check'
+  exec_cmd 'dprint check' 'dprint check'
+  exec_cmd 'cargo deny' 'cargo deny check'
+  exec_cmd 'clippy' "cargo clippy --locked --workspace --examples --tests --all-features -- ${CLIPPY_FLAGS}"
+fi
 
 if [[ "${TEST_ETH_BACKEND}" == "1" ]]; then
   NAME='rosetta-ethereum-backend'
-  exec_cmd 'clippy all-features' "cargo clippy -p ${NAME} --tests --all-features -- ${CLIPPY_FLAGS}"
-  exec_cmd 'clippy no-default-features' "cargo clippy -p ${NAME} --tests --no-default-features -- ${CLIPPY_FLAGS}"
-  exec_cmd 'clippy std' "cargo clippy -p ${NAME} --tests --no-default-features --features=std -- ${CLIPPY_FLAGS}"
-  exec_cmd 'clippy serde' "cargo clippy -p ${NAME} --tests --no-default-features --features=serde -- ${CLIPPY_FLAGS}"
-  exec_cmd 'clippy jsonrpsee' "cargo clippy -p ${NAME} --tests --no-default-features --features=jsonrpsee -- ${CLIPPY_FLAGS}"
-  exec_cmd 'clippy with-codec' "cargo clippy -p ${NAME} --tests --no-default-features --features=with-codec -- ${CLIPPY_FLAGS}"
-  exec_cmd 'build wasm32-unknown-unknown' "cargo build -p ${NAME} --target wasm32-unknown-unknown --no-default-features --features=with-codec,jsonrpsee,serde"
+  exec_cmd 'clippy all-features' "cargo --locked clippy -p ${NAME} --tests --all-features -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy no-default-features' "cargo --locked clippy -p ${NAME} --tests --no-default-features -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy std' "cargo clippy --locked -p ${NAME} --tests --no-default-features --features=std -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy serde' "cargo clippy --locked -p ${NAME} --tests --no-default-features --features=serde -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy jsonrpsee' "cargo clippy --locked -p ${NAME} --tests --no-default-features --features=jsonrpsee -- ${CLIPPY_FLAGS}"
+  exec_cmd 'clippy with-codec' "cargo clippy --locked -p ${NAME} --tests --no-default-features --features=with-codec -- ${CLIPPY_FLAGS}"
+  exec_cmd 'build wasm32-unknown-unknown' "cargo build --locked -p ${NAME} --target wasm32-unknown-unknown --no-default-features --features=with-codec,jsonrpsee,serde"
 fi
 
 if [[ "${TEST_ETH_TYPES}" == "1" ]]; then
@@ -157,26 +146,26 @@ if [[ "${TEST_ETH_TYPES}" == "1" ]]; then
 
   # all features
   extraflags='--all-features'
-  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
-  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
+  exec_cmd "clippy ${extraflags}" "cargo --locked clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo --locked build -p ${NAME} ${extraflags}"
 
   # no features
   extraflags='--no-default-features'
-  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
-  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
-  exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build -p ${NAME} --target wasm32-unknown-unknown ${extraflags}"
+  exec_cmd "clippy ${extraflags}" "cargo --locked clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo --locked build -p ${NAME} ${extraflags}"
+  exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build --locked -p ${NAME} --target wasm32-unknown-unknown ${extraflags}"
 
   # only std feature
   extraflags='--no-default-features --features=std'
-  exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
-  exec_cmd "build ${extraflags}" "cargo build -p ${NAME} ${extraflags}"
+  exec_cmd "clippy ${extraflags}" "cargo clippy --locked -p ${NAME} ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+  exec_cmd "build ${extraflags}" "cargo build --locked -p ${NAME} ${extraflags}"
 
   # iterate over all features
   for index in "${!FEATURES[@]}";
   do
     extraflags="${FEATURES[${index}]}"
-    exec_cmd "clippy ${extraflags}" "cargo clippy -p ${NAME} --no-default-features ${extraflags} --tests -- ${CLIPPY_FLAGS}"
-    exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build -p ${NAME} --target wasm32-unknown-unknown --no-default-features ${extraflags}"
+    exec_cmd "clippy ${extraflags}" "cargo clippy --locked -p ${NAME} --no-default-features ${extraflags} --tests -- ${CLIPPY_FLAGS}"
+    exec_cmd "build --target wasm32-unknown-unknown ${extraflags}" "cargo build --locked -p ${NAME} --target wasm32-unknown-unknown --no-default-features ${extraflags}"
   done
 fi
 

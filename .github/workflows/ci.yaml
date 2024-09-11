@@ -149,38 +149,17 @@ jobs:
           --exclude rosetta-client \
           -- \
           ${CLIPPY_FLAGS}
+    
+    - name: check.sh --fmt
+      run: ./scripts/check.sh --fmt
 
-    # Test rosetta-ethereum-types with different feature flags, including wasm32-unknown-unknown
-    # This is done to ensure that the library can be compiled with different feature flags
-    - name: rosetta-ethereum-types --all-features
-      env:
-        EXTRA_FLAGS: --all-features
-      run: |
-        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
-
-    - name: rosetta-ethereum-types --no-default-features
-      env:
-        EXTRA_FLAGS: --no-default-features
-      run: |
-        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types --target wasm32-unknown-unknown ${EXTRA_FLAGS}
-
-    - name: rosetta-ethereum-types --no-default-features --features=std
-      env:
-        EXTRA_FLAGS: --no-default-features --features=std
-      run: |
-        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS}
-
-    - name: rosetta-ethereum-types --no-default-features --features=with-rlp,with-codec,with-crypto
-      env:
-        EXTRA_FLAGS: --no-default-features --features=with-rlp,with-codec,with-crypto
-      run: |
-        cargo clippy --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} --tests -- ${CLIPPY_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types ${EXTRA_FLAGS} && \
-        cargo build --locked -p rosetta-ethereum-types --target wasm32-unknown-unknown ${EXTRA_FLAGS}
+    # Test crates with different feature flags, including wasm32-unknown-unknown
+    # This is done to ensure that those libraries can be used inside the substrate runtime
+    - name: check.sh --eth-types
+      run: ./scripts/check.sh --eth-types
+    
+    - name: check.sh --eth-backend
+      run: ./scripts/check.sh --eth-backend
 
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh
