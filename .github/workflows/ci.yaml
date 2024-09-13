@@ -109,8 +109,8 @@ jobs:
       if: ${{matrix.crate == 'rosetta-testing-avalanche'}}
       run: |
         docker pull analoglabs/avalanche-cli
-        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ analoglabs/avalanche-cli-analog blockchain create localnew --evm --evm-token SUB --genesis ./genesis.json --teleporter=false --vm-version v0.6.9 
-        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650:9650  --entrypoint bash  analoglabs/avalanche-cli-analog -c "/avalanche blockchain deploy localnew --local;tail -f /dev/null"
+        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ analoglabs/avalanche-cli blockchain create localnew --evm --evm-token SUB --genesis ./genesis.json --teleporter=false --vm-version v0.6.9 
+        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650:9650  --entrypoint bash  analoglabs/avalanche-cli -c "/avalanche blockchain deploy localnew --local;tail -f /dev/null"
 
     - name: Setup BSC node
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
