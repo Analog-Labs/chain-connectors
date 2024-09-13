@@ -267,8 +267,11 @@ impl super::TransactionT for Eip1559Transaction {
 #[cfg(all(test, any(feature = "serde", feature = "with-rlp")))]
 pub(crate) mod tests {
     use super::Eip1559Transaction;
+
+    #[cfg(feature = "with-rlp")]
+    use crate::bytes::Bytes;
+
     use crate::{
-        bytes::Bytes,
         eth_hash::{Address, H256},
         transactions::{
             access_list::{AccessList, AccessListItem},

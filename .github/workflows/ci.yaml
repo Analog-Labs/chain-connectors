@@ -18,7 +18,7 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.78.0
+        toolchain: 1.79.0
         components: rustfmt, clippy
 
     - name: Install dprint
@@ -66,7 +66,7 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v4
 
-    - run: sudo add-apt-repository ppa:ethereum/ethereum
+    # - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
     - name: Install deps
       run: sudo apt-get install -y musl-dev musl-tools solc
@@ -74,7 +74,7 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.78.0
+        toolchain: 1.79.0
         components: clippy
         target: x86_64-unknown-linux-musl
         override: true
@@ -125,12 +125,14 @@ jobs:
   test:
     needs: [rustfmt]
     runs-on: self-hosted
+    env:
+      CLIPPY_FLAGS: -Dwarnings -Dclippy::unwrap_used -Dclippy::expect_used -Dclippy::nursery -Dclippy::pedantic -Aclippy::module_name_repetitions
     name: cargo test --workspace --all-features
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
 
-    - run: sudo add-apt-repository ppa:ethereum/ethereum
+    # - run: sudo add-apt-repository ppa:ethereum/ethereum
     - run: sudo apt-get update -y
     - name: Install deps
       run: sudo apt-get install -y musl-dev musl-tools solc
@@ -138,7 +140,7 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.78.0
+        toolchain: 1.79.0
         components: clippy
         target: wasm32-unknown-unknown
         override: true
@@ -154,15 +156,18 @@ jobs:
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
           -- \
-          -Dwarnings \
-          -Dclippy::unwrap_used \
-          -Dclippy::expect_used \
-          -Dclippy::nursery \
-          -Dclippy::pedantic \
-          -Aclippy::module_name_repetitions
+          ${CLIPPY_FLAGS}
+    
+    - name: check.sh --fmt
+      run: ./scripts/check.sh --fmt
 
-    - name: ethereum-types no-std
-      run: cargo build --locked -p rosetta-ethereum-types --no-default-features --target wasm32-unknown-unknown
+    # Test crates with different feature flags, including wasm32-unknown-unknown
+    # This is done to ensure that those libraries can be used inside the substrate runtime
+    - name: check.sh --eth-types
+      run: ./scripts/check.sh --eth-types
+    
+    - name: check.sh --eth-backend
+      run: ./scripts/check.sh --eth-backend
 
     - name: Pull nodes
       run: ./scripts/pull_nodes.sh

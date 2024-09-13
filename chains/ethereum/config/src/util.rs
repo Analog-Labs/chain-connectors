@@ -72,7 +72,7 @@ macro_rules! impl_wrapper {
             fn decode_into<I: parity_scale_codec::Input>(input: &mut I, dst: &mut core::mem::MaybeUninit<Self>) -> crate::rstd::result::Result<parity_scale_codec::DecodeFinished, parity_scale_codec::Error> {
                 // Safety: Self is repr(transparent) over the inner type, so have the same ABI and memory layout, we can safely cast it
                 let dst = unsafe {
-                    &mut *(dst as *mut core::mem::MaybeUninit<$name>).cast::<core::mem::MaybeUninit<$original>>()
+                    &mut *core::ptr::from_mut::<core::mem::MaybeUninit<$name>>(dst).cast::<core::mem::MaybeUninit<$original>>()
                 };
                 <$original as parity_scale_codec::Decode>::decode_into(input, dst)
             }
@@ -97,7 +97,7 @@ macro_rules! impl_wrapper {
                 unsafe {
                     // Safety: $name is repr(transparent) over the $original type, so have the same ABI as the original
                     // so can safely cast it
-                    &*(value as *const $original).cast::<$name>()
+                    &*core::ptr::from_ref::<$original>(value).cast::<$name>()
                 }
             }
         }
@@ -107,7 +107,7 @@ macro_rules! impl_wrapper {
                 unsafe {
                     // Safety: $name is repr(transparent) over the $original type, so have the same ABI as the original
                     // so can safely cast it
-                    &mut *(value as *mut $original).cast::<$name>()
+                    &mut *core::ptr::from_mut::<$original>(value).cast::<$name>()
                 }
             }
         }
@@ -123,7 +123,7 @@ macro_rules! impl_wrapper {
                 unsafe {
                     // Safety: $name is repr(transparent) over the $original type, so have the same ABI as the original
                     // so can safely cast it
-                    &*(value as *const $name).cast::<$original>()
+                    &*core::ptr::from_ref::<$name>(value).cast::<$original>()
                 }
             }
         }
@@ -133,7 +133,7 @@ macro_rules! impl_wrapper {
                 unsafe {
                     // Safety: $name is repr(transparent) over the $original type, so have the same ABI as the original
                     // so can safely cast it
-                    &mut *(value as *mut $name).cast::<$original>()
+                    &mut *core::ptr::from_mut::<$name>(value).cast::<$original>()
                 }
             }
         }

@@ -13,7 +13,7 @@ hex = "0.4"
 parity-scale-codec = { workspace = true, features = ["derive"] }
 rosetta-config-polkadot = { workspace = true, features = ["polkadot-metadata", "westend-metadata"] }
 rosetta-core.workspace = true
-rosetta-server = { workspace = true, default-features = false, features = ["ws", "webpki-tls"] }
+rosetta-server = { workspace = true, default-features = false, features = ["webpki-tls"] }
 scale-info.workspace = true
 serde.workspace = true
 serde_json.workspace = true

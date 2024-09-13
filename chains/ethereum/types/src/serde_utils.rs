@@ -646,7 +646,7 @@ impl SerializableRational for Vec<Rational64> {
     {
         // Safety: `Vec<Rational64>` and `Vec<RationalNumber>` have the same memory layout
         #[allow(clippy::transmute_undefined_repr)]
-        let value = unsafe { &*std::ptr::from_ref::<Self>(self).cast::<Vec<RationalNumber>>() };
+        let value = unsafe { &*core::ptr::from_ref::<Self>(self).cast::<Vec<RationalNumber>>() };
         <Vec<RationalNumber> as Serialize>::serialize(value, serializer)
     }
 }
@@ -727,6 +727,9 @@ pub enum StringifiedNumeric {
 mod tests {
     use super::*;
     use num_traits::ToPrimitive;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
 
     const TEST_CASES: [f64; 5] = [
         0.529_074_766_666_666_6,
