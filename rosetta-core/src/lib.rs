@@ -168,7 +168,12 @@ pub trait BlockchainClient: Sized + Send + Sync + 'static {
     async fn current_block(&self) -> Result<Self::BlockIdentifier>;
     async fn finalized_block(&self) -> Result<Self::BlockIdentifier>;
     async fn balance(&self, address: &Address, block: &Self::AtBlock) -> Result<u128>;
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>>;
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>>;
     async fn metadata(
         &self,
         public_key: &PublicKey,
@@ -230,8 +235,13 @@ where
         BlockchainClient::balance(Self::as_ref(self), address, block).await
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        BlockchainClient::faucet(Self::as_ref(self), address, param).await
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
+        BlockchainClient::faucet(Self::as_ref(self), address, param, high_gas_price).await
     }
 
     async fn metadata(

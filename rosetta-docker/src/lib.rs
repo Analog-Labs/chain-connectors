@@ -423,7 +423,7 @@ pub mod tests {
         crate::run_test(env, |env| async move {
             let value = 100 * u128::pow(10, config.currency_decimals);
             let wallet = env.ephemeral_wallet().await.unwrap();
-            wallet.faucet(value).await.unwrap();
+            wallet.faucet(value, None).await.unwrap();
             let balance = wallet.balance().await.unwrap();
             assert_eq!(balance, value);
         })
@@ -461,7 +461,7 @@ pub mod tests {
             assert_eq!(balance, 0);
 
             // Transfer faucets to alice
-            alice.faucet(faucet).await.unwrap();
+            alice.faucet(faucet, None).await.unwrap();
             let balance = alice.balance().await.unwrap();
             assert_eq!(balance, faucet);
 

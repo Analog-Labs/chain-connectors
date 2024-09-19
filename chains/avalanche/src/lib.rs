@@ -1,12 +1,15 @@
-//! # Binance Rosetta Server Test Suite
+#![allow(clippy::large_futures)]
+
+//! # Avalanche Testnet Rosetta Server
 //!
-//! This module contains a test suite for an Ethereum Rosetta server implementation
-//! specifically designed for interacting with the Binance network. The code includes
+//! This module contains the production test for an Avalanche Rosetta server implementation
+//! specifically designed for interacting with the Avalanche Nitro Testnet. The code includes
 //! tests for network status, account management, and smart contract interaction.
 //!
 //! ## Features
 //!
-//! - Network status tests to ensure proper connection and consistency with the Binance network.
+//! - Network status tests to ensure proper connection and consistency with the Avalanche Nitro
+//!   Testnet.
 //! - Account tests, including faucet funding, balance retrieval, and error handling.
 //! - Smart contract tests covering deployment, event emission, and view function calls.
 //!
@@ -16,10 +19,9 @@
 //! - `alloy_sol_types`: Custom types and macros for interacting with Solidity contracts.
 //! - `ethers`: Ethereum library for interaction with Ethereum clients.
 //! - `ethers_solc`: Integration for compiling Solidity code using the Solc compiler.
-//! - `hex_literal`: Macro for creating byte array literals from hexadecimal strings.
 //! - `rosetta_client`: Client library for Rosetta API interactions.
 //! - `rosetta_config_ethereum`: Configuration for Ethereum Rosetta server.
-//! - `rosetta_server_ethereum`: Custom client implementation for interacting with Ethereum.
+//! - `rosetta_server_avalanche`: Custom client implementation for interacting with Avalanche.
 //! - `sha3`: SHA-3 (Keccak) implementation for hashing.
 //! - `tokio`: Asynchronous runtime for running async functions.
 //!
@@ -28,11 +30,11 @@
 //! To run the tests, execute the following command:
 //!
 //! ```sh
-//! cargo test --package rosetta-testing-binance --lib -- tests --nocapture
+//! cargo test --package rosetta-testing-avalanche --lib -- tests --nocapture
 //! ```
 //!
-//! Note: The code assumes a local Binance RPC node running on `ws://127.0.0.1:8546`. Ensure
-//! that this endpoint is configured correctly.
+//! Note: The code assumes a local Avalanche Nitro Testnet node running on `ws://127.0.0.1:8548` and
+//! a local Ethereum node on `http://localhost:8545`. Ensure that these endpoints are configured correctly.
 
 #[allow(clippy::ignored_unit_patterns, clippy::pub_underscore_fields)]
 #[cfg(test)]
@@ -40,18 +42,22 @@ mod tests {
     use alloy_sol_types::{sol, SolCall};
     use anyhow::Result;
     use ethers::types::H256;
-
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use hex_literal::hex;
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
+    use serial_test::serial;
     use sha3::Digest;
     use std::{collections::BTreeMap, future::Future, path::Path};
 
-    /// Binance rpc url
-    const BINANCE_RPC_WS_URL: &str = "ws://127.0.0.1:8546";
+    /// Account used to fund other testing accounts.
+    const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
+        hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
+
+    /// Avalanche rpc url
+    const AVALANCHE_RPC_WS_URL: &str = "ws://127.0.0.1:9650/ext/bc/localnew/ws";
 
     sol! {
         interface TestContract {
@@ -70,7 +76,7 @@ mod tests {
         static LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
         // Run the test in another thread
-        let test_handler: tokio::task::JoinHandle<()> = tokio::spawn(future);
+        let test_handler = tokio::spawn(future);
 
         // Acquire Lock
         let guard = LOCK.lock().await;
@@ -95,9 +101,10 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn network_status() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
+            let client = MaybeWsEthereumClient::new("avalanche", "dev", AVALANCHE_RPC_WS_URL, None)
                 .await
                 .expect("Error creating client");
             // Check if the genesis is consistent
@@ -120,54 +127,28 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_account() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
-                .await
-                .expect("Error creating BinanceClient");
-            let wallet =
-                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+            let client = MaybeWsEthereumClient::new(
+                "avalanche",
+                "dev",
+                AVALANCHE_RPC_WS_URL,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .expect("Error creating AvalancheClient");
+            let wallet = Wallet::from_config(
+                client.config().clone(),
+                AVALANCHE_RPC_WS_URL,
+                None,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let _ = wallet.faucet(value, None).await;
+            let _ = wallet.faucet(value, Some(25_000_000_000)).await;
             let amount = wallet.balance().await.unwrap();
-            assert_eq!(amount, value);
-        })
-        .await;
-    }
-
-    #[tokio::test]
-    async fn test_construction() {
-        run_test(async move {
-            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
-                .await
-                .expect("Error creating BinanceClient");
-            let faucet = 100 * u128::pow(10, client.config().currency_decimals);
-            let value = u128::pow(10, client.config().currency_decimals);
-            let alice =
-                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
-            let bob = Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
-                .await
-                .unwrap();
-            assert_ne!(alice.public_key(), bob.public_key());
-
-            // Alice and bob have no balance
-            let balance = alice.balance().await.unwrap();
-            assert_eq!(balance, 0);
-            let balance = bob.balance().await.unwrap();
-            assert_eq!(balance, 0);
-
-            // Transfer faucets to alice
-            alice.faucet(faucet, None).await.unwrap();
-            let balance = alice.balance().await.unwrap();
-            assert_eq!(balance, faucet);
-
-            // Alice transfers to bob
-            alice.transfer(bob.account(), value, None, None).await.unwrap();
-            let amount = bob.balance().await.unwrap();
             assert_eq!(amount, value);
         })
         .await;
@@ -199,17 +180,27 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_smart_contract() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
-                .await
-                .expect("Error creating BinanceClient");
+            let client = MaybeWsEthereumClient::new(
+                "avalanche",
+                "dev",
+                AVALANCHE_RPC_WS_URL,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .expect("Error creating AvalancheClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-            let wallet =
-                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
-            wallet.faucet(faucet, None).await.unwrap();
+            let wallet = Wallet::from_config(
+                client.config().clone(),
+                AVALANCHE_RPC_WS_URL,
+                None,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .unwrap();
+            wallet.faucet(faucet, Some(50_000_000_000)).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
@@ -242,17 +233,27 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_smart_contract_view() {
         run_test(async move {
-            let client = MaybeWsEthereumClient::new("binance", "dev", BINANCE_RPC_WS_URL, None)
-                .await
-                .expect("Error creating BinanceClient");
+            let client = MaybeWsEthereumClient::new(
+                "avalanche",
+                "dev",
+                AVALANCHE_RPC_WS_URL,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .expect("Error creating AvalancheClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-            let wallet =
-                Wallet::from_config(client.config().clone(), BINANCE_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
-            wallet.faucet(faucet, None).await.unwrap();
+            let wallet = Wallet::from_config(
+                client.config().clone(),
+                AVALANCHE_RPC_WS_URL,
+                None,
+                Some(FUNDING_ACCOUNT_PRIVATE_KEY),
+            )
+            .await
+            .unwrap();
+            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
             let bytes = compile_snippet(
                 r"
                 function identity(bool a) public view returns (bool) {

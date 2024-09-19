@@ -50,7 +50,7 @@ pub enum MaybeWsEthereumClient {
 
 impl MaybeWsEthereumClient {
     /// Creates a new ethereum client from `network` and `addr`.
-    /// Supported blockchains are `ethereum`, `polygon`, `arbitrum` and binance.
+    /// Supported blockchains are `ethereum`, `polygon`, `arbitrum`, binance and avalanche.
     ///
     /// # Errors
     /// Will return `Err` when the network is invalid, or when the provided `addr` is unreacheable.
@@ -65,6 +65,7 @@ impl MaybeWsEthereumClient {
             "polygon" => rosetta_config_ethereum::polygon_config(network)?,
             "arbitrum" => rosetta_config_ethereum::arbitrum_config(network)?,
             "binance" => rosetta_config_ethereum::binance_config(network)?,
+            "avalanche" => rosetta_config_ethereum::avalanche_config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr, private_key).await
@@ -171,10 +172,15 @@ impl BlockchainClient for MaybeWsEthereumClient {
         }
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
         match self {
-            Self::Http(http_client) => http_client.faucet(address, param).await,
-            Self::Ws(ws_client) => ws_client.faucet(address, param).await,
+            Self::Http(http_client) => http_client.faucet(address, param, high_gas_price).await,
+            Self::Ws(ws_client) => ws_client.faucet(address, param, high_gas_price).await,
         }
     }
 
@@ -309,7 +315,7 @@ mod tests {
             let wallet = env.ephemeral_wallet().await.unwrap();
 
             let faucet = 100 * u128::pow(10, config.currency_decimals);
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, None).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
@@ -379,7 +385,7 @@ mod tests {
         run_test(env, |env| async move {
             let wallet = env.ephemeral_wallet().await.unwrap();
             let faucet = 100 * u128::pow(10, config.currency_decimals);
-            wallet.faucet(faucet).await.unwrap();
+            wallet.faucet(faucet, None).await.unwrap();
 
             let bytes = compile_snippet(
                 r"

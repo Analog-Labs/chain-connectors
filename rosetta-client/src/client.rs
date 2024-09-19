@@ -58,6 +58,10 @@ impl GenericClient {
                 let client = EthereumClient::new("binance", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
+            Blockchain::Avalanche => {
+                let client = EthereumClient::new("avalanche", network, url, private_key).await?;
+                Self::Ethereum(client)
+            },
             Blockchain::Astar => {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
@@ -82,7 +86,8 @@ impl GenericClient {
             Blockchain::Ethereum |
             Blockchain::Polygon |
             Blockchain::Arbitrum |
-            Blockchain::Binance => {
+            Blockchain::Binance |
+            Blockchain::Avalanche => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },
@@ -207,8 +212,13 @@ impl BlockchainClient for GenericClient {
         }
     }
 
-    async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
-        dispatch!(self.faucet(address, param).await)
+    async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
+        dispatch!(self.faucet(address, param, high_gas_price).await)
     }
 
     async fn metadata(

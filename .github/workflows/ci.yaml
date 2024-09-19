@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche,]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -104,7 +104,14 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
-    
+        
+    - name: Setup avalanche-cli node
+      if: ${{matrix.crate == 'rosetta-testing-avalanche'}}
+      run: |
+        docker pull analoglabs/avalanche-cli
+        docker run -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ analoglabs/avalanche-cli blockchain create localnew --evm --evm-token SUB --genesis ./genesis.json --teleporter=false --vm-version v0.6.9 
+        docker run -d -v MY_LOCAL_CLI_DIR:/root/.avalanche-cli/ -p 9650:9650  --entrypoint bash  analoglabs/avalanche-cli -c "/avalanche blockchain deploy localnew --local;tail -f /dev/null"
+
     - name: Setup BSC node
       if: ${{ matrix.crate == 'rosetta-testing-binance' }}
       run: |
@@ -143,6 +150,7 @@ jobs:
         cargo clippy --locked --workspace --examples --tests --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
@@ -169,6 +177,7 @@ jobs:
         cargo test --locked --workspace --all-features \
           --exclude rosetta-testing-arbitrum \
           --exclude rosetta-server-astar \
+          --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \

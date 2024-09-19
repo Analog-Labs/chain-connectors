@@ -118,7 +118,12 @@ impl BlockchainClient for PolkadotClient {
         Ok(account_info.data.free)
     }
 
-    async fn faucet(&self, address: &Address, value: u128) -> Result<Vec<u8>> {
+    async fn faucet(
+        &self,
+        address: &Address,
+        value: u128,
+        _high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
         let address: AccountId32 = address
             .address()
             .parse()

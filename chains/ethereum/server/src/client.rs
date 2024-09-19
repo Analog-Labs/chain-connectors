@@ -236,19 +236,29 @@ where
     }
 
     #[allow(clippy::single_match_else, clippy::missing_errors_doc)]
-    pub async fn faucet(&self, address: &Address, param: u128) -> Result<Vec<u8>> {
+    pub async fn faucet(
+        &self,
+        address: &Address,
+        param: u128,
+        high_gas_price: Option<u128>,
+    ) -> Result<Vec<u8>> {
         match self.private_key {
             Some(private_key) => {
                 let chain_id = self.chain_id;
                 let wallet = Keypair::from_bytes(private_key)?;
                 let address: H160 = address.address().parse()?;
                 let nonce = self.nonce.load(Ordering::Relaxed);
+                let gas_price = if let Some(high_gas_price) = high_gas_price {
+                    U256::from(high_gas_price)
+                } else {
+                    U256::from(500_000_000) // Default gas price
+                };
                 // Create a transaction request
                 let transaction_request = LegacyTransaction {
                     to: Some(address),
                     value: U256::from(param),
                     gas_limit: 210_000,
-                    gas_price: U256::from(500_000_000),
+                    gas_price,
                     nonce,
                     data: Bytes::default(),
                     chain_id: Some(chain_id),
