@@ -18,3 +18,4 @@ rosetta-core.workspace = true
 rosetta-server-ethereum.workspace = true
 sha3 = "0.10"
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+utils = { path = "../utils" }

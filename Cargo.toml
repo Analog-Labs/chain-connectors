@@ -21,6 +21,7 @@ members = [
   "chains/polygon/rosetta-testing-polygon",
   "chains/binance",
   "chains/avalanche",
+  "chains/utils",
 ]
 resolver = "2"
 
