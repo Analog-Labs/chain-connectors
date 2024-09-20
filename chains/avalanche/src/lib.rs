@@ -50,7 +50,7 @@ mod tests {
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use serial_test::serial;
     use sha3::Digest;
-    use std::{collections::BTreeMap, future::Future, path::Path};
+    use std::{collections::BTreeMap, path::Path};
     use utils::run_test;
 
     /// Account used to fund other testing accounts.
