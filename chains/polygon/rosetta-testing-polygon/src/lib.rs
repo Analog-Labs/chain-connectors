@@ -48,7 +48,7 @@ mod tests {
     use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sha3::Digest;
-    use std::{collections::BTreeMap, future::Future, path::Path};
+    use std::{collections::BTreeMap, path::Path};
     use utils::run_test;
 
     /// Polygon rpc url
