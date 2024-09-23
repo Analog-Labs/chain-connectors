@@ -43,13 +43,13 @@ mod tests {
 
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use hex_literal::hex;
+    use rosetta_chain_testing::run_test;
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::BlockchainClient;
     use rosetta_server_ethereum::MaybeWsEthereumClient;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
-    use utils::run_test;
 
     /// Polygon rpc url
     const POLYGON_RPC_WS_URL: &str = "ws://127.0.0.1:8546";

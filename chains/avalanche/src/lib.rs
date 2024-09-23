@@ -44,6 +44,7 @@ mod tests {
     use ethers::types::H256;
     use ethers_solc::{artifacts::Source, CompilerInput, EvmVersion, Solc};
     use hex_literal::hex;
+    use rosetta_chain_testing::run_test;
     use rosetta_client::Wallet;
     use rosetta_config_ethereum::{AtBlock, CallResult};
     use rosetta_core::BlockchainClient;
@@ -51,7 +52,6 @@ mod tests {
     use serial_test::serial;
     use sha3::Digest;
     use std::{collections::BTreeMap, path::Path};
-    use utils::run_test;
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =

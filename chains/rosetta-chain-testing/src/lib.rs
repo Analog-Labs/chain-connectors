@@ -1,6 +1,6 @@
 use std::future::Future;
 
-/// Run the test in another thread while sending txs to force binance to mine new blocks
+/// Run the test in another thread while sending txs
 /// # Panic
 /// Panics if the future panics
 pub async fn run_test<Fut: Future<Output = ()> + Send + 'static>(future: Fut) {

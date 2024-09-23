@@ -5580,6 +5580,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-chain-testing"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "rosetta-client"
 version = "0.6.0"
 dependencies = [
@@ -5897,6 +5904,7 @@ dependencies = [
  "ethers-solc",
  "hex-literal",
  "rand_core 0.6.4",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
@@ -5907,7 +5915,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
- "utils",
 ]
 
 [[package]]
@@ -5919,13 +5926,13 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "hex-literal",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
  "rosetta-server-ethereum",
  "sha3",
  "tokio",
- "utils",
 ]
 
 [[package]]
@@ -5937,13 +5944,13 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "hex-literal",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
  "rosetta-server-ethereum",
  "sha3",
  "tokio",
- "utils",
 ]
 
 [[package]]
@@ -8644,13 +8651,6 @@ name = "utf-8"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cc8ee72d2a9becf2f2febe0205bbed8fc6615b7cb429ad062dc7b7ddd036a9"
-
-[[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "tokio",
-]
 
 [[package]]
 name = "uuid"
