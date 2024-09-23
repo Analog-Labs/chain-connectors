@@ -313,8 +313,14 @@ pub trait EthereumPubSub: EthereumRpc {
 
 impl<'b, T: 'b + EthereumPubSub + ?Sized> EthereumPubSub for &'b T {
     type SubscriptionError = T::SubscriptionError;
-    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
-    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+    type NewHeadsStream<'a>
+        = T::NewHeadsStream<'a>
+    where
+        Self: 'a;
+    type LogsStream<'a>
+        = T::LogsStream<'a>
+    where
+        Self: 'a;
     fn new_heads<'a, 'async_trait>(
         &'a self,
     ) -> BoxFuture<'async_trait, Result<Self::NewHeadsStream<'a>, Self::Error>>
@@ -342,8 +348,14 @@ impl<'b, T: 'b + EthereumPubSub + ?Sized> EthereumPubSub for &'b T {
 // https://github.com/auto-impl-rs/auto_impl/issues/93
 impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Arc<T> {
     type SubscriptionError = T::SubscriptionError;
-    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
-    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+    type NewHeadsStream<'a>
+        = T::NewHeadsStream<'a>
+    where
+        Self: 'a;
+    type LogsStream<'a>
+        = T::LogsStream<'a>
+    where
+        Self: 'a;
 
     fn new_heads<'a, 'async_trait>(
         &'a self,
@@ -370,8 +382,14 @@ impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Arc<T> {
 
 impl<T: EthereumPubSub + ?Sized> EthereumPubSub for Box<T> {
     type SubscriptionError = T::SubscriptionError;
-    type NewHeadsStream<'a> = T::NewHeadsStream<'a> where Self: 'a;
-    type LogsStream<'a> = T::LogsStream<'a> where Self: 'a;
+    type NewHeadsStream<'a>
+        = T::NewHeadsStream<'a>
+    where
+        Self: 'a;
+    type LogsStream<'a>
+        = T::LogsStream<'a>
+    where
+        Self: 'a;
 
     fn new_heads<'a, 'async_trait>(
         &'a self,

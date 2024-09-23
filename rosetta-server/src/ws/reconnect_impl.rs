@@ -137,9 +137,18 @@ impl<T: Config> DefaultStrategy<T> {
 impl<T: Config> Reconnect for DefaultStrategy<T> {
     type Client = T::Client;
     type ClientRef = Arc<T::Client>;
-    type ReadyFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
-    type RestartNeededFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
-    type ReconnectFuture<'a> = ReadyOrWaitFuture<T> where Self: 'a;
+    type ReadyFuture<'a>
+        = ReadyOrWaitFuture<T>
+    where
+        Self: 'a;
+    type RestartNeededFuture<'a>
+        = ReadyOrWaitFuture<T>
+    where
+        Self: 'a;
+    type ReconnectFuture<'a>
+        = ReadyOrWaitFuture<T>
+    where
+        Self: 'a;
 
     fn ready(&self) -> Self::ReadyFuture<'_> {
         self.acquire_client()

@@ -5580,6 +5580,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-chain-testing"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "rosetta-client"
 version = "0.6.0"
 dependencies = [
@@ -5897,6 +5904,7 @@ dependencies = [
  "ethers-solc",
  "hex-literal",
  "rand_core 0.6.4",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
@@ -5918,6 +5926,7 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "hex-literal",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",
@@ -5935,6 +5944,7 @@ dependencies = [
  "ethers",
  "ethers-solc",
  "hex-literal",
+ "rosetta-chain-testing",
  "rosetta-client",
  "rosetta-config-ethereum",
  "rosetta-core",

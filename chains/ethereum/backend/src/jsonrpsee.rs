@@ -398,8 +398,14 @@ where
     T: SubscriptionClientT + Send + Sync,
 {
     type SubscriptionError = serde_json::Error;
-    type NewHeadsStream<'a> = Subscription<RpcBlock<H256>> where Self: 'a;
-    type LogsStream<'a> = Subscription<Log> where Self: 'a;
+    type NewHeadsStream<'a>
+        = Subscription<RpcBlock<H256>>
+    where
+        Self: 'a;
+    type LogsStream<'a>
+        = Subscription<Log>
+    where
+        Self: 'a;
 
     /// Fires a notification each time a new header is appended to the chain, including chain
     /// reorganizations.

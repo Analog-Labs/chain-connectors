@@ -1,0 +1,10 @@
+[package]
+name = "rosetta-chain-testing"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "utils for rosetta test."
+
+[dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

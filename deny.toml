@@ -101,6 +101,12 @@ ignore = [
 
   # Subxt 0.37 depends deprecated libraries: https://github.com/paritytech/subxt/issues/1608
   { id = 'RUSTSEC-2024-0370', reason = "Waiting for subxt to update their deprecated dependencies" },
+
+  # RUSTSEC-2024-0377 contains multiple soundness issues:
+  { id = 'RUSTSEC-2024-0377', reason = 'Version 1.0 fixes these issues, removes the vast majority of unsafe code, and also fixes some correctness issues and on our connector using older' },
+
+  # RUSTSEC-2023-0086 contains multiple soundness issues:
+  { id = 'RUSTSEC-2023-0086', reason = 'Version 1.0 fixes these issues, removes the vast majority of unsafe code, and also fixes some correctness issues and on our connector using older' },
 ]
 
 # This section is considered when running `cargo deny check sources`.
