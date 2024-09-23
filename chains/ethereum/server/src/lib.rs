@@ -113,7 +113,10 @@ impl MaybeWsEthereumClient {
 impl BlockchainClient for MaybeWsEthereumClient {
     type MetadataParams = EthereumMetadataParams;
     type Metadata = EthereumMetadata;
-    type EventStream<'a> = BlockStreamType<DefaultClient> where Self: 'a;
+    type EventStream<'a>
+        = BlockStreamType<DefaultClient>
+    where
+        Self: 'a;
     type Call = EthQuery;
     type CallResult = EthQueryResult;
 
