@@ -1,0 +1,14 @@
+[package]
+name = "rosetta-config-humanode"
+version = "0.1.0"
+edition = "2021"
+
+
+[features]
+default = ["humanode-metadata"]
+humanode-metadata = ["subxt"]
+
+[dependencies]
+anyhow = "1.0"
+rosetta-core.workspace = true
+subxt = { workspace = true, features = ["substrate-compat", "native"], optional = true }

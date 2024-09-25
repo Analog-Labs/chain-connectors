@@ -5637,6 +5637,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-config-humanode"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rosetta-core",
+ "subxt",
+]
+
+[[package]]
 name = "rosetta-config-polkadot"
 version = "0.6.0"
 dependencies = [
