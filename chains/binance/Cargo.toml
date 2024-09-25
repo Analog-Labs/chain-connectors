@@ -12,6 +12,7 @@ anyhow = "1.0"
 ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
 ethers-solc = "2.0"
 hex-literal = "0.4"
+rosetta-chain-testing = { path = "../rosetta-chain-testing" }
 rosetta-client.workspace = true
 rosetta-config-ethereum.workspace = true
 rosetta-core.workspace = true
