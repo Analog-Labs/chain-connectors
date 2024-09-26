@@ -6,10 +6,12 @@ use crate::{
 use anyhow::Result;
 use rosetta_core::TransactionBuilder;
 use rosetta_server_astar::AstarMetadataParams;
+use rosetta_server_humanode::HumanodeMetadataParams;
 
 pub enum GenericTransactionBuilder {
     Astar(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder),
+    Humanode(rosetta_tx_ethereum::EthereumTransactionBuilder),
     Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder),
 }
 
@@ -20,6 +22,7 @@ impl GenericTransactionBuilder {
             "ethereum" | "polygon" | "arbitrum" | "binance" | "avalanche" => {
                 Self::Ethereum(rosetta_tx_ethereum::EthereumTransactionBuilder)
             },
+            "humanode" => Self::Humanode(rosetta_tx_ethereum::EthereumTransactionBuilder),
             "polkadot" | "westend" | "rococo" => {
                 Self::Polkadot(rosetta_tx_polkadot::PolkadotTransactionBuilder)
             },
@@ -31,6 +34,7 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.transfer(address, amount)?).into(),
             Self::Ethereum(tx) => tx.transfer(address, amount)?.into(),
+            Self::Humanode(tx) => HumanodeMetadataParams(tx.transfer(address, amount)?).into(),
             Self::Polkadot(tx) => tx.transfer(address, amount)?.into(),
         })
     }
@@ -44,6 +48,9 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.method_call(contract, data, amount)?).into(),
             Self::Ethereum(tx) => tx.method_call(contract, data, amount)?.into(),
+            Self::Humanode(tx) => {
+                HumanodeMetadataParams(tx.method_call(contract, data, amount)?).into()
+            },
             Self::Polkadot(tx) => tx.method_call(contract, data, amount)?.into(),
         })
     }
@@ -52,6 +59,9 @@ impl GenericTransactionBuilder {
         Ok(match self {
             Self::Astar(tx) => AstarMetadataParams(tx.deploy_contract(contract_binary)?).into(),
             Self::Ethereum(tx) => tx.deploy_contract(contract_binary)?.into(),
+            Self::Humanode(tx) => {
+                HumanodeMetadataParams(tx.deploy_contract(contract_binary)?).into()
+            },
             Self::Polkadot(tx) => tx.deploy_contract(contract_binary)?.into(),
         })
     }
@@ -74,6 +84,11 @@ impl GenericTransactionBuilder {
                 GenericMetadataParams::Ethereum(params),
                 GenericMetadata::Ethereum(metadata),
             ) => tx.create_and_sign(config, params, metadata, secret_key),
+            (
+                Self::Humanode(tx),
+                GenericMetadataParams::Humanode(params),
+                GenericMetadata::Humanode(metadata),
+            ) => tx.create_and_sign(config, &params.0, &metadata.0, secret_key),
             (
                 Self::Polkadot(tx),
                 GenericMetadataParams::Polkadot(params),

@@ -5,14 +5,12 @@ use rosetta_core::{
 };
 use std::sync::Arc;
 
-
 // Generate an interface that we can use from the node's metadata.
 #[cfg(feature = "humanode-metadata")]
 pub mod metadata {
     #[subxt::subxt(runtime_metadata_path = "res/humanode.scale")]
     pub mod dev {}
 }
-
 
 /// Retrieve the [`BlockchainConfig`] from the provided `network`
 ///
@@ -24,13 +22,13 @@ pub fn config(network: &str) -> Result<BlockchainConfig> {
         "dev" => ("dev", "LOC"),
 
         "humanode" => ("humanode", "hmnd"),
-        
+
         "shasta" => ("shasta", "hmnd"),
-        
+
         "Nile" => ("Nile", "hmnd"),
-        
+
         "Tronex" => ("Tronex", "hmnd"),
-        
+
         _ => anyhow::bail!("unsupported network: {}", network),
     };
 

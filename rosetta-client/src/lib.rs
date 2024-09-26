@@ -33,6 +33,8 @@ pub enum Blockchain {
     Ethereum,
     /// Astar
     Astar,
+    /// Humanode
+    Humanode,
     /// Polkadot
     Polkadot,
     /// Kusama
@@ -60,6 +62,7 @@ impl std::str::FromStr for Blockchain {
         Ok(match blockchain {
             "ethereum" => Self::Ethereum,
             "astar" => Self::Astar,
+            "humanode" => Self::Humanode,
             "polkadot" => Self::Polkadot,
             "kusama" => Self::Kusama,
             "rococo" => Self::Rococo,
