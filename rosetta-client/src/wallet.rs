@@ -1,14 +1,18 @@
 use crate::{
     client::{GenericClient, GenericMetadata, GenericMetadataParams},
     crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
-    mnemonic::MnemonicStore,
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
     types::{AccountIdentifier, BlockIdentifier, PublicKey},
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
-use rosetta_core::{types::PartialBlockIdentifier, BlockchainClient, RosettaAlgorithm};
+use futures::channel::mpsc;
+use futures::{SinkExt, Stream, StreamExt};
+use rosetta_core::{
+    types::PartialBlockIdentifier, BlockOrIdentifier, BlockchainClient, ClientEvent,
+    RosettaAlgorithm,
+};
 use rosetta_server_ethereum::{
     config::{
         ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
@@ -18,12 +22,13 @@ use rosetta_server_ethereum::{
     },
     SubmitResult,
 };
-use std::path::Path;
+use std::pin::Pin;
+use std::sync::Arc;
 
 /// The wallet provides the main entry point to this crate.
 pub struct Wallet {
     /// `GenericClient` instance
-    pub client: GenericClient,
+    pub client: Arc<GenericClient>,
     account: AccountIdentifier,
     secret_key: DerivedSecretKey,
     public_key: PublicKey,
@@ -37,11 +42,11 @@ impl Wallet {
         blockchain: Blockchain,
         network: &str,
         url: &str,
-        keyfile: Option<&Path>,
+        mnemonic: &str,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let client = GenericClient::new(blockchain, network, url, private_key).await?;
-        Self::from_client(client, keyfile)
+        Self::from_client(client, mnemonic)
     }
 
     /// Creates a new wallet from a config, url and keyfile.
@@ -49,22 +54,22 @@ impl Wallet {
     pub async fn from_config(
         config: BlockchainConfig,
         url: &str,
-        keyfile: Option<&Path>,
+        mnemonic: &str,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let client = GenericClient::from_config(config, url, private_key).await?;
-        Self::from_client(client, keyfile)
+        Self::from_client(client, mnemonic)
     }
 
     /// Creates a new wallet from a client, url and keyfile.
     #[allow(clippy::missing_errors_doc)]
-    pub fn from_client(client: GenericClient, keyfile: Option<&Path>) -> Result<Self> {
-        let store = MnemonicStore::new(keyfile)?;
+    pub fn from_client(client: GenericClient, mnemonic: &str) -> Result<Self> {
+        /*let store = MnemonicStore::new(keyfile)?;
         let mnemonic = match keyfile {
             Some(_) => store.get_or_generate_mnemonic()?,
             None => store.generate()?,
-        };
-        let signer = Signer::new(&mnemonic, "")?;
+        };*/
+        let signer = Signer::new(&mnemonic.parse()?, "")?;
         let tx = GenericTransactionBuilder::new(client.config())?;
         let secret_key = if client.config().bip44 {
             signer
@@ -81,7 +86,7 @@ impl Wallet {
             anyhow::bail!("The signer and client curve type aren't compatible.")
         }
 
-        Ok(Self { client, account, secret_key, public_key, tx })
+        Ok(Self { client: Arc::new(client), account, secret_key, public_key, tx })
     }
 
     /// Returns the blockchain config.
@@ -103,7 +108,7 @@ impl Wallet {
     #[allow(clippy::missing_errors_doc)]
     pub async fn status(&self) -> Result<BlockIdentifier> {
         // self.client.finalized_block().await
-        match &self.client {
+        match &*self.client {
             GenericClient::Astar(client) => client.finalized_block().await,
             GenericClient::Ethereum(client) => client.finalized_block().await,
             GenericClient::Polkadot(client) => client.finalized_block().await,
@@ -112,11 +117,10 @@ impl Wallet {
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn balance(&self) -> Result<u128> {
+    pub async fn balance(&self, address: String) -> Result<u128> {
         let block = self.client.current_block().await?;
-        let address =
-            Address::new(self.client.config().address_format, self.account.address.clone());
-        let balance = match &self.client {
+        let address = Address::new(self.client.config().address_format, address);
+        let balance = match &*self.client {
             GenericClient::Astar(client) => {
                 client.balance(&address, &PartialBlockIdentifier::from(block)).await?
             },
@@ -136,6 +140,48 @@ impl Wallet {
         &self,
     ) -> Result<Option<<GenericClient as BlockchainClient>::EventStream<'_>>> {
         self.client.listen().await
+    }
+
+    /// Returns a stream of finalized blocks.
+    pub fn block_stream(&self) -> Pin<Box<dyn Stream<Item = u64> + Send>> {
+        let (mut tx, rx) = mpsc::channel(1);
+        let client = self.client.clone();
+        // spawn a task to avoid lifetime issue
+        tokio::task::spawn(async move {
+            loop {
+                let mut stream = match client.listen().await {
+                    Ok(Some(stream)) => stream,
+                    Ok(None) => {
+                        log::debug!("error opening listener");
+                        continue;
+                    },
+                    Err(err) => {
+                        log::debug!("error opening listener {}", err);
+                        continue;
+                    },
+                };
+                while let Some(event) = stream.next().await {
+                    match event {
+                        ClientEvent::NewFinalized(BlockOrIdentifier::Identifier(identifier)) => {
+                            if tx.send(identifier.index).await.is_err() {
+                                return;
+                            }
+                        },
+                        ClientEvent::NewFinalized(BlockOrIdentifier::Block(block)) => {
+                            if tx.send(block.block_identifier.index).await.is_err() {
+                                return;
+                            }
+                        },
+                        ClientEvent::NewHead(_) => {},
+                        ClientEvent::Event(_) => {},
+                        ClientEvent::Close(reason) => {
+                            log::warn!("block stream closed {}", reason);
+                        },
+                    }
+                }
+            }
+        });
+        Box::pin(rx)
     }
 
     /// Returns the on chain metadata.
@@ -263,7 +309,7 @@ impl Wallet {
             data,
             block: block_identifier,
         };
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::CallContract(call)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
@@ -283,7 +329,7 @@ impl Wallet {
         query: Q,
     ) -> Result<<Q as rosetta_core::traits::Query>::Result> {
         let query = <Q as rosetta_server_ethereum::QueryItem>::into_query(query);
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => client.call(&query).await?,
             GenericClient::Astar(client) => client.call(&query).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_view_call"),
@@ -304,7 +350,7 @@ impl Wallet {
         let storage_slot = H256(storage_slot);
         let get_storage =
             GetStorageAt { address: contract_address, at: storage_slot, block: block_identifier };
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => {
                 client.call(&EthQuery::GetStorageAt(get_storage)).await?
             },
@@ -334,7 +380,7 @@ impl Wallet {
             storage_keys: storage_keys.collect(),
             block: block_identifier,
         };
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::GetProof(get_proof)).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_storage"),
@@ -353,7 +399,7 @@ impl Wallet {
     ) -> Result<Option<TransactionReceipt>> {
         let tx_hash = H256(tx_hash);
         let get_tx_receipt = GetTransactionReceipt { tx_hash };
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => {
                 client.call(&EthQuery::GetTransactionReceipt(get_tx_receipt)).await?
             },
@@ -374,7 +420,7 @@ impl Wallet {
     /// Returns `Err` if the blockchain doesn't support `eth_chainId` or the client connection
     /// failed.
     pub async fn eth_chain_id(&self) -> Result<u64> {
-        let result = match &self.client {
+        let result = match &*self.client {
             GenericClient::Ethereum(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Astar(client) => client.call(&EthQuery::ChainId).await?,
             GenericClient::Polkadot(_) => anyhow::bail!("polkadot doesn't support eth_chainId"),

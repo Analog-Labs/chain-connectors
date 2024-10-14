@@ -5602,6 +5602,7 @@ dependencies = [
  "js-sys",
  "log",
  "num-traits",
+ "rosetta-config-ethereum",
  "rosetta-core",
  "rosetta-server-astar",
  "rosetta-server-ethereum",
@@ -5610,6 +5611,7 @@ dependencies = [
  "rosetta-tx-polkadot",
  "serde",
  "serde_json",
+ "tokio",
  "wasm-bindgen",
  "web-sys",
 ]
