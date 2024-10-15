@@ -263,6 +263,23 @@ pub fn avalanche_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided base `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn base_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "sepolia" => ("sepolia", 84532, true),
+        "mainnet" => ("mainnet", 8453, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
+}
+
+
+
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
