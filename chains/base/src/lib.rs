@@ -8,8 +8,7 @@
 //!
 //! ## Features
 //!
-//! - Network status tests to ensure proper connection and consistency with the Base Nitro
-//!   Testnet.
+//! - Network status tests to ensure proper connection and consistency with the Base Nitro Testnet.
 //! - Account tests, including faucet funding, balance retrieval, and error handling.
 //! - Smart contract tests covering deployment, event emission, and view function calls.
 //!
