@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche,]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-server-base,]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -154,6 +154,7 @@ jobs:
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
+          --exclude rosetta-server-base \
           --exclude rosetta-client \
           -- \
           ${CLIPPY_FLAGS}
@@ -181,6 +182,7 @@ jobs:
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
+          --exclude rosetta-server-base \
           --exclude rosetta-client
 
     - name: Cleanup Docker
