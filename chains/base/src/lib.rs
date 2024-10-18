@@ -58,7 +58,8 @@ mod tests {
         hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
 
     /// Base rpc url
-    const BASE_RPC_WS_URL: &str = "wss://base-sepolia-rpc.publicnode.com";
+    const BASE_RPC_WS_URL: &str =
+        "wss://virtual.base-sepolia.rpc.tenderly.co/a6d68374-b6af-4d42-8983-dbb5726eb85a";
 
     sol! {
         interface TestContract {

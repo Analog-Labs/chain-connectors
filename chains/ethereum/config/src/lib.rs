@@ -278,8 +278,6 @@ pub fn base_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
 }
 
-
-
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
@@ -314,6 +312,11 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "avalanche-local" => return avalanche_config("dev"),
         "avalanche" => return avalanche_config("mainnet"),
         "avalanche-fuji" => return avalanche_config("fuji"),
+
+        // Base
+        "base-local" => return base_config("dev"),
+        "base" => return base_config("mainnet"),
+        "base-sepolia" => return base_config("fuji"),
 
         network => return astar_config(network),
     };
