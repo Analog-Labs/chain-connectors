@@ -226,7 +226,8 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     // All available networks in arbitrum are listed here:
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
-        "goerli" => ("goerli", 60, true),
+        "goerli" => ("goerli", 421613, true),
+        "Sepolia" => ("Sepolia", 421614, true),
         "mainnet" => ("mainnet", 42161, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
@@ -287,6 +288,7 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "arbitrum-local" => return arbitrum_config("dev"),
         "arbitrum" => return arbitrum_config("mainnet"),
         "arbitrum-goerli" => return arbitrum_config("goerli"),
+        "arbitrum-sepolia" => return arbitrum_config("sepolia"),
 
         // Binance
         "binance-dev" => return binance_config("dev"),
