@@ -3,7 +3,8 @@
 use anyhow::Result;
 
 pub use crate::wallet::Wallet;
-pub use rosetta_core::{crypto, types, BlockchainConfig};
+pub use rosetta_config_ethereum::*;
+pub use rosetta_core::{crypto, types, BlockOrIdentifier, BlockchainConfig, ClientEvent};
 
 /// Clients that communicates to different blockchains
 pub mod client;
