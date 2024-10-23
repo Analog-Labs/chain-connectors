@@ -21,6 +21,7 @@ num-traits = "0.2"
 rosetta-core.workspace = true
 rosetta-server-astar.workspace = true
 rosetta-server-ethereum.workspace = true
+rosetta-server-humanode.workspace = true
 rosetta-server-polkadot.workspace = true
 rosetta-tx-ethereum.workspace = true
 rosetta-tx-polkadot.workspace = true

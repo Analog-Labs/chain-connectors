@@ -20,6 +20,7 @@ use rosetta_server_ethereum::{
     EthereumMetadata, EthereumMetadataParams, MaybeWsEthereumClient as EthereumClient,
     SubmitResult,
 };
+use rosetta_server_humanode::{HumanodeClient, HumanodeMetadata, HumanodeMetadataParams};
 use rosetta_server_polkadot::{PolkadotClient, PolkadotMetadata, PolkadotMetadataParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,6 +32,7 @@ pub enum GenericClient {
     Ethereum(EthereumClient),
     Astar(AstarClient),
     Polkadot(PolkadotClient),
+    Humanode(HumanodeClient),
 }
 
 #[allow(clippy::missing_errors_doc)]
@@ -66,6 +68,10 @@ impl GenericClient {
                 let client = AstarClient::new(network, url).await?;
                 Self::Astar(client)
             },
+            Blockchain::Humanode => {
+                let client = HumanodeClient::new(network, url).await?;
+                Self::Humanode(client)
+            },
             Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::new(network, url).await?;
                 Self::Polkadot(client)
@@ -95,6 +101,10 @@ impl GenericClient {
                 let client = AstarClient::from_config(config, url).await?;
                 Self::Astar(client)
             },
+            Blockchain::Humanode => {
+                let client = HumanodeClient::from_config(config, url).await?;
+                Self::Humanode(client)
+            },
             Blockchain::Polkadot | Blockchain::Rococo | Blockchain::Westend => {
                 let client = PolkadotClient::from_config(config, url).await?;
                 Self::Polkadot(client)
@@ -111,6 +121,7 @@ impl GenericClient {
 pub enum GenericMetadataParams {
     Ethereum(EthereumMetadataParams),
     Astar(AstarMetadataParams),
+    Humanode(HumanodeMetadataParams),
     Polkadot(PolkadotMetadataParams),
 }
 
@@ -119,6 +130,7 @@ pub enum GenericMetadataParams {
 pub enum GenericMetadata {
     Ethereum(EthereumMetadata),
     Astar(AstarMetadata),
+    Humanode(HumanodeMetadata),
     Polkadot(PolkadotMetadata),
 }
 
@@ -144,6 +156,7 @@ macro_rules! dispatch {
         match $self {
             Self::Ethereum(client) => client$($method)*,
             Self::Astar(client) => client$($method)*,
+            Self::Humanode(client) => client$($method)*,
             Self::Polkadot(client) => client$($method)*,
         }
     };
@@ -182,6 +195,7 @@ impl BlockchainClient for GenericClient {
         match self {
             Self::Ethereum(client) => client.genesis_block(),
             Self::Astar(client) => client.genesis_block(),
+            Self::Humanode(client) => client.genesis_block(),
             Self::Polkadot(client) => client.genesis_block(),
         }
     }
@@ -191,6 +205,7 @@ impl BlockchainClient for GenericClient {
         match self {
             Self::Ethereum(client) => client.current_block().await,
             Self::Astar(client) => client.current_block().await,
+            Self::Humanode(client) => client.current_block().await,
             Self::Polkadot(client) => client.current_block().await,
         }
     }
@@ -200,6 +215,7 @@ impl BlockchainClient for GenericClient {
         match self {
             Self::Ethereum(client) => client.finalized_block().await,
             Self::Astar(client) => client.finalized_block().await,
+            Self::Humanode(client) => client.finalized_block().await,
             Self::Polkadot(client) => client.finalized_block().await,
         }
     }
@@ -208,6 +224,7 @@ impl BlockchainClient for GenericClient {
         match self {
             Self::Ethereum(client) => client.balance(address, block).await,
             Self::Astar(client) => client.balance(address, block).await,
+            Self::Humanode(client) => client.balance(address, block).await,
             Self::Polkadot(client) => client.balance(address, block).await,
         }
     }
@@ -233,6 +250,9 @@ impl BlockchainClient for GenericClient {
             (Self::Astar(client), GenericMetadataParams::Astar(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
+            (Self::Humanode(client), GenericMetadataParams::Humanode(params)) => {
+                client.metadata(public_key, params).await?.into()
+            },
             (Self::Polkadot(client), GenericMetadataParams::Polkadot(params)) => {
                 client.metadata(public_key, params).await?.into()
             },
@@ -244,6 +264,7 @@ impl BlockchainClient for GenericClient {
         match self {
             Self::Ethereum(client) => client.submit(transaction).await,
             Self::Astar(client) => client.submit(transaction).await,
+            Self::Humanode(client) => client.submit(transaction).await,
             Self::Polkadot(client) => {
                 // TODO: implement a custom receipt for Polkadot
                 let result = client.submit(transaction).await?;
@@ -274,6 +295,12 @@ impl BlockchainClient for GenericClient {
                 },
                 GenericCall::Polkadot(_) => anyhow::bail!("invalid call"),
             },
+            Self::Humanode(client) => match req {
+                GenericCall::Ethereum(args) => {
+                    GenericCallResult::Ethereum(client.call(args).await?)
+                },
+                GenericCall::Polkadot(_) => anyhow::bail!("invalid call"),
+            },
             Self::Polkadot(client) => match req {
                 GenericCall::Polkadot(args) => {
                     GenericCallResult::Polkadot(client.call(args).await?)
@@ -299,6 +326,12 @@ impl BlockchainClient for GenericClient {
                 };
                 Ok(Some(GenericClientStream::Astar(stream)))
             },
+            Self::Humanode(client) => {
+                let Some(stream) = client.listen().await? else {
+                    return Ok(None);
+                };
+                Ok(Some(GenericClientStream::Humanode(stream)))
+            },
             Self::Polkadot(client) => {
                 let Some(stream) = client.listen().await? else {
                     return Ok(None);
@@ -318,6 +351,10 @@ impl BlockchainClient for GenericClient {
                 GenericClientSubscription::Astar(sub) => client.subscribe(sub).await,
                 _ => anyhow::bail!("invalid subscription"),
             },
+            Self::Humanode(client) => match sub {
+                GenericClientSubscription::Humanode(sub) => client.subscribe(sub).await,
+                _ => anyhow::bail!("invalid subscription"),
+            },
             Self::Polkadot(client) => match sub {
                 GenericClientSubscription::Polkadot(sub) => client.subscribe(sub).await,
                 _ => anyhow::bail!("invalid subscription"),
@@ -330,6 +367,7 @@ impl BlockchainClient for GenericClient {
 pub enum GenericClientSubscription {
     Ethereum(<EthereumClient as BlockchainClient>::Subscription),
     Astar(<AstarClient as BlockchainClient>::Subscription),
+    Humanode(<HumanodeClient as BlockchainClient>::Subscription),
     Polkadot(<PolkadotClient as BlockchainClient>::Subscription),
 }
 
@@ -337,12 +375,14 @@ pub enum GenericClientSubscription {
 pub enum GenericClientEvent {
     Ethereum(<EthereumClient as BlockchainClient>::Event),
     Astar(<AstarClient as BlockchainClient>::Event),
+    Humanode(<HumanodeClient as BlockchainClient>::Event),
     Polkadot(<PolkadotClient as BlockchainClient>::Event),
 }
 
 pub enum GenericClientStream<'a> {
     Ethereum(<EthereumClient as BlockchainClient>::EventStream<'a>),
     Astar(<AstarClient as BlockchainClient>::EventStream<'a>),
+    Humanode(<HumanodeClient as BlockchainClient>::EventStream<'a>),
     Polkadot(<PolkadotClient as BlockchainClient>::EventStream<'a>),
 }
 
@@ -361,6 +401,9 @@ impl<'a> Stream for GenericClientStream<'a> {
             Self::Astar(stream) => stream
                 .poll_next_unpin(cx)
                 .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Astar))),
+            Self::Humanode(stream) => stream
+                .poll_next_unpin(cx)
+                .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Humanode))),
             Self::Polkadot(stream) => stream
                 .poll_next_unpin(cx)
                 .map(|opt| opt.map(|event| event.map_event(GenericClientEvent::Polkadot))),

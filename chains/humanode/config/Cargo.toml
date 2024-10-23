@@ -1,0 +1,16 @@
+[package]
+name = "rosetta-config-humanode"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "Humanode configuration"
+
+[features]
+default = ["humanode-metadata"]
+humanode-metadata = ["subxt"]
+
+[dependencies]
+anyhow = "1.0"
+rosetta-core.workspace = true
+subxt = { workspace = true, features = ["substrate-compat", "native"], optional = true }
