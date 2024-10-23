@@ -227,7 +227,7 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
         "goerli" => ("goerli", 421_613, true),
-        "Sepolia" => ("Sepolia", 421_614, true),
+        "sepolia" => ("sepolia", 421_614, true),
         "mainnet" => ("mainnet", 42161, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
