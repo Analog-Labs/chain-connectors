@@ -83,11 +83,11 @@ impl GenericClient {
     ) -> Result<Self> {
         let blockchain = Blockchain::from_str(config.blockchain)?;
         Ok(match blockchain {
-            Blockchain::Ethereum |
-            Blockchain::Polygon |
-            Blockchain::Arbitrum |
-            Blockchain::Binance |
-            Blockchain::Avalanche => {
+            Blockchain::Ethereum
+            | Blockchain::Polygon
+            | Blockchain::Arbitrum
+            | Blockchain::Binance
+            | Blockchain::Avalanche => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
             },

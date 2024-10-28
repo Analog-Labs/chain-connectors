@@ -23,7 +23,7 @@ mod new_heads;
 mod proof;
 mod shared_stream;
 mod state;
-mod utils;
+pub mod utils;
 
 pub use event_stream::EthereumEventStream;
 
