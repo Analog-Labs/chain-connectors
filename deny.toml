@@ -104,6 +104,9 @@ ignore = [
 
   # RUSTSEC-2023-0086 contains multiple soundness issues:
   { id = 'RUSTSEC-2023-0086', reason = 'Version 1.0 fixes these issues, removes the vast majority of unsafe code, and also fixes some correctness issues and on our connector using older' },
+
+  # RUSTSEC-2024-0384 instant is unmaintained
+  { id = 'RUSTSEC-2024-0384', reason = 'This crate is no longer maintained, and the author recommends using the maintained web-time crate instead.' },
 ]
 
 # This section is considered when running `cargo deny check sources`.
