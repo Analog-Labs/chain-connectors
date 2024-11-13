@@ -54,11 +54,11 @@ mod tests {
 
     /// Account used to fund other testing accounts.
     const FUNDING_ACCOUNT_PRIVATE_KEY: [u8; 32] =
-        hex!("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d");
+        hex!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
     /// Base rpc url
     const BASE_RPC_WS_URL: &str =
-        "wss://virtual.base-sepolia.rpc.tenderly.co/a6d68374-b6af-4d42-8983-dbb5726eb85a";
+        "http://127.0.0.1:8545";
 
     sol! {
         interface TestContract {
