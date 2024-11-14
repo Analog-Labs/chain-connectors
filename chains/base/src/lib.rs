@@ -70,6 +70,7 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore = "No Polygon CI"]
     async fn network_status() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("base", "dev", BASE_RPC_WS_URL, None)
@@ -96,6 +97,7 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore = "No Polygon CI"]
     async fn test_account() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
@@ -149,6 +151,7 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore = "No Polygon CI"]
     async fn test_smart_contract() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
@@ -202,6 +205,7 @@ mod tests {
 
     #[tokio::test]
     #[serial]
+    #[ignore = "No Polygon CI"]
     async fn test_smart_contract_view() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(

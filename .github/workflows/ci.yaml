@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-testing-base,]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche,]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -99,13 +99,6 @@ jobs:
       if: ${{ matrix.crate == 'rosetta-testing-arbitrum' }}
       run: git clone -b release --depth=1 --no-tags --recurse-submodules https://github.com/ManojJiSharma/nitro-testnode.git
     
-    - name: Checkout Optimism
-      if: ${{ matrix.crate == 'rosetta-testing-base' }}
-      run: |
-        git clone https://github.com/ethereum-optimism/optimism.git
-        cd optimism
-        make devnet-up
-
 
     - name: Start arbitrum nitro-testnode
       if: ${{ matrix.crate == 'rosetta-testing-arbitrum' }}
@@ -162,7 +155,6 @@ jobs:
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
-          --exclude rosetta-server-base \
           --exclude rosetta-client \
           -- \
           ${CLIPPY_FLAGS}
@@ -190,7 +182,6 @@ jobs:
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-server-polkadot \
-          --exclude rosetta-server-base \
           --exclude rosetta-client
 
     - name: Cleanup Docker
