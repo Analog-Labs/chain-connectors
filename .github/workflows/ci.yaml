@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche,]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-server-base,]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -105,7 +105,15 @@ jobs:
       run: |
         cd nitro-testnode
         ./test-node.bash --detach
-        
+
+    - name: Checkout Optimism
+      if: ${{ matrix.crate == 'rosetta-testing-base' }}
+      run: |
+            git clone https://github.com/ethereum-optimism/optimism.git
+            cd optimism
+            make devnet-up
+  
+
     - name: Setup avalanche-cli node
       if: ${{matrix.crate == 'rosetta-testing-avalanche'}}
       run: |
@@ -154,6 +162,7 @@ jobs:
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
+          --exclude rosetta-server-base \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
           -- \
@@ -181,6 +190,7 @@ jobs:
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
+          --exclude rosetta-server-base \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
 

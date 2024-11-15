@@ -57,7 +57,7 @@ mod tests {
         hex!("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80");
 
     /// Base rpc url
-    const BASE_RPC_WS_URL: &str = "http://127.0.0.1:8545";
+    const BASE_RPC_WS_URL: &str = "http://127.0.0.1:9545";
 
     sol! {
         interface TestContract {
@@ -70,7 +70,6 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    #[ignore = "No Polygon CI"]
     async fn network_status() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new("base", "dev", BASE_RPC_WS_URL, None)
@@ -97,7 +96,6 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    #[ignore = "No Polygon CI"]
     async fn test_account() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
@@ -151,7 +149,6 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    #[ignore = "No Polygon CI"]
     async fn test_smart_contract() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
@@ -205,7 +202,6 @@ mod tests {
 
     #[tokio::test]
     #[serial]
-    #[ignore = "No Polygon CI"]
     async fn test_smart_contract_view() {
         run_test(async move {
             let client = MaybeWsEthereumClient::new(
