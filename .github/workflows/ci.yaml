@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-server-base,]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-testing-base,]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -162,7 +162,7 @@ jobs:
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
-          --exclude rosetta-server-base \
+          --exclude rosetta-testing-base \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client \
           -- \
@@ -190,7 +190,7 @@ jobs:
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
           --exclude rosetta-server-ethereum \
-          --exclude rosetta-server-base \
+          --exclude rosetta-testing-base \
           --exclude rosetta-server-polkadot \
           --exclude rosetta-client
 
