@@ -5918,6 +5918,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosetta-testing-base"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 0.7.7",
+ "anyhow",
+ "ethers",
+ "ethers-solc",
+ "hex-literal",
+ "rand_core 0.6.4",
+ "rosetta-chain-testing",
+ "rosetta-client",
+ "rosetta-config-ethereum",
+ "rosetta-core",
+ "rosetta-docker",
+ "rosetta-server-ethereum",
+ "serial_test",
+ "sha3",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "rosetta-testing-binance"
 version = "0.1.0"
 dependencies = [

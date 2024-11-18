@@ -58,6 +58,10 @@ impl GenericClient {
                 let client = EthereumClient::new("binance", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
+            Blockchain::Base => {
+                let client = EthereumClient::new("base", network, url, private_key).await?;
+                Self::Ethereum(client)
+            },
             Blockchain::Avalanche => {
                 let client = EthereumClient::new("avalanche", network, url, private_key).await?;
                 Self::Ethereum(client)
@@ -87,6 +91,7 @@ impl GenericClient {
             Blockchain::Polygon |
             Blockchain::Arbitrum |
             Blockchain::Binance |
+            Blockchain::Base |
             Blockchain::Avalanche => {
                 let client = EthereumClient::from_config(config, url, private_key).await?;
                 Self::Ethereum(client)
