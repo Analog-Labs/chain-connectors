@@ -45,6 +45,8 @@ pub enum Blockchain {
     Wococo,
     /// Polygon
     Polygon,
+    /// Polygon-zkevm
+    Polygonzkevm,
     /// Arbitrum
     Arbitrum,
     /// Binance
@@ -68,6 +70,7 @@ impl std::str::FromStr for Blockchain {
             "westend" => Self::Westend,
             "wococo" => Self::Wococo,
             "polygon" => Self::Polygon,
+            "zkevm" => Self::Polygonzkevm,
             "arbitrum" => Self::Arbitrum,
             "binance" => Self::Binance,
             "avalanche" => Self::Avalanche,
