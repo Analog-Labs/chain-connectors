@@ -18,7 +18,7 @@ linker = "x86_64-linux-musl-gcc"
 
 4. In `build_connectors.sh` replace `cargo build` with `TARGET_CC=x86_64-linux-musl-gcc cargo build`
 5. Run `./scripts/build_connectors.sh`.
-6. After conenctors are build run `docker compose up`.
+6. After connectors are build run `docker compose up`.
 
 **Compiling voting contract**
 
@@ -28,7 +28,7 @@ linker = "x86_64-linux-musl-gcc"
 
 **Running voting_contract example**
 
-1. This example demonstrate how to interact with smart contract using Aanlog's wallet. We will deploy a basic contracts storing yes or no votes and displays total votes on voting.
+1. This example demonstrates how to interact with smart contract using Aanlog's wallet. We will deploy a basic contract storing yes or no votes and displays total votes on voting.
 2. Run `cargo run --example voting_contract faucet`. to get some funds to deploy contract.
 3. To deploy contract run `cargo run --example voting_contract deploy`. You will get deployed contract address as output, make sure you copy it.
 4. To vote for yes run
@@ -39,7 +39,7 @@ linker = "x86_64-linux-musl-gcc"
 
 **Running ethereum example**
 
-1. This examples demonstrate how to interact with ethereum using Analog's wallet.
+1. This examples demonstrates how to interact with ethereum using Analog's wallet.
 2. Make sure you have voting contract deployed. If not please follow voting_contract example steps 2 and 3.
 3. Run `cargo run --example ethereum -- --contract-address "0x678ea0447843f69805146c521afcbcc07d6e28a2"`
 4. It runs all available methods available for wallet and respond with valid output.
