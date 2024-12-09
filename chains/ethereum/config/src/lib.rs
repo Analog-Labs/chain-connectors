@@ -276,7 +276,23 @@ pub fn base_config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "mainnet" => ("mainnet", 8453, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
-    Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
+    Ok(evm_config("base", network, "ETH", bip44_id, is_dev))
+}
+
+/// Retrieve the [`BlockchainConfig`] from the provided polygon-zkevm `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn zkevm_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "testnet" => ("sepolia", 1442, true),
+        "cardona" => ("sepolia", 2442, true),
+        "mainnet" => ("mainnet", 1101, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("zkevm", network, "ETH", bip44_id, is_dev))
 }
 
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
@@ -319,6 +335,12 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "base-local" => return base_config("dev"),
         "base" => return base_config("mainnet"),
         "base-sepolia" => return base_config("fuji"),
+
+        // zkevm
+        "zkevm-local" => return zkevm_config("dev"),
+        "zkevm" => return zkevm_config("mainnet"),
+        "zkevm-testnet" => return zkevm_config("testnet"),
+        "zkevm-cardona" => return zkevm_config("cardona"),
 
         network => return astar_config(network),
     };
