@@ -22,7 +22,7 @@ members = [
   "chains/binance",
   "chains/avalanche",
   "chains/rosetta-chain-testing",
-  "chains/base",
+  "chains/base", "chains/linea",
 ]
 resolver = "2"
 
