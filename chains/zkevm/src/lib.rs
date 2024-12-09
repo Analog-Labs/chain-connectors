@@ -103,7 +103,7 @@ mod tests {
                     .await
                     .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
-            let _ = wallet.faucet(value, None).await;
+            let _ = wallet.faucet(value, Some(25_000_000_000)).await;
             let amount = wallet.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -119,10 +119,10 @@ mod tests {
             let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             let value = u128::pow(10, client.config().currency_decimals);
             let alice =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, None)
+                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
                     .await
                     .unwrap();
-            let bob = Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, None)
+            let bob = Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
                 .await
                 .unwrap();
             assert_ne!(alice.public_key(), bob.public_key());
@@ -134,12 +134,12 @@ mod tests {
             assert_eq!(balance, 0);
 
             // Transfer faucets to alice
-            alice.faucet(faucet, None).await.unwrap();
+            alice.faucet(faucet, Some(25_000_000_000)).await.unwrap();
             let balance = alice.balance().await.unwrap();
             assert_eq!(balance, faucet);
 
             // Alice transfers to bob
-            alice.transfer(bob.account(), value, None, None).await.unwrap();
+            alice.transfer(bob.account(), value, None, Some(25_000_000_000)).await.unwrap();
             let amount = bob.balance().await.unwrap();
             assert_eq!(amount, value);
         })
@@ -179,10 +179,10 @@ mod tests {
                 .expect("Error creating PolygonzkevmClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, None)
+                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
                     .await
                     .unwrap();
-            wallet.faucet(faucet, None).await.unwrap();
+            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
 
             let bytes = compile_snippet(
                 r"
@@ -222,10 +222,10 @@ mod tests {
                 .expect("Error creating PolygonzkevmClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
             let wallet =
-                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, None)
+                Wallet::from_config(client.config().clone(), POLYGON_RPC_HTTP_URL, None, Some(FUNDING_ACCOUNT_PRIVATE_KEY))
                     .await
                     .unwrap();
-            wallet.faucet(faucet, None).await.unwrap();
+            wallet.faucet(faucet, Some(25_000_000_000)).await.unwrap();
             let bytes = compile_snippet(
                 r"
                 function identity(bool a) public view returns (bool) {
