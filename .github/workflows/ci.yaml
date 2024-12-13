@@ -14,7 +14,7 @@ jobs:
     steps:
     - name: Checkout sources
       uses: actions/checkout@v4
-
+      
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
@@ -59,7 +59,7 @@ jobs:
     needs: [rustfmt]
     strategy:
       matrix:
-        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-testing-base,]
+        crate: [rosetta-server-astar, rosetta-server-ethereum, rosetta-server-polkadot, rosetta-client, rosetta-testing-arbitrum, rosetta-testing-binance, rosetta-testing-avalanche, rosetta-testing-base, rosetta-testing-linea, ]
     name: ${{ matrix.crate }}
     runs-on: self-hosted
     steps:
@@ -127,6 +127,14 @@ jobs:
         docker pull manojanalog/bsc_for_analog
         docker run -d -p 8545:8545 -p 8546:8546 manojanalog/bsc_for_analog:latest geth --datadir ./datadir --unlock 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --allow-insecure-unlock --http --http.addr 0.0.0.0 --http.port 8545 --http.api personal,db,eth,net,web3 --mine --miner.etherbase 0x5e5C830f97292a3C6Bfea464D3ad4CE631e6Fbc5 --ws --ws.addr 0.0.0.0 --ws.port 8546 --ws.api personal,db,eth,net,web3 --rpc.allow-unprotected-txs --password password.txt
 
+    - name: Setup Linea-monorepo node
+      if: ${{ matrix.crate == 'rosetta-testing-linea' }}
+      run: |
+        git clone https://github.com/Consensys/linea-monorepo.git
+        cd linea-monorepo
+        make pnpm-install
+        make fresh-start-all
+        
     - name: test (${{ matrix.crate }})
       run: cargo test --locked -p ${{ matrix.crate }}
   
@@ -161,6 +169,7 @@ jobs:
           --exclude rosetta-server-astar \
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
+          --exclude rosetta-testing-linea \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-testing-base \
           --exclude rosetta-server-polkadot \
@@ -189,6 +198,7 @@ jobs:
           --exclude rosetta-server-astar \
           --exclude rosetta-testing-avalanche \
           --exclude rosetta-testing-binance \
+          --exclude rosetta-testing-linea \
           --exclude rosetta-server-ethereum \
           --exclude rosetta-testing-base \
           --exclude rosetta-server-polkadot \
