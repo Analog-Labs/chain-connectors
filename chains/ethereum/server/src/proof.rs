@@ -30,8 +30,8 @@ pub fn verify_proof(proof: &[Bytes], root: &[u8], path: &[u8], value: &[u8]) -> 
         } else if node_list.len() == 2 {
             if i == proof.len() - 1 {
                 // exclusion proof
-                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset) &&
-                    is_empty_value(value)
+                if !paths_match(&node_list[0], skip_length(&node_list[0]), path, path_offset)
+                    && is_empty_value(value)
                 {
                     return true;
                 }

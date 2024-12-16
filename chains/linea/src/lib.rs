@@ -94,10 +94,9 @@ mod tests {
             let client = MaybeWsEthereumClient::new("linea", "dev", LINEA_RPC_WS_URL, None)
                 .await
                 .expect("Error creating LineaClient");
-            let wallet =
-                Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+            let wallet = Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
             let value = 10 * u128::pow(10, client.config().currency_decimals);
             let _ = wallet.faucet(value, None).await;
             let amount = wallet.balance().await.unwrap();
@@ -114,10 +113,9 @@ mod tests {
                 .expect("Error creating LineaClient");
             let faucet = 100 * u128::pow(10, client.config().currency_decimals);
             let value = u128::pow(10, client.config().currency_decimals);
-            let alice =
-                Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+            let alice = Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
             let bob = Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
                 .await
                 .unwrap();
@@ -174,10 +172,9 @@ mod tests {
                 .await
                 .expect("Error creating LineaClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-            let wallet =
-                Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+            let wallet = Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
             wallet.faucet(faucet, None).await.unwrap();
 
             let bytes = compile_snippet(
@@ -217,10 +214,9 @@ mod tests {
                 .await
                 .expect("Error creating LineaClient");
             let faucet = 10 * u128::pow(10, client.config().currency_decimals);
-            let wallet =
-                Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
-                    .await
-                    .unwrap();
+            let wallet = Wallet::from_config(client.config().clone(), LINEA_RPC_WS_URL, None, None)
+                .await
+                .unwrap();
             wallet.faucet(faucet, None).await.unwrap();
             let bytes = compile_snippet(
                 r"
