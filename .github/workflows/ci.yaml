@@ -18,11 +18,11 @@ jobs:
     - name: Install rust toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.79.0
+        toolchain: 1.81.0
         components: rustfmt, clippy
 
     - name: Install dprint
-      run: cargo install dprint
+      run: cargo install --locked dprint
 
     - name: Dprint check
       run: dprint check
