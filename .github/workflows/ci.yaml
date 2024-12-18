@@ -22,7 +22,7 @@ jobs:
         components: rustfmt, clippy
 
     - name: Install dprint
-      run: cargo install dprint
+      run: cargo install dprint --locked
 
     - name: Dprint check
       run: dprint check
