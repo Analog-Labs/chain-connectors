@@ -131,8 +131,8 @@ impl StateInner {
                 // Block is younger than the latest finalized block, so it can't be imported
                 return Ok(());
             }
-            if block.number() == (best_block.number() + 1)
-                && block.parent_hash() != best_block.hash()
+            if block.number() == (best_block.number() + 1) &&
+                block.parent_hash() != best_block.hash()
             {
                 // the block is not descendent of the best finalized block
                 return Ok(());
