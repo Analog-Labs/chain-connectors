@@ -53,6 +53,8 @@ pub enum Blockchain {
     Avalanche,
     /// Base
     Base,
+    /// Linea
+    Linea,
 }
 
 impl std::str::FromStr for Blockchain {
@@ -72,6 +74,7 @@ impl std::str::FromStr for Blockchain {
             "binance" => Self::Binance,
             "avalanche" => Self::Avalanche,
             "base" => Self::Base,
+            "linea" => Self::Linea,
             _ => anyhow::bail!("unsupported blockchain {}", blockchain),
         })
     }

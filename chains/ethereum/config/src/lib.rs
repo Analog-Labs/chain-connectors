@@ -279,6 +279,21 @@ pub fn base_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided base `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn linea_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "sepolia" => ("sepolia", 59141, true),
+        "mainnet" => ("mainnet", 59144, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("linea", network, "ETH", bip44_id, is_dev))
+}
+
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
@@ -319,6 +334,11 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "base-local" => return base_config("dev"),
         "base" => return base_config("mainnet"),
         "base-sepolia" => return base_config("fuji"),
+
+        // Base
+        "linea-local" => return linea_config("dev"),
+        "linea" => return linea_config("mainnet"),
+        "linea-sepolia" => return linea_config("basu"),
 
         network => return astar_config(network),
     };
