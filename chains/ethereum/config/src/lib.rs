@@ -336,9 +336,9 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "base-sepolia" => return base_config("fuji"),
 
         // Base
-        "linea-local" => return base_config("dev"),
-        "linea" => return base_config("mainnet"),
-        "linea-sepolia" => return base_config("basu"),
+        "linea-local" => return linea_config("dev"),
+        "linea" => return linea_config("mainnet"),
+        "linea-sepolia" => return linea_config("basu"),
 
         network => return astar_config(network),
     };
