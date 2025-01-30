@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 shopt -s inherit_errexit
 
@@ -166,7 +167,7 @@ rustc_version="$(rustc --version)"
 rustc_version="$(awk '{print $2}' <<< "${rustc_version}")"
 checkSemver 'rustc' \
   "${rustc_version}" \
-  '1.79.0' \
+  '1.84.0' \
   "upgrade rustc with command: ${warn_color}rustup update stable${reset_color}"
 
 # Check `cargo-deny` version
