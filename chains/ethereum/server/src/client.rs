@@ -7,8 +7,8 @@ use crate::{
     shared_stream::SharedStream,
     state::State,
     utils::{
-        AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, PartialBlock,
-        PolygonFeeEstimatorConfig,
+        eip1559_default_estimator, AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt,
+        FeeEstimatorConfig, PartialBlock, PolygonFeeEstimatorConfig,
     },
 };
 use anyhow::{Context, Result};
@@ -18,8 +18,8 @@ use rosetta_config_ethereum::{
         ext::rlp::Encodable,
         rlp_utils::RlpDecodableTransaction,
         rpc::CallRequest,
-        transactions::LegacyTransaction,
-        AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
+        transactions::{GasPrice, LegacyTransaction},
+        AccessList, AtBlock, Bytes, FeeHistory, TransactionT, TypedTransaction, H160, U256,
     },
     query::GetBlock,
     CallContract, CallResult, EthereumMetadata, EthereumMetadataParams, GetBalance, GetProof,
@@ -41,6 +41,7 @@ use rosetta_ethereum_backend::{
     BlockRange, EthereumRpc, ExitReason,
 };
 use std::{
+    ops::Div,
     sync::{
         atomic::{self, Ordering},
         Arc,
@@ -371,11 +372,56 @@ where
         })
     }
 
+    pub async fn estimate_gas_price(&self) -> Result<GasPrice> {
+        if self.config.blockchain == "polygon" {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?;
+            return Ok(GasPrice::Eip1559 { max_priority_fee_per_gas, max_fee_per_gas });
+        }
+
+        let fee_history = self
+            .backend
+            .fee_history(
+                DefaultFeeEstimatorConfig::EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
+                AtBlock::Latest,
+                &[DefaultFeeEstimatorConfig::EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
+            )
+            .await?;
+
+        // if the base fee of the Latest block is 0 then we need check if the latest block even has
+        // a base fee/supports EIP1559
+        let last_block_base_fee = fee_history.base_fee_per_gas.iter().rev().nth(1).copied();
+        let base_fee_per_gas = match last_block_base_fee {
+            Some(base_fee) if !base_fee.is_zero() => Some(base_fee),
+            _ => {
+                let Some(block) = self.backend.block(AtBlock::Latest).await? else {
+                    anyhow::bail!("failed to get latest block");
+                };
+                match block.header.base_fee_per_gas {
+                    Some(base_fee_per_gas) if base_fee_per_gas > 0 => {
+                        Some(U256::from(base_fee_per_gas))
+                    },
+                    _ => None,
+                }
+            },
+        };
+
+        let gas_price = if let Some(_) = base_fee_per_gas {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?;
+            GasPrice::Eip1559 { max_priority_fee_per_gas, max_fee_per_gas }
+        } else {
+            let gas_price = self.backend.gas_price().await?;
+            GasPrice::Legacy(gas_price)
+        };
+        Ok(gas_price)
+    }
+
     #[allow(clippy::missing_errors_doc)]
     pub async fn submit(&self, transaction: &[u8]) -> Result<SubmitResult> {
         // Check if the transaction is valid and signed
         let rlp = rosetta_config_ethereum::ext::types::ext::rlp::Rlp::new(transaction);
-        let (tx_hash, call_request) = match TypedTransaction::rlp_decode(&rlp, true) {
+        let (tx_hash, call_request, tx) = match TypedTransaction::rlp_decode(&rlp, true) {
             Ok((tx, Some(signature))) => {
                 let tx_hash = tx.compute_tx_hash(&signature);
                 let sender = DefaultCrypto::secp256k1_ecdsa_recover(&signature, tx.sighash())?;
@@ -394,7 +440,7 @@ where
                     max_fee_per_gas: None,
                     transaction_type: None,
                 };
-                (tx_hash, call_request)
+                (tx_hash, call_request, tx)
             },
             Ok((_, None)) => {
                 anyhow::bail!("Invalid Transaction: not signed");
@@ -417,16 +463,35 @@ where
             }
         }
 
-        // Wait for the transaction receipt
-        let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
-            tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
-            return Ok(SubmitResult::Timeout { tx_hash });
-        };
-        tracing::debug!(
-            "Transaction included in a block: {tx_hash:?}, status: {:?}",
-            receipt.status_code
-        );
-        Ok(self.backend.get_call_result(receipt, call_request).await)
+        let mut attempts = 0;
+        loop {
+            // Wait for the transaction receipt
+            match self.backend.wait_for_transaction_receipt(tx_hash).await {
+                Ok(receipt) => {
+                    tracing::debug!(
+                        "Transaction included in a block: {tx_hash:?}, status: {:?}",
+                        receipt.status_code
+                    );
+                    return Ok(self.backend.get_call_result(receipt, call_request).await);
+                },
+                Err(error) => {
+                    tracing::warn!("{error:?} - retrying in 15 seconds", attempts = attempts);
+                    tokio::time::sleep(Duration::from_secs(15)).await;
+                },
+            }
+
+            // Retry sending the transaction.
+            if let Err(err) = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await
+            {
+                tracing::warn!(
+                    "Failed to send transaction ({attempts}): {err:?}",
+                    attempts = attempts
+                );
+            }
+
+            // Increment attempt counter.
+            attempts += 1;
+        }
     }
 
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]
