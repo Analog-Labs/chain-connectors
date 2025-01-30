@@ -500,6 +500,7 @@ where
                     "Failed to send transaction ({attempts}): {err:?}",
                     attempts = attempts
                 );
+                tokio::time::sleep(Duration::from_secs(10)).await;
             }
 
             // Increment attempt counter.
