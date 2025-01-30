@@ -468,10 +468,23 @@ where
             // Wait for the transaction receipt
             match self.backend.wait_for_transaction_receipt(tx_hash).await {
                 Ok(receipt) => {
+                    let receipt_block_number = receipt.block_number.unwrap_or(u64::MAX);
                     tracing::debug!(
-                        "Transaction included in a block: {tx_hash:?}, status: {:?}",
+                        "Transaction {tx_hash:?} included in a block {receipt_block_number:?}, status: {:?}",
                         receipt.status_code
                     );
+
+                    // Retrie the latest block number.
+                    let Ok(Some(latest_block)) = self.backend.block(AtBlock::Latest).await else {
+                        continue;
+                    };
+                    let latest_block = latest_block.header.number;
+
+                    // Wait at least 5 blocks confirmations.
+                    if latest_block.saturating_sub(receipt_block_number) < 5 {
+                        continue;
+                    }
+
                     return Ok(self.backend.get_call_result(receipt, call_request).await);
                 },
                 Err(error) => {
