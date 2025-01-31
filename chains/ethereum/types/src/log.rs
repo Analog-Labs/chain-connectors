@@ -1,3 +1,4 @@
+#![allow(unexpected_cfgs)]
 #[cfg(feature = "serde")]
 use crate::serde_utils::uint_to_hex;
 use crate::{

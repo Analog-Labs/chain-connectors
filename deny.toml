@@ -22,7 +22,8 @@ allow = [
   "LicenseRef-ring",
   "MIT",
   "MPL-2.0",
-  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "Zlib",
 ]
 
 # The confidence threshold for detecting a license from license text.
@@ -60,7 +61,7 @@ license-files = [
 
 [bans] # --------------------------------------------------------------------- #
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
+multiple-versions = "allow"
 
 # Lint level for when a crate version requirement is `*`
 wildcards = "allow"

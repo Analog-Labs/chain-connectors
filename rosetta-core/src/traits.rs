@@ -18,16 +18,8 @@ macro_rules! impl_maybe_marker {
 	) => {
 		$(
 			$(#[$doc])+
-			#[cfg(feature = "std")]
 			pub trait $trait_name: $( $trait_bound + )+ {}
-			#[cfg(feature = "std")]
 			impl<T: $( $trait_bound + )+> $trait_name for T {}
-
-			$(#[$doc])+
-			#[cfg(not(feature = "std"))]
-			pub trait $trait_name {}
-			#[cfg(not(feature = "std"))]
-			impl<T> $trait_name for T {}
 		)+
 	}
 }
@@ -114,7 +106,7 @@ pub trait Transaction: Sized {
     /// Extrinsics can be split into:
     /// 1. Inherents (no signature; created by validators during block production)
     /// 2. Unsigned Transactions (no signature; represent "system calls" or other special kinds of
-    /// calls) 3. Signed Transactions (with signature; a regular transactions with known origin)
+    ///    calls) 3. Signed Transactions (with signature; a regular transactions with known origin)
     fn new(_call: Self::Call, _signed_data: Option<Self::SignaturePayload>) -> Option<Self> {
         None
     }
