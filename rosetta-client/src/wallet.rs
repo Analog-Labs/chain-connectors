@@ -52,11 +52,11 @@ impl Wallet {
     pub async fn from_config(
         config: BlockchainConfig,
         url: &str,
-        mnemonic: &str,
+        mnemonic: Option<&str>,
         private_key: Option<[u8; 32]>,
     ) -> Result<Self> {
         let client = GenericClient::from_config(config, url, private_key).await?;
-        Self::from_client(client, mnemonic)
+        Self::from_client(client, mnemonic.unwrap())
     }
 
     /// Creates a new wallet from a client, url and keyfile.
@@ -115,9 +115,10 @@ impl Wallet {
 
     /// Returns the balance of the wallet.
     #[allow(clippy::missing_errors_doc)]
-    pub async fn balance(&self, address: String) -> Result<u128> {
+    pub async fn balance(&self) -> Result<u128> {
         let block = self.client.current_block().await?;
-        let address = Address::new(self.client.config().address_format, address);
+        let address =
+            Address::new(self.client.config().address_format, self.account.address.clone());
         let balance = match &*self.client {
             GenericClient::Astar(client) => {
                 client.balance(&address, &PartialBlockIdentifier::from(block)).await?
