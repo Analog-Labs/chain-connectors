@@ -7,8 +7,7 @@ use crate::{
     Blockchain, BlockchainConfig,
 };
 use anyhow::Result;
-use futures::channel::mpsc;
-use futures::{SinkExt, Stream, StreamExt};
+use futures::{channel::mpsc, SinkExt, Stream, StreamExt};
 use rosetta_core::{
     types::PartialBlockIdentifier, BlockOrIdentifier, BlockchainClient, ClientEvent,
     RosettaAlgorithm,
@@ -22,8 +21,7 @@ use rosetta_server_ethereum::{
     },
     SubmitResult,
 };
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{pin::Pin, sync::Arc};
 
 /// The wallet provides the main entry point to this crate.
 pub struct Wallet {
