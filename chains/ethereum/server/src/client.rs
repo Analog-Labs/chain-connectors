@@ -7,8 +7,8 @@ use crate::{
     shared_stream::SharedStream,
     state::State,
     utils::{
-        eip1559_default_estimator, AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt,
-        FeeEstimatorConfig, PartialBlock, PolygonFeeEstimatorConfig,
+        AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, FeeEstimatorConfig, PartialBlock,
+        PolygonFeeEstimatorConfig,
     },
 };
 use anyhow::{Context, Result};
@@ -189,6 +189,7 @@ where
         let remote_nonce = self.backend.get_transaction_count(account, AtBlock::Latest).await?;
         let next_nonce = u64::max(local_nonce, remote_nonce);
         nonces.insert(account, next_nonce.saturating_add(1));
+        drop(nonces);
         Ok(next_nonce)
     }
 
@@ -386,6 +387,8 @@ where
         })
     }
 
+    /// # Errors
+    /// May return an error if the any of the RPC calls fails.
     pub async fn estimate_gas_price(&self) -> Result<GasPrice> {
         if self.config.blockchain == "polygon" {
             let (max_fee_per_gas, max_priority_fee_per_gas) =
@@ -420,7 +423,7 @@ where
             },
         };
 
-        let gas_price = if let Some(_) = base_fee_per_gas {
+        let gas_price = if base_fee_per_gas.is_some() {
             let (max_fee_per_gas, max_priority_fee_per_gas) =
                 self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?;
             GasPrice::Eip1559 { max_priority_fee_per_gas, max_fee_per_gas }
@@ -435,7 +438,7 @@ where
     pub async fn submit(&self, transaction: &[u8]) -> Result<SubmitResult> {
         // Check if the transaction is valid and signed
         let rlp = rosetta_config_ethereum::ext::types::ext::rlp::Rlp::new(transaction);
-        let (tx_hash, call_request, tx) = match TypedTransaction::rlp_decode(&rlp, true) {
+        let (tx_hash, call_request) = match TypedTransaction::rlp_decode(&rlp, true) {
             Ok((tx, Some(signature))) => {
                 let tx_hash = tx.compute_tx_hash(&signature);
                 let sender = DefaultCrypto::secp256k1_ecdsa_recover(&signature, tx.sighash())?;
@@ -454,7 +457,7 @@ where
                     max_fee_per_gas: None,
                     transaction_type: None,
                 };
-                (tx_hash, call_request, tx)
+                (tx_hash, call_request)
             },
             Ok((_, None)) => {
                 anyhow::bail!("Invalid Transaction: not signed");
@@ -512,7 +515,7 @@ where
                     return Ok(self.backend.get_call_result(receipt, call_request).await);
                 },
                 Err(error) => {
-                    tracing::warn!("{error:?} - retrying in 15 seconds", attempts);
+                    tracing::warn!("{error:?} - ({attempts}) retrying in 15 seconds");
                     tokio::time::sleep(Duration::from_secs(15)).await;
                 },
             }
@@ -520,7 +523,7 @@ where
             // Retry sending the transaction.
             if let Err(err) = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await
             {
-                tracing::warn!("Failed to send transaction ({attempts}): {err:?}", attempts);
+                tracing::warn!("Failed to send transaction ({attempts}): {err:?}");
                 tokio::time::sleep(Duration::from_secs(10)).await;
             }
 
