@@ -19,6 +19,7 @@ hex = "0.4"
 log = "0.4"
 num-traits = "0.2"
 rosetta-core.workspace = true
+rosetta-config-ethereum.workspace = true
 rosetta-server-astar.workspace = true
 rosetta-server-ethereum.workspace = true
 rosetta-server-polkadot.workspace = true
@@ -26,6 +27,7 @@ rosetta-tx-ethereum.workspace = true
 rosetta-tx-polkadot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio.workspace = true
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
