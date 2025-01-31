@@ -99,7 +99,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            nonce_lock: Arc::new(Mutex::new(0)),
+            nonce_lock: Arc::new(Mutex::new(BTreeMap::new())),
             chain_id: self.chain_id,
             config: self.config.clone(),
             backend: self.backend.clone(),
@@ -155,7 +155,7 @@ where
             (None, Arc::new(atomic::AtomicU64::new(0)))
         };
         Ok(Self {
-            nonce_lock: Arc::new(Mutex::new(())),
+            nonce_lock: Arc::new(Mutex::new(BTreeMap::new())),
             chain_id,
             config,
             backend,
