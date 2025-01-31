@@ -111,6 +111,11 @@ ignore = [
 
   # RUSTSEC-2024-0388 derivative is unmaintained; consider using an alternative
   { id = 'RUSTSEC-2024-0388', reason = 'derivative is unmaintained; consider using an alternative' },
+
+  # RUSTSEC-2024-0421
+  { id = 'RUSTSEC-2024-0421', reason = 'idna accepts Punycode labels that do not produce any non-ASCII when decoded' },
+  # RUSTSEC-2024-0399
+  { id = 'RUSTSEC-2024-0399', reason = 'ustls network-reachable panic in Acceptor::accept' },
 ]
 
 # This section is considered when running `cargo deny check sources`.

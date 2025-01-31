@@ -67,6 +67,7 @@ impl MaybeWsEthereumClient {
             "binance" => rosetta_config_ethereum::binance_config(network)?,
             "avalanche" => rosetta_config_ethereum::avalanche_config(network)?,
             "base" => rosetta_config_ethereum::base_config(network)?,
+            "linea" => rosetta_config_ethereum::linea_config(network)?,
             blockchain => anyhow::bail!("unsupported blockchain: {blockchain}"),
         };
         Self::from_config(config, addr, private_key).await
