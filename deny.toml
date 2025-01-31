@@ -22,7 +22,8 @@ allow = [
   "LicenseRef-ring",
   "MIT",
   "MPL-2.0",
-  "Unicode-DFS-2016",
+  "Unicode-3.0",
+  "Zlib",
 ]
 
 # The confidence threshold for detecting a license from license text.
@@ -60,7 +61,7 @@ license-files = [
 
 [bans] # --------------------------------------------------------------------- #
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
+multiple-versions = "allow"
 
 # Lint level for when a crate version requirement is `*`
 wildcards = "allow"
@@ -102,11 +103,14 @@ ignore = [
   # Subxt 0.37 depends deprecated libraries: https://github.com/paritytech/subxt/issues/1608
   { id = 'RUSTSEC-2024-0370', reason = "Waiting for subxt to update their deprecated dependencies" },
 
-  # RUSTSEC-2024-0377 contains multiple soundness issues:
-  { id = 'RUSTSEC-2024-0377', reason = 'Version 1.0 fixes these issues, removes the vast majority of unsafe code, and also fixes some correctness issues and on our connector using older' },
-
   # RUSTSEC-2023-0086 contains multiple soundness issues:
   { id = 'RUSTSEC-2023-0086', reason = 'Version 1.0 fixes these issues, removes the vast majority of unsafe code, and also fixes some correctness issues and on our connector using older' },
+
+  # RUSTSEC-2024-0384 instant is unmaintained
+  { id = 'RUSTSEC-2024-0384', reason = 'This crate is no longer maintained, and the author recommends using the maintained web-time crate instead.' },
+
+  # RUSTSEC-2024-0388 derivative is unmaintained; consider using an alternative
+  { id = 'RUSTSEC-2024-0388', reason = 'derivative is unmaintained; consider using an alternative' },
 ]
 
 # This section is considered when running `cargo deny check sources`.

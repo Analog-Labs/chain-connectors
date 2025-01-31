@@ -7,7 +7,7 @@ use crate::{
     shared_stream::SharedStream,
     state::State,
     utils::{
-        AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, PartialBlock,
+        AtBlockExt, DefaultFeeEstimatorConfig, EthereumRpcExt, FeeEstimatorConfig, PartialBlock,
         PolygonFeeEstimatorConfig,
     },
 };
@@ -18,7 +18,7 @@ use rosetta_config_ethereum::{
         ext::rlp::Encodable,
         rlp_utils::RlpDecodableTransaction,
         rpc::CallRequest,
-        transactions::LegacyTransaction,
+        transactions::{GasPrice, LegacyTransaction},
         AccessList, AtBlock, Bytes, TransactionT, TypedTransaction, H160, U256,
     },
     query::GetBlock,
@@ -41,12 +41,14 @@ use rosetta_ethereum_backend::{
     BlockRange, EthereumRpc, ExitReason,
 };
 use std::{
+    collections::BTreeMap,
     sync::{
         atomic::{self, Ordering},
         Arc,
     },
     time::Duration,
 };
+use tokio::sync::Mutex;
 
 pub type BlockStreamType<P> = SharedStream<BlockStream<RpcBlockProvider<Adapter<P>>, Adapter<P>>>;
 
@@ -79,6 +81,7 @@ impl BlockFinalityStrategy {
 }
 
 pub struct EthereumClient<P> {
+    nonce_lock: Arc<Mutex<BTreeMap<H160, u64>>>,
     chain_id: u64,
     config: BlockchainConfig,
     pub backend: Adapter<P>,
@@ -96,6 +99,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
+            nonce_lock: Arc::new(Mutex::new(BTreeMap::new())),
             chain_id: self.chain_id,
             config: self.config.clone(),
             backend: self.backend.clone(),
@@ -151,6 +155,7 @@ where
             (None, Arc::new(atomic::AtomicU64::new(0)))
         };
         Ok(Self {
+            nonce_lock: Arc::new(Mutex::new(BTreeMap::new())),
             chain_id,
             config,
             backend,
@@ -176,6 +181,16 @@ where
             index: self.genesis_block.header().header().number,
             hash: self.genesis_block.header().hash().0,
         }
+    }
+
+    async fn next_nonce(&self, account: H160) -> Result<u64> {
+        let mut nonces = self.nonce_lock.lock().await;
+        let local_nonce = nonces.get(&account).copied().unwrap_or_default();
+        let remote_nonce = self.backend.get_transaction_count(account, AtBlock::Latest).await?;
+        let next_nonce = u64::max(local_nonce, remote_nonce);
+        nonces.insert(account, next_nonce.saturating_add(1));
+        drop(nonces);
+        Ok(next_nonce)
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -335,9 +350,10 @@ where
         let chain_id = self.backend.chain_id().await?;
 
         let nonce = if let Some(nonce) = options.nonce {
+            tracing::warn!("nonce overwrite will be deprecated soon: {nonce}");
             nonce
         } else {
-            self.backend.get_transaction_count(from, AtBlock::Latest).await?
+            self.next_nonce(from).await?
         };
         let mut tx = CallRequest {
             from: Some(from),
@@ -369,6 +385,53 @@ where
             max_fee_per_gas: max_fee_per_gas.0,
             gas_limit,
         })
+    }
+
+    /// # Errors
+    /// May return an error if the any of the RPC calls fails.
+    pub async fn estimate_gas_price(&self) -> Result<GasPrice> {
+        if self.config.blockchain == "polygon" {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                self.backend.estimate_eip1559_fees::<PolygonFeeEstimatorConfig>().await?;
+            return Ok(GasPrice::Eip1559 { max_priority_fee_per_gas, max_fee_per_gas });
+        }
+
+        let fee_history = self
+            .backend
+            .fee_history(
+                DefaultFeeEstimatorConfig::EIP1559_FEE_ESTIMATION_PAST_BLOCKS,
+                AtBlock::Latest,
+                &[DefaultFeeEstimatorConfig::EIP1559_FEE_ESTIMATION_REWARD_PERCENTILE],
+            )
+            .await?;
+
+        // if the base fee of the Latest block is 0 then we need check if the latest block even has
+        // a base fee/supports EIP1559
+        let last_block_base_fee = fee_history.base_fee_per_gas.iter().rev().nth(1).copied();
+        let base_fee_per_gas = match last_block_base_fee {
+            Some(base_fee) if !base_fee.is_zero() => Some(base_fee),
+            _ => {
+                let Some(block) = self.backend.block(AtBlock::Latest).await? else {
+                    anyhow::bail!("failed to get latest block");
+                };
+                match block.header.base_fee_per_gas {
+                    Some(base_fee_per_gas) if base_fee_per_gas > 0 => {
+                        Some(U256::from(base_fee_per_gas))
+                    },
+                    _ => None,
+                }
+            },
+        };
+
+        let gas_price = if base_fee_per_gas.is_some() {
+            let (max_fee_per_gas, max_priority_fee_per_gas) =
+                self.backend.estimate_eip1559_fees::<DefaultFeeEstimatorConfig>().await?;
+            GasPrice::Eip1559 { max_priority_fee_per_gas, max_fee_per_gas }
+        } else {
+            let gas_price = self.backend.gas_price().await?;
+            GasPrice::Legacy(gas_price)
+        };
+        Ok(gas_price)
     }
 
     #[allow(clippy::missing_errors_doc)]
@@ -417,16 +480,56 @@ where
             }
         }
 
-        // Wait for the transaction receipt
-        let Ok(receipt) = self.backend.wait_for_transaction_receipt(tx_hash).await else {
-            tracing::warn!("Transaction receipt timeout: {tx_hash:?}");
-            return Ok(SubmitResult::Timeout { tx_hash });
-        };
-        tracing::debug!(
-            "Transaction included in a block: {tx_hash:?}, status: {:?}",
-            receipt.status_code
-        );
-        Ok(self.backend.get_call_result(receipt, call_request).await)
+        let mut attempts = 0;
+        loop {
+            // Wait for the transaction receipt
+            match self.backend.wait_for_transaction_receipt(tx_hash).await {
+                Ok(receipt) => {
+                    let receipt_block_number = receipt.block_number.unwrap_or(u64::MAX);
+                    tracing::debug!(
+                        "Transaction {tx_hash:?} included in a block {receipt_block_number:?}, status: {:?}",
+                        receipt.status_code
+                    );
+
+                    // Retrie the latest block number.
+                    let latest_block_number = match self.backend.block(AtBlock::Latest).await {
+                        Ok(Some(block)) => block.header.number,
+                        Ok(None) => {
+                            tracing::error!("[this is API bug] Latest block not found.");
+                            tokio::time::sleep(Duration::from_secs(10)).await;
+                            continue;
+                        },
+                        Err(err) => {
+                            tracing::warn!("Failed to retrieve latest block: {err}");
+                            tokio::time::sleep(Duration::from_secs(10)).await;
+                            continue;
+                        },
+                    };
+
+                    // Wait at least 5 blocks confirmations.
+                    if latest_block_number.saturating_sub(receipt_block_number) < 5 {
+                        tokio::time::sleep(Duration::from_secs(10)).await;
+                        continue;
+                    }
+
+                    return Ok(self.backend.get_call_result(receipt, call_request).await);
+                },
+                Err(error) => {
+                    tracing::warn!("{error:?} - ({attempts}) retrying in 15 seconds");
+                    tokio::time::sleep(Duration::from_secs(15)).await;
+                },
+            }
+
+            // Retry sending the transaction.
+            if let Err(err) = self.backend.send_raw_transaction(Bytes::from_iter(transaction)).await
+            {
+                tracing::warn!("Failed to send transaction ({attempts}): {err:?}");
+                tokio::time::sleep(Duration::from_secs(10)).await;
+            }
+
+            // Increment attempt counter.
+            attempts += 1;
+        }
     }
 
     #[allow(clippy::too_many_lines, clippy::missing_errors_doc)]

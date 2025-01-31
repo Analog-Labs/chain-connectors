@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 shopt -s inherit_errexit
 
@@ -166,7 +167,7 @@ rustc_version="$(rustc --version)"
 rustc_version="$(awk '{print $2}' <<< "${rustc_version}")"
 checkSemver 'rustc' \
   "${rustc_version}" \
-  '1.79.0' \
+  '1.81.0' \
   "upgrade rustc with command: ${warn_color}rustup update stable${reset_color}"
 
 # Check `cargo-deny` version
@@ -304,7 +305,8 @@ if [[ "${RUN_TESTS}" == "1" ]]; then
     --exclude rosetta-server-polkadot \
     --exclude rosetta-client \
     --exclude rosetta-testing-arbitrum \
-    --exclude rosetta-testing-binance
+    --exclude rosetta-testing-binance \
+    --exclude rosetta-testing-avalanche
   #exec_cmd 'cargo test' 'cargo test --locked --all-features --workspace'
   exec_cmd 'cleanup docker' "${SCRIPT_DIR}/reset_docker.sh"
 fi

@@ -226,7 +226,8 @@ pub fn arbitrum_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     // All available networks in arbitrum are listed here:
     let (network, bip44_id, is_dev) = match network {
         "dev" => ("dev", 1, true),
-        "goerli" => ("goerli", 60, true),
+        "goerli" => ("goerli", 421_613, true),
+        "sepolia" => ("sepolia", 421_614, true),
         "mainnet" => ("mainnet", 42161, false),
         _ => anyhow::bail!("unsupported network: {}", network),
     };
@@ -263,6 +264,21 @@ pub fn avalanche_config(network: &str) -> anyhow::Result<BlockchainConfig> {
     Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
 }
 
+/// Retrieve the [`BlockchainConfig`] from the provided base `network`
+///
+/// # Errors
+/// Returns `Err` if the network is not supported
+pub fn base_config(network: &str) -> anyhow::Result<BlockchainConfig> {
+    // All available networks are listed here:
+    let (network, bip44_id, is_dev) = match network {
+        "dev" => ("dev", 1, true),
+        "sepolia" => ("sepolia", 84532, true),
+        "mainnet" => ("mainnet", 8453, false),
+        _ => anyhow::bail!("unsupported network: {}", network),
+    };
+    Ok(evm_config("avalanche", network, "AVAX", bip44_id, is_dev))
+}
+
 /// Retrieve the [`BlockchainConfig`] from the provided ethereum `network`
 ///
 /// # Errors
@@ -287,6 +303,7 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "arbitrum-local" => return arbitrum_config("dev"),
         "arbitrum" => return arbitrum_config("mainnet"),
         "arbitrum-goerli" => return arbitrum_config("goerli"),
+        "arbitrum-sepolia" => return arbitrum_config("sepolia"),
 
         // Binance
         "binance-dev" => return binance_config("dev"),
@@ -297,6 +314,11 @@ pub fn config(network: &str) -> anyhow::Result<BlockchainConfig> {
         "avalanche-local" => return avalanche_config("dev"),
         "avalanche" => return avalanche_config("mainnet"),
         "avalanche-fuji" => return avalanche_config("fuji"),
+
+        // Base
+        "base-local" => return base_config("dev"),
+        "base" => return base_config("mainnet"),
+        "base-sepolia" => return base_config("fuji"),
 
         network => return astar_config(network),
     };

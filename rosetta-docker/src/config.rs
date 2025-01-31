@@ -127,10 +127,9 @@ pub fn endpoint_from_config(config_dir: PathBuf) -> anyhow::Result<String> {
 }
 
 /// Find the Docker Endpoint of a given context, the host endpoint is located at:
-/// UNIX:
-///  - $HOME/.docker/contexts/meta/<sha256 context>/meta.json
-/// Windows:
-/// - %USERPROFILE%\.docker\contexts\meta\<sha256 context>\meta.json
+///
+///    UNIX: $HOME/.docker/contexts/meta/<sha256 context>/meta.json
+/// Windows: %USERPROFILE%\.docker\contexts\meta\<sha256 context>\meta.json
 ///
 /// Is possible to list contexts by running `docker context ls`
 pub fn find_context_endpoint(mut config_dir: PathBuf, context: &str) -> anyhow::Result<String> {
