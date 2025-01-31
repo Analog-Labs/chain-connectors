@@ -34,8 +34,7 @@ pub trait Config: 'static + Sized + Send + Sync + Debug {
     /// # Example of Retry Strategies:
     /// - Fixed Interval: A retry is performed in fixed intervals.
     /// - Exponential Backoff: The resulting duration is calculated by taking the base to the `n`-th
-    ///   power,
-    /// where `n` denotes the number of past attempts.
+    ///   power, where `n` denotes the number of past attempts.
     fn retry_strategy(&self) -> Self::RetryStrategy;
 
     /// Try to connect to the client.
