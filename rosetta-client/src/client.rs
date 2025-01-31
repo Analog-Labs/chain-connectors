@@ -50,6 +50,10 @@ impl GenericClient {
                 let client = EthereumClient::new("polygon", network, url, private_key).await?;
                 Self::Ethereum(client)
             },
+            Blockchain::Polygonzkevm => {
+                let client = EthereumClient::new("zkevm", network, url, private_key).await?;
+                Self::Ethereum(client)
+            },
             Blockchain::Arbitrum => {
                 let client = EthereumClient::new("arbitrum", network, url, private_key).await?;
                 Self::Ethereum(client)
@@ -89,6 +93,7 @@ impl GenericClient {
         Ok(match blockchain {
             Blockchain::Ethereum |
             Blockchain::Polygon |
+            Blockchain::Polygonzkevm |
             Blockchain::Arbitrum |
             Blockchain::Binance |
             Blockchain::Base |

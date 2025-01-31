@@ -1,0 +1,21 @@
+[package]
+name = "rosetta-testing-zkevm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/analog-labs/chain-connectors"
+description = "zkevm rosetta test."
+
+[dependencies]
+alloy-sol-types = { version = "0.8" }
+anyhow = "1.0"
+ethers = { version = "2.0", default-features = true, features = ["abigen", "rustls", "ws"] }
+ethers-solc = "2.0"
+hex-literal = "0.4"
+rosetta-chain-testing = { path = "../rosetta-chain-testing" }
+rosetta-client.workspace = true
+rosetta-config-ethereum.workspace = true
+rosetta-core.workspace = true
+rosetta-server-ethereum.workspace = true
+sha3 = "0.10"
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
