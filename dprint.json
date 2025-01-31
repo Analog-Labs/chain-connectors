@@ -7,7 +7,10 @@
   ],
   "excludes": [
     "**/target",
-    "Cargo.lock"
+    "Cargo.lock",
+    "ci/polygon/code/**",
+    "ci/polygon/data/**",
+    "ci/polygon/devnet/**"
   ],
   "plugins": [
     "https://plugins.dprint.dev/toml-0.5.4.wasm",
