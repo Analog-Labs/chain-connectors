@@ -1,6 +1,6 @@
 use crate::{
     client::{GenericClient, GenericMetadata, GenericMetadataParams},
-    crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber},
+    crypto::{address::Address, bip32::DerivedSecretKey, bip44::ChildNumber, Signature},
     signer::{RosettaAccount, RosettaPublicKey, Signer},
     tx_builder::GenericTransactionBuilder,
     types::{AccountIdentifier, BlockIdentifier, PublicKey},
@@ -92,6 +92,11 @@ impl Wallet {
     /// Returns the blockchain config.
     pub fn config(&self) -> &BlockchainConfig {
         self.client.config()
+    }
+
+    /// Signs a prehashed message.
+    pub fn sign_prehashed(&self, hash: &[u8]) -> Result<Signature> {
+        self.secret_key.secret_key().sign_prehashed(hash)
     }
 
     /// Returns the public key.
