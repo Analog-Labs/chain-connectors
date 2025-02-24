@@ -265,6 +265,7 @@ impl StateInner {
 
         // Add finalized block to the list
         self.finalized_blocks.push_back(finalized_block_ref);
+        let _ = self.finalized_blocks.pop_front();
 
         // Remove retracted blocks
         let finalized_blocks = &self.finalized_blocks;
