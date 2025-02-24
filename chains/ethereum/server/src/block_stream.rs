@@ -78,15 +78,6 @@ where
                         })
                     };
                     let is_finalized = matches!(new_block, NewBlock::Finalized(_));
-                    // if let Err(err) = self.state.import(new_block.into_sealed_block()) {
-                    //     failures += 1;
-                    //     tracing::warn!("failed to import block {block_id} ({failures}): {err:?}");
-                    //     if failures >= 5 {
-                    //         return Poll::Ready(None);
-                    //     }
-                    //     continue;
-                    // }
-
                     let event = if is_finalized {
                         ClientEvent::NewFinalized(block_id)
                     } else {
