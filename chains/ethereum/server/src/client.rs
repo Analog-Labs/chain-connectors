@@ -503,7 +503,7 @@ where
                     let latest_block_number = match self.backend.block(AtBlock::Latest).await {
                         Ok(Some(block)) => block.header.number,
                         Ok(None) => {
-                            tracing::warn!("[this is API bug] Latest block not found.");
+                            tracing::error!("[this is API bug] Latest block not found.");
                             tokio::time::sleep(Duration::from_secs(10)).await;
                             continue;
                         },
