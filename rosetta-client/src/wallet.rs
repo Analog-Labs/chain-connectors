@@ -297,8 +297,10 @@ impl Wallet {
             GenericClient::Polkadot(_) => anyhow::bail!("unsupported op"),
         };
 
-        if let GenericMetadataParams::Ethereum(ref mut params) = metadata_params {
-            params.nonce = Some(current_nonce);
+        match metadata_params {
+            GenericMetadataParams::Ethereum(ref mut params) => params.nonce = Some(current_nonce),
+            GenericMetadataParams::Astar(ref mut params) => params.0.nonce = Some(current_nonce),
+            GenericMetadataParams::Polkadot(_) => anyhow::bail!("unsupported op"),
         }
 
         let metadata: rosetta_server_ethereum::EthereumMetadata =
