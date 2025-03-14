@@ -193,6 +193,14 @@ where
         Ok(next_nonce)
     }
 
+    pub async fn current_nonce(&self, account: H160) -> Result<u64> {
+        let nonces = self.nonce_lock.lock().await;
+        let local_nonce = nonces.get(&account).copied().unwrap_or_default();
+        let remote_nonce = self.backend.get_transaction_count(account, AtBlock::Latest).await?;
+        let current = u64::max(local_nonce, remote_nonce);
+        Ok(current)
+    }
+
     #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let Some(block) = self.backend.block(AtBlock::Latest).await? else {
@@ -495,7 +503,7 @@ where
                     let latest_block_number = match self.backend.block(AtBlock::Latest).await {
                         Ok(Some(block)) => block.header.number,
                         Ok(None) => {
-                            tracing::error!("[this is API bug] Latest block not found.");
+                            tracing::warn!("[this is API bug] Latest block not found.");
                             tokio::time::sleep(Duration::from_secs(10)).await;
                             continue;
                         },
