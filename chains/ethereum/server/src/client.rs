@@ -198,6 +198,7 @@ where
         let local_nonce = nonces.get(&account).copied().unwrap_or_default();
         let remote_nonce = self.backend.get_transaction_count(account, AtBlock::Latest).await?;
         let current = u64::max(local_nonce, remote_nonce);
+        drop(nonces);
         Ok(current)
     }
 
