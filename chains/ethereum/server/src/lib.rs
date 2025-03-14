@@ -1,5 +1,6 @@
 use anyhow::Result;
 pub use client::{BlockStreamType, EthereumClient};
+use rosetta_config_ethereum::ext::types::H160;
 pub use rosetta_config_ethereum::{
     EthereumMetadata, EthereumMetadataParams, Event, Query as EthQuery, QueryItem,
     QueryResult as EthQueryResult, SubmitResult, Subscription,
@@ -107,6 +108,13 @@ impl MaybeWsEthereumClient {
     ) -> Result<Self> {
         let client = EthereumClient::new(config, client, private_key).await?;
         Ok(Self::Ws(client))
+    }
+
+    pub async fn current_nonce(&self, account: H160) -> Result<u64> {
+        match self {
+            Self::Http(client) => client.current_nonce(account).await,
+            Self::Ws(client) => client.current_nonce(account).await,
+        }
     }
 }
 

@@ -13,6 +13,7 @@ use rosetta_core::{
     types::PartialBlockIdentifier, BlockOrIdentifier, BlockchainClient, ClientEvent,
     RosettaAlgorithm,
 };
+use rosetta_ethereum_types::H160;
 use rosetta_server_ethereum::{
     config::{
         ext::types::{self as ethereum_types, Address as EthAddress, H256, U256},
@@ -288,7 +289,20 @@ impl Wallet {
         data: Vec<u8>,
         amount: u128,
     ) -> Result<u128> {
-        let metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let mut metadata_params = self.tx.method_call(&contract_address, data.as_ref(), amount)?;
+        let account_id: H160 = self.account().address.parse()?;
+        let current_nonce = match &*self.client {
+            GenericClient::Ethereum(c) => c.current_nonce(account_id).await?,
+            GenericClient::Astar(c) => c.current_nonce(account_id).await?,
+            GenericClient::Polkadot(_) => anyhow::bail!("unsupported op"),
+        };
+
+        match metadata_params {
+            GenericMetadataParams::Ethereum(ref mut params) => params.nonce = Some(current_nonce),
+            GenericMetadataParams::Astar(ref mut params) => params.0.nonce = Some(current_nonce),
+            GenericMetadataParams::Polkadot(_) => anyhow::bail!("unsupported op"),
+        }
+
         let metadata: rosetta_server_ethereum::EthereumMetadata =
             match self.metadata(&metadata_params).await? {
                 GenericMetadata::Ethereum(metadata) => metadata,

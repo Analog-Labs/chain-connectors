@@ -193,6 +193,15 @@ where
         Ok(next_nonce)
     }
 
+    pub async fn current_nonce(&self, account: H160) -> Result<u64> {
+        let nonces = self.nonce_lock.lock().await;
+        let local_nonce = nonces.get(&account).copied().unwrap_or_default();
+        let remote_nonce = self.backend.get_transaction_count(account, AtBlock::Latest).await?;
+        let current = u64::max(local_nonce, remote_nonce);
+        drop(nonces);
+        Ok(current)
+    }
+
     #[allow(clippy::missing_errors_doc)]
     pub async fn current_block(&self) -> Result<BlockIdentifier> {
         let Some(block) = self.backend.block(AtBlock::Latest).await? else {
